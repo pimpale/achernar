@@ -2,6 +2,17 @@
 
 #include "vector.h"
 #include "lex.h"
+#include "error.h"
+
+
+static void lexComment(FILE* input, Vector* tokens) {
+  int32_t c;
+  if(getc(c) != '#') {
+    
+  if() {
+
+  }
+
 
 void freeToken(Token* token) {
   if(token->type == SymStringLiteral
@@ -11,24 +22,23 @@ void freeToken(Token* token) {
   }
   free(token);
 }
-void lexIdent
 
 void lexFile(FILE* input, Vector* tokens) {
-  //
   int32_t c;
-  while ((c = nextValue(input)) != EOF) {
+  while ((c = getc(input)) != EOF) {
     // Unget c for the next function
-    backValue(stream);
+    ungetc(c, input);
     if (isblank(c) || c == '\n') {
-      nextValue(stream);
+      // Move on till next token
+      nextValue(input);
     } else if (c == '#') {
-      parseComment(stream, stack);
-    } else if (c == '(') {
-      parseString(stream, stack);
+      lexComment(input, tokens);
+    } else if (c == '\"') {
+      lexStringLiteral(input, tokens);
     } else if (isdigit(c)) {
-      parseNumber(stream, stack);
+      parseNumber(input, tokens);
     } else {
-      parseFunction(stream, stack, funtab, vartab);
+      parseIdentifier(input, tokens);
     }
   }
 }

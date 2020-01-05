@@ -15,9 +15,9 @@ typedef struct __attribute__((__packed__)) {
 } Vector;
 
 // Creates empty vector
-Vector *initVector(Vector *vector);
+Vector *newVector(Vector *vector);
 // Frees vector
-void freeVector(Vector *vector);
+void deleteVector(Vector *vector);
 
 /* Returns pointer to section of memory guaranteed to be valid until next
  * operation */

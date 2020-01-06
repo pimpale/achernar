@@ -84,7 +84,7 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
   // Used to determine if float or not
   // decimalPointIndex will only be defined if hasDecimalPoint is true
   bool hasDecimalPoint = false;
-  size_t decimalPointIndex;
+  size_t decimalPointIndex = 0;
 
   size_t length = 0;
   int32_t c;
@@ -106,7 +106,7 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
           return;
         } else {
           hasDecimalPoint = true;
-          decimalPointIndex = index;
+          decimalPointIndex = length;
         }
       }
       *VEC_PUSH(data, char) = (char)c;
@@ -189,8 +189,9 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
     char* finalPortion = VEC_GET(data, decimalPointIndex + 1, char);
     uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex;
 
-    double result;
+    double result = 0;
 
+    // Parse the part ahead of the decimal point
     ResultU64 initialRet = parseInteger(initialPortion, initialPortionLen, 10);
     if (initialRet.err == ErrOk) {
       result += initialRet.val;
@@ -201,11 +202,16 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
                stream->charNumber);
       return;
     }
+    // If there's a bit after the inital part, then we must add it
     if (finalPortionLen > 0) {
       ResultU64 finalRet = parseInteger(finalPortion, finalPortionLen, 10);
       if (finalRet.err == ErrOk) {
-        //TODO  add this to the rsult
-        result += ((double)finalRet.val) / finalPortionLen
+        // don't want to include math.h, so we'll repeatedly divide by 10
+        double decimalResult = finalRet.val;
+        for(size_t i = 0; i < finalPortionLen; i++) {
+          decimalResult /= 10;
+        }
+        result += decimalResult;
       } else {
         logError(ErrLevelError,
                  "malformed float literal: %s: " PRIu64 ", " PRIu64 "\n",
@@ -221,6 +227,10 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
   }
 }
 
+static void parseIdentifier(Parseable* stream, Vector* tokens) {
+  
+}
+
 void lex(Parseable* stream, Vector* tokens) {
   int32_t c;
   while ((c = peekValue(stream)) != EOF) {
@@ -232,7 +242,7 @@ void lex(Parseable* stream, Vector* tokens) {
     } else if (isdigit(c)) {
       parseNumberLiteral(stream, tokens);
     } else {
-      parseIdentifier(stream, tokens);
+      break;
     }
   }
 }

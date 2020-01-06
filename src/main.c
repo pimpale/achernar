@@ -8,7 +8,7 @@ char* newAstString(FILE* stream) {
   Parseable* p = newParseableFile(stream);
   Vector* tokens = newVector();
   lex(p, tokens);
-  freeParseable(p);
+  deleteParseable(p);
   return "";
 }
 

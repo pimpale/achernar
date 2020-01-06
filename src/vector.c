@@ -1,21 +1,16 @@
+#include "vector.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "vector.h"
-
-#define FATAL(x)                                                               \
-  do {                                                                         \
-    fprintf(stderr, x);                                                        \
-    exit(EXIT_FAILURE);                                                        \
-  } while (0)
+#include "error.h"
 
 // The initial capacity of the vector
 #define INITIAL_CAPACITY 1
 // The percent it will increase when out of room MUST BE POSITIVE
 // Ex. 1.5 -> 50% expansion each time the limit is hit
-
 
 void setSizeVector(Vector *vector, size_t size);
 void resizeVector(Vector *vector, size_t size);
@@ -33,8 +28,8 @@ void resizeVector(Vector *vector, size_t size) {
   setSizeVector(vector, newCapacity);
 }
 
-Vector* newVector() {
-  Vector* vector = malloc(sizeof(Vector));
+Vector *newVector() {
+  Vector *vector = malloc(sizeof(Vector));
   vector->data = NULL;
   vector->length = 0;
   vector->capacity = 0;
@@ -43,7 +38,7 @@ Vector* newVector() {
   return vector;
 }
 
-void freeVector(Vector *vector) {
+void deleteVector(Vector *vector) {
   free(vector->data);
   free(vector);
 }
@@ -54,9 +49,10 @@ void *pushVector(Vector *vector, size_t len) {
 
 void popVector(Vector *vector, void *data, size_t len) {
   if (len > vector->length) {
-    FATAL("vector underflow");
+    logError(ErrLevelFatal, "BUG vector underflow");
+    PANIC();
   }
-  if(data != NULL) {
+  if (data != NULL) {
     memmove(data, (uint8_t *)vector->data + vector->length - len, len);
   }
   removeVector(vector, vector->length - len, len);
@@ -79,7 +75,8 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
 
 void removeVector(Vector *vector, size_t loc, size_t len) {
   if (len > vector->length - loc) {
-    FATAL("vector underflow");
+    logError(ErrLevelFatal, "BUG vector underflow");
+    PANIC();
   }
 
   uint8_t *src = getVector(vector, loc + len);
@@ -91,7 +88,8 @@ void removeVector(Vector *vector, size_t loc, size_t len) {
 
 void *getVector(Vector *vector, size_t loc) {
   if (loc > vector->length) {
-    FATAL("vector out of bounds");
+    logError(ErrLevelFatal, "BUG vector out of bounds");
+    PANIC();
   }
   uint8_t *data = vector->data;
   return data + loc;

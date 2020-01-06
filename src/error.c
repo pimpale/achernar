@@ -1,5 +1,9 @@
 #include "error.h"
 
+#include <stdarg.h>
+
+#include "constants.h"
+
 char* strErrSeverity(ErrSeverity level) {
   char* str = "unknown";
 
@@ -76,3 +80,14 @@ char* strErrVal(ErrVal val) {
   }
   return (str);
 }
+
+
+void logError(ErrSeverity level, char* fmt, ...) {
+  char macro_message_formatted[MAX_PRINT_LENGTH];
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(macro_message_formatted, MAX_PRINT_LENGTH, fmt, args);
+  va_end(args);
+  fprintf(stderr, "%s: %s: %s\n", APPNAME, strErrSeverity(level), macro_message_formatted);
+}
+

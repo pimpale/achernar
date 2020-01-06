@@ -32,6 +32,6 @@ Parseable* newParseableMemory(char* ptr, size_t len);
 int32_t nextValue(Parseable* p);
 int32_t peekValue(Parseable* p);
 
-void freeParseable(Parseable* p);
+void deleteParseable(Parseable* p);
 
 #endif /* PARSEABLE_H */

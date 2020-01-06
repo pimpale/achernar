@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 
-#include "constants.h"
 
 typedef enum ErrSeverity {
   ErrLevelDebug,
@@ -29,18 +28,9 @@ typedef enum ErrVal {
 char* strErrSeverity(ErrSeverity level);
 char* strErrVal(ErrVal val);
 
+void logError(ErrSeverity level, char* fmt, ...);
+
 #define UNUSED(x) (void)(x)
 #define PANIC() exit(EXIT_FAILURE)
-
-#define LOG_ERROR(level, msg) \
-  printf("%s: %s: %s\n", APPNAME, strErrSeverity(level), msg)
-
-#define LOG_ERROR_ARGS(level, fmt, ...)                                    \
-  do {                                                                     \
-    char macro_message_formatted[MAX_PRINT_LENGTH];                        \
-    snprintf(macro_message_formatted, MAX_PRINT_LENGTH, fmt, __VA_ARGS__); \
-    printf("%s: %s: %s\n", APPNAME, strErrSeverity(level),                 \
-           macro_message_formatted);                                       \
-  } while (0)
 
 #endif

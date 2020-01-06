@@ -47,6 +47,6 @@ Token* newToken(SymType type, void* payload);
 void freeToken(Token* ptr);
 
 // Appends all tokens found in this file to the tokens vector
-void lexFile(Parseable* stream, Vector* tokens);
+void lex(Parseable* stream, Vector* tokens);
 
 #endif

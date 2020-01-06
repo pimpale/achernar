@@ -33,19 +33,15 @@ typedef struct {
 } ResultU64;
 
 // Parses integer with radix
-static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
-  
-}
-
-
+static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {}
 
 static void lexComment(Parseable* stream, Vector* tokens) {
   UNUSED(tokens);
   if (nextValue(stream) != '#') {
     logError(ErrLevelError,
-                   "malformed comment found at line " PRIu64
-                   " and column " PRIu64 "\n",
-                   stream->lineNumber, stream->charNumber);
+             "malformed comment found at line " PRIu64 " and column " PRIu64
+             "\n",
+             stream->lineNumber, stream->charNumber);
   }
   int32_t c;
   while ((c = nextValue(stream)) != EOF) {
@@ -57,10 +53,8 @@ static void lexComment(Parseable* stream, Vector* tokens) {
 
 static void lexStringLiteral(Parseable* stream, Vector* tokens) {
   if (nextValue(stream) != '\"') {
-    logError(ErrLevelError,
-                   "malformed string: " PRIu64
-                   ", " PRIu64 "\n",
-                   stream->lineNumber, stream->charNumber);
+    logError(ErrLevelError, "malformed string: " PRIu64 ", " PRIu64 "\n",
+             stream->lineNumber, stream->charNumber);
   }
   Vector* string = newVector();
 
@@ -85,33 +79,30 @@ static void lexStringLiteral(Parseable* stream, Vector* tokens) {
 }
 
 static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
-  // For error purposes, we must note down the current column of the code
-  uint64_t column = stream->charNumber;
-
   Vector* data = newVector();
 
   // Used to determine if float or not
   // decimalPointIndex will only be defined if hasDecimalPoint is true
   bool hasDecimalPoint = false;
-  uint64_t decimalPointIndex;
+  size_t decimalPointIndex;
 
-
-  uint64_t index = 0;
+  size_t length = 0;
   int32_t c;
   while ((c = nextValue(stream)) != EOF) {
-    if (isdigit(c)                                       // Normal digit
-        || c == '.'                                      // Decimal point
-        || (c >= 'a' && c <= 'f')                        // Hexadecimal Character
-        || c == 'b' || c == 'd' || c == 'o' || c == 'x'  // Character Interpretation
+    if (isdigit(c)                 // Normal digit
+        || c == '.'                // Decimal point
+        || (c >= 'a' && c <= 'f')  // Hexadecimal Character
+        || c == 'b' || c == 'd' || c == 'o' ||
+        c == 'x'  // Character Interpretation
     ) {
       // If there's a decimal point we note the location
       // If this is the second time we've seen it, then the float is malformed
-      if(c == '.') {
-        if(hasDecimalPoint) {
+      if (c == '.') {
+        if (hasDecimalPoint) {
           logError(ErrLevelError,
-              "malformed float literal: excess decimal point: " PRIu64
-              ", " PRIu64 "\n",
-              stream->lineNumber, stream->charNumber);
+                   "malformed float literal: excess decimal point: " PRIu64
+                   ", " PRIu64 "\n",
+                   stream->lineNumber, stream->charNumber);
           return;
         } else {
           hasDecimalPoint = true;
@@ -119,7 +110,7 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
         }
       }
       *VEC_PUSH(data, char) = (char)c;
-      index++;
+      length++;
     } else {
       break;
     }
@@ -128,20 +119,20 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
   *VEC_PUSH(data, char) = '\0';
 
   // If it's an integer
-  if(!hasDecimalPoint) {
+  if (!hasDecimalPoint) {
     uint64_t radix;
     // this is the null terminated string storing the text of the number
     char* intStr;
     size_t intStrLen;
 
     // Special Radix
-    // More than 2 characters and first character is 0 and second character is not digit
-    if(index > 2
-        && *VEC_GET(data, 0, char) == '0'
-        && !isdigit(*VEC_GET(data, 1, char))) {
+    // More than 2 characters and first character is 0 and second character is
+    // not digit
+    if (length > 2 && *VEC_GET(data, 0, char) == '0' &&
+        !isdigit(*VEC_GET(data, 1, char))) {
       // Set radix to what it has to be
       char secondCharacter = *VEC_GET(data, 1, char);
-      switch(secondCharacter) {
+      switch (secondCharacter) {
         case 'b': {
           radix = 2;
           break;
@@ -159,44 +150,76 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
           break;
         }
         default: {
-            logError(ErrLevelError,
-                "malformed integer literal: unrecognized special radix code: "
-                PRIu64 ", " PRIu64 "\n", stream->lineNumber, stream->charNumber);
-            return;
-         }
+          logError(ErrLevelError,
+                   "malformed integer literal: unrecognized special radix "
+                   "code: " PRIu64 ", " PRIu64 "\n",
+                   stream->lineNumber, stream->charNumber);
+          return;
+        }
       }
       intStr = VEC_GET(data, 2, char);
-      intStrLen = lengthVector(data)/sizeof(char)-2;
+      intStrLen = VEC_LEN(data, char) - 2;
     } else {
       radix = 10;
       intStr = VEC_GET(data, 0, char);
-      intStrLen = lengthVector(data)/sizeof(char);
+      intStrLen = VEC_LEN(data, char);
     }
 
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
-    if (ret.err != 0) {
+    if (ret.err != ErrOk) {
       logError(ErrLevelError,
-          "malformed integer literal: %s: " PRIu64 ", " PRIu64
-          "\n",
-          strErrVal(ret.err), stream->lineNumber, stream->charNumber);
+               "malformed integer literal: %s: " PRIu64 ", " PRIu64 "\n",
+               strErrVal(ret.err), stream->lineNumber, stream->charNumber);
       return;
     } else {
-      Token* t = newToken(SymIntLiteral,malloc(sizeof(ret.val)));
+      Token* t = newToken(SymIntLiteral, malloc(sizeof(ret.val)));
       memcpy(t->payload, &ret.val, sizeof(ret.val));
       *VEC_PUSH(tokens, Token*) = t;
     }
   } else {
     // If it has a decimal point, it must be a float
-    // We have already guaranteed that the string only has one decimal point, at decimalPointIndex
-    // Floats are always in decimal notation
-    // First we parse the 
+    // We have already guaranteed that the string only has one decimal point, at
+    // decimalPointIndex Floats are always in decimal notation
 
+    // We parse the float as 2 integers, one above the decimal point, and one
+    // below
+    char* initialPortion = VEC_GET(data, 0, char);
+    uint64_t initialPortionLen = decimalPointIndex;
+
+    char* finalPortion = VEC_GET(data, decimalPointIndex + 1, char);
+    uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex;
+
+    double result;
+
+    ResultU64 initialRet = parseInteger(initialPortion, initialPortionLen, 10);
+    if (initialRet.err == ErrOk) {
+      result += initialRet.val;
+    } else {
+      logError(ErrLevelError,
+               "malformed float literal: %s: " PRIu64 ", " PRIu64 "\n",
+               strErrVal(initialRet.err), stream->lineNumber,
+               stream->charNumber);
+      return;
+    }
+    if (finalPortionLen > 0) {
+      ResultU64 finalRet = parseInteger(finalPortion, finalPortionLen, 10);
+      if (finalRet.err == ErrOk) {
+        //TODO  add this to the rsult
+        result += ((double)finalRet.val) / finalPortionLen
+      } else {
+        logError(ErrLevelError,
+                 "malformed float literal: %s: " PRIu64 ", " PRIu64 "\n",
+                 strErrVal(initialRet.err), stream->lineNumber,
+                 stream->charNumber);
+        return;
+      }
+    }
+
+    Token* t = newToken(SymIntLiteral, malloc(sizeof(result)));
+    memcpy(t->payload, &result, sizeof(result));
+    *VEC_PUSH(tokens, Token*) = t;
   }
 }
-
-
-
-
 
 void lex(Parseable* stream, Vector* tokens) {
   int32_t c;

@@ -44,5 +44,6 @@ size_t lengthVector(Vector *vector);
   removeVector(vector, index * sizeof(type), sizeof(type))
 #define VEC_PUSH(vector, type) ((type *)pushVector(vector, sizeof(type)))
 #define VEC_POP(vector, data, type) popVector(vector, data, sizeof(type))
+#define VEC_LEN(vector, type) (lengthVector(vector)/sizeof(type))
 
 #endif

@@ -19,8 +19,6 @@ typedef struct {
   size_t len;
   /* location in file */
   size_t loc;
-  /* Caches the last values of the last char fetched for ungetc */
-  int32_t lastVal;
   /* Caches the number of newlines encountered */
   uint64_t lineNumber;
   /* Caches the number of characters encountered in this line*/
@@ -32,7 +30,7 @@ Parseable* newParseableFile(FILE* file);
 Parseable* newParseableMemory(char* ptr, size_t len);
 
 int32_t nextValue(Parseable* p);
-void backValue(Parseable* p);
+int32_t peekValue(Parseable* p);
 
 void freeParseable(Parseable* p);
 

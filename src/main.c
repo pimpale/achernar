@@ -2,12 +2,13 @@
 #include <stdlib.h>
 
 #include "vector.h"
-#include "log.h"
 #include "lex.h"
 
-char* newAstString(FILE* input) {
+char* newAstString(FILE* stream) {
+  Parseable* p = newParseableFile(stream);
   Vector* tokens = newVector();
-  lex(input, tokens);
+  lex(p, tokens);
+  freeParseable(p);
   return "";
 }
 

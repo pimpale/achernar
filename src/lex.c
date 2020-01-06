@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +27,18 @@ void freeToken(Token* token) {
   free(token);
 }
 
+typedef struct {
+  uint64_t val;
+  ErrVal err;
+} ResultU64;
+
+// Parses integer with radix
+static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
+  
+}
+
+
+
 static void lexComment(Parseable* stream, Vector* tokens) {
   UNUSED(tokens);
   if (nextValue(stream) != '#') {
@@ -45,61 +58,147 @@ static void lexComment(Parseable* stream, Vector* tokens) {
 static void lexStringLiteral(Parseable* stream, Vector* tokens) {
   if (nextValue(stream) != '\"') {
     LOG_ERROR_ARGS(ERR_LEVEL_ERROR,
-                   "malformed string found at line " PRIu64
-                   " and column " PRIu64 "\n",
+                   "malformed string: " PRIu64
+                   ", " PRIu64 "\n",
                    stream->lineNumber, stream->charNumber);
   }
-  Vector* stringVector = newVector();
+  Vector* string = newVector();
 
   int32_t c;
   while ((c = nextValue(stream)) != EOF) {
     if (c == '\"') {
       break;
     } else {
-      *VEC_PUSH(stringVector, char) = (char)c;
+      *VEC_PUSH(string, char) = (char)c;
     }
   }
-  // Copy data to token
-  char* string = malloc(lengthVector(stringVector));
-  memcpy(string, getVector(stringVector, 0), lengthVector(stringVector));
-  deleteVector(stringVector);
+  // Push null byte
+  *VEC_PUSH(string, char) = (char)0;
 
-  Token* stringToken = newToken(SymStringLiteral, string);
-  *VEC_PUSH(tokens, Token*) = stringToken;
+  // Copy data to token, then delete the vector
+  Token* t = newToken(SymStringLiteral, malloc(lengthVector(string)));
+  memcpy(t->payload, getVector(string, 0), lengthVector(string));
+  deleteVector(string);
+
+  // Put token in token list
+  *VEC_PUSH(tokens, Token*) = t;
 }
 
-static void lexIntegerLiteral(Parseable* stream, Vector* tokens) {}
-static void lexFloatLiteral(Parseable* stream, Vector* tokens) {}
-
 static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
+  // For error purposes, we must note down the current column of the code
+  uint64_t column = stream->charNumber;
+
   Vector* data = newVector();
 
-  bool has
+  // Used to determine if float or not
+  // decimalPointIndex will only be defined if hasDecimalPoint is true
+  bool hasDecimalPoint = false;
+  uint64_t decimalPointIndex;
+
+
+  uint64_t index = 0;
   int32_t c;
   while ((c = nextValue(stream)) != EOF) {
-    if (isdigit(c) || c == '.') {
+    if (isdigit(c)                                       // Normal digit
+        || c == '.'                                      // Decimal point
+        || (c >= 'a' && c <= 'f')                        // Hexadecimal Character
+        || c == 'b' || c == 'd' || c == 'o' || c == 'x'  // Character Interpretation
+    ) {
+      // If there's a decimal point we note the location
+      // If this is the second time we've seen it, then the float is malformed
+      if(c == '.') {
+        if(hasDecimalPoint) {
+          LOG_ERROR_ARGS(ERR_LEVEL_ERROR,
+              "malformed float literal: excess decimal point: " PRIu64
+              ", " PRIu64 "\n",
+              stream->lineNumber, stream->charNumber);
+          return;
+        } else {
+          hasDecimalPoint = true;
+          decimalPointIndex = index;
+        }
+      }
       *VEC_PUSH(data, char) = (char)c;
+      index++;
     } else {
       break;
     }
   }
-  // Copy data to token
-  char* string = malloc(lengthVector(stringVector));
-  memcpy(string, getVector(stringVector, 0), lengthVector(stringVector));
-  deleteVector(stringVector);
+  // Push null byte
+  *VEC_PUSH(data, char) = '\0';
 
-  Token* stringToken = newToken(SymStringLiteral, string);
-  *VEC_PUSH(tokens, Token*) = stringToken;
+  // If it's an integer
+  if(!hasDecimalPoint) {
+    uint64_t radix;
+    // this is the null terminated string storing the text of the number
+    char* intStr;
+
+    // Special Radix
+    // More than 2 characters and first character is 0 and second character is not digit
+    if(index > 2
+        && *VEC_GET(data, 0, char) == '0'
+        && !isdigit(*VEC_GET(data, 1, char))) {
+      // Set radix to what it has to be
+      char secondCharacter = *VEC_GET(data, 1, char);
+      switch(secondCharacter) {
+        case 'b': {
+          radix = 2;
+          break;
+        }
+        case 'd': {
+          radix = 10;
+          break;
+        }
+        case 'o': {
+          radix = 8;
+          break;
+        }
+        case 'x': {
+          radix = 16;
+          break;
+        }
+        default: {
+            LOG_ERROR_ARGS(ERR_LEVEL_ERROR,
+                "malformed integer literal: unrecognized special radix code: "
+                PRIu64 ", " PRIu64 "\n", stream->lineNumber, stream->charNumber);
+            return;
+         }
+      }
+      intStr = VEC_GET(data, 2, char);
+    } else {
+      radix = 10;
+      intStr = VEC_GET(data, 0, char);
+    }
+
+    ResultU64 ret = parseInteger(intStr, radix);
+    if (ret.err != 0) {
+      LOG_ERROR_ARGS(ERR_LEVEL_ERROR,
+          "malformed integer literal: %s: " PRIu64 ", " PRIu64
+          "\n",
+          ErrValStr(ret.err), stream->lineNumber, stream->charNumber);
+      return;
+    } else {
+      Token* t = newToken(SymIntLiteral,malloc(sizeof(ret.val));
+      memcpy(t->payload, ret.val, sizeof(ret.val));
+      *VEC_PUSH(tokens, Token*) = t;
+    }
+  } else {
+    // If it has a decimal point, it must be a float
+    // We have already guaranteed that the string only has one decimal point, at decimalPointIndex
+    // Floats are always in decimal notation
+    // First we parse the 
+
+  }
 }
+
+
+
+
 
 void lex(Parseable* stream, Vector* tokens) {
   int32_t c;
-  while ((c = nextValue(stream)) != EOF) {
-    // Unget c for the next function
-    backValue(stream);
+  while ((c = peekValue(stream)) != EOF) {
     if (isblank(c) || c == '\n') {
-      // Move on till next token
-      nextValue(stream);
     } else if (c == '#') {
       lexComment(stream, tokens);
     } else if (c == '\"') {

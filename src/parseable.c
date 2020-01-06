@@ -1,10 +1,12 @@
+#include "parseable.h"
+
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "parseable.h"
-#include "error.h"
 #include "constants.h"
-
+#include "error.h"
 
 Parseable* newParseableFile(FILE* file) {
   Parseable* parseable = malloc(sizeof(Parseable));
@@ -13,7 +15,6 @@ Parseable* newParseableFile(FILE* file) {
   parseable->len = 0;
   parseable->loc = 0;
   parseable->file = file;
-  parseable->lastVal = 0; // null byte
   parseable->lineNumber = 0;
   parseable->charNumber = 0;
 }
@@ -27,7 +28,6 @@ Parseable* newParseableMemory(char* ptr, size_t len) {
   memcpy(parseable->memory, ptr, len);
   parseable->len = len;
   parseable->loc = 0;
-  parseable->lastVal = 0; // null byte
   parseable->lineNumber = 0;
   parseable->charNumber = 0;
 }
@@ -42,7 +42,7 @@ int32_t nextValue(Parseable* p) {
         // Return the element at the location, and increment location
         nextValue = (p->memory[p->loc]);
         p->loc += 1;
-        if(nextValue  == '\n') {
+        if (nextValue == '\n') {
           p->lineNumber += 1;
           p->charNumber = 0;
         } else {
@@ -52,9 +52,8 @@ int32_t nextValue(Parseable* p) {
       break;
     }
     case PARSEABLE_BACKING_FILE: {
-      p->lastVal = getc(p->file);
-      nextValue = (p->lastVal);
-      if(nextValue  == '\n') {
+      nextValue = getc(p->file);
+      if (nextValue == '\n') {
         p->lineNumber += 1;
         p->charNumber = 0;
       } else {
@@ -66,7 +65,8 @@ int32_t nextValue(Parseable* p) {
   return nextValue;
 }
 
-void backValue(Parseable* p) {
+int32_t peekValue(Parseable* p) {
+  int32_t peekValue = nextValue(p);
   switch (p->backing) {
     case PARSEABLE_BACKING_MEMORY: {
       if (p->loc != 0) {
@@ -75,14 +75,15 @@ void backValue(Parseable* p) {
       break;
     }
     case PARSEABLE_BACKING_FILE: {
-      ungetc(p->lastVal, p->file);
+      ungetc(peekValue, p->file);
       break;
     }
   }
+  return peekValue;
 }
 
 void deleteParseable(Parseable* p) {
-  switch(p->backing) {
+  switch (p->backing) {
     case PARSEABLE_BACKING_MEMORY: {
       free(p->memory);
       break;

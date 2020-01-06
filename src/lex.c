@@ -265,8 +265,68 @@ void lex(Parseable* stream, Vector* tokens) {
       lexStringLiteral(stream, tokens);
     } else if (isdigit(c)) {
       parseNumberLiteral(stream, tokens);
+    } else if (c == '>') {
+      // Now we must check if it's a >=, a >> or just a >
+      nextValue(stream);
+      c = peekValue(stream);
+      if(c == '=') {
+        *VEC_PUSH(tokens, Token*) = newToken(SymCompGreaterEqual, NULL);
+      } else if(c == '>') {
+        *VEC_PUSH(tokens, Token*) = newToken(SymShiftRight, NULL);
+      } else {
+        *VEC_PUSH(tokens, Token*) = newToken(SymCompGreater, NULL);
+      }
+    } else if (c == '<') {
+      // Now we must check if it's a <=, a <<, or just a <
+      nextValue(stream);
+      c == peekValue(stream);
+      if(c == '=') {
+        *VEC_PUSH(tokens, Token*) = newToken(SymCompLessEqual, NULL);
+      } else if(c == '<') {
+        *VEC_PUSH(tokens, Token*) = newToken(SymShiftLeft, NULL);
+      } else {
+        *VEC_PUSH(tokens, Token*) = newToken(SymCompLess, NULL);
+      }
+    } else if (c == '=') {
+      // Now we must check if it's a == or just a =
+      nextValue(stream);
+      if(peekValue(stream) == '=') {
+        *VEC_PUSH(tokens, Token*) = newToken(SymEqual, NULL);
+      } else {
+        *VEC_PUSH(tokens, Token*) = newToken(SymAssign, NULL);
+      }
+    } else if(c == '&') {
+      // Now we must check if it's a && or just a &
+      nextValue(stream);
+      if(peekValue(stream) == '&') {
+        *VEC_PUSH(tokens, Token*) = newToken(SymAnd, NULL);
+      } else {
+        *VEC_PUSH(tokens, Token*) = newToken(SymBitAnd, NULL);
+      }
+    } else if(c == '|') {
+      // Now we must check if it's a || or just a |
+      nextValue(stream);
+      if(peekValue(stream) == '|') {
+        *VEC_PUSH(tokens, Token*) = newToken(SymOr, NULL);
+      } else {
+        *VEC_PUSH(tokens, Token*) = newToken(SymBitOr, NULL);
+      }
+    } else if(c == '+') {
+      *VEC_PUSH(tokens, Token*) = newToken(SymAdd, NULL);
+    } else if(c == '-') {
+      *VEC_PUSH(tokens, Token*) = newToken(SymSub, NULL);
+    } else if(c == '*') {
+      *VEC_PUSH(tokens, Token*) = newToken(SymMul, NULL);
+    } else if(c == '/') {
+      *VEC_PUSH(tokens, Token*) = newToken(SymDiv, NULL);
+    } else if(c == '^') {
+      *VEC_PUSH(tokens, Token*) = newToken(SymBitXor, NULL);
+    } else if(c == '$') {
+      *VEC_PUSH(tokens, Token*) = newToken(SymRef, NULL);
+    } else if(c == '@') {
+      *VEC_PUSH(tokens, Token*) = newToken(SymDeref, NULL);
     } else {
-      break;
+      parseIdentifier(stream, tokens);
     }
   }
 }

@@ -23,19 +23,28 @@ typedef enum {
   SymFloatLiteral,   // 0.7
   SymIntLiteral,     // 7
   // Operators
-  SymAdd,              // +
-  SymSub,              // -
-  SymMul,              // *
-  SymDiv,              // /
-  SymAssign,           // =
-  SymEqual,            // ==
-  SymNotEqual,         // !=
-  SymShiftLeft,        // >>
-  SySymShiftRight,     // <<
-  SymCompLess,         // <
-  SymCompLessEqual,    // <=
-  SymCompGreater,      // >
-  SymCompGreaterEqual  // >=
+  SymAdd,               // +
+  SymSub,               // -
+  SymMul,               // *
+  SymDiv,               // /
+  SymBitAnd,            // &
+  SymBitOr,             // |
+  SymBitXor,            // ^
+  SymAnd,               // &&
+  SymOr,                // ||
+  SymAssign,            // =
+  SymEqual,             // ==
+  SymNotEqual,          // !=
+  SymShiftLeft,         // <<
+  SymShiftRight,        // >>
+  SymCompLess,          // <
+  SymCompLessEqual,     // <=
+  SymCompGreater,       // >
+  SymCompGreaterEqual,  // >=
+  // Unary Operators
+  SymNot,    // !
+  SymRef,    // $
+  SymDeref,  // @
 } SymType;
 
 typedef struct {

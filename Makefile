@@ -1,4 +1,4 @@
-TARGET_EXEC ?= ecc
+TARGET_EXEC ?= bpc
 
 BUILD_DIR ?= ./obj
 SRC_DIRS ?= $(shell find . -type d -name src)

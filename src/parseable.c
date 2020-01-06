@@ -17,11 +17,11 @@ Parseable* newParseableFile(FILE* file) {
   parseable->file = file;
   parseable->lineNumber = 0;
   parseable->charNumber = 0;
+  return parseable;
 }
 
 Parseable* newParseableMemory(char* ptr, size_t len) {
   Parseable* parseable = malloc(sizeof(Parseable));
-  parseable->backing = PARSEABLE_BACKING_FILE;
   parseable->backing = PARSEABLE_BACKING_MEMORY;
   parseable->file = NULL;
   parseable->memory = malloc(len);
@@ -30,6 +30,7 @@ Parseable* newParseableMemory(char* ptr, size_t len) {
   parseable->loc = 0;
   parseable->lineNumber = 0;
   parseable->charNumber = 0;
+  return parseable;
 }
 
 int32_t nextValue(Parseable* p) {

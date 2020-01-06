@@ -33,7 +33,33 @@ typedef struct {
 } ResultU64;
 
 // Parses integer with radix
-static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {}
+static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
+  uint64_t ret = 0;
+  for (int i = 0; i < len; i++) {
+    // First we must determine the value of this digit
+    char c = str[i];
+    uint64_t digitValue = 0;
+    if(c >= 'a' && c <= 'f') {
+      digitValue = c - 'a' + 10;
+    } else if (isdigit(c)) {
+      digitValue = c - '0';
+    } else {
+      return (ResultU64) {0, ErrBadargs};
+    }
+
+    // If you put something higher than is requested
+    if(digitValue >= radix) {
+      return (ResultU64) {0, ErrOverflow};
+    }
+
+    uint64_t oldret = ret;
+    ret = ret * radix + digitValue;
+    if(oldret > ret) {
+      return (ResultU64) {0, ErrOverflow};
+    }
+  }
+  return (ResultU64) {ret, ErrOk};
+}
 
 static void lexComment(Parseable* stream, Vector* tokens) {
   UNUSED(tokens);
@@ -115,8 +141,6 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
       break;
     }
   }
-  // Push null byte
-  *VEC_PUSH(data, char) = '\0';
 
   // If it's an integer
   if (!hasDecimalPoint) {
@@ -187,7 +211,7 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
     uint64_t initialPortionLen = decimalPointIndex;
 
     char* finalPortion = VEC_GET(data, decimalPointIndex + 1, char);
-    uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex;
+    uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex -1;
 
     double result = 0;
 
@@ -220,7 +244,6 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
         return;
       }
     }
-
     Token* t = newToken(SymIntLiteral, malloc(sizeof(result)));
     memcpy(t->payload, &result, sizeof(result));
     *VEC_PUSH(tokens, Token*) = t;
@@ -235,6 +258,7 @@ void lex(Parseable* stream, Vector* tokens) {
   int32_t c;
   while ((c = peekValue(stream)) != EOF) {
     if (isblank(c) || c == '\n') {
+      nextValue(stream);
     } else if (c == '#') {
       lexComment(stream, tokens);
     } else if (c == '\"') {

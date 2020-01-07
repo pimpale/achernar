@@ -19,14 +19,14 @@ typedef struct {
 // Parses integer with radix
 static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
   uint64_t ret = 0;
-  for (int i = 0; i < len; i++) {
+  for (size_t i = 0; i < len; i++) {
     // First we must determine the value of this digit
     char c = str[i];
     uint64_t digitValue = 0;
     if (c >= 'a' && c <= 'f') {
-      digitValue = c - 'a' + 10;
+      digitValue = (uint64_t)(c - 'a') + 10;
     } else if (isdigit(c)) {
-      digitValue = c - '0';
+      digitValue = (uint64_t)(c - '0');
     } else {
       return (ResultU64){0, ErrBadargs};
     }

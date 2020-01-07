@@ -4,7 +4,7 @@
 #include "vector.h"
 #include "lex.h"
 
-char* newAstString(FILE* stream) {
+static char* newAstString(FILE* stream) {
   Parseable* p = newParseableFile(stream);
   Vector* tokens = newVector();
   lex(p, tokens);

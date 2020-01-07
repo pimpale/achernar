@@ -8,24 +8,8 @@
 #include <string.h>
 
 #include "error.h"
+#include "token.h"
 #include "vector.h"
-
-/* Token Functions */
-
-Token* newToken(SymType type, void* payload) {
-  Token* t = malloc(sizeof(Token));
-  t->type = type;
-  t->payload = payload;
-  return t;
-}
-
-void freeToken(Token* token) {
-  if (token->type == SymStringLiteral || token->type == SymFloatLiteral ||
-      token->type == SymIntLiteral) {
-    free(token->payload);
-  }
-  free(token);
-}
 
 typedef struct {
   uint64_t val;
@@ -39,28 +23,29 @@ static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
     // First we must determine the value of this digit
     char c = str[i];
     uint64_t digitValue = 0;
-    if(c >= 'a' && c <= 'f') {
+    if (c >= 'a' && c <= 'f') {
       digitValue = c - 'a' + 10;
     } else if (isdigit(c)) {
       digitValue = c - '0';
     } else {
-      return (ResultU64) {0, ErrBadargs};
+      return (ResultU64){0, ErrBadargs};
     }
 
     // If you put something higher than is requested
-    if(digitValue >= radix) {
-      return (ResultU64) {0, ErrOverflow};
+    if (digitValue >= radix) {
+      return (ResultU64){0, ErrOverflow};
     }
 
     uint64_t oldret = ret;
     ret = ret * radix + digitValue;
-    if(oldret > ret) {
-      return (ResultU64) {0, ErrOverflow};
+    if (oldret > ret) {
+      return (ResultU64){0, ErrOverflow};
     }
   }
-  return (ResultU64) {ret, ErrOk};
+  return (ResultU64){ret, ErrOk};
 }
 
+// Call this function right before the first quote of the number literal
 static void lexComment(Parseable* stream, Vector* tokens) {
   UNUSED(tokens);
   if (nextValue(stream) != '#') {
@@ -77,6 +62,8 @@ static void lexComment(Parseable* stream, Vector* tokens) {
   }
 }
 
+// Call this function right before the first quote of the number literal
+// Returns control after the ending quote of this stream
 static void lexStringLiteral(Parseable* stream, Vector* tokens) {
   if (nextValue(stream) != '\"') {
     logError(ErrLevelError, "malformed string: " PRIu64 ", " PRIu64 "\n",
@@ -104,7 +91,9 @@ static void lexStringLiteral(Parseable* stream, Vector* tokens) {
   *VEC_PUSH(tokens, Token*) = t;
 }
 
-static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
+// Call this function right before the first digit of the number literal
+// Returns control right after the number is finished
+static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
   Vector* data = newVector();
 
   // Used to determine if float or not
@@ -137,6 +126,8 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
       }
       *VEC_PUSH(data, char) = (char)c;
       length++;
+    } else if (c == '_') {
+      // Do nothing
     } else {
       break;
     }
@@ -211,7 +202,7 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
     uint64_t initialPortionLen = decimalPointIndex;
 
     char* finalPortion = VEC_GET(data, decimalPointIndex + 1, char);
-    uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex -1;
+    uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex - 1;
 
     double result = 0;
 
@@ -232,7 +223,7 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
       if (finalRet.err == ErrOk) {
         // don't want to include math.h, so we'll repeatedly divide by 10
         double decimalResult = finalRet.val;
-        for(size_t i = 0; i < finalPortionLen; i++) {
+        for (size_t i = 0; i < finalPortionLen; i++) {
           decimalResult /= 10;
         }
         result += decimalResult;
@@ -250,83 +241,148 @@ static void parseNumberLiteral(Parseable* stream, Vector* tokens) {
   }
 }
 
-static void parseIdentifier(Parseable* stream, Vector* tokens) {
-  
-}
+static void lexIdentifier(Parseable* stream, Vector* tokens) {}
 
 void lex(Parseable* stream, Vector* tokens) {
   int32_t c;
   while ((c = peekValue(stream)) != EOF) {
     if (isblank(c) || c == '\n') {
+      // Lex the weird literals, comments, annotation, identifiers, etc
       nextValue(stream);
+    } else if (isdigit(c)) {
+      lexNumberLiteral(stream, tokens);
     } else if (c == '#') {
       lexComment(stream, tokens);
     } else if (c == '\"') {
       lexStringLiteral(stream, tokens);
-    } else if (isdigit(c)) {
-      parseNumberLiteral(stream, tokens);
-    } else if (c == '>') {
-      // Now we must check if it's a >=, a >> or just a >
-      nextValue(stream);
-      c = peekValue(stream);
-      if(c == '=') {
-        *VEC_PUSH(tokens, Token*) = newToken(SymCompGreaterEqual, NULL);
-      } else if(c == '>') {
-        *VEC_PUSH(tokens, Token*) = newToken(SymShiftRight, NULL);
-      } else {
-        *VEC_PUSH(tokens, Token*) = newToken(SymCompGreater, NULL);
-      }
-    } else if (c == '<') {
-      // Now we must check if it's a <=, a <<, or just a <
-      nextValue(stream);
-      c == peekValue(stream);
-      if(c == '=') {
-        *VEC_PUSH(tokens, Token*) = newToken(SymCompLessEqual, NULL);
-      } else if(c == '<') {
-        *VEC_PUSH(tokens, Token*) = newToken(SymShiftLeft, NULL);
-      } else {
-        *VEC_PUSH(tokens, Token*) = newToken(SymCompLess, NULL);
-      }
-    } else if (c == '=') {
-      // Now we must check if it's a == or just a =
-      nextValue(stream);
-      if(peekValue(stream) == '=') {
-        *VEC_PUSH(tokens, Token*) = newToken(SymEqual, NULL);
-      } else {
-        *VEC_PUSH(tokens, Token*) = newToken(SymAssign, NULL);
-      }
-    } else if(c == '&') {
-      // Now we must check if it's a && or just a &
-      nextValue(stream);
-      if(peekValue(stream) == '&') {
-        *VEC_PUSH(tokens, Token*) = newToken(SymAnd, NULL);
-      } else {
-        *VEC_PUSH(tokens, Token*) = newToken(SymBitAnd, NULL);
-      }
-    } else if(c == '|') {
-      // Now we must check if it's a || or just a |
-      nextValue(stream);
-      if(peekValue(stream) == '|') {
-        *VEC_PUSH(tokens, Token*) = newToken(SymOr, NULL);
-      } else {
-        *VEC_PUSH(tokens, Token*) = newToken(SymBitOr, NULL);
-      }
-    } else if(c == '+') {
-      *VEC_PUSH(tokens, Token*) = newToken(SymAdd, NULL);
-    } else if(c == '-') {
-      *VEC_PUSH(tokens, Token*) = newToken(SymSub, NULL);
-    } else if(c == '*') {
-      *VEC_PUSH(tokens, Token*) = newToken(SymMul, NULL);
-    } else if(c == '/') {
-      *VEC_PUSH(tokens, Token*) = newToken(SymDiv, NULL);
-    } else if(c == '^') {
-      *VEC_PUSH(tokens, Token*) = newToken(SymBitXor, NULL);
-    } else if(c == '$') {
-      *VEC_PUSH(tokens, Token*) = newToken(SymRef, NULL);
-    } else if(c == '@') {
-      *VEC_PUSH(tokens, Token*) = newToken(SymDeref, NULL);
+    } else if (isalpha(c)) {
+      lexIdentifier(stream, tokens);
     } else {
-      parseIdentifier(stream, tokens);
+      // We're dealing with an operator
+      // Pop the current value
+      nextValue(stream);
+      switch (c) {
+        case '&': {
+          int32_t n = peekValue(stream);
+          // && or &
+          if (n == '&') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymAnd, NULL);
+            nextValue(stream);
+          } else {
+            *VEC_PUSH(tokens, Token*) = newToken(SymBitAnd, NULL);
+          }
+          break;
+        }
+        case '|': {
+          int32_t n = peekValue(stream);
+          // || or |
+          if (n == '|') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymOr, NULL);
+            nextValue(stream);
+          } else {
+            *VEC_PUSH(tokens, Token*) = newToken(SymBitOr, NULL);
+          }
+          break;
+        }
+        case '!': {
+          int32_t n = peekValue(stream);
+          if (n == '=') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymNotEqual, NULL);
+            nextValue(stream);
+          } else {
+            *VEC_PUSH(tokens, Token*) = newToken(SymNot, NULL);
+          }
+          break;
+        }
+        case '=': {
+          int32_t n = peekValue(stream);
+          if (n == '=') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymEqual, NULL);
+            nextValue(stream);
+          } else {
+            *VEC_PUSH(tokens, Token*) = newToken(SymAssign, NULL);
+          }
+          break;
+        }
+        case '<': {
+          int32_t n = peekValue(stream);
+          if (n == '<') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymShiftLeft, NULL);
+            nextValue(stream);
+          } else if (n == '=') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymCompLessEqual, NULL);
+            nextValue(stream);
+          } else {
+            *VEC_PUSH(tokens, Token*) = newToken(SymCompLess, NULL);
+          }
+          break;
+        }
+        case '>': {
+          int32_t n = peekValue(stream);
+          if (n == '>') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymShiftRight, NULL);
+            nextValue(stream);
+          } else if (n == '=') {
+            *VEC_PUSH(tokens, Token*) = newToken(SymCompGreaterEqual, NULL);
+            nextValue(stream);
+          } else {
+            *VEC_PUSH(tokens, Token*) = newToken(SymCompGreater, NULL);
+          }
+          break;
+        }
+        case '+': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymAdd, NULL);
+          break;
+        }
+        case '-': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymSub, NULL);
+          break;
+        }
+        case '*': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymMul, NULL);
+          break;
+        }
+        case '/': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymDiv, NULL);
+          break;
+        }
+        case '$': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymRef, NULL);
+          break;
+        }
+        case '@': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymDeref, NULL);
+          break;
+        }
+        case '.': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymDot, NULL);
+          break;
+        }
+        case '(': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymParenLeft, NULL);
+          break;
+        }
+        case ')': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymParenRight, NULL);
+          break;
+        }
+        case '[': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymBracketLeft, NULL);
+          break;
+        }
+        case ']': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymBracketRight, NULL);
+          break;
+        }
+        case '{': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymBraceLeft, NULL);
+          break;
+        }
+        case '}': {
+          *VEC_PUSH(tokens, Token*) = newToken(SymBraceRight, NULL);
+          break;
+        }
+      }
     }
   }
 }

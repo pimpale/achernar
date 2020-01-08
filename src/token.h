@@ -18,6 +18,7 @@ typedef enum {
   SymFor,      // for
   // Literals and constants
   SymStringLiteral,  // "string"
+  SymCharacterLiteral,  // 'a'
   SymFloatLiteral,   // 0.7
   SymIntLiteral,     // 7
   // Math Operators

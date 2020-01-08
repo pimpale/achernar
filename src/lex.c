@@ -335,6 +335,82 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
   }
 }
 
+static ResultTokenPtr lexCharacterLiteral(Parseable* stream) {
+  if (nextValue(stream) != '\'') {
+    logError(ErrLevelError,
+             "malformed character literal: %" PRIu64 ", %" PRIu64 "\n",
+             stream->lineNumber, stream->charNumber);
+    return (ResultTokenPtr){NULL, ErrBadargs};
+  }
+
+  Vector* chars = newVector();
+
+  int32_t c;
+
+  while ((c = nextValue(stream)) != EOF) {
+    if (c == '\\') {
+      c = nextValue(stream);
+      switch (c) {
+        case 't': {
+          c = '\t';
+          break;
+        }
+        case 'n': {
+          c = '\n';
+          break;
+        }
+        case '\\': {
+          c = '\\';
+          break;
+        }
+        case EOF: {
+          logError(
+              ErrLevelError,
+              "malformed character literal: unexpected end of file: %" PRIu64
+              ", %" PRIu64 "\n",
+              stream->lineNumber, stream->charNumber);
+          return (ResultTokenPtr){NULL, ErrEof};
+        }
+        default: {
+          logError(ErrLevelError,
+                   "malformed character literal: unexpected escape code: `%c` "
+                   "%" PRIu64 ", %" PRIu64 "\n",
+                   c, stream->lineNumber, stream->charNumber);
+          return (ResultTokenPtr){NULL, ErrBadargs};
+        }
+      }
+      *VEC_PUSH(chars, char) = (char)c;
+    } else if (c == '\'') {
+      break;
+    } else {
+      *VEC_PUSH(chars, char) = (char)c;
+    }
+  }
+
+  switch (VEC_LEN(chars, char)) {
+    case 0: {
+      logError(ErrLevelError,
+               "malformed character literal: too short %" PRIu64 ", %" PRIu64
+               "\n",
+               stream->lineNumber, stream->charNumber);
+      return (ResultTokenPtr){NULL, ErrBadargs};
+    }
+    case 1: {
+      // Copy data to token, then delete the vector
+      Token* t = newToken(SymCharacterLiteral, malloc(sizeof(char)));
+      *(char*)(t->payload) = (char)c;
+      return (ResultTokenPtr){t, ErrOk};
+    }
+    default: {
+      logError(ErrLevelError,
+               "malformed character literal: too long %" PRIu64 ", %" PRIu64
+               "\n",
+               stream->lineNumber, stream->charNumber);
+      return (ResultTokenPtr){NULL, ErrBadargs};
+    }
+  }
+}
+
 static ResultTokenPtr lexIdentifier(Parseable* stream) {
   Vector* data = newVector();
   int32_t c;
@@ -372,7 +448,7 @@ static ResultTokenPtr lexIdentifier(Parseable* stream) {
   }
   // If it was a keyword;
   deleteVector(data);
-  return (ResultTokenPtr) {t, ErrOk};
+  return (ResultTokenPtr){t, ErrOk};
 }
 
 ResultTokenPtr nextToken(Parseable* stream) {
@@ -523,31 +599,30 @@ ResultTokenPtr nextToken(Parseable* stream) {
         // Lex the weird literals, comments, annotation, identifiers, etc
         if (isblank(c) || c == '\n') {
           nextValue(stream);
-        } else if (isdigit(c)) {
-          ResultTokenPtr ret = lexNumberLiteral(stream);
-          if (ret.err == ErrOk) {
-            return ret;
-          }
-        } else if (c == '#') {
-          ResultTokenPtr ret = lexComment(stream);
-          if (ret.err == ErrOk) {
-            return ret;
-          }
-        } else if (c == '\"') {
-          ResultTokenPtr ret = lexStringLiteral(stream);
-          if (ret.err == ErrOk) {
-            return ret;
-          }
-        } else if (isalpha(c)) {
-          ResultTokenPtr ret = lexIdentifier(stream);
-          if (ret.err == ErrOk) {
-            return ret;
-          }
         } else {
-          logError(ErrLevelError,
-                   "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n",
-                   c, stream->lineNumber, stream->charNumber);
-          nextValue(stream);
+          ResultTokenPtr ret = (ResultTokenPtr){NULL, ErrUnknown};
+          if (isdigit(c)) {
+            ret = lexNumberLiteral(stream);
+          } else if (c == '#') {
+            ret = lexComment(stream);
+          } else if (c == '\"') {
+            ret = lexStringLiteral(stream);
+          } else if (c == '\'') {
+            ret = lexCharacterLiteral(stream);
+          } else if (isalpha(c)) {
+            ret = lexIdentifier(stream);
+          } else {
+            // If we simply don't recognize the character, we're going to give
+            // an error and move on to the next value
+            logError(ErrLevelError,
+                     "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n",
+                     c, stream->lineNumber, stream->charNumber);
+            nextValue(stream);
+          }
+
+          if (ret.err == ErrOk) {
+            return ret;
+          }
         }
       }
     }

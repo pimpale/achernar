@@ -53,6 +53,10 @@ void printToken(Token* token) {
       str = "StringLiteral";
       break;
     }
+    case SymCharacterLiteral: {
+      str = "CharacterLiteral";
+      break;
+    }
     case SymFloatLiteral: {
       str = "FloatLiteral";
       break;

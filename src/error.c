@@ -45,6 +45,10 @@ char* strErrVal(ErrVal val) {
       str = "no error";
       break;
     }
+    case ErrEof: {
+      str = "reached end of file";
+      break;
+    }
     case ErrOverflow: {
       str = "integer overflow";
       break;

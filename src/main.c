@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include "error.h"
@@ -8,10 +9,14 @@
 
 static char* newAstString(FILE* stream) {
   Parseable* p = newParseableFile(stream);
-  Vector* tokens = newVector();
-  lex(p, tokens);
-  for(size_t i = 0; i < VEC_LEN(tokens, Token*); i++) {
-    printToken(*VEC_GET(tokens, i, Token*));
+  while(true) {
+    ResultTokenPtr ret = nextToken(p);
+    if(ret.err == ErrOk) {
+      printToken(ret.val);
+      deleteToken(ret.val);
+    } else if(ret.err == ErrEof) {
+      break;
+    }
   }
   deleteParseable(p);
   return "";

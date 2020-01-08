@@ -77,6 +77,10 @@ void printToken(Token* token) {
       str = "Div";
       break;
     }
+    case SymMod: {
+      str = "Mod";
+      break;
+    }
     case SymAnd: {
       str = "And";
       break;
@@ -99,6 +103,10 @@ void printToken(Token* token) {
     }
     case SymBitXor: {
       str = "BitXor";
+      break;
+    }
+    case SymBitNot: {
+      str = "BitNot";
       break;
     }
     case SymShiftLeft: {
@@ -171,6 +179,18 @@ void printToken(Token* token) {
     }
     case SymDot: {
       str = "Dot";
+      break;
+    }
+    case SymComma: {
+      str = "Comma";
+      break;
+    }
+    case SymColon: {
+      str = "Colon";
+      break;
+    }
+    case SymSemicolon: {
+      str = "Semicolon";
       break;
     }
     case SymComment: {

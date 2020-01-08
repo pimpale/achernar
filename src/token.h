@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "error.h"
+
 typedef enum {
   // function, type, or variable
   SymIdentifier,
@@ -23,6 +25,7 @@ typedef enum {
   SymSub,  // -
   SymMul,  // *
   SymDiv,  // /
+  SymMod,  // %
   // Logical Operators
   SymAnd,  // &&
   SymOr,   // ||
@@ -31,6 +34,7 @@ typedef enum {
   SymBitAnd,      // &
   SymBitOr,       // |
   SymBitXor,      // ^
+  SymBitNot,      // ~
   SymShiftLeft,   // <<
   SymShiftRight,  // >>
   // Comparison and Equality
@@ -43,6 +47,7 @@ typedef enum {
   // Memory Manipulation Operators
   SymRef,     // $
   SymDeref,   // @
+  // Assignment
   SymAssign,  // =
   // Other Miscellaneous Operator Things
   SymParenLeft,     // (
@@ -52,6 +57,9 @@ typedef enum {
   SymBraceLeft,     // {
   SymBraceRight,    // }
   SymDot,           // .
+  SymComma,         // ,
+  SymColon,         // :
+  SymSemicolon,     // ;
   // Comments, Documentation, and Annotations
   SymComment,        // #* comment *# and # comment
   SymDocumentation,  // #"Docstring"
@@ -66,6 +74,11 @@ typedef struct {
   // in case of SymFloatLiteral Otherwise must be null
   void* payload;
 } Token;
+
+typedef struct {
+  Token* val;
+  ErrVal err;
+} ResultTokenPtr;
 
 Token* newToken(SymType type, void* payload);
 void printToken(Token* ptr);

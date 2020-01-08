@@ -16,6 +16,7 @@ typedef enum ErrSeverity {
 typedef enum ErrVal {
   ErrOk,
   ErrOverflow,
+  ErrEof,
   ErrNotsupported,
   ErrUnsafe,
   ErrBadargs,

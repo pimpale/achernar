@@ -67,20 +67,21 @@ int32_t nextValue(Parseable* p) {
 }
 
 int32_t peekValue(Parseable* p) {
-  int32_t peekValue = nextValue(p);
   switch (p->backing) {
     case PARSEABLE_BACKING_MEMORY: {
-      if (p->loc != 0) {
-        p->loc -= 1;
+      // If it's within the bounds, return the value ahead of us
+      int32_t val = EOF;
+      if (p->loc + 2 < p->len) {
+        val = (p->memory[p->loc + 1]);
       }
-      break;
+      return val;
     }
     case PARSEABLE_BACKING_FILE: {
-      ungetc(peekValue, p->file);
-      break;
+      int32_t val = getc(p->file);
+      ungetc(val, p->file);
+      return val;
     }
   }
-  return peekValue;
 }
 
 void deleteParseable(Parseable* p) {

@@ -3,9 +3,9 @@
 
 #include "parseable.h"
 #include "vector.h"
-
+#include "token.h"
 
 // Appends all tokens found in this file to the tokens vector
-void lex(Parseable* stream, Vector* tokens);
+ResultTokenPtr nextToken(Parseable* stream);
 
 #endif

@@ -45,29 +45,110 @@ static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
   return (ResultU64){ret, ErrOk};
 }
 
-// Call this function right before the first quote of the number literal
-static void lexComment(Parseable* stream, Vector* tokens) {
-  UNUSED(tokens);
+// Call this function right before the first hash
+// Returns control at the first noncomment area
+// Lexes comments, annotations, and docstrings
+static ResultTokenPtr lexComment(Parseable* stream) {
   if (nextValue(stream) != '#') {
     logError(ErrLevelError,
              "malformed comment found at line %" PRIu64 " and column %" PRIu64
              "\n",
              stream->lineNumber, stream->charNumber);
   }
-  int32_t c;
-  while ((c = nextValue(stream)) != EOF) {
-    if (c == '\n') {
-      break;
+  int32_t c = peekValue(stream);
+  switch (c) {
+    // This is a multi line comment
+    case '*': {
+      nextValue(stream);
+      // comments are nested
+      size_t stackDepth = 1;
+      char lastChar = '\0';
+      while ((c = nextValue(stream)) != EOF) {
+        // If we see a *# to pair off the starting #*
+        if (c == '#' && lastChar == '*') {
+          stackDepth--;
+          if (stackDepth == 0) {
+            break;
+          }
+        } else if (c == '*' && lastChar == '#') {
+          stackDepth++;
+        }
+        lastChar = (char)c;
+      }
+      return (ResultTokenPtr){newToken(SymComment, NULL), ErrOk};
+    }
+    // This is a docstring. It will continue until another quote hash is found.
+    // These strings are preserved in the AST Like multiline comments, they are
+    // also nestable
+    // #" Yeet "#
+    case '\"': {
+      nextValue(stream);
+      Vector* data = newVector();
+      size_t stackDepth = 1;
+      char lastChar = '\0';
+      while ((c = nextValue(stream)) != EOF) {
+        if (c == '#' && lastChar == '\"') {
+          // If we see a "# to pair off the starting #"
+          stackDepth--;
+          if (stackDepth == 0) {
+            break;
+          }
+        } else if (c == '\"' && lastChar == '#') {
+          stackDepth++;
+        }
+        *VEC_PUSH(data, char) = (char)c;
+        lastChar = (char)c;
+      }
+      // Push null byte
+      *VEC_PUSH(data, char) = '\0';
+
+      Token* t = newToken(SymDocumentation, malloc(lengthVector(data)));
+      memcpy(t->payload, getVector(data, 0), lengthVector(data));
+      deleteVector(data);
+      return (ResultTokenPtr){t, ErrOk};
+    }
+    // This is an annotation. It will continue till a nonalphanumeric character
+    // is found. They are not nestable
+    // #@Annotation
+    case '@': {
+      nextValue(stream);
+      Vector* data = newVector();
+      while ((c = peekValue(stream)) != EOF) {
+        if (isalnum(c)) {
+          *VEC_PUSH(data, char) = (char)c;
+          nextValue(stream);
+        } else {
+          break;
+        }
+      }
+      // Push null byte
+      *VEC_PUSH(data, char) = '\0';
+      Token* t = newToken(SymAnnotation, malloc(lengthVector(data)));
+      memcpy(t->payload, getVector(data, 0), lengthVector(data));
+      deleteVector(data);
+      return (ResultTokenPtr){t, ErrOk};
+    }
+    // If we don't recognize any of these characters, it's just a normal single
+    // line comment # comment
+    default: {
+      while ((c = nextValue(stream)) != EOF) {
+        if (c == '\n') {
+          break;
+        }
+      }
+      return (ResultTokenPtr){newToken(SymComment, NULL), ErrOk};
     }
   }
 }
 
-// Call this function right before the first quote of the number literal
+// Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this stream
-static void lexStringLiteral(Parseable* stream, Vector* tokens) {
+// This function returns a Token containing the string or an error
+static ResultTokenPtr lexStringLiteral(Parseable* stream) {
   if (nextValue(stream) != '\"') {
     logError(ErrLevelError, "malformed string: %" PRIu64 ", %" PRIu64 "\n",
              stream->lineNumber, stream->charNumber);
+    return (ResultTokenPtr){NULL, ErrBadargs};
   }
   Vector* string = newVector();
 
@@ -86,14 +167,13 @@ static void lexStringLiteral(Parseable* stream, Vector* tokens) {
   Token* t = newToken(SymStringLiteral, malloc(lengthVector(string)));
   memcpy(t->payload, getVector(string, 0), lengthVector(string));
   deleteVector(string);
-
-  // Put token in token list
-  *VEC_PUSH(tokens, Token*) = t;
+  return (ResultTokenPtr){t, ErrOk};
 }
 
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
-static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
+// This function returns a Token or the error
+static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
   Vector* data = newVector();
 
   // Used to determine if float or not
@@ -114,14 +194,13 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
       // If this is the second time we've seen it, then the float is malformed
       if (c == '.') {
         if (hasDecimalPoint) {
-
           *VEC_PUSH(data, char) = '\0';
           logError(ErrLevelError,
                    "malformed float literal: excess decimal point: %" PRIu64
                    ", %" PRIu64 "\n",
                    stream->lineNumber, stream->charNumber);
           deleteVector(data);
-          return;
+          return (ResultTokenPtr){NULL, ErrBadargs};
         } else {
           hasDecimalPoint = true;
           decimalPointIndex = length;
@@ -135,7 +214,6 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
       break;
     }
   }
-  //*VEC_PUSH(data, char) = '\0';
 
   // If it's an integer
   if (!hasDecimalPoint) {
@@ -173,11 +251,9 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
           logError(ErrLevelError,
                    "malformed integer literal: unrecognized special radix "
                    "code: %s, %" PRIu64 ", %" PRIu64 "\n",
-                   data->data,
-                   stream->lineNumber, stream->charNumber);
-
+                   data->data, stream->lineNumber, stream->charNumber);
           deleteVector(data);
-          return;
+          return (ResultTokenPtr){NULL, ErrBadargs};
         }
       }
       intStr = VEC_GET(data, 2, char);
@@ -187,25 +263,25 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
       intStr = VEC_GET(data, 0, char);
       intStrLen = VEC_LEN(data, char);
     }
-
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
+    deleteVector(data);
     if (ret.err != ErrOk) {
       *VEC_PUSH(data, char) = '\0';
       logError(ErrLevelError,
-               "malformed integer literal: `%s`: %s: %" PRIu64 ", %" PRIu64 "\n",
-               data->data,
-               strErrVal(ret.err), stream->lineNumber, stream->charNumber);
-      deleteVector(data);
-      return;
+               "malformed integer literal: `%s`: %s: %" PRIu64 ", %" PRIu64
+               "\n",
+               data->data, strErrVal(ret.err), stream->lineNumber,
+               stream->charNumber);
+      return (ResultTokenPtr){NULL, ErrBadargs};
     } else {
       Token* t = newToken(SymIntLiteral, malloc(sizeof(ret.val)));
       memcpy(t->payload, &ret.val, sizeof(ret.val));
-      *VEC_PUSH(tokens, Token*) = t;
+      return (ResultTokenPtr){t, ErrOk};
     }
   } else {
     // If it has a decimal point, it must be a float
-    // We have already guaranteed that the string only has one decimal point, at
-    // decimalPointIndex Floats are always in decimal notation
+    // We have already guaranteed that the string only has one decimal point,
+    // at decimalPointIndex Floats are always in decimal notation
 
     // We parse the float as 2 integers, one above the decimal point, and one
     // below
@@ -225,17 +301,17 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
       *VEC_PUSH(data, char) = '\0';
       logError(ErrLevelError,
                "malformed float literal: `%s': %s: %" PRIu64 ", %" PRIu64 "\n",
-                data->data,
-               strErrVal(initialRet.err), stream->lineNumber,
+               data->data, strErrVal(initialRet.err), stream->lineNumber,
                stream->charNumber);
       deleteVector(data);
-      return;
+      return (ResultTokenPtr){NULL, ErrBadargs};
     }
     // If there's a bit after the inital part, then we must add it
     if (finalPortionLen > 0) {
       ResultU64 finalRet = parseInteger(finalPortion, finalPortionLen, 10);
       if (finalRet.err == ErrOk) {
         // don't want to include math.h, so we'll repeatedly divide by 10
+        // this is probably dumb
         double decimalResult = finalRet.val;
         for (size_t i = 0; i < finalPortionLen; i++) {
           decimalResult /= 10;
@@ -244,172 +320,238 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
       } else {
         *VEC_PUSH(data, char) = '\0';
         logError(ErrLevelError,
-                 "malformed float literal: `%s`: %s: %" PRIu64 ", %" PRIu64 "\n",
-                 data->data,
-                 strErrVal(initialRet.err), stream->lineNumber,
+                 "malformed float literal: `%s`: %s: %" PRIu64 ", %" PRIu64
+                 "\n",
+                 data->data, strErrVal(initialRet.err), stream->lineNumber,
                  stream->charNumber);
         deleteVector(data);
-        return;
+        return (ResultTokenPtr){NULL, ErrBadargs};
       }
     }
     Token* t = newToken(SymFloatLiteral, malloc(sizeof(result)));
     memcpy(t->payload, &result, sizeof(result));
-    *VEC_PUSH(tokens, Token*) = t;
+    deleteVector(data);
+    return (ResultTokenPtr){t, ErrOk};
   }
-  deleteVector(data);
 }
 
-static void lexIdentifier(Parseable* stream, Vector* tokens) {
-
-}
-
-void lex(Parseable* stream, Vector* tokens) {
+static ResultTokenPtr lexIdentifier(Parseable* stream) {
+  Vector* data = newVector();
   int32_t c;
   while ((c = peekValue(stream)) != EOF) {
-    if (isblank(c) || c == '\n') {
-      // Lex the weird literals, comments, annotation, identifiers, etc
+    if (isalnum(c)) {
+      *VEC_PUSH(data, char) = (char)c;
       nextValue(stream);
-    } else if (isdigit(c)) {
-      lexNumberLiteral(stream, tokens);
-    } else if (c == '#') {
-      lexComment(stream, tokens);
-    } else if (c == '\"') {
-      lexStringLiteral(stream, tokens);
-    } else if (isalpha(c)) {
-      lexIdentifier(stream, tokens);
     } else {
-      // We're dealing with an operator
-      // Pop the current value
-      nextValue(stream);
-      switch (c) {
-        case '&': {
-          int32_t n = peekValue(stream);
-          // && or &
-          if (n == '&') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymAnd, NULL);
-            nextValue(stream);
-          } else {
-            *VEC_PUSH(tokens, Token*) = newToken(SymBitAnd, NULL);
+      break;
+    }
+  }
+  // Push null byte
+  *VEC_PUSH(data, char) = '\0';
+
+  Token* t = NULL;
+
+  if (!strcmp(VEC_GET(data, 0, char), "if")) {
+    t = newToken(SymIf, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "else")) {
+    t = newToken(SymElse, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "do")) {
+    t = newToken(SymDoWhile, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "while")) {
+    t = newToken(SymWhile, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "with")) {
+    t = newToken(SymWith, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "for")) {
+    t = newToken(SymFor, NULL);
+  } else {
+    // It's a normal identifier, not a keyword
+    Token* t = newToken(SymIdentifier, malloc(lengthVector(data)));
+    memcpy(t->payload, getVector(data, 0), lengthVector(data));
+    deleteVector(data);
+    return (ResultTokenPtr){t, ErrOk};
+  }
+  // If it was a keyword;
+  deleteVector(data);
+  return (ResultTokenPtr) {t, ErrOk};
+}
+
+ResultTokenPtr nextToken(Parseable* stream) {
+  int32_t c;
+  while ((c = peekValue(stream)) != EOF) {
+    // We're dealing with an operator
+    // Pop the current value
+    switch (c) {
+      case '&': {
+        nextValue(stream);
+        int32_t n = peekValue(stream);
+        // && or &
+        if (n == '&') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymAnd, NULL), ErrOk};
+        } else {
+          return (ResultTokenPtr){newToken(SymBitAnd, NULL), ErrOk};
+        }
+      }
+      case '|': {
+        nextValue(stream);
+        int32_t n = peekValue(stream);
+        // || or |
+        if (n == '|') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymOr, NULL), ErrOk};
+        } else {
+          return (ResultTokenPtr){newToken(SymBitOr, NULL), ErrOk};
+        }
+      }
+      case '!': {
+        nextValue(stream);
+        int32_t n = peekValue(stream);
+        // ! or !=
+        if (n == '=') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymNotEqual, NULL), ErrOk};
+        } else {
+          return (ResultTokenPtr){newToken(SymNot, NULL), ErrOk};
+        }
+      }
+      case '=': {
+        nextValue(stream);
+        int32_t n = peekValue(stream);
+        // = or ==
+        if (n == '=') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymEqual, NULL), ErrOk};
+        } else {
+          return (ResultTokenPtr){newToken(SymAssign, NULL), ErrOk};
+        }
+      }
+      case '<': {
+        nextValue(stream);
+        int32_t n = peekValue(stream);
+        if (n == '<') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymShiftLeft, NULL), ErrOk};
+        } else if (n == '=') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymCompLessEqual, NULL), ErrOk};
+        } else {
+          return (ResultTokenPtr){newToken(SymCompLess, NULL), ErrOk};
+        }
+      }
+      case '>': {
+        nextValue(stream);
+        int32_t n = peekValue(stream);
+        if (n == '>') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymShiftRight, NULL), ErrOk};
+        } else if (n == '=') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymCompGreaterEqual, NULL), ErrOk};
+        } else {
+          return (ResultTokenPtr){newToken(SymCompGreater, NULL), ErrOk};
+        }
+      }
+      case '+': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymAdd, NULL), ErrOk};
+      }
+      case '-': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymSub, NULL), ErrOk};
+      }
+      case '*': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymMul, NULL), ErrOk};
+      }
+      case '/': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymDiv, NULL), ErrOk};
+      }
+      case '%': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymMod, NULL), ErrOk};
+      }
+      case '$': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymRef, NULL), ErrOk};
+      }
+      case '@': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymDeref, NULL), ErrOk};
+      }
+      case '(': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymParenLeft, NULL), ErrOk};
+      }
+      case ')': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymParenRight, NULL), ErrOk};
+      }
+      case '[': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymBracketLeft, NULL), ErrOk};
+      }
+      case ']': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymBracketRight, NULL), ErrOk};
+      }
+      case '{': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymBraceLeft, NULL), ErrOk};
+      }
+      case '}': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymBraceRight, NULL), ErrOk};
+      }
+      case '.': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymDot, NULL), ErrOk};
+      }
+      case ',': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymComma, NULL), ErrOk};
+      }
+      case ':': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymColon, NULL), ErrOk};
+      }
+      case ';': {
+        nextValue(stream);
+        return (ResultTokenPtr){newToken(SymSemicolon, NULL), ErrOk};
+      }
+      default: {
+        // Lex the weird literals, comments, annotation, identifiers, etc
+        if (isblank(c) || c == '\n') {
+          nextValue(stream);
+        } else if (isdigit(c)) {
+          ResultTokenPtr ret = lexNumberLiteral(stream);
+          if (ret.err == ErrOk) {
+            return ret;
           }
-          break;
-        }
-        case '|': {
-          int32_t n = peekValue(stream);
-          // || or |
-          if (n == '|') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymOr, NULL);
-            nextValue(stream);
-          } else {
-            *VEC_PUSH(tokens, Token*) = newToken(SymBitOr, NULL);
+        } else if (c == '#') {
+          ResultTokenPtr ret = lexComment(stream);
+          if (ret.err == ErrOk) {
+            return ret;
           }
-          break;
-        }
-        case '!': {
-          int32_t n = peekValue(stream);
-          // ! or !=
-          if (n == '=') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymNotEqual, NULL);
-            nextValue(stream);
-          } else {
-            *VEC_PUSH(tokens, Token*) = newToken(SymNot, NULL);
+        } else if (c == '\"') {
+          ResultTokenPtr ret = lexStringLiteral(stream);
+          if (ret.err == ErrOk) {
+            return ret;
           }
-          break;
-        }
-        case '=': {
-          int32_t n = peekValue(stream);
-          // = or ==
-          if (n == '=') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymEqual, NULL);
-            nextValue(stream);
-          } else {
-            *VEC_PUSH(tokens, Token*) = newToken(SymAssign, NULL);
+        } else if (isalpha(c)) {
+          ResultTokenPtr ret = lexIdentifier(stream);
+          if (ret.err == ErrOk) {
+            return ret;
           }
-          break;
-        }
-        case '<': {
-          int32_t n = peekValue(stream);
-          if (n == '<') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymShiftLeft, NULL);
-            nextValue(stream);
-          } else if (n == '=') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymCompLessEqual, NULL);
-            nextValue(stream);
-          } else {
-            *VEC_PUSH(tokens, Token*) = newToken(SymCompLess, NULL);
-          }
-          break;
-        }
-        case '>': {
-          int32_t n = peekValue(stream);
-          if (n == '>') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymShiftRight, NULL);
-            nextValue(stream);
-          } else if (n == '=') {
-            *VEC_PUSH(tokens, Token*) = newToken(SymCompGreaterEqual, NULL);
-            nextValue(stream);
-          } else {
-            *VEC_PUSH(tokens, Token*) = newToken(SymCompGreater, NULL);
-          }
-          break;
-        }
-        case '+': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymAdd, NULL);
-          break;
-        }
-        case '-': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymSub, NULL);
-          break;
-        }
-        case '*': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymMul, NULL);
-          break;
-        }
-        case '/': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymDiv, NULL);
-          break;
-        }
-        case '$': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymRef, NULL);
-          break;
-        }
-        case '@': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymDeref, NULL);
-          break;
-        }
-        case '.': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymDot, NULL);
-          break;
-        }
-        case '(': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymParenLeft, NULL);
-          break;
-        }
-        case ')': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymParenRight, NULL);
-          break;
-        }
-        case '[': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymBracketLeft, NULL);
-          break;
-        }
-        case ']': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymBracketRight, NULL);
-          break;
-        }
-        case '{': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymBraceLeft, NULL);
-          break;
-        }
-        case '}': {
-          *VEC_PUSH(tokens, Token*) = newToken(SymBraceRight, NULL);
-          break;
-        }
-        default: {
+        } else {
           logError(ErrLevelError,
-                   "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n", c,
-                   stream->lineNumber, stream->charNumber);
+                   "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n",
+                   c, stream->lineNumber, stream->charNumber);
+          nextValue(stream);
         }
       }
     }
   }
+  // If we hit the end of the file just give a End of file error
+  return (ResultTokenPtr){NULL, ErrEof};
 }

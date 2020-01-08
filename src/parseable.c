@@ -28,7 +28,7 @@ Parseable* newParseableMemory(char* ptr, size_t len) {
   memcpy(parseable->memory, ptr, len);
   parseable->len = len;
   parseable->loc = 0;
-  parseable->lineNumber = 0;
+  parseable->lineNumber = 5000;
   parseable->charNumber = 0;
   return parseable;
 }

@@ -33,7 +33,7 @@ static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
 
     // If you put something higher than is requested
     if (digitValue >= radix) {
-      return (ResultU64){0, ErrOverflow};
+      return (ResultU64){0, ErrBadargs};
     }
 
     uint64_t oldret = ret;
@@ -50,7 +50,7 @@ static void lexComment(Parseable* stream, Vector* tokens) {
   UNUSED(tokens);
   if (nextValue(stream) != '#') {
     logError(ErrLevelError,
-             "malformed comment found at line " PRIu64 " and column " PRIu64
+             "malformed comment found at line %" PRIu64 " and column %" PRIu64
              "\n",
              stream->lineNumber, stream->charNumber);
   }
@@ -66,7 +66,7 @@ static void lexComment(Parseable* stream, Vector* tokens) {
 // Returns control after the ending quote of this stream
 static void lexStringLiteral(Parseable* stream, Vector* tokens) {
   if (nextValue(stream) != '\"') {
-    logError(ErrLevelError, "malformed string: " PRIu64 ", " PRIu64 "\n",
+    logError(ErrLevelError, "malformed string: %" PRIu64 ", %" PRIu64 "\n",
              stream->lineNumber, stream->charNumber);
   }
   Vector* string = newVector();
@@ -114,10 +114,13 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
       // If this is the second time we've seen it, then the float is malformed
       if (c == '.') {
         if (hasDecimalPoint) {
+
+          *VEC_PUSH(data, char) = '\0';
           logError(ErrLevelError,
-                   "malformed float literal: excess decimal point: " PRIu64
-                   ", " PRIu64 "\n",
+                   "malformed float literal: excess decimal point: %" PRIu64
+                   ", %" PRIu64 "\n",
                    stream->lineNumber, stream->charNumber);
+          deleteVector(data);
           return;
         } else {
           hasDecimalPoint = true;
@@ -132,6 +135,7 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
       break;
     }
   }
+  //*VEC_PUSH(data, char) = '\0';
 
   // If it's an integer
   if (!hasDecimalPoint) {
@@ -165,10 +169,14 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
           break;
         }
         default: {
+          *VEC_PUSH(data, char) = '\0';
           logError(ErrLevelError,
                    "malformed integer literal: unrecognized special radix "
-                   "code: " PRIu64 ", " PRIu64 "\n",
+                   "code: %s, %" PRIu64 ", %" PRIu64 "\n",
+                   data->data,
                    stream->lineNumber, stream->charNumber);
+
+          deleteVector(data);
           return;
         }
       }
@@ -182,9 +190,12 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
 
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
     if (ret.err != ErrOk) {
+      *VEC_PUSH(data, char) = '\0';
       logError(ErrLevelError,
-               "malformed integer literal: %s: " PRIu64 ", " PRIu64 "\n",
+               "malformed integer literal: `%s`: %s: %" PRIu64 ", %" PRIu64 "\n",
+               data->data,
                strErrVal(ret.err), stream->lineNumber, stream->charNumber);
+      deleteVector(data);
       return;
     } else {
       Token* t = newToken(SymIntLiteral, malloc(sizeof(ret.val)));
@@ -211,10 +222,13 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
     if (initialRet.err == ErrOk) {
       result += initialRet.val;
     } else {
+      *VEC_PUSH(data, char) = '\0';
       logError(ErrLevelError,
-               "malformed float literal: %s: " PRIu64 ", " PRIu64 "\n",
+               "malformed float literal: `%s': %s: %" PRIu64 ", %" PRIu64 "\n",
+                data->data,
                strErrVal(initialRet.err), stream->lineNumber,
                stream->charNumber);
+      deleteVector(data);
       return;
     }
     // If there's a bit after the inital part, then we must add it
@@ -228,20 +242,26 @@ static void lexNumberLiteral(Parseable* stream, Vector* tokens) {
         }
         result += decimalResult;
       } else {
+        *VEC_PUSH(data, char) = '\0';
         logError(ErrLevelError,
-                 "malformed float literal: %s: " PRIu64 ", " PRIu64 "\n",
+                 "malformed float literal: `%s`: %s: %" PRIu64 ", %" PRIu64 "\n",
+                 data->data,
                  strErrVal(initialRet.err), stream->lineNumber,
                  stream->charNumber);
+        deleteVector(data);
         return;
       }
     }
-    Token* t = newToken(SymIntLiteral, malloc(sizeof(result)));
+    Token* t = newToken(SymFloatLiteral, malloc(sizeof(result)));
     memcpy(t->payload, &result, sizeof(result));
     *VEC_PUSH(tokens, Token*) = t;
   }
+  deleteVector(data);
 }
 
-static void lexIdentifier(Parseable* stream, Vector* tokens) {}
+static void lexIdentifier(Parseable* stream, Vector* tokens) {
+
+}
 
 void lex(Parseable* stream, Vector* tokens) {
   int32_t c;
@@ -286,6 +306,7 @@ void lex(Parseable* stream, Vector* tokens) {
         }
         case '!': {
           int32_t n = peekValue(stream);
+          // ! or !=
           if (n == '=') {
             *VEC_PUSH(tokens, Token*) = newToken(SymNotEqual, NULL);
             nextValue(stream);
@@ -296,6 +317,7 @@ void lex(Parseable* stream, Vector* tokens) {
         }
         case '=': {
           int32_t n = peekValue(stream);
+          // = or ==
           if (n == '=') {
             *VEC_PUSH(tokens, Token*) = newToken(SymEqual, NULL);
             nextValue(stream);
@@ -381,6 +403,11 @@ void lex(Parseable* stream, Vector* tokens) {
         case '}': {
           *VEC_PUSH(tokens, Token*) = newToken(SymBraceRight, NULL);
           break;
+        }
+        default: {
+          logError(ErrLevelError,
+                   "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n", c,
+                   stream->lineNumber, stream->charNumber);
         }
       }
     }

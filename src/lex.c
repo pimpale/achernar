@@ -439,6 +439,12 @@ static ResultTokenPtr lexIdentifier(Parseable* stream) {
     t = newToken(SymWith, NULL);
   } else if (!strcmp(VEC_GET(data, 0, char), "for")) {
     t = newToken(SymFor, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "break")) {
+    t = newToken(SymBreak, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "continue")) {
+    t = newToken(SymContinue, NULL);
+  } else if (!strcmp(VEC_GET(data, 0, char), "return")) {
+    t = newToken(SymReturn, NULL);
   } else {
     // It's a normal identifier, not a keyword
     Token* t = newToken(SymIdentifier, malloc(lengthVector(data)));
@@ -475,6 +481,10 @@ ResultTokenPtr nextToken(Parseable* stream) {
         if (n == '|') {
           nextValue(stream);
           return (ResultTokenPtr){newToken(SymOr, NULL), ErrOk};
+        }
+        else if (n == '>') {
+          nextValue(stream);
+          return (ResultTokenPtr){newToken(SymPipe, NULL), ErrOk};
         } else {
           return (ResultTokenPtr){newToken(SymBitOr, NULL), ErrOk};
         }

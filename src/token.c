@@ -33,20 +33,36 @@ void printToken(Token* token) {
       str = "Else";
       break;
     }
+    case SymWhile: {
+      str = "While";
+      break;
+    }
     case SymDoWhile: {
       str = "DoWhile";
       break;
     }
-    case SymWhile: {
-      str = "While";
+    case SymFor: {
+      str = "For";
       break;
     }
     case SymWith: {
       str = "With";
       break;
     }
-    case SymFor: {
-      str = "For";
+    case SymMatch: {
+      str = "Match";
+      break;
+    }
+    case SymBreak: {
+      str = "Break";
+      break;
+    }
+    case SymContinue: {
+      str = "Continue";
+      break;
+    }
+    case SymReturn: {
+      str = "Return";
       break;
     }
     case SymStringLiteral: {
@@ -155,6 +171,10 @@ void printToken(Token* token) {
     }
     case SymAssign: {
       str = "Assign";
+      break;
+    }
+    case SymPipe: {
+      str = "Pipe";
       break;
     }
     case SymParenLeft: {

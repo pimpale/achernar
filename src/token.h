@@ -9,80 +9,87 @@
 typedef enum {
   // function, type, or variable
   SymIdentifier,
-  // Control flow constructs
+  // Keywords
   SymIf,       // if
   SymElse,     // else
-  SymDoWhile,  // do
   SymWhile,    // while
-  SymWith,     // with
+  SymDoWhile,  // do
   SymFor,      // for
+  SymWith,     // with
+  SymMatch,     // match
+  SymBreak,    // break
+  SymContinue, // continue
+  SymReturn,   // return
   // Literals and constants
-  SymStringLiteral,  // "string"
-  SymCharacterLiteral,  // 'a'
-  SymFloatLiteral,   // 0.7
-  SymIntLiteral,     // 7
+  SymStringLiteral,    // "string"
+  SymCharacterLiteral, // 'a'
+  SymFloatLiteral,     // 0.7
+  SymIntLiteral,       // 7
   // Math Operators
-  SymAdd,  // +
-  SymSub,  // -
-  SymMul,  // *
-  SymDiv,  // /
-  SymMod,  // %
+  SymAdd, // +
+  SymSub, // -
+  SymMul, // *
+  SymDiv, // /
+  SymMod, // %
   // Logical Operators
-  SymAnd,  // &&
-  SymOr,   // ||
-  SymNot,  // !
+  SymAnd, // &&
+  SymOr,  // ||
+  SymNot, // !
   // Bitwise Operators
-  SymBitAnd,      // &
-  SymBitOr,       // |
-  SymBitXor,      // ^
-  SymBitNot,      // ~
-  SymShiftLeft,   // <<
-  SymShiftRight,  // >>
+  SymBitAnd,     // &
+  SymBitOr,      // |
+  SymBitXor,     // ^
+  SymBitNot,     // ~
+  SymShiftLeft,  // <<
+  SymShiftRight, // >>
   // Comparison and Equality
-  SymEqual,             // ==
-  SymNotEqual,          // !=
-  SymCompLess,          // <
-  SymCompLessEqual,     // <=
-  SymCompGreater,       // >
-  SymCompGreaterEqual,  // >=
+  SymEqual,            // ==
+  SymNotEqual,         // !=
+  SymCompLess,         // <
+  SymCompLessEqual,    // <=
+  SymCompGreater,      // >
+  SymCompGreaterEqual, // >=
   // Memory Manipulation Operators
-  SymRef,     // $
-  SymDeref,   // @
+  SymRef,   // $
+  SymDeref, // @
   // Assignment
-  SymAssign,  // =
+  SymAssign, // =
+  // Pipelines
+  SymPipe, // |>
   // Other Miscellaneous Operator Things
-  SymParenLeft,     // (
-  SymParenRight,    // )
-  SymBracketLeft,   // [
-  SymBracketRight,  // ]
-  SymBraceLeft,     // {
-  SymBraceRight,    // }
-  SymDot,           // .
-  SymComma,         // ,
-  SymColon,         // :
-  SymSemicolon,     // ;
+  SymParenLeft,    // (
+  SymParenRight,   // )
+  SymBracketLeft,  // [
+  SymBracketRight, // ]
+  SymBraceLeft,    // {
+  SymBraceRight,   // }
+  SymDot,          // .
+  SymComma,        // ,
+  SymColon,        // :
+  SymSemicolon,    // ;
   // Comments, Documentation, and Annotations
-  SymComment,        // #* comment *# and # comment
-  SymDocumentation,  // #"Docstring"
-  SymAnnotation,     // #@Annotation
+  SymComment,       // #* comment *# and # comment
+  SymDocumentation, // #"Docstring"#
+  SymAnnotation,    // #@Annotation
 } SymType;
 
 typedef struct {
   SymType type;
   // This points to
-  // null terminated string in case of SymStringLiteral, SymComment,
+  // null terminated string in case of identifier, SymStringLiteral, SymComment,
   // SymDocumentation, or SymAnnotation uint64_t in case of SymIntLiteral double
-  // in case of SymFloatLiteral Otherwise must be null
-  void* payload;
+  // double in case of SymFloatLiteral
+  // Otherwise must be null
+  void *payload;
 } Token;
 
 typedef struct {
-  Token* val;
+  Token *val;
   ErrVal err;
 } ResultTokenPtr;
 
-Token* newToken(SymType type, void* payload);
-void printToken(Token* ptr);
-void deleteToken(Token* ptr);
+Token *newToken(SymType type, void *payload);
+void printToken(Token *ptr);
+void deleteToken(Token *ptr);
 
 #endif

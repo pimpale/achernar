@@ -61,6 +61,16 @@ typedef enum {
   BinaryOpExprCompGreaterEqual // >=
 } BinaryOpExprType;
 
+typedef enum {
+  // Nots, negatives, etc
+  UnaryOpExprNegate,
+  UnaryOpExprLogicalNot,
+  UnaryOpExprBitNot,
+  // Memory Manipulation Operators
+  UnaryOpExprRef,
+  UnaryOpExprDeref
+} UnaryOpExprType;
+
 // Need to forward declare all structs because recursion
 struct Expr_s; // Expression
 
@@ -124,27 +134,59 @@ typedef struct StringLiteralExpr_s {
 } StringLiteralExpr;
 
 typedef struct ArrayLiteralExpr_s {
+  Identifier* type; // Type of array
   Expr* elements;  // List
   uint64_t length; // Number of elements
 } ArrayLiteralExpr;
 
 typedef struct StructLiteralExpr_s {
-  Identifier* struct_name;
-  IdentiferValuePair* pairs;
-  uint64_t length;
+  Identifier* structName; // Name of struct
+  IdentifierValuePair* structAttributes; // List of structAttributes
+  uint64_t length; // number of structAttributes specified
 } StructLiteralExpr;
 
+typedef struct BinaryOpExpr_s {
+  BinaryOpExprType type;
+  Expr* a; // First operand
+  Expr* b; // Second operand
+} BinaryOpExpr;
 
+typedef struct UnaryOpExpr_s {
+  UnaryOpExprType type;
+  Expr* a; // Operand
+} UnaryOpExpr;
 
+typedef struct IndexExpr_s {
+  Expr* pointer; // The pointer to be referenced
+  Expr* index; // Expression evaluating to the index
+} IndexExpr;
 
+typedef struct CallExpr_s {
+  Expr* function; // The function being called
+  Expr* arguments; // The arguments to this function
+  uint64_t length; // Number of arguments
+} CallExpr;
 
+typedef struct FieldAccessExpr_s {
+  Expr* record;  // the struct
+  Identifier* field; // the field of the struct
+} FieldAccessExpr;
 
-// Binary operator
-typedef struct AstBinOp {
-  AstBinOpType type;
-  Expr* a;
-  Expr* b;
-} AstBinOp;
+typedef struct PipeExpr_s {
+  Expr* source;
+  Expr* transformation;
+} PipeExpr;
+
+typedef struct IfExpr_s {
+  Expr* condition;
+  Expr* body;
+} IfExpr;
+
+typedef struct IfElseExpr_s {
+  Expr* condition;
+  Expr* ifbody;
+  Expr* elsebody;
+} IfElseExpr;
 
 // AST node
 // rownum

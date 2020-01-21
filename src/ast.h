@@ -1,7 +1,6 @@
 #ifndef AST_H_
 #define AST_H_
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #include "identifier.h"
@@ -67,6 +66,7 @@ struct BreakExpr_s; // Break Expression
 struct ContinueExpr_s; // Continue Expression
 struct ReturnExpr_s; // Return Expression
 struct MatchExpr_s; // Match Expression
+struct MatchEntryExpr_s; // Match Expression
 struct BlockExpr_s; // Expression in Parentheses
 
 struct Stmnt_s; // Statement
@@ -212,8 +212,17 @@ typedef struct ReturnExpr_s {
   Expr* value;
 } ReturnExpr;
 
+
+typedef struct MatchEntryExpr_s {
+  IntLiteralExpr key; // An integer literal to be matched
+  Expr* value; // The returned value
+} MatchEntryExpr;
+
+// TODO
 typedef struct MatchExpr_s {
-  Expr* 
+  MatchEntryExpr* cases; // Points to array of cases
+  uint64_t length; // number of cases
+} MatchExpr;
 
 
 // AST node

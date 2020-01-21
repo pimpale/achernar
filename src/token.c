@@ -37,10 +37,6 @@ void printToken(Token* token) {
       str = "While";
       break;
     }
-    case SymDoWhile: {
-      str = "DoWhile";
-      break;
-    }
     case SymFor: {
       str = "For";
       break;

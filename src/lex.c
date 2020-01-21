@@ -431,8 +431,6 @@ static ResultTokenPtr lexIdentifier(Parseable* stream) {
     t = newToken(SymIf, NULL);
   } else if (!strcmp(VEC_GET(data, 0, char), "else")) {
     t = newToken(SymElse, NULL);
-  } else if (!strcmp(VEC_GET(data, 0, char), "do")) {
-    t = newToken(SymDoWhile, NULL);
   } else if (!strcmp(VEC_GET(data, 0, char), "while")) {
     t = newToken(SymWhile, NULL);
   } else if (!strcmp(VEC_GET(data, 0, char), "with")) {

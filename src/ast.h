@@ -30,7 +30,6 @@ typedef enum {
   ExprIf,
   ExprIfElse,
   ExprWhile,
-  ExprDoWhile,
   ExprFor,
   ExprWith,
   ExprBreak,
@@ -39,37 +38,6 @@ typedef enum {
   ExprMatch,
   ExprBlock,
 } ExprType;
-
-typedef enum {
-  BinaryOpExprAdd,             // +
-  BinaryOpExprSub,             // -
-  BinaryOpExprMul,             // *
-  BinaryOpExprDiv,             // /
-  BinaryOpExprMod,             // %
-  BinaryOpExprBitAnd,          // &
-  BinaryOpExprBitOr,           // |
-  BinaryOpExprBitXor,          // ^
-  BinaryOpExprBitShl,          // <<
-  BinaryOpExprBitShr,          // >>
-  BinaryOpExprLogicalAnd,      // &&
-  BinaryOpExprLogicalOr,       // ||
-  BinaryOpExprCompEqual,       // ==
-  BinaryOpExprCompNotEqual,    // !=
-  BinaryOpExprCompLess,        // <
-  BinaryOpExprCompLessEqual,   // <=
-  BinaryOpExprCompGreater,     // >
-  BinaryOpExprCompGreaterEqual // >=
-} BinaryOpExprType;
-
-typedef enum {
-  // Nots, negatives, etc
-  UnaryOpExprNegate,
-  UnaryOpExprLogicalNot,
-  UnaryOpExprBitNot,
-  // Memory Manipulation Operators
-  UnaryOpExprRef,
-  UnaryOpExprDeref
-} UnaryOpExprType;
 
 // Need to forward declare all structs because recursion
 struct Expr_s; // Expression
@@ -93,7 +61,6 @@ struct PipeExpr_s; // Pipeline Expression
 struct IfExpr_s; // If Expression
 struct IfElseExpr_s; // If Else Expression
 struct WhileExpr_s; // While Expression
-struct DoWhileExpr_s; // Do While Expression
 struct ForExpr_s; // For Expression
 struct WithExpr_s; // With Expression
 struct BreakExpr_s; // Break Expression
@@ -145,11 +112,40 @@ typedef struct StructLiteralExpr_s {
   uint64_t length; // number of structAttributes specified
 } StructLiteralExpr;
 
+typedef enum {
+  BinaryOpExprAdd,             // +
+  BinaryOpExprSub,             // -
+  BinaryOpExprMul,             // *
+  BinaryOpExprDiv,             // /
+  BinaryOpExprMod,             // %
+  BinaryOpExprBitAnd,          // &
+  BinaryOpExprBitOr,           // |
+  BinaryOpExprBitXor,          // ^
+  BinaryOpExprBitShl,          // <<
+  BinaryOpExprBitShr,          // >>
+  BinaryOpExprLogicalAnd,      // &&
+  BinaryOpExprLogicalOr,       // ||
+  BinaryOpExprCompEqual,       // ==
+  BinaryOpExprCompNotEqual,    // !=
+  BinaryOpExprCompLess,        // <
+  BinaryOpExprCompLessEqual,   // <=
+  BinaryOpExprCompGreater,     // >
+  BinaryOpExprCompGreaterEqual // >=
+} BinaryOpExprType;
+
 typedef struct BinaryOpExpr_s {
   BinaryOpExprType type;
   Expr* a; // First operand
   Expr* b; // Second operand
 } BinaryOpExpr;
+
+typedef enum {
+  UnaryOpExprNegate,   // -
+  UnaryOpExprLogicalNot, // !
+  UnaryOpExprBitNot,   // ~
+  UnaryOpExprRef, // $
+  UnaryOpExprDeref // @
+} UnaryOpExprType;
 
 typedef struct UnaryOpExpr_s {
   UnaryOpExprType type;
@@ -187,6 +183,38 @@ typedef struct IfElseExpr_s {
   Expr* ifbody;
   Expr* elsebody;
 } IfElseExpr;
+
+typedef struct WhileExpr_s {
+  Expr* condition;
+  Expr* body;
+} WhileExpr;
+
+typedef struct ForExpr_s {
+  Stmnt_s* init;
+  Expr* test;
+  Expr* update;
+  Expr* body;
+} ForExpr;
+
+typedef struct WithExpr_s {
+  Stmnt_s* constructor;
+  Stmnt_s* destructor;
+  Expr* body;
+} WithExpr;
+
+typedef struct BreakExpr_s {
+} BreakExpr;
+
+typedef struct ContinueExpr_s {
+} ContinueExpr;
+
+typedef struct ReturnExpr_s {
+  Expr* value;
+} ReturnExpr;
+
+typedef struct MatchExpr_s {
+  Expr* 
+
 
 // AST node
 // rownum

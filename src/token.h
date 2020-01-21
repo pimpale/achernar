@@ -13,7 +13,6 @@ typedef enum {
   SymIf,       // if
   SymElse,     // else
   SymWhile,    // while
-  SymDoWhile,  // do
   SymFor,      // for
   SymWith,     // with
   SymMatch,     // match

@@ -71,9 +71,9 @@ struct BlockExpr_s; // Expression in Parentheses
 
 struct Stmnt_s; // Statement
 // Declarations
-struct FuncDecStmnt_s; // Function Declaration Statement
-struct VarDecStmnt_s; // Variable Declaration Statement
-struct StructDecStmnt_s; // Struct Declaration Statement
+struct FuncDeclStmnt_s; // Function Declaration Statement
+struct VarDeclStmnt_s; // Variable Declaration Statement
+struct StructDeclStmnt_s; // Struct Declaration Statement
 // Misc Statements
 struct ExprStmnt_s; // Expression Statement
 struct TypeAliasStmnt_s; // Type Alias Statement
@@ -135,8 +135,8 @@ typedef enum {
 
 typedef struct BinaryOpExpr_s {
   BinaryOpExprType type;
-  Expr* a; // First operand
-  Expr* b; // Second operand
+  struct Expr_s* a; // First operand
+  struct Expr_s* b; // Second operand
 } BinaryOpExpr;
 
 typedef enum {
@@ -149,57 +149,57 @@ typedef enum {
 
 typedef struct UnaryOpExpr_s {
   UnaryOpExprType type;
-  Expr* a; // Operand
+  struct Expr_s* a; // Operand
 } UnaryOpExpr;
 
 typedef struct IndexExpr_s {
-  Expr* pointer; // The pointer to be referenced
-  Expr* index; // Expression evaluating to the index
+  struct Expr_s* pointer; // The pointer to be referenced
+  struct Expr_s* index; // Expression evaluating to the index
 } IndexExpr;
 
 typedef struct CallExpr_s {
-  Expr* function; // The function being called
-  Expr* arguments; // The arguments to this function
+  struct Expr_s* function; // The function being called
+  struct Expr_s* arguments; // The arguments to this function
   uint64_t length; // Number of arguments
 } CallExpr;
 
 typedef struct FieldAccessExpr_s {
-  Expr* record;  // the struct
+  struct Expr_s* record;  // the struct
   Identifier* field; // the field of the struct
 } FieldAccessExpr;
 
 typedef struct PipeExpr_s {
-  Expr* source;
-  Expr* transformation;
+  struct Expr_s* source;
+  struct Expr_s* transformation;
 } PipeExpr;
 
 typedef struct IfExpr_s {
-  Expr* condition;
-  Expr* body;
+  struct Expr_s* condition;
+  struct Expr_s* body;
 } IfExpr;
 
 typedef struct IfElseExpr_s {
-  Expr* condition;
-  Expr* ifbody;
-  Expr* elsebody;
+  struct Expr_s* condition;
+  struct Expr_s* ifbody;
+  struct Expr_s* elsebody;
 } IfElseExpr;
 
 typedef struct WhileExpr_s {
-  Expr* condition;
-  Expr* body;
+  struct Expr_s* condition;
+  struct Expr_s* body;
 } WhileExpr;
 
 typedef struct ForExpr_s {
-  Stmnt_s* init;
-  Expr* test;
-  Expr* update;
-  Expr* body;
+  struct Stmnt_s* init;
+  struct Expr_s* test;
+  struct Expr_s* update;
+  struct Expr_s* body;
 } ForExpr;
 
 typedef struct WithExpr_s {
-  Stmnt_s* constructor;
-  Stmnt_s* destructor;
-  Expr* body;
+  struct Stmnt_s* constructor; // Statement called to construct environment
+  struct Stmnt_s* destructor; // Statement that will always be called before exit
+  struct Expr_s* body;
 } WithExpr;
 
 typedef struct BreakExpr_s {
@@ -209,20 +209,37 @@ typedef struct ContinueExpr_s {
 } ContinueExpr;
 
 typedef struct ReturnExpr_s {
-  Expr* value;
+  struct Expr_s* value;
 } ReturnExpr;
 
-
 typedef struct MatchEntryExpr_s {
-  IntLiteralExpr key; // An integer literal to be matched
-  Expr* value; // The returned value
+  struct IntLiteralExpr_s key; // An integer literal to be matched
+  struct Expr_s* value; // The returned value
 } MatchEntryExpr;
 
-// TODO
 typedef struct MatchExpr_s {
-  MatchEntryExpr* cases; // Points to array of cases
+  struct MatchEntryExpr_s* cases; // Points to array of cases
   uint64_t length; // number of cases
 } MatchExpr;
+
+typedef struct BlockExpr_s {
+  struct Stmnt_s* statements; // The statements of the block
+  uint64_t length; // The number of statements
+  struct Expr_s* lastExpr; // The ending expression (value gets passed on)
+  bool hasExpr; // If it has an ending expression or it passes on () type
+} BlockExpr;
+
+typedef struct Stmnt_s {
+  StmntType type; // The type of statement
+  void* value; // The value of the statement
+} Stmnt;
+
+typedef struct FuncDeclStmnt_s {
+  Identifier* funcName; // Name of Function
+  struct VarDeclStmnt_s* arguments; // Arguments to the function
+  Identifier* type;
+  Expr* body;
+} FuncDeclStmnt;
 
 
 // AST node

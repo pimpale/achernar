@@ -72,7 +72,7 @@ typedef enum {
   SymAnnotation,    // #@Annotation
 } SymType;
 
-typedef struct {
+typedef struct Token_s {
   SymType type;
   // This points to
   // null terminated string in case of identifier, SymStringLiteral, SymComment,
@@ -82,7 +82,7 @@ typedef struct {
   void *payload;
 } Token;
 
-typedef struct {
+typedef struct ResultTokenPtr_s {
   Token *val;
   ErrVal err;
 } ResultTokenPtr;

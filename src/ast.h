@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include "error.h"
 #include "identifier.h"
 
 typedef enum {
@@ -114,6 +115,9 @@ struct StructDeclStmnt_s; // Struct Declaration Statement
 struct AliasDeclStmnt_s;  // Type Alias Declaration Statement
 // Misc Statements
 struct ExprStmnt_s; // Expression Statement
+
+// Other
+struct TranslationUnit_s; // The whole program
 
 typedef struct Expr_s {
   ExprType type;
@@ -265,42 +269,26 @@ typedef struct ExprStmnt_s {
   struct Expr_s expr; // the expression
 } ExprStmnt;
 
-// AST node
-// rownum
-// colnum
-// Either:
-//  Literal:
-//    Struct
-//    Integer
-//    Float
-//    String
-//    List
-//  Variable Declarator:
-//
-//
+typedef struct TranslationUnit_s {
+  struct Stmnt_s* statements; // The top level is just a series of statements
+  uint64_t length; // The number of statements
+} TranslationUnit;
 
-// Grammar
-//  Variable Declarator
-//    <identifier>
-//    <expression>
-//  Expression
-//    Literal
-//      Integer, String, Struct
-//    FunctionCall
-//      <identifier>
-//      <lparen>
-//        (<expression> <comma>) (or more)
-//      <rparen>
-//    UnaryExpression
-//      <operator>
-//      <expression>
-//    BinaryExpression
-//      <expression>
-//      <operator>
-//      <expression>
-//    GroupingExpression
-//      <openbracket>
-//        <expression> (or more)
-//      <closebracket>
+// Ast Generation from tokens
+
+typedef struct AstBuilder_s {
+  //TODO
+} AstBuilder;
+
+typedef struct ResultAstPtr_s {
+  AstBuilder *val;
+  ErrVal err;
+} ResultAstPtr;
+
+// Initializes Ast Builder
+AstBuilder* newAst();
+
+ErrVal parse(Ast
+
 
 #endif

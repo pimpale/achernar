@@ -8,7 +8,6 @@
 #include <string.h>
 
 #include "error.h"
-#include "token.h"
 #include "vector.h"
 
 typedef struct {
@@ -17,7 +16,7 @@ typedef struct {
 } ResultU64;
 
 // Parses integer with radix
-static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
+static ResultU64 parseInteger(char *str, size_t len, uint64_t radix) {
   uint64_t ret = 0;
   for (size_t i = 0; i < len; i++) {
     // First we must determine the value of this digit
@@ -46,9 +45,9 @@ static ResultU64 parseInteger(char* str, size_t len, uint64_t radix) {
 }
 
 // Call this function right before the first hash
-// Returns control at the first noncomment area
+// Returns control at the first noncomment (or nonannotate) area
 // Lexes comments, annotations, and docstrings
-static ResultTokenPtr lexComment(Parseable* stream) {
+static ResultToken lexCommentOrAnnotation(Parseable *stream) {
   if (nextValue(stream) != '#') {
     logError(ErrLevelError,
              "malformed comment found at line %" PRIu64 " and column %" PRIu64
@@ -56,125 +55,162 @@ static ResultTokenPtr lexComment(Parseable* stream) {
              stream->lineNumber, stream->charNumber);
   }
   int32_t c = peekValue(stream);
-  switch (c) {
-    // This is a multi line comment
-    case '*': {
-      nextValue(stream);
-      // comments are nested
-      size_t stackDepth = 1;
-      char lastChar = '\0';
-      while ((c = nextValue(stream)) != EOF) {
-        // If we see a *# to pair off the starting #*
-        if (c == '#' && lastChar == '*') {
-          stackDepth--;
-          if (stackDepth == 0) {
-            break;
-          }
-        } else if (c == '*' && lastChar == '#') {
-          stackDepth++;
-        }
-        lastChar = (char)c;
-      }
-      return (ResultTokenPtr){newToken(SymComment, NULL), ErrOk};
-    }
-    // This is a docstring. It will continue until another quote hash is found.
-    // These strings are preserved in the AST Like multiline comments, they are
-    // also nestable
-    // #" Yeet "#
-    case '\"': {
-      nextValue(stream);
-      Vector* data = newVector();
-      size_t stackDepth = 1;
-      char lastChar = '\0';
-      while ((c = nextValue(stream)) != EOF) {
-        if (c == '#' && lastChar == '\"') {
-          // If we see a "# to pair off the starting #"
-          stackDepth--;
-          if (stackDepth == 0) {
-            break;
-          }
-        } else if (c == '\"' && lastChar == '#') {
-          stackDepth++;
-        }
-        *VEC_PUSH(data, char) = (char)c;
-        lastChar = (char)c;
-      }
-      // Push null byte
-      *VEC_PUSH(data, char) = '\0';
 
-      Token* t = newToken(SymDocumentation, malloc(lengthVector(data)));
-      memcpy(t->payload, getVector(data, 0), lengthVector(data));
-      deleteVector(data);
-      return (ResultTokenPtr){t, ErrOk};
+  // Now we determine the type of comment as well as gather the comment data
+  switch (c) {
+  case '*': {
+    // This is a comment. It will continue until another quote asterix is found.
+    // These strings are preserved in the AST. They are nestable
+    // also nestable
+    // #* Comment *#
+    Vector *data = newVector();
+    nextValue(stream);
+    size_t stackDepth = 1;
+    char lastChar = '\0';
+    while ((c = nextValue(stream)) != EOF) {
+      if (c == '#' && lastChar == '*') {
+        // If we see a "# to pair off the starting #"
+        stackDepth--;
+        if (stackDepth == 0) {
+          break;
+        }
+      } else if (c == '*' && lastChar == '#') {
+        stackDepth++;
+      }
+      *VEC_PUSH(data, char) = (char)c;
+      lastChar = (char)c;
     }
+    // Push null byte
+    *VEC_PUSH(data, char) = '\0';
+
+    // Copy data over to the string
+    char *string = malloc(lengthVector(data));
+    memcpy(string, getVector(data, 0), lengthVector(data));
+    deleteVector(data);
+
+    // Return data
+    // clang-format off
+    return (ResultToken) {
+      .val = (Token) {
+        .type = TokenComment,
+        .comment = string
+      },
+      .err = ErrOk
+    };
+    // clang-format on
+  }
+  case '@': {
     // This is an annotation. It will continue till a nonalphanumeric character
     // is found. They are not nestable
     // #@Annotation
-    case '@': {
-      nextValue(stream);
-      Vector* data = newVector();
-      while ((c = peekValue(stream)) != EOF) {
-        if (isalnum(c)) {
-          *VEC_PUSH(data, char) = (char)c;
-          nextValue(stream);
-        } else {
-          break;
-        }
+    Vector *data = newVector();
+    nextValue(stream);
+    while ((c = peekValue(stream)) != EOF) {
+      if (isalnum(c)) {
+        *VEC_PUSH(data, char) = (char)c;
+        nextValue(stream);
+      } else {
+        break;
       }
-      // Push null byte
-      *VEC_PUSH(data, char) = '\0';
-      Token* t = newToken(SymAnnotation, malloc(lengthVector(data)));
-      memcpy(t->payload, getVector(data, 0), lengthVector(data));
-      deleteVector(data);
-      return (ResultTokenPtr){t, ErrOk};
     }
+    // Push null byte
+    *VEC_PUSH(data, char) = '\0';
+
+    // Copy data over to the string
+    char *string = malloc(lengthVector(data));
+    memcpy(string, getVector(data, 0), lengthVector(data));
+    deleteVector(data);
+
+    // Return data
+    // clang-format off
+    return (ResultToken) {
+      .val = (Token) {
+        .type = TokenAnnotation,
+        .annotationLiteral = string
+      },
+      .err = ErrOk
+    };
+    // clang-format on
+  }
+  default: {
     // If we don't recognize any of these characters, it's just a normal single
-    // line comment # comment
-    default: {
-      while ((c = nextValue(stream)) != EOF) {
-        if (c == '\n') {
-          break;
-        }
+    // line comment. These are not nestable, and continue till the end of line.
+    // # comment
+    Vector *data = newVector();
+    while ((c = nextValue(stream)) != EOF) {
+      if (c != '\n') {
+        *VEC_PUSH(data, char) = (char)c;
+        nextValue(stream);
+      } else {
+        break;
       }
-      return (ResultTokenPtr){newToken(SymComment, NULL), ErrOk};
     }
+    *VEC_PUSH(data, char) = '\0';
+
+    // Copy data over to the string
+    char *string = malloc(lengthVector(data));
+    memcpy(string, getVector(data, 0), lengthVector(data));
+    deleteVector(data);
+
+    // Return data
+    // clang-format off
+    return (ResultToken) {
+      .val = (Token) {
+        .type = TokenComment,
+        .comment = string
+      },
+      .err = ErrOk
+    };
+    // clang-format on
+  }
   }
 }
 
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this stream
 // This function returns a Token containing the string or an error
-static ResultTokenPtr lexStringLiteral(Parseable* stream) {
+static ResultToken lexStringLiteral(Parseable *stream) {
   if (nextValue(stream) != '\"') {
     logError(ErrLevelError, "malformed string: %" PRIu64 ", %" PRIu64 "\n",
              stream->lineNumber, stream->charNumber);
-    return (ResultTokenPtr){NULL, ErrBadargs};
+    return (ResultToken){.err = ErrBadargs};
   }
-  Vector* string = newVector();
+
+  Vector *data = newVector();
 
   int32_t c;
   while ((c = nextValue(stream)) != EOF) {
     if (c == '\"') {
       break;
     } else {
-      *VEC_PUSH(string, char) = (char)c;
+      *VEC_PUSH(data, char) = (char)c;
     }
   }
   // Push null byte
-  *VEC_PUSH(string, char) = (char)0;
+  *VEC_PUSH(data, char) = '\0';
 
-  // Copy data to token, then delete the vector
-  Token* t = newToken(SymStringLiteral, malloc(lengthVector(string)));
-  memcpy(t->payload, getVector(string, 0), lengthVector(string));
-  deleteVector(string);
-  return (ResultTokenPtr){t, ErrOk};
+  // Copy data over to the string
+  char *string = malloc(lengthVector(data));
+  memcpy(string, getVector(data, 0), lengthVector(data));
+  deleteVector(data);
+
+  // Return data
+  // clang-format off
+  return (ResultToken) {
+    .val = (Token) {
+      .type = TokenStringLiteral,
+      .stringLiteral = string
+    },
+    .err = ErrOk
+  };
+  // clang-format on
 }
 
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
-  Vector* data = newVector();
+static ResultToken lexNumberLiteral(Parseable *stream) {
+  Vector *data = newVector();
 
   // Used to determine if float or not
   // decimalPointIndex will only be defined if hasDecimalPoint is true
@@ -184,11 +220,11 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
   size_t length = 0;
   int32_t c;
   while ((c = nextValue(stream)) != EOF) {
-    if (isdigit(c)                 // Normal digit
-        || c == '.'                // Decimal point
-        || (c >= 'a' && c <= 'f')  // Hexadecimal Character
+    if (isdigit(c)                // Normal digit
+        || c == '.'               // Decimal point
+        || (c >= 'a' && c <= 'f') // Hexadecimal Character
         || c == 'b' || c == 'd' || c == 'o' ||
-        c == 'x'  // Character Interpretation
+        c == 'x' // Character Interpretation
     ) {
       // If there's a decimal point we note the location
       // If this is the second time we've seen it, then the float is malformed
@@ -200,7 +236,7 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
                    ", %" PRIu64 "\n",
                    stream->lineNumber, stream->charNumber);
           deleteVector(data);
-          return (ResultTokenPtr){NULL, ErrBadargs};
+          return (ResultToken){.err = ErrBadargs};
         } else {
           hasDecimalPoint = true;
           decimalPointIndex = length;
@@ -219,7 +255,7 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
   if (!hasDecimalPoint) {
     uint64_t radix;
     // this is the null terminated string storing the text of the number
-    char* intStr;
+    char *intStr;
     size_t intStrLen;
 
     // Special Radix
@@ -230,31 +266,31 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
       // Set radix to what it has to be
       char secondCharacter = *VEC_GET(data, 1, char);
       switch (secondCharacter) {
-        case 'b': {
-          radix = 2;
-          break;
-        }
-        case 'd': {
-          radix = 10;
-          break;
-        }
-        case 'o': {
-          radix = 8;
-          break;
-        }
-        case 'x': {
-          radix = 16;
-          break;
-        }
-        default: {
-          *VEC_PUSH(data, char) = '\0';
-          logError(ErrLevelError,
-                   "malformed integer literal: unrecognized special radix "
-                   "code: %s, %" PRIu64 ", %" PRIu64 "\n",
-                   data->data, stream->lineNumber, stream->charNumber);
-          deleteVector(data);
-          return (ResultTokenPtr){NULL, ErrBadargs};
-        }
+      case 'b': {
+        radix = 2;
+        break;
+      }
+      case 'd': {
+        radix = 10;
+        break;
+      }
+      case 'o': {
+        radix = 8;
+        break;
+      }
+      case 'x': {
+        radix = 16;
+        break;
+      }
+      default: {
+        *VEC_PUSH(data, char) = '\0';
+        logError(ErrLevelError,
+                 "malformed integer literal: unrecognized special radix "
+                 "code: %s, %" PRIu64 ", %" PRIu64 "\n",
+                 data->data, stream->lineNumber, stream->charNumber);
+        deleteVector(data);
+        return (ResultToken){.err = ErrBadargs};
+      }
       }
       intStr = VEC_GET(data, 2, char);
       intStrLen = VEC_LEN(data, char) - 2;
@@ -272,25 +308,37 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
                "\n",
                data->data, strErrVal(ret.err), stream->lineNumber,
                stream->charNumber);
-      return (ResultTokenPtr){NULL, ErrBadargs};
+
+      deleteVector(data);
+      return (ResultToken){.err = ErrBadargs};
     } else {
-      Token* t = newToken(SymIntLiteral, malloc(sizeof(ret.val)));
-      memcpy(t->payload, &ret.val, sizeof(ret.val));
-      return (ResultTokenPtr){t, ErrOk};
+      // Return data
+      // clang-format off
+      return (ResultToken) {
+        .val = (Token) {
+          .type = TokenIntLiteral,
+          .intLiteral = ret.val
+        },
+        .err = ErrOk
+      };
+      // clang-format on
     }
   } else {
     // If it has a decimal point, it must be a float
     // We have already guaranteed that the string only has one decimal point,
     // at decimalPointIndex Floats are always in decimal notation
 
-    // We parse the float as 2 integers, one above the decimal point, and one
-    // below
-    char* initialPortion = VEC_GET(data, 0, char);
+    // We parse the float as an integer above decimal point, and one below
+
+    // Represents the portion of the float literal prior to the decimal point
+    char *initialPortion = VEC_GET(data, 0, char);
     uint64_t initialPortionLen = decimalPointIndex;
 
-    char* finalPortion = VEC_GET(data, decimalPointIndex + 1, char);
+    // Represents the portion of the float literal after the decimal point
+    char *finalPortion = VEC_GET(data, decimalPointIndex + 1, char);
     uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex - 1;
 
+    // the thing we'll return
     double result = 0;
 
     // Parse the part ahead of the decimal point
@@ -304,7 +352,7 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
                data->data, strErrVal(initialRet.err), stream->lineNumber,
                stream->charNumber);
       deleteVector(data);
-      return (ResultTokenPtr){NULL, ErrBadargs};
+      return (ResultToken){.err = ErrBadargs};
     }
     // If there's a bit after the inital part, then we must add it
     if (finalPortionLen > 0) {
@@ -325,59 +373,71 @@ static ResultTokenPtr lexNumberLiteral(Parseable* stream) {
                  data->data, strErrVal(initialRet.err), stream->lineNumber,
                  stream->charNumber);
         deleteVector(data);
-        return (ResultTokenPtr){NULL, ErrBadargs};
+        return (ResultToken){.err = ErrBadargs};
       }
     }
-    Token* t = newToken(SymFloatLiteral, malloc(sizeof(result)));
-    memcpy(t->payload, &result, sizeof(result));
+
     deleteVector(data);
-    return (ResultTokenPtr){t, ErrOk};
+
+    // Return data
+    // clang-format off
+    return (ResultToken) {
+      .val = (Token) {
+        .type = TokenFloatLiteral,
+        .floatLiteral = result
+      },
+      .err = ErrOk
+    };
+    // clang-format on
   }
 }
 
-static ResultTokenPtr lexCharacterLiteral(Parseable* stream) {
+static ResultToken lexCharLiteral(Parseable *stream) {
   if (nextValue(stream) != '\'') {
     logError(ErrLevelError,
              "malformed character literal: %" PRIu64 ", %" PRIu64 "\n",
              stream->lineNumber, stream->charNumber);
-    return (ResultTokenPtr){NULL, ErrBadargs};
+    return (ResultToken){.err = ErrBadargs};
   }
 
-  Vector* chars = newVector();
-
+  // We basically read the whole thing into a string.
+  Vector *chars = newVector();
   int32_t c;
 
   while ((c = nextValue(stream)) != EOF) {
     if (c == '\\') {
       c = nextValue(stream);
       switch (c) {
-        case 't': {
-          c = '\t';
-          break;
-        }
-        case 'n': {
-          c = '\n';
-          break;
-        }
-        case '\\': {
-          c = '\\';
-          break;
-        }
-        case EOF: {
-          logError(
-              ErrLevelError,
-              "malformed character literal: unexpected end of file: %" PRIu64
-              ", %" PRIu64 "\n",
-              stream->lineNumber, stream->charNumber);
-          return (ResultTokenPtr){NULL, ErrEof};
-        }
-        default: {
-          logError(ErrLevelError,
-                   "malformed character literal: unexpected escape code: `%c` "
-                   "%" PRIu64 ", %" PRIu64 "\n",
-                   c, stream->lineNumber, stream->charNumber);
-          return (ResultTokenPtr){NULL, ErrBadargs};
-        }
+      case 't': {
+        c = '\t';
+        break;
+      }
+      case 'n': {
+        c = '\n';
+        break;
+      }
+      case '\\': {
+        c = '\\';
+        break;
+      }
+      case EOF: {
+        // Clean up
+        deleteVector(chars);
+        logError(ErrLevelError,
+                 "malformed character literal: unexpected end of file: %" PRIu64
+                 ", %" PRIu64 "\n",
+                 stream->lineNumber, stream->charNumber);
+        return (ResultToken){.err = ErrEof};
+      }
+      default: {
+        // Clean up
+        deleteVector(chars);
+        logError(ErrLevelError,
+                 "malformed character literal: unexpected escape code: `%c` "
+                 "%" PRIu64 ", %" PRIu64 "\n",
+                 c, stream->lineNumber, stream->charNumber);
+        return (ResultToken){.err = ErrBadargs};
+      }
       }
       *VEC_PUSH(chars, char) = (char)c;
     } else if (c == '\'') {
@@ -388,31 +448,44 @@ static ResultTokenPtr lexCharacterLiteral(Parseable* stream) {
   }
 
   switch (VEC_LEN(chars, char)) {
-    case 0: {
-      logError(ErrLevelError,
-               "malformed character literal: too short %" PRIu64 ", %" PRIu64
-               "\n",
-               stream->lineNumber, stream->charNumber);
-      return (ResultTokenPtr){NULL, ErrBadargs};
-    }
-    case 1: {
-      // Copy data to token, then delete the vector
-      Token* t = newToken(SymCharacterLiteral, malloc(sizeof(char)));
-      *(char*)(t->payload) = (char)c;
-      return (ResultTokenPtr){t, ErrOk};
-    }
-    default: {
-      logError(ErrLevelError,
-               "malformed character literal: too long %" PRIu64 ", %" PRIu64
-               "\n",
-               stream->lineNumber, stream->charNumber);
-      return (ResultTokenPtr){NULL, ErrBadargs};
-    }
+  case 0: {
+    // Clean up
+    deleteVector(chars);
+    logError(ErrLevelError,
+             "malformed character literal: empty %" PRIu64 ", %" PRIu64 "\n",
+             stream->lineNumber, stream->charNumber);
+    return (ResultToken){.err = ErrBadargs};
+  }
+  case 1: {
+    // We return the first character in the vector
+
+    // clang-format off
+    ResultToken result = (ResultToken) {
+      .val = (Token) {
+        .type = TokenCharLiteral,
+        .charLiteral = *VEC_GET(chars, 0, char)
+      },
+      .err = ErrOk
+    };
+    // clang-format on
+
+    // Clean up
+    deleteVector(chars);
+    return result;
+  }
+  default: {
+    // Clean up
+    deleteVector(chars);
+    logError(ErrLevelError,
+             "malformed character literal: too long %" PRIu64 ", %" PRIu64 "\n",
+             stream->lineNumber, stream->charNumber);
+    return (ResultToken){.err = ErrBadargs};
+  }
   }
 }
 
-static ResultTokenPtr lexIdentifier(Parseable* stream) {
-  Vector* data = newVector();
+static ResultToken lexIdentifier(Parseable *stream) {
+  Vector *data = newVector();
   int32_t c;
   while ((c = peekValue(stream)) != EOF) {
     if (isalnum(c)) {
@@ -425,216 +498,451 @@ static ResultTokenPtr lexIdentifier(Parseable* stream) {
   // Push null byte
   *VEC_PUSH(data, char) = '\0';
 
-  Token* t = NULL;
+  Token t;
 
   if (!strcmp(VEC_GET(data, 0, char), "if")) {
-    t = newToken(SymIf, NULL);
+    t = (Token){.type = TokenIf};
   } else if (!strcmp(VEC_GET(data, 0, char), "else")) {
-    t = newToken(SymElse, NULL);
+    t = (Token){.type = TokenElse};
   } else if (!strcmp(VEC_GET(data, 0, char), "while")) {
-    t = newToken(SymWhile, NULL);
+    t = (Token){.type = TokenWhile};
   } else if (!strcmp(VEC_GET(data, 0, char), "with")) {
-    t = newToken(SymWith, NULL);
+    t = (Token){.type = TokenWith};
   } else if (!strcmp(VEC_GET(data, 0, char), "for")) {
-    t = newToken(SymFor, NULL);
+    t = (Token){.type = TokenFor};
   } else if (!strcmp(VEC_GET(data, 0, char), "break")) {
-    t = newToken(SymBreak, NULL);
+    t = (Token){.type = TokenBreak};
   } else if (!strcmp(VEC_GET(data, 0, char), "continue")) {
-    t = newToken(SymContinue, NULL);
+    t = (Token){.type = TokenContinue};
   } else if (!strcmp(VEC_GET(data, 0, char), "return")) {
-    t = newToken(SymReturn, NULL);
+    t = (Token){.type = TokenReturn};
   } else {
-    // It's a normal identifier, not a keyword
-    Token* t = newToken(SymIdentifier, malloc(lengthVector(data)));
-    memcpy(t->payload, getVector(data, 0), lengthVector(data));
-    deleteVector(data);
-    return (ResultTokenPtr){t, ErrOk};
+    // It is an identifier
+
+    char *string = malloc(lengthVector(data));
+    memcpy(string, getVector(data, 0), lengthVector(data));
+
+    t = (Token){.type = TokenIdentifier, .identifier = string};
   }
-  // If it was a keyword;
   deleteVector(data);
-  return (ResultTokenPtr){t, ErrOk};
+  return (ResultToken){.val = t, .err = ErrOk};
 }
 
-ResultTokenPtr nextToken(Parseable* stream) {
+static ResultToken resultTokenType(TokenType type) {
+  // clang-format off
+  return (ResultToken){
+    .val = (Token) {
+      .type = type
+    },
+    .err = ErrOk
+  };
+  // clang-format on
+}
+
+ResultToken nextToken(Parseable *stream) {
   int32_t c;
   while ((c = peekValue(stream)) != EOF) {
     // We're dealing with an operator
     // Pop the current value
     switch (c) {
-      case '&': {
+    case '&': {
+      nextValue(stream);
+      int32_t n = peekValue(stream);
+      // && or &
+      if (n == '&') {
         nextValue(stream);
-        int32_t n = peekValue(stream);
-        // && or &
-        if (n == '&') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymAnd, NULL), ErrOk};
-        } else {
-          return (ResultTokenPtr){newToken(SymBitAnd, NULL), ErrOk};
-        }
+        return resultTokenType(TokenAnd);
+      } else {
+        return resultTokenType(TokenBitAnd);
       }
-      case '|': {
+    }
+    case '|': {
+      nextValue(stream);
+      int32_t n = peekValue(stream);
+      // || or |
+      if (n == '|') {
         nextValue(stream);
-        int32_t n = peekValue(stream);
-        // || or |
-        if (n == '|') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymOr, NULL), ErrOk};
-        }
-        else if (n == '>') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymPipe, NULL), ErrOk};
-        } else {
-          return (ResultTokenPtr){newToken(SymBitOr, NULL), ErrOk};
-        }
-      }
-      case '!': {
+        return resultTokenType(TokenOr);
+      } else if (n == '>') {
         nextValue(stream);
-        int32_t n = peekValue(stream);
-        // ! or !=
-        if (n == '=') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymNotEqual, NULL), ErrOk};
-        } else {
-          return (ResultTokenPtr){newToken(SymNot, NULL), ErrOk};
-        }
+        return resultTokenType(TokenPipe);
+      } else {
+        return resultTokenType(TokenBitOr);
       }
-      case '=': {
+    }
+    case '!': {
+      nextValue(stream);
+      int32_t n = peekValue(stream);
+      // ! or !=
+      if (n == '=') {
         nextValue(stream);
-        int32_t n = peekValue(stream);
-        // = or ==
-        if (n == '=') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymEqual, NULL), ErrOk};
-        } else {
-          return (ResultTokenPtr){newToken(SymAssign, NULL), ErrOk};
-        }
+        return resultTokenType(TokenNotEqual);
+      } else {
+        return resultTokenType(TokenNot);
       }
-      case '<': {
+    }
+    case '=': {
+      nextValue(stream);
+      int32_t n = peekValue(stream);
+      // = or ==
+      if (n == '=') {
         nextValue(stream);
-        int32_t n = peekValue(stream);
-        if (n == '<') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymShiftLeft, NULL), ErrOk};
-        } else if (n == '=') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymCompLessEqual, NULL), ErrOk};
-        } else {
-          return (ResultTokenPtr){newToken(SymCompLess, NULL), ErrOk};
-        }
+        return resultTokenType(TokenEqual);
+      } else {
+        return resultTokenType(TokenAssign);
       }
-      case '>': {
+    }
+    case '<': {
+      nextValue(stream);
+      int32_t n = peekValue(stream);
+      if (n == '<') {
         nextValue(stream);
-        int32_t n = peekValue(stream);
-        if (n == '>') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymShiftRight, NULL), ErrOk};
-        } else if (n == '=') {
-          nextValue(stream);
-          return (ResultTokenPtr){newToken(SymCompGreaterEqual, NULL), ErrOk};
-        } else {
-          return (ResultTokenPtr){newToken(SymCompGreater, NULL), ErrOk};
-        }
-      }
-      case '+': {
+        return resultTokenType(TokenShiftLeft);
+      } else if (n == '=') {
         nextValue(stream);
-        return (ResultTokenPtr){newToken(SymAdd, NULL), ErrOk};
+        return resultTokenType(TokenCompLessEqual);
+      } else {
+        return resultTokenType(TokenCompLess);
       }
-      case '-': {
+    }
+    case '>': {
+      nextValue(stream);
+      int32_t n = peekValue(stream);
+      if (n == '>') {
         nextValue(stream);
-        return (ResultTokenPtr){newToken(SymSub, NULL), ErrOk};
-      }
-      case '*': {
+        return resultTokenType(TokenShiftRight);
+      } else if (n == '=') {
         nextValue(stream);
-        return (ResultTokenPtr){newToken(SymMul, NULL), ErrOk};
+        return resultTokenType(TokenCompGreaterEqual);
+      } else {
+        return resultTokenType(TokenCompGreater);
       }
-      case '/': {
+    }
+    case '+': {
+      nextValue(stream);
+      return resultTokenType(TokenAdd);
+    }
+    case '-': {
+      nextValue(stream);
+      return resultTokenType(TokenSub);
+    }
+    case '*': {
+      nextValue(stream);
+      return resultTokenType(TokenMul);
+    }
+    case '/': {
+      nextValue(stream);
+      return resultTokenType(TokenDiv);
+    }
+    case '%': {
+      nextValue(stream);
+      return resultTokenType(TokenMod);
+    }
+    case '$': {
+      nextValue(stream);
+      return resultTokenType(TokenRef);
+    }
+    case '@': {
+      nextValue(stream);
+      return resultTokenType(TokenDeref);
+    }
+    case '(': {
+      nextValue(stream);
+      return resultTokenType(TokenParenLeft);
+    }
+    case ')': {
+      nextValue(stream);
+      return resultTokenType(TokenParenRight);
+    }
+    case '[': {
+      nextValue(stream);
+      return resultTokenType(TokenBracketLeft);
+    }
+    case ']': {
+      nextValue(stream);
+      return resultTokenType(TokenBracketRight);
+    }
+    case '{': {
+      nextValue(stream);
+      return resultTokenType(TokenBraceLeft);
+    }
+    case '}': {
+      nextValue(stream);
+      return resultTokenType(TokenBraceRight);
+    }
+    case '.': {
+      nextValue(stream);
+      return resultTokenType(TokenDot);
+    }
+    case ',': {
+      nextValue(stream);
+      return resultTokenType(TokenComma);
+    }
+    case ':': {
+      nextValue(stream);
+      return resultTokenType(TokenColon);
+    }
+    case ';': {
+      nextValue(stream);
+      return resultTokenType(TokenSemicolon);
+    }
+    default: {
+      // Lex the weird literals, comments, annotation, identifiers, etc
+      if (isdigit(c)) {
+        return lexNumberLiteral(stream);
+      } else if (c == '#') {
+        return lexCommentOrAnnotation(stream);
+      } else if (c == '\"') {
+        return lexStringLiteral(stream);
+      } else if (c == '\'') {
+        return lexCharLiteral(stream);
+      } else if (isalpha(c)) {
+        return lexIdentifier(stream);
+      }
+      if (isblank(c) || c == '\n') {
         nextValue(stream);
-        return (ResultTokenPtr){newToken(SymDiv, NULL), ErrOk};
-      }
-      case '%': {
+      } else {
+        // If we simply don't recognize the character, we're going to give
+        // an error and move on to the next value
+        logError(ErrLevelError,
+                 "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n", c,
+                 stream->lineNumber, stream->charNumber);
         nextValue(stream);
-        return (ResultTokenPtr){newToken(SymMod, NULL), ErrOk};
       }
-      case '$': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymRef, NULL), ErrOk};
-      }
-      case '@': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymDeref, NULL), ErrOk};
-      }
-      case '(': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymParenLeft, NULL), ErrOk};
-      }
-      case ')': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymParenRight, NULL), ErrOk};
-      }
-      case '[': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymBracketLeft, NULL), ErrOk};
-      }
-      case ']': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymBracketRight, NULL), ErrOk};
-      }
-      case '{': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymBraceLeft, NULL), ErrOk};
-      }
-      case '}': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymBraceRight, NULL), ErrOk};
-      }
-      case '.': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymDot, NULL), ErrOk};
-      }
-      case ',': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymComma, NULL), ErrOk};
-      }
-      case ':': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymColon, NULL), ErrOk};
-      }
-      case ';': {
-        nextValue(stream);
-        return (ResultTokenPtr){newToken(SymSemicolon, NULL), ErrOk};
-      }
-      default: {
-        // Lex the weird literals, comments, annotation, identifiers, etc
-        if (isblank(c) || c == '\n') {
-          nextValue(stream);
-        } else {
-          ResultTokenPtr ret = (ResultTokenPtr){NULL, ErrUnknown};
-          if (isdigit(c)) {
-            ret = lexNumberLiteral(stream);
-          } else if (c == '#') {
-            ret = lexComment(stream);
-          } else if (c == '\"') {
-            ret = lexStringLiteral(stream);
-          } else if (c == '\'') {
-            ret = lexCharacterLiteral(stream);
-          } else if (isalpha(c)) {
-            ret = lexIdentifier(stream);
-          } else {
-            // If we simply don't recognize the character, we're going to give
-            // an error and move on to the next value
-            logError(ErrLevelError,
-                     "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n",
-                     c, stream->lineNumber, stream->charNumber);
-            nextValue(stream);
-          }
-
-          if (ret.err == ErrOk) {
-            return ret;
-          }
-        }
-      }
+    }
     }
   }
   // If we hit the end of the file just give a End of file error
-  return (ResultTokenPtr){NULL, ErrEof};
+  return (ResultToken){.err = ErrEof};
+}
+
+void destroyToken(Token* token) {
+  switch (token->type) {
+  case TokenIdentifier: {
+    free(token->identifier);
+    break;
+  }
+  case TokenComment: {
+    free(token->comment);
+    break;
+  }
+  case TokenStringLiteral: {
+    free(token->stringLiteral);
+    break;
+  }
+  case TokenAnnotation: {
+    free(token->annotationLiteral);
+    break;
+  }
+  default: {
+    break;
+  }
+  }
+}
+
+void printToken(Token* token) {
+  char* str;
+  switch (token->type) {
+    case TokenIdentifier: {
+      str = "Identifier";
+      break;
+    }
+    case TokenIf: {
+      str = "If";
+      break;
+    }
+    case TokenElse: {
+      str = "Else";
+      break;
+    }
+    case TokenWhile: {
+      str = "While";
+      break;
+    }
+    case TokenFor: {
+      str = "For";
+      break;
+    }
+    case TokenWith: {
+      str = "With";
+      break;
+    }
+    case TokenMatch: {
+      str = "Match";
+      break;
+    }
+    case TokenBreak: {
+      str = "Break";
+      break;
+    }
+    case TokenContinue: {
+      str = "Continue";
+      break;
+    }
+    case TokenReturn: {
+      str = "Return";
+      break;
+    }
+    case TokenStringLiteral: {
+      str = "StringLiteral";
+      break;
+    }
+    case TokenCharLiteral: {
+      str = "CharacterLiteral";
+      break;
+    }
+    case TokenFloatLiteral: {
+      str = "FloatLiteral";
+      break;
+    }
+    case TokenIntLiteral: {
+      str = "IntLiteral";
+      break;
+    }
+    case TokenAdd: {
+      str = "Add";
+      break;
+    }
+    case TokenSub: {
+      str = "Sub";
+      break;
+    }
+    case TokenMul: {
+      str = "Mul";
+      break;
+    }
+    case TokenDiv: {
+      str = "Div";
+      break;
+    }
+    case TokenMod: {
+      str = "Mod";
+      break;
+    }
+    case TokenAnd: {
+      str = "And";
+      break;
+    }
+    case TokenOr: {
+      str = "Or";
+      break;
+    }
+    case TokenNot: {
+      str = "Not";
+      break;
+    }
+    case TokenBitAnd: {
+      str = "BitAnd";
+      break;
+    }
+    case TokenBitOr: {
+      str = "BitOr";
+      break;
+    }
+    case TokenBitXor: {
+      str = "BitXor";
+      break;
+    }
+    case TokenBitNot: {
+      str = "BitNot";
+      break;
+    }
+    case TokenShiftLeft: {
+      str = "ShiftLeft";
+      break;
+    }
+    case TokenShiftRight: {
+      str = "ShiftRight";
+      break;
+    }
+    case TokenEqual: {
+      str = "Equal";
+      break;
+    }
+    case TokenNotEqual: {
+      str = "NotEqual";
+      break;
+    }
+    case TokenCompLess: {
+      str = "CompLess";
+      break;
+    }
+    case TokenCompLessEqual: {
+      str = "CompLessEqual";
+      break;
+    }
+    case TokenCompGreater: {
+      str = "CompGreater";
+      break;
+    }
+    case TokenCompGreaterEqual: {
+      str = "CompGreaterEqual";
+      break;
+    }
+    case TokenRef: {
+      str = "Ref";
+      break;
+    }
+    case TokenDeref: {
+      str = "Deref";
+      break;
+    }
+    case TokenAssign: {
+      str = "Assign";
+      break;
+    }
+    case TokenPipe: {
+      str = "Pipe";
+      break;
+    }
+    case TokenParenLeft: {
+      str = "ParenLeft";
+      break;
+    }
+    case TokenParenRight: {
+      str = "ParenRight";
+      break;
+    }
+    case TokenBracketLeft: {
+      str = "BracketLeft";
+      break;
+    }
+    case TokenBracketRight: {
+      str = "BracketRight";
+      break;
+    }
+    case TokenBraceLeft: {
+      str = "BraceLeft";
+      break;
+    }
+    case TokenBraceRight: {
+      str = "BraceRight";
+      break;
+    }
+    case TokenDot: {
+      str = "Dot";
+      break;
+    }
+    case TokenComma: {
+      str = "Comma";
+      break;
+    }
+    case TokenColon: {
+      str = "Colon";
+      break;
+    }
+    case TokenSemicolon: {
+      str = "Semicolon";
+      break;
+    }
+    case TokenComment: {
+      str = "Comment";
+      break;
+    }
+    case TokenAnnotation: {
+      str = "Annotation";
+      break;
+    }
+  }
+  puts(str);
 }

@@ -2,6 +2,7 @@
 #define AST_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "error.h"
 #include "identifier.h"
@@ -288,7 +289,10 @@ typedef struct ResultAstPtr_s {
 // Initializes Ast Builder
 AstBuilder* newAst();
 
-ErrVal parse(Ast
+//ErrVal parseAst(Ast
+
+// Repeatedly invoked...
+//
 
 
 #endif

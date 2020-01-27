@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "parseable.h"
 #include "error.h"
 #include "identifier.h"
 
@@ -275,24 +276,13 @@ typedef struct TranslationUnit_s {
   uint64_t length; // The number of statements
 } TranslationUnit;
 
-// Ast Generation from tokens
-
-typedef struct AstBuilder_s {
-  //TODO
-} AstBuilder;
-
-typedef struct ResultAstPtr_s {
-  AstBuilder *val;
+typedef struct ResultTranslationUnit_s {
+  struct TranslationUnit_s val;
   ErrVal err;
-} ResultAstPtr;
+} ResultTranslationUnit;
 
-// Initializes Ast Builder
-AstBuilder* newAst();
-
-//ErrVal parseAst(Ast
-
-// Repeatedly invoked...
-//
+// Parses a parseable.
+ResultTranslationUnit parseTranslationUnit(Parseable* p);
 
 
 #endif

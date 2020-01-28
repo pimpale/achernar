@@ -4,7 +4,7 @@
 
 #include "error.h"
 #include "vector.h"
-#include "lex.h"
+#include "token.h"
 
 static char* newAstString(FILE* stream) {
   Parseable* p = newParseableFile(stream);

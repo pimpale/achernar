@@ -3,13 +3,14 @@
 #include <stdlib.h>
 
 #include "error.h"
+#include "lexer.h"
 #include "vector.h"
 #include "token.h"
 
 static char* newAstString(FILE* stream) {
-  Parseable* p = newParseableFile(stream);
+  Lexer* l = createLexerFile(malloc(sizeof(Lexer)), stream);
   while(true) {
-    ResultToken ret = nextToken(p);
+    ResultToken ret = lexNextToken(l);
     if(ret.err == ErrOk) {
       printToken(&ret.val);
       destroyToken(&ret.val);
@@ -17,7 +18,8 @@ static char* newAstString(FILE* stream) {
       break;
     }
   }
-  deleteParseable(p);
+  destroyLexer(l);
+  free(l);
   return "";
 }
 

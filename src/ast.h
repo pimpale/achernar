@@ -1,4 +1,4 @@
-#ifndef AST_H_
+ifndef AST_H_
 #define AST_H_
 
 #include <stdbool.h>
@@ -6,7 +6,7 @@
 
 #include "error.h"
 #include "identifier.h"
-#include "parseable.h"
+#include "token.h"
 
 typedef enum {
   StmntFuncDec,
@@ -267,8 +267,5 @@ DECL_RESULT_TYPE(StructDeclStmnt)   // Struct Declaration Statement
 DECL_RESULT_TYPE(AliasDeclStmnt)    // Type Alias Declaration Statement
 DECL_RESULT_TYPE(ExprStmnt)         // Expression Statement
 DECL_RESULT_TYPE(TranslationUnit)   // The whole program
-
-// Parses a parseable.
-ResultTranslationUnit parseTranslationUnit(Parseable *p);
 
 #endif

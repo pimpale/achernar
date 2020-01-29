@@ -4,8 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "parseable.h"
-#include "vector.h"
 #include "error.h"
 
 typedef enum {
@@ -17,10 +15,14 @@ typedef enum {
   TokenWhile,    // while
   TokenFor,      // for
   TokenWith,     // with
-  TokenMatch,     // match
+  TokenMatch,    // match
   TokenBreak,    // break
   TokenContinue, // continue
   TokenReturn,   // return
+  TokenFunction, // fn
+  TokenLet,      // let
+  TokenStruct,   // struct
+  TokenAlias,    // alias
   // Literals and constants
   TokenStringLiteral,    // "string"
   TokenCharLiteral, // 'a'
@@ -89,6 +91,9 @@ typedef struct Token_s {
     double floatLiteral;
     char charLiteral;
   };
+
+  // Line number of token.
+  uint64_t lineNumber;
 } Token;
 
 typedef struct ResultToken_s {
@@ -96,9 +101,12 @@ typedef struct ResultToken_s {
   ErrVal err;
 } ResultToken;
 
+typedef struct ResultTokenPtr_s {
+  Token* val;
+  ErrVal err;
+} ResultTokenPtr;
 
-// Returns the next available token, or a EofError
-ResultToken nextToken(Parseable* stream);
+
 void destroyToken(Token *token);
 void printToken(Token *token);
 

@@ -1,4 +1,4 @@
-ifndef AST_H_
+#ifndef AST_H_
 #define AST_H_
 
 #include <stdbool.h>
@@ -9,11 +9,11 @@ ifndef AST_H_
 #include "token.h"
 
 typedef enum {
-  StmntFuncDec,
-  StmntVarDec,
-  StmntStructDec,
+  StmntFuncDecl,
+  StmntVarDecl,
+  StmntStructDecl,
+  StmntTypeAliasDecl,
   StmntExpr,
-  StmntTypeAlias,
 } StmntType;
 
 typedef enum {

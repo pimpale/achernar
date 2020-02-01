@@ -21,13 +21,14 @@ typedef enum {
   TokenReturn,   // return
   TokenFunction, // fn
   TokenLet,      // let
+  TokenMut,      // mut
   TokenStruct,   // struct
   TokenAlias,    // alias
   // Literals and constants
-  TokenStringLiteral,    // "string"
-  TokenCharLiteral, // 'a'
-  TokenFloatLiteral,     // 0.7
-  TokenIntLiteral,       // 7
+  TokenStringLiteral, // "string"
+  TokenCharLiteral,   // 'a'
+  TokenFloatLiteral,  // 0.7
+  TokenIntLiteral,    // 7
   // Math Operators
   TokenAdd, // +
   TokenSub, // -
@@ -71,22 +72,22 @@ typedef enum {
   TokenColon,        // :
   TokenSemicolon,    // ;
   // Comments, and Annotations
-  TokenComment,       // #* comment *# and # comment
-  TokenAnnotation     // #@Annotation
+  TokenComment,   // #* comment *# and # comment
+  TokenAnnotation // #@Annotation
 } TokenType;
 
 typedef struct Token_s {
   TokenType type;
   // This points to
-  // null terminated string in case of identifier, TokenStringLiteral, TokenComment,
-  // TokenDocumentation, or TokenAnnotation uint64_t in case of TokenIntLiteral double
-  // double in case of TokenFloatLiteral
-  // Otherwise must be null
+  // null terminated string in case of identifier, TokenStringLiteral,
+  // TokenComment, TokenDocumentation, or TokenAnnotation uint64_t in case of
+  // TokenIntLiteral double double in case of TokenFloatLiteral Otherwise must
+  // be null
   union {
-    char* identifier;
-    char* comment;
-    char* stringLiteral;
-    char* annotationLiteral;
+    char *identifier;
+    char *comment;
+    char *stringLiteral;
+    char *annotationLiteral;
     uint64_t intLiteral;
     double floatLiteral;
     char charLiteral;
@@ -102,10 +103,9 @@ typedef struct ResultToken_s {
 } ResultToken;
 
 typedef struct ResultTokenPtr_s {
-  Token* val;
+  Token *val;
   ErrVal err;
 } ResultTokenPtr;
-
 
 void destroyToken(Token *token);
 void printToken(Token *token);

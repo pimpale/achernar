@@ -4,20 +4,24 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct __attribute__((__packed__)) {
-  void *key;
+// Do not manually modify this struct
+typedef struct {
   // Do not realloc data
-  void *data;
-  // Do not manually modify length or capacity
   size_t length;
   size_t capacity;
-  float loadFactor;
+  void *data;
 } Vector;
 
-// Creates empty vector
-Vector *newVector(void);
-// Frees vector
-void deleteVector(Vector *vector);
+// Creates empty vector, accepting memory for the vector
+Vector *createVector(Vector *mem);
+// Frees vector, returning the memory for the vector
+// Don't use the vector after this
+Vector *destroyVector(Vector *vector);
+
+// Deinitializes vector, but returns pointer to backing array
+// Don't use the vector after this
+// The memory is as long as the vector's length
+void *releaseVector(Vector *vector);
 
 /* Returns pointer to section of memory guaranteed to be valid until next
  * operation */
@@ -33,7 +37,10 @@ void removeVector(Vector *vector, size_t loc, size_t len);
 void *pushVector(Vector *vector, size_t len);
 void popVector(Vector *vector, void *data, size_t len);
 
+// Get the length of vector safely
 size_t lengthVector(Vector *vector);
+// Get the capacity of vector safely
+size_t capacityVector(Vector *vector);
 
 // Macros to help work with only one element
 #define VEC_GET(vector, index, type)                                           \
@@ -44,6 +51,6 @@ size_t lengthVector(Vector *vector);
   removeVector(vector, index * sizeof(type), sizeof(type))
 #define VEC_PUSH(vector, type) ((type *)pushVector(vector, sizeof(type)))
 #define VEC_POP(vector, data, type) popVector(vector, data, sizeof(type))
-#define VEC_LEN(vector, type) (lengthVector(vector)/sizeof(type))
+#define VEC_LEN(vector, type) (lengthVector(vector) / sizeof(type))
 
 #endif

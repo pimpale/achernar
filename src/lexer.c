@@ -149,7 +149,8 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
     // These strings are preserved in the AST. They are nestable
     // also nestable
     // #* Comment *#
-    Vector *data = newVector();
+    Vector data;
+    createVector(&data);
     nextValueLexer(lexer);
     size_t stackDepth = 1;
     char lastChar = '\0';
@@ -163,23 +164,18 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
       } else if (c == '*' && lastChar == '#') {
         stackDepth++;
       }
-      *VEC_PUSH(data, char) = (char)c;
+      *VEC_PUSH(&data, char) = (char)c;
       lastChar = (char)c;
     }
     // Push null byte
-    *VEC_PUSH(data, char) = '\0';
-
-    // Copy data over to the string
-    char *string = malloc(lengthVector(data));
-    memcpy(string, getVector(data, 0), lengthVector(data));
-    deleteVector(data);
+    *VEC_PUSH(&data, char) = '\0';
 
     // Return data
     // clang-format off
     return (ResultToken) {
       .val = (Token) {
         .type = TokenComment,
-        .comment = string
+        .comment = releaseVector(&data)
       },
       .err = ErrOk
     };
@@ -189,30 +185,27 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
     // This is an annotation. It will continue till a nonalphanumeric character
     // is found. They are not nestable
     // #@Annotation
-    Vector *data = newVector();
+    Vector data;
+    createVector(&data);
+
     nextValueLexer(lexer);
     while ((c = peekValueLexer(lexer)) != EOF) {
       if (isalnum(c)) {
-        *VEC_PUSH(data, char) = (char)c;
+        *VEC_PUSH(&data, char) = (char)c;
         nextValueLexer(lexer);
       } else {
         break;
       }
     }
     // Push null byte
-    *VEC_PUSH(data, char) = '\0';
-
-    // Copy data over to the string
-    char *string = malloc(lengthVector(data));
-    memcpy(string, getVector(data, 0), lengthVector(data));
-    deleteVector(data);
+    *VEC_PUSH(&data, char) = '\0';
 
     // Return data
     // clang-format off
     return (ResultToken) {
       .val = (Token) {
         .type = TokenAnnotation,
-        .annotationLiteral = string
+        .annotationLiteral = releaseVector(&data)
       },
       .err = ErrOk
     };
@@ -222,28 +215,24 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
     // If we don't recognize any of these characters, it's just a normal single
     // line comment. These are not nestable, and continue till the end of line.
     // # comment
-    Vector *data = newVector();
+    Vector data;
+    createVector(&data);
     while ((c = nextValueLexer(lexer)) != EOF) {
       if (c != '\n') {
-        *VEC_PUSH(data, char) = (char)c;
+        *VEC_PUSH(&data, char) = (char)c;
         nextValueLexer(lexer);
       } else {
         break;
       }
     }
-    *VEC_PUSH(data, char) = '\0';
-
-    // Copy data over to the string
-    char *string = malloc(lengthVector(data));
-    memcpy(string, getVector(data, 0), lengthVector(data));
-    deleteVector(data);
+    *VEC_PUSH(&data, char) = '\0';
 
     // Return data
     // clang-format off
     return (ResultToken) {
       .val = (Token) {
         .type = TokenComment,
-        .comment = string
+        .comment = releaseVector(&data)
       },
       .err = ErrOk
     };
@@ -262,30 +251,26 @@ static ResultToken lexStringLiteral(Lexer *lexer) {
     return (ResultToken){.err = ErrBadargs};
   }
 
-  Vector *data = newVector();
+  Vector data;
+  createVector(&data);
 
   int32_t c;
   while ((c = nextValueLexer(lexer)) != EOF) {
     if (c == '\"') {
       break;
     } else {
-      *VEC_PUSH(data, char) = (char)c;
+      *VEC_PUSH(&data, char) = (char)c;
     }
   }
   // Push null byte
-  *VEC_PUSH(data, char) = '\0';
-
-  // Copy data over to the string
-  char *string = malloc(lengthVector(data));
-  memcpy(string, getVector(data, 0), lengthVector(data));
-  deleteVector(data);
+  *VEC_PUSH(&data, char) = '\0';
 
   // Return data
   // clang-format off
   return (ResultToken) {
     .val = (Token) {
       .type = TokenStringLiteral,
-      .stringLiteral = string
+      .stringLiteral = releaseVector(&data)
     },
     .err = ErrOk
   };
@@ -296,14 +281,14 @@ static ResultToken lexStringLiteral(Lexer *lexer) {
 // Returns control right after the number is finished
 // This function returns a Token or the error
 static ResultToken lexNumberLiteral(Lexer *lexer) {
-  Vector *data = newVector();
+  Vector data;
+  createVector(&data);
 
   // Used to determine if float or not
   // decimalPointIndex will only be defined if hasDecimalPoint is true
   bool hasDecimalPoint = false;
   size_t decimalPointIndex = 0;
 
-  size_t length = 0;
   int32_t c;
   while ((c = nextValueLexer(lexer)) != EOF) {
     if (isdigit(c)                // Normal digit
@@ -316,26 +301,30 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
       // If this is the second time we've seen it, then the float is malformed
       if (c == '.') {
         if (hasDecimalPoint) {
-          *VEC_PUSH(data, char) = '\0';
           logError(ErrLevelError,
                    "malformed float literal: excess decimal point: %" PRIu64
                    ", %" PRIu64 "\n",
                    lexer->lineNumber, lexer->charNumber);
-          deleteVector(data);
+          destroyVector(&data);
           return (ResultToken){.err = ErrBadargs};
         } else {
           hasDecimalPoint = true;
-          decimalPointIndex = length;
+          // Since we haven't appended the new dot yet, it's the previous value
+          decimalPointIndex = VEC_LEN(&data, char);
         }
       }
-      *VEC_PUSH(data, char) = (char)c;
-      length++;
+      *VEC_PUSH(&data, char) = (char)c;
     } else if (c == '_') {
       // Do nothing
     } else {
       break;
     }
   }
+
+  // The definition of string length doesn't include the \0
+  size_t length = VEC_LEN(&data, char);
+  *VEC_PUSH(&data, char) = '\0';
+  char* string = releaseVector(&data);
 
   // If it's an integer
   if (!hasDecimalPoint) {
@@ -347,11 +336,11 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
     // Special Radix
     // More than 2 characters and first character is 0 and second character is
     // not digit
-    if (length > 2 && *VEC_GET(data, 0, char) == '0' &&
-        !isdigit(*VEC_GET(data, 1, char))) {
+    if (length > 2 && string[0] == '0' &&
+        !isdigit(string[1])) {
       // Set radix to what it has to be
-      char secondCharacter = *VEC_GET(data, 1, char);
-      switch (secondCharacter) {
+      // Switch on the second character aka x, or b or whatever comes after 0
+      switch (string[1]) {
       case 'b': {
         radix = 2;
         break;
@@ -369,32 +358,32 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
         break;
       }
       default: {
-        *VEC_PUSH(data, char) = '\0';
         logError(ErrLevelError,
                  "malformed integer literal: unrecognized special radix "
                  "code: %s, %" PRIu64 ", %" PRIu64 "\n",
-                 data->data, lexer->lineNumber, lexer->charNumber);
-        deleteVector(data);
+                 string, lexer->lineNumber, lexer->charNumber);
+        free(string);
         return (ResultToken){.err = ErrBadargs};
       }
       }
-      intStr = VEC_GET(data, 2, char);
-      intStrLen = VEC_LEN(data, char) - 2;
+      // Basically take the string after 0x or whatever
+      intStr = string + 2;
+      intStrLen = length - 2;
     } else {
       radix = 10;
-      intStr = VEC_GET(data, 0, char);
-      intStrLen = VEC_LEN(data, char);
+      intStr = string;
+      intStrLen = length;
     }
+
+    // Now we get on to parsing the integer
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
-    deleteVector(data);
     if (ret.err != ErrOk) {
-      *VEC_PUSH(data, char) = '\0';
       logError(
           ErrLevelError,
           "malformed integer literal: `%s`: %s: %" PRIu64 ", %" PRIu64 "\n",
-          data->data, strErrVal(ret.err), lexer->lineNumber, lexer->charNumber);
+          string, strErrVal(ret.err), lexer->lineNumber, lexer->charNumber);
 
-      deleteVector(data);
+      free(string);
       return (ResultToken){.err = ErrBadargs};
     } else {
       // Return data
@@ -416,12 +405,12 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
     // We parse the float as an integer above decimal point, and one below
 
     // Represents the portion of the float literal prior to the decimal point
-    char *initialPortion = VEC_GET(data, 0, char);
-    uint64_t initialPortionLen = decimalPointIndex;
+    char *initialPortion = string;
+    size_t initialPortionLen = decimalPointIndex;
 
     // Represents the portion of the float literal after the decimal point
-    char *finalPortion = VEC_GET(data, decimalPointIndex + 1, char);
-    uint64_t finalPortionLen = VEC_LEN(data, char) - decimalPointIndex - 1;
+    char *finalPortion = string + decimalPointIndex + 1;
+    size_t finalPortionLen = length - decimalPointIndex - 1;
 
     // the thing we'll return
     double result = 0;
@@ -431,12 +420,11 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
     if (initialRet.err == ErrOk) {
       result += initialRet.val;
     } else {
-      *VEC_PUSH(data, char) = '\0';
       logError(ErrLevelError,
                "malformed float literal: `%s': %s: %" PRIu64 ", %" PRIu64 "\n",
-               data->data, strErrVal(initialRet.err), lexer->lineNumber,
+               string, strErrVal(initialRet.err), lexer->lineNumber,
                lexer->charNumber);
-      deleteVector(data);
+      free(string);
       return (ResultToken){.err = ErrBadargs};
     }
     // If there's a bit after the inital part, then we must add it
@@ -451,18 +439,18 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
         }
         result += decimalResult;
       } else {
-        *VEC_PUSH(data, char) = '\0';
         logError(ErrLevelError,
                  "malformed float literal: `%s`: %s: %" PRIu64 ", %" PRIu64
                  "\n",
-                 data->data, strErrVal(initialRet.err), lexer->lineNumber,
+                 string, strErrVal(initialRet.err), lexer->lineNumber,
                  lexer->charNumber);
-        deleteVector(data);
+        free(string);
         return (ResultToken){.err = ErrBadargs};
       }
     }
 
-    deleteVector(data);
+    // avoid leaking memory
+    free(string);
 
     // Return data
     // clang-format off
@@ -486,7 +474,9 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
   }
 
   // We basically read the whole thing into a string.
-  Vector *chars = newVector();
+  Vector data;
+  createVector(&data);
+
   int32_t c;
 
   while ((c = nextValueLexer(lexer)) != EOF) {
@@ -510,7 +500,7 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
       }
       default: {
         // Clean up
-        deleteVector(chars);
+        destroyVector(&data);
         logError(ErrLevelError,
                  "malformed character literal: unexpected escape code: `%c` "
                  "%" PRIu64 ", %" PRIu64 "\n",
@@ -518,18 +508,23 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
         return (ResultToken){.err = ErrBadargs};
       }
       }
-      *VEC_PUSH(chars, char) = (char)c;
+      *VEC_PUSH(&data, char) = (char)c;
     } else if (c == '\'') {
       break;
     } else {
-      *VEC_PUSH(chars, char) = (char)c;
+      *VEC_PUSH(&data, char) = (char)c;
     }
   }
 
-  switch (VEC_LEN(chars, char)) {
+  // get size and length + terminate string
+  size_t length = VEC_LEN(&data, char);
+  *VEC_PUSH(&data, char) = '\0';
+  char* string = releaseVector(&data);
+
+  switch (length) {
   case 0: {
     // Clean up
-    deleteVector(chars);
+    free(string);
     logError(ErrLevelError,
              "malformed character literal: empty %" PRIu64 ", %" PRIu64 "\n",
              lexer->lineNumber, lexer->charNumber);
@@ -542,65 +537,75 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
     ResultToken result = (ResultToken) {
       .val = (Token) {
         .type = TokenCharLiteral,
-        .charLiteral = *VEC_GET(chars, 0, char)
+        .charLiteral = string[0]
       },
       .err = ErrOk
     };
     // clang-format on
 
     // Clean up
-    deleteVector(chars);
+    free(string);
     return result;
   }
   default: {
     // Clean up
-    deleteVector(chars);
     logError(ErrLevelError,
              "malformed character literal: too long %" PRIu64 ", %" PRIu64 "\n",
              lexer->lineNumber, lexer->charNumber);
+    free(string);
     return (ResultToken){.err = ErrBadargs};
   }
   }
 }
 
 static ResultToken lexIdentifier(Lexer *lexer) {
-  Vector *data = newVector();
+  Vector data;
+  createVector(&data);
+
   int32_t c;
   while ((c = peekValueLexer(lexer)) != EOF) {
     if (isalnum(c)) {
-      *VEC_PUSH(data, char) = (char)c;
+      *VEC_PUSH(&data, char) = (char)c;
       nextValueLexer(lexer);
     } else {
       break;
     }
   }
   // Push null byte
-  *VEC_PUSH(data, char) = '\0';
+  *VEC_PUSH(&data, char) = '\0';
+
+  char* string = releaseVector(&data);
 
   Token t;
 
-  if (!strcmp(VEC_GET(data, 0, char), "if")) {
+  if (!strcmp(string, "if")) {
     t = (Token){.type = TokenIf, .lineNumber = lexer->lineNumber};
-  } else if (!strcmp(VEC_GET(data, 0, char), "else")) {
+  } else if (!strcmp(string, "else")) {
     t = (Token){.type = TokenElse, .lineNumber = lexer->lineNumber};
-  } else if (!strcmp(VEC_GET(data, 0, char), "while")) {
+  } else if (!strcmp(string, "while")) {
     t = (Token){.type = TokenWhile, .lineNumber = lexer->lineNumber};
-  } else if (!strcmp(VEC_GET(data, 0, char), "with")) {
+  } else if (!strcmp(string, "with")) {
     t = (Token){.type = TokenWith, .lineNumber = lexer->lineNumber};
-  } else if (!strcmp(VEC_GET(data, 0, char), "for")) {
+  } else if (!strcmp(string, "for")) {
     t = (Token){.type = TokenFor, .lineNumber = lexer->lineNumber};
-  } else if (!strcmp(VEC_GET(data, 0, char), "break")) {
+  } else if (!strcmp(string, "break")) {
     t = (Token){.type = TokenBreak, .lineNumber = lexer->lineNumber};
-  } else if (!strcmp(VEC_GET(data, 0, char), "continue")) {
+  } else if (!strcmp(string, "continue")) {
     t = (Token){.type = TokenContinue, .lineNumber = lexer->lineNumber};
-  } else if (!strcmp(VEC_GET(data, 0, char), "return")) {
+  } else if (!strcmp(string, "return")) {
     t = (Token){.type = TokenReturn, .lineNumber = lexer->lineNumber};
+  } else if (!strcmp(string, "fn")) {
+    t = (Token){.type = TokenFunction, .lineNumber = lexer->lineNumber};
+  } else if (!strcmp(string, "let")) {
+    t = (Token){.type = TokenLet, .lineNumber = lexer->lineNumber};
+  } else if (!strcmp(string, "mut")) {
+    t = (Token){.type = TokenMut, .lineNumber = lexer->lineNumber};
+  } else if (!strcmp(string, "struct")) {
+    t = (Token){.type = TokenStruct, .lineNumber = lexer->lineNumber};
+  } else if (!strcmp(string, "alias")) {
+    t = (Token){.type = TokenAlias, .lineNumber = lexer->lineNumber};
   } else {
     // It is an identifier
-
-    char *string = malloc(lengthVector(data));
-    memcpy(string, getVector(data, 0), lengthVector(data));
-
     // clang-format off
     t = (Token) {
       .type = TokenIdentifier,
@@ -609,7 +614,6 @@ static ResultToken lexIdentifier(Lexer *lexer) {
     };
     // clang-format on
   }
-  deleteVector(data);
   return (ResultToken){.val = t, .err = ErrOk};
 }
 

@@ -69,6 +69,26 @@ void printToken(Token* token) {
       str = "Return";
       break;
     }
+    case TokenFunction: {
+      str = "Function";
+      break;
+    }
+    case TokenLet: {
+      str = "Let";
+      break;
+    }
+    case TokenMut: {
+      str = "Mutable";
+      break;
+    }
+    case TokenStruct: {
+      str = "Struct";
+      break;
+    }
+    case TokenAlias: {
+      str = "Alias";
+      break;
+    }
     case TokenStringLiteral: {
       str = "StringLiteral";
       break;

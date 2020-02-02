@@ -98,7 +98,7 @@ static int32_t peekValueLexer(Lexer *lexer) {
 // Stuff to lex with
 typedef struct {
   uint64_t val;
-  ErrVal err;
+  Error err;
 } ResultU64;
 
 // Parses integer with radix
@@ -113,33 +113,29 @@ static ResultU64 parseInteger(char *str, size_t len, uint64_t radix) {
     } else if (isdigit(c)) {
       digitValue = (uint64_t)(c - '0');
     } else {
-      return (ResultU64){0, ErrBadargs};
+      return (ResultU64){0, ErrorUnrecognizedCharacter};
     }
 
     // If you put something higher than is requested
     if (digitValue >= radix) {
-      return (ResultU64){0, ErrBadargs};
+      return (ResultU64){0, ErrorIntLiteralDigitExceedsRadix};
     }
 
     uint64_t oldret = ret;
     ret = ret * radix + digitValue;
     if (oldret > ret) {
-      return (ResultU64){0, ErrOverflow};
+      return (ResultU64){0, ErrorIntLiteralOverflow};
     }
   }
-  return (ResultU64){ret, ErrOk};
+  return (ResultU64){ret, ErrorOk};
 }
 
 // Call this function right before the first hash
 // Returns control at the first noncomment (or nonannotate) area
 // Lexes comments, annotations, and docstrings
 static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
-  if (nextValueLexer(lexer) != '#') {
-    logError(ErrLevelError,
-             "malformed comment found at line %" PRIu64 " and column %" PRIu64
-             "\n",
-             lexer->lineNumber, lexer->charNumber);
-  }
+  nextValueLexer(lexer);
+
   int32_t c = peekValueLexer(lexer);
 
   // Now we determine the type of comment as well as gather the comment data
@@ -177,7 +173,7 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
         .type = TokenComment,
         .comment = releaseVector(&data)
       },
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   }
@@ -207,7 +203,7 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
         .type = TokenAnnotation,
         .annotationLiteral = releaseVector(&data)
       },
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   }
@@ -234,7 +230,7 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
         .type = TokenComment,
         .comment = releaseVector(&data)
       },
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   }
@@ -245,11 +241,8 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
 static ResultToken lexStringLiteral(Lexer *lexer) {
-  if (nextValueLexer(lexer) != '\"') {
-    logError(ErrLevelError, "malformed string: %" PRIu64 ", %" PRIu64 "\n",
-             lexer->lineNumber, lexer->charNumber);
-    return (ResultToken){.err = ErrBadargs};
-  }
+  // Skip first quote
+  nextValueLexer(lexer);
 
   Vector data;
   createVector(&data);
@@ -272,7 +265,7 @@ static ResultToken lexStringLiteral(Lexer *lexer) {
       .type = TokenStringLiteral,
       .stringLiteral = releaseVector(&data)
     },
-    .err = ErrOk
+    .err = ErrorOk
   };
   // clang-format on
 }
@@ -298,15 +291,10 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
         c == 'x' // Character Interpretation
     ) {
       // If there's a decimal point we note the location
-      // If this is the second time we've seen it, then the float is malformed
+      // If this is the second time we've seen it, then it's probably 
       if (c == '.') {
         if (hasDecimalPoint) {
-          logError(ErrLevelError,
-                   "malformed float literal: excess decimal point: %" PRIu64
-                   ", %" PRIu64 "\n",
-                   lexer->lineNumber, lexer->charNumber);
-          destroyVector(&data);
-          return (ResultToken){.err = ErrBadargs};
+          break;
         } else {
           hasDecimalPoint = true;
           // Since we haven't appended the new dot yet, it's the previous value
@@ -358,12 +346,9 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
         break;
       }
       default: {
-        logError(ErrLevelError,
-                 "malformed integer literal: unrecognized special radix "
-                 "code: %s, %" PRIu64 ", %" PRIu64 "\n",
-                 string, lexer->lineNumber, lexer->charNumber);
+        logError(SeverityError, ErrorIntLiteralUnrecognizedRadixCode, lexer->lineNumber, lexer->charNumber);
         free(string);
-        return (ResultToken){.err = ErrBadargs};
+        return (ResultToken){.err = ErrorIntLiteralUnrecognizedRadixCode};
       }
       }
       // Basically take the string after 0x or whatever
@@ -377,14 +362,14 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
 
     // Now we get on to parsing the integer
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
-    if (ret.err != ErrOk) {
+    if (ret.err != ErrorOk) {
       logError(
           ErrLevelError,
           "malformed integer literal: `%s`: %s: %" PRIu64 ", %" PRIu64 "\n",
           string, strErrVal(ret.err), lexer->lineNumber, lexer->charNumber);
 
       free(string);
-      return (ResultToken){.err = ErrBadargs};
+      return (ResultToken){.err = ret.err};
     } else {
       // Return data
       // clang-format off
@@ -393,7 +378,7 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
           .type = TokenIntLiteral,
           .intLiteral = ret.val
         },
-        .err = ErrOk
+        .err = ErrorOk
       };
       // clang-format on
     }

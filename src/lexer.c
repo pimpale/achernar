@@ -477,43 +477,27 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
   Vector data;
   createVector(&data);
 
+  // Current character
   int32_t c;
-
+  // last character
+  int32_t pC = '\0';
+  // last to last character
+  int32_t ppC = '\0';
   while ((c = nextValueLexer(lexer)) != EOF) {
-    if (c == '\\') {
-      c = nextValueLexer(lexer);
-      switch (c) {
-      case 't': {
-        c = '\t';
+    // If we encounter a closing '
+    if (c == '\'') {
+      // If not (previous value is a backslash and the previous previous char is not a backslash)
+      // Then we can break
+      // Ex: '\' -> keep reading
+      // Ex: '\\' -> break
+      // Ex: '\a' -> break
+      if(!(pC == '\\' && ppC != '\\')) {
         break;
       }
-      case 'n': {
-        c = '\n';
-        break;
-      }
-      case '\\': {
-        c = '\\';
-        break;
-      }
-      case EOF: {
-        break;
-      }
-      default: {
-        // Clean up
-        destroyVector(&data);
-        logError(ErrLevelError,
-                 "malformed character literal: unexpected escape code: `%c` "
-                 "%" PRIu64 ", %" PRIu64 "\n",
-                 c, lexer->lineNumber, lexer->charNumber);
-        return (ResultToken){.err = ErrBadargs};
-      }
-      }
-      *VEC_PUSH(&data, char) = (char)c;
-    } else if (c == '\'') {
-      break;
-    } else {
-      *VEC_PUSH(&data, char) = (char)c;
     }
+    *VEC_PUSH(&data, char) = (char)c;
+    ppC = pC;
+    pC = c;
   }
 
   // get size and length + terminate string
@@ -526,7 +510,7 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
     // Clean up
     free(string);
     logError(ErrLevelError,
-             "malformed character literal: empty %" PRIu64 ", %" PRIu64 "\n",
+             "malformed character literal: empty @ %" PRIu64 ", %" PRIu64 "\n",
              lexer->lineNumber, lexer->charNumber);
     return (ResultToken){.err = ErrBadargs};
   }
@@ -547,11 +531,66 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
     free(string);
     return result;
   }
-  default: {
+  case 2: {
+    if(string[0] != '\\') {
+        logError(ErrLevelError, "malformed char literal: too long: `%c` @ %" PRIu64 ", %" PRIu64,
+            string[1], lexer->lineNumber, lexer->charNumber);
+        free(string);
+        return (ResultToken) {.err=ErrBadargs};
+    }
+
+    char code;
+    switch(string[1]) {
+      case 'n': {
+        code = '\n';
+        break;
+      }
+      case 't': {
+        code = '\t';
+        break;
+      }
+      case '\\': {
+        code = '\\';
+        break;
+      }
+      case '\'': {
+        code = '\'';
+        break;
+      }
+      case '\"': {
+        code = '\"';
+        break;
+      }
+      case '\0': {
+        code = '\0';
+        break;
+      }
+      default: {
+        logError(ErrLevelError, "malformed char literal: unexpected escape code: `%c` @ " PRIu64 ", " PRIu64,
+            string[1], lexer->lineNumber, lexer->charNumber);
+        free(string);
+        return (ResultToken) {.err=ErrBadargs};
+      }
+    }
+
     // Clean up
+    free(string);
+
+    // clang-format off
+    return (ResultToken) {
+      .val = (Token) {
+        .type = TokenCharLiteral,
+        .charLiteral = code
+      },
+      .err = ErrOk
+    };
+    // clang-format on
+  }
+  default: {
     logError(ErrLevelError,
              "malformed character literal: too long %" PRIu64 ", %" PRIu64 "\n",
              lexer->lineNumber, lexer->charNumber);
+    // Clean up
     free(string);
     return (ResultToken){.err = ErrBadargs};
   }
@@ -632,7 +671,7 @@ static ResultToken lexIdentifier(Lexer *lexer) {
   RETURN_RESULT_TOKEN(tokenType)
 
 /* clang-format on */
-ResultToken nextToken(Lexer *lexer) {
+ResultToken lexNextToken(Lexer *lexer) {
   int32_t c;
   while ((c = peekValueLexer(lexer)) != EOF) {
     // We're dealing with an operator

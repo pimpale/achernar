@@ -1,97 +1,42 @@
 #include "error.h"
 
+#include <inttypes.h>
 #include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #include "constants.h"
 
-char* strErrSeverity(ErrSeverity level) {
-  char* str = "unknown";
-
+char *toStrSeverity(Severity level) {
   switch (level) {
-    case ErrLevelDebug: {
-      str = "debug";
-      break;
-    }
-    case ErrLevelInfo: {
-      str = "info";
-      break;
-    }
-    case ErrLevelWarn: {
-      str = "warn";
-      break;
-    }
-    case ErrLevelError: {
-      str = "error";
-      break;
-    }
-    case ErrLevelFatal: {
-      str = "fatal";
-      break;
-    }
-    case ErrLevelUnknown: {
-      str = "unknown";
-      break;
-    }
+  case SeverityDebug: return "debug";
+  case SeverityInfo: return "info";
+  case SeverityWarn: return "warn";
+  case SeverityError: return "error";
+  case SeverityFatal: return "fatal";
+  case SeverityUnknown: return "unknown";
   }
-
-  return (str);
 }
 
-char* strErrVal(ErrVal val) {
-  char* str = "unknown";
-
-  switch (val) {
-    case ErrOk: {
-      str = "no error";
-      break;
-    }
-    case ErrEof: {
-      str = "reached end of file";
-      break;
-    }
-    case ErrOverflow: {
-      str = "integer overflow";
-      break;
-    }
-    case ErrNotsupported: {
-      str = "operation not supported";
-      break;
-    }
-    case ErrUnsafe: {
-      str = "operation would be unsafe";
-      break;
-    }
-    case ErrBadargs: {
-      str = "bad arguments or parameters provided";
-      break;
-    }
-    case ErrOutofdate: {
-      str = "result is out of date";
-      break;
-    }
-    case ErrAllocfail: {
-      str = "failed to allocate memory";
-      break;
-    }
-    case ErrMemory: {
-      str = "memory error";
-      break;
-    }
-    case ErrUnknown: {
-      str = "unknown error";
-      break;
-    }
+char *toStrError(Error e) {
+  switch (e) {
+    case ErrorBadOption: return "E001: An invalid option or argument was provided. Use the -h flag for help.";
+    case ErrorEOF: return "E002: Unexpected end of file.";
+    case ErrorUnrecognizedCharacter: 
   }
-  return (str);
 }
 
+void logError(Severity severity, Error err, uint64_t ln, uint64_t col) {
+  fprintf(stderr, APPNAME ": %s %s @ ln %" PRIu64 " col %" PRIu64,
+          toStrSeverity(severity), toStrError(err), ln, col);
+}
 
-void logError(ErrSeverity level, char* fmt, ...) {
+void logInternalError(uint64_t line, const char *func, const char *fmt, ...) {
   char macro_message_formatted[MAX_PRINT_LENGTH];
   va_list args;
   va_start(args, fmt);
   vsnprintf(macro_message_formatted, MAX_PRINT_LENGTH, fmt, args);
   va_end(args);
-  fprintf(stderr, "%s: %s: %s\n", APPNAME, strErrSeverity(level), macro_message_formatted);
+  fprintf(stderr, APPNAME ": internal error: %s\n", macro_message_formatted);
+  fprintf(stderr, APPNAME ": report bugs at " APP_REPORT_BUG_LINK "\n");
 }
-

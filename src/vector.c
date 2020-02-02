@@ -81,7 +81,7 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
 
 void removeVector(Vector *vector, size_t loc, size_t len) {
   if (len > vector->length - loc) {
-    logError(ErrLevelFatal, "BUG vector underflow");
+    logInternalError(__LINE__, __func__, "Vector Underflow");
     PANIC();
   }
 

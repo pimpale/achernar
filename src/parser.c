@@ -89,30 +89,35 @@ static ResultStmnt parseStmnt(Parser *p) {
     };
     // clang-format on
   }
+  default: {
+    logError(ErrLevelError,
+             "Unrecognized token, TODO add error handling system");
+    return (ResultStmnt){.err = ErrUnknown};
+  }
   }
 }
 
-  ResultTranslationUnit parseTranslationUnit(Parser * p) {
-    Vector data;
-    createVector(&data);
-    while (true) {
-      ResultStmnt ret = parseStmnt(p);
-      if (ret.err == ErrEof) {
-        logError(ErrLevelError, "finished reading file!");
-        break;
-      } else if (ret.err != ErrOk) {
-        logError(ErrLevelError, "TODO add error handling system: %s",
-                 strErrVal(ret.err));
-        break;
-      }
-      // Only reachable if it is equal to err ok
-      *VEC_PUSH(&data, Stmnt) = ret.val;
+ResultTranslationUnit parseTranslationUnit(Parser *p) {
+  Vector data;
+  createVector(&data);
+  while (true) {
+    ResultStmnt ret = parseStmnt(p);
+    if (ret.err == ErrEof) {
+      logError(ErrLevelError, "finished reading file!");
+      break;
+    } else if (ret.err != ErrOk) {
+      logError(ErrLevelError, "TODO add error handling system: %s",
+               strErrVal(ret.err));
+      break;
     }
+    // Only reachable if it is equal to err ok
+    *VEC_PUSH(&data, Stmnt) = ret.val;
+  }
 
-    size_t length = VEC_LEN(&data, Stmnt);
-    Stmnt *statements = releaseVector(&data);
+  size_t length = VEC_LEN(&data, Stmnt);
+  Stmnt *statements = releaseVector(&data);
 
-    // clang-format off
+  // clang-format off
   return (ResultTranslationUnit) {
     .val = (TranslationUnit) {
       .statements = statements,
@@ -120,5 +125,5 @@ static ResultStmnt parseStmnt(Parser *p) {
     },
     .err = ErrOk
   };
-    // clang-format on
-  }
+  // clang-format on
+}

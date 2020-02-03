@@ -119,6 +119,12 @@ void logDiagnostic(DiagnosticLogger *dl, DiagnosticType dt, uint64_t ln,
     message = "unrecognized escape code";
     break;
   }
+  case ErrorUnexpectedToken: {
+    severity = "error";
+    code = "E014";
+    message = "unexpected token";
+    break;
+  }
   }
 
   // Print separator

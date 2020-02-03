@@ -30,6 +30,8 @@ typedef enum DiagnosticType_e {
   // String Literals
   ErrorStringLiteralTooLong,
   ErrorStringLiteralUnrecognizedEscapeCode,
+  // Generic Parsing errors
+  ErrorUnexpectedToken,
 } DiagnosticType;
 
 typedef struct DiagnosticLogger_s {

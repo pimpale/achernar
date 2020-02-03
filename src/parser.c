@@ -45,20 +45,20 @@ Parser *destroyParser(Parser *parser) {
 static ResultTokenPtr advanceParser(Parser *p) {
   switch (p->backing) {
   case ParserBackingLexer: {
-    if (p->lex.loc < VEC_LEN(p->lex.tokVec, Token)) {
+    if (p->lex.loc < VEC_LEN(&p->lex.tokVec, Token)) {
       // clang-format off
       return (ResultTokenPtr) {
-        .val=VEC_GET(p->lex.tokVec, p->lex.loc++, Token),
+        .val=VEC_GET(&p->lex.tokVec, p->lex.loc++, Token),
         .err=ErrorOk
       };
       // clang-format on
     } else {
       ResultToken ret = lexNextToken(p->lex.lexer);
       if (ret.err == ErrorOk) {
-        *VEC_PUSH(p->lex.tokVec, Token) = ret.val;
+        *VEC_PUSH(&p->lex.tokVec, Token) = ret.val;
         // clang-format off
         return (ResultTokenPtr) {
-          .val=VEC_GET(p->lex.tokVec, p->lex.loc++, Token),
+          .val=VEC_GET(&p->lex.tokVec, p->lex.loc++, Token),
           .err=ErrorOk
         };
         // clang-format on
@@ -88,20 +88,20 @@ static ResultTokenPtr advanceParser(Parser *p) {
 static ResultTokenPtr peekParser(Parser *p) {
   switch (p->backing) {
   case ParserBackingLexer: {
-    if (p->lex.loc < VEC_LEN(p->lex.tokVec, Token)) {
+    if (p->lex.loc < VEC_LEN(&p->lex.tokVec, Token)) {
       // clang-format off
       return (ResultTokenPtr) {
-        .val=VEC_GET(p->lex.tokVec, p->lex.loc, Token),
+        .val=VEC_GET(&p->lex.tokVec, p->lex.loc, Token),
         .err=ErrorOk
       };
       // clang-format on
     } else {
       ResultToken ret = lexNextToken(p->lex.lexer);
       if (ret.err == ErrorOk) {
-        *VEC_PUSH(p->lex.tokVec, Token) = ret.val;
+        *VEC_PUSH(&p->lex.tokVec, Token) = ret.val;
         // clang-format off
         return (ResultTokenPtr) {
-          .val=VEC_GET(p->lex.tokVec, p->lex.loc, Token),
+          .val=VEC_GET(&p->lex.tokVec, p->lex.loc, Token),
           .err=ErrorOk
         };
         // clang-format on
@@ -158,9 +158,8 @@ static ResultStmnt parseStmnt(Parser *p) {
     // clang-format on
   }
   default: {
-    logError(ErrLevelError,
-             "Unrecognized token, TODO add error handling system");
-    return (ResultStmnt){.err = ErrUnknown};
+    logDiagnostic(p->dl, ErrorUnexpectedToken, ret.val->ln, ret.val->col);
+    return (ResultStmnt){.err = ErrorUnexpectedToken};
   }
   }
 }
@@ -171,11 +170,10 @@ ResultTranslationUnit parseTranslationUnit(Parser *p) {
   while (true) {
     ResultStmnt ret = parseStmnt(p);
     if (ret.err == ErrorEOF) {
-      logError(ErrLevelError, "finished reading file!");
+      INTERNAL_ERROR("finished reading file!");
       break;
     } else if (ret.err != ErrorOk) {
-      logError(ErrLevelError, "TODO add error handling system: %s",
-               strErrVal(ret.err));
+      logInternalError(176, __func__, "TODO add error handling system: %s", "yeet");
       break;
     }
     // Only reachable if it is equal to err ok

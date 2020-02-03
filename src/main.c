@@ -4,22 +4,20 @@
 
 #include "error.h"
 #include "lexer.h"
+#include "parser.h"
 #include "token.h"
 #include "vector.h"
 
 static char *newAstString(FILE *stream) {
   DiagnosticLogger *dl =
       createDiagnosticLogger(malloc(sizeof(DiagnosticLogger)), stderr);
-  Lexer *l = createLexerFile(malloc(sizeof(Lexer)), stream);
-  while (true) {
-    ResultToken ret = lexNextToken(l, dl);
-    if (ret.err == ErrorOk) {
-      printToken(&ret.val);
-      destroyToken(&ret.val);
-    } else if (ret.err == ErrorEOF) {
-      break;
-    }
-  }
+  Lexer *l = createLexerFile(malloc(sizeof(Lexer)), dl, stream);
+  Parser *p = createParserLexer(malloc(sizeof(Parser)), l);
+
+  ResultTranslationUnit rtu = parseTranslationUnit(p);
+
+
+  free(destroyParser(p));
   free(destroyLexer(l));
   free(destroyDiagnosticLogger(dl));
   return "";

@@ -647,7 +647,7 @@ static ResultToken lexIdentifier(Lexer *lexer) {
   return (ResultToken) {                                                       \
     .val = (Token){                                                            \
       .type = tokenType,                                                       \
-      .ln = lexer->ln                                                          \
+      .ln = lexer->ln,                                                         \
       .col = lexer->col                                                        \
     },                                                                         \
     .err = ErrorOk                                                             \
@@ -803,5 +803,5 @@ ResultToken lexNextToken(Lexer *lexer) {
     }
   }
   // If we hit the end of the file just give a End of file error
-  return (ResultToken){.err = ErrEof};
+  return (ResultToken){.err = ErrorEOF};
 }

@@ -7,10 +7,33 @@
 #include "token.h"
 #include "vector.h"
 
-Parser *createParser(Parser *parser, Token *tokens, size_t tokenCount) {
-  parser->tokens = tokens;
-  parser->tokenCount = tokenCount;
-  parser->currentToken = 0;
+Parser *createParserLexer(Parser *parser, Lexer* lexer) {
+  parser->backing = ParserBackingLexer;
+  parser->lexer = lexer;
+  parser->dl = lexer->dl;
+  return parser;
+}
+
+Parser *createParserMemory(Parser *parser, DiagnosticLogger* dl, Token *tokens, size_t tokenCount) {
+  parser->backing = ParserBackingMemory;
+  parser->memory.ptr = malloc(tokenCount*sizeof(Token));
+  memcpy(parser->memory.ptr, tokens, tokenCount * sizeof(Token));
+  parser->memory.len = tokenCount;
+  parser->memory.loc = 0;
+  parser->dl = dl;
+  return parser;
+}
+
+Parser *destroyParser(Parser* parser) {
+  switch(parser->backing) {
+    case ParserBackingMemory: {
+      free(parser->memory.ptr);
+      break;
+    }
+    case ParserBackingLexer: {
+      break;
+    }
+  }
   return parser;
 }
 
@@ -20,12 +43,12 @@ static ResultTokenPtr advanceParser(Parser *p) {
     // clang-format off
     return (ResultTokenPtr){
       .val = &p->tokens[p->currentToken++],
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   } else {
     // Issue Eof Error
-    return (ResultTokenPtr){.err = ErrEof};
+    return (ResultTokenPtr){.err = ErrorEOF};
   }
 }
 
@@ -36,37 +59,23 @@ static ResultTokenPtr peekParser(Parser *p) {
     // clang-format off
     return (ResultTokenPtr){
       .val = &p->tokens[p->currentToken],
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   } else {
     // Issue Eof Error
-    return (ResultTokenPtr){.err = ErrEof};
+    return (ResultTokenPtr){.err = ErrorEOF};
   }
-}
-
-static bool accept(Parser *p, TokenType type) {
-  ResultTokenPtr rtp = peekParser(p);
-  if (rtp.err != ErrOk) {
-    return false;
-  }
-  return rtp.val->type == type;
-}
-
-static bool consume(Parser *p, TokenType type) {
-  bool accepted = accept(p, type);
-  advanceParser(p);
-  return accepted;
 }
 
 static ResultFuncDeclStmnt parseFuncDeclStmnt(Parser *p) {
   // TODO
-  return (ResultFuncDeclStmnt){.err = ErrUnknown};
+  return (ResultFuncDeclStmnt){.err = ErrorOk};
 }
 
 static ResultStmnt parseStmnt(Parser *p) {
   ResultTokenPtr ret = peekParser(p);
-  if (ret.err != ErrOk) {
+  if (ret.err != ErrorOk) {
     return (ResultStmnt){.err = ret.err};
   }
 
@@ -74,7 +83,7 @@ static ResultStmnt parseStmnt(Parser *p) {
   switch (ret.val->type) {
   case TokenFunction: {
     ResultFuncDeclStmnt ret = parseFuncDeclStmnt(p);
-    if (ret.err != ErrOk) {
+    if (ret.err != ErrorOk) {
       // TODO probably
       return (ResultStmnt){.err = ret.err};
     }
@@ -85,7 +94,7 @@ static ResultStmnt parseStmnt(Parser *p) {
     // clang-format off
     return (ResultStmnt) {
       .val = s,
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   }
@@ -102,10 +111,10 @@ ResultTranslationUnit parseTranslationUnit(Parser *p) {
   createVector(&data);
   while (true) {
     ResultStmnt ret = parseStmnt(p);
-    if (ret.err == ErrEof) {
+    if (ret.err == ErrorEOF) {
       logError(ErrLevelError, "finished reading file!");
       break;
-    } else if (ret.err != ErrOk) {
+    } else if (ret.err != ErrorOk) {
       logError(ErrLevelError, "TODO add error handling system: %s",
                strErrVal(ret.err));
       break;
@@ -123,7 +132,7 @@ ResultTranslationUnit parseTranslationUnit(Parser *p) {
       .statements = statements,
       .length = length
     },
-    .err = ErrOk
+    .err = ErrorOk
   };
   // clang-format on
 }

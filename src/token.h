@@ -77,7 +77,10 @@ typedef enum {
 } TokenType;
 
 typedef struct Token_s {
-  TokenType type;
+  // Line number of token.
+  uint64_t ln;
+  // column that token starts at
+  uint64_t col;
   // This points to
   // null terminated string in case of identifier, TokenStringLiteral,
   // TokenComment, TokenDocumentation, or TokenAnnotation uint64_t in case of
@@ -92,19 +95,17 @@ typedef struct Token_s {
     double floatLiteral;
     char charLiteral;
   };
-
-  // Line number of token.
-  uint64_t lineNumber;
+  TokenType type;
 } Token;
 
 typedef struct ResultToken_s {
   Token val;
-  ErrVal err;
+  DiagnosticType err;
 } ResultToken;
 
 typedef struct ResultTokenPtr_s {
   Token *val;
-  ErrVal err;
+  DiagnosticType err;
 } ResultTokenPtr;
 
 void destroyToken(Token *token);

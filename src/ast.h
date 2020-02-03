@@ -233,7 +233,7 @@ struct TranslationUnit_s {
   typedef struct type##_s type;                                                \
   typedef struct Result##type##_s {                                            \
     struct type##_s val;                                                       \
-    ErrVal err;                                                                \
+    DiagnosticType err;                                                        \
   } Result##type;
 
 DECL_RESULT_TYPE(Expr)              // Expression

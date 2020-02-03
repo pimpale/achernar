@@ -11,28 +11,34 @@
 #include "error.h"
 #include "vector.h"
 
-Lexer *createLexerFile(Lexer *lexer, FILE *file) {
-  lexer->backing = LexerBackingFile;
+Lexer *createLexerFile(Lexer *lexer, DiagnosticLogger* dl, FILE *file) {
+  lexer->ln = 0;
+  lexer->col = 0;
+  lexer->dl = dl;
+
+  // Files
   lexer->file = file;
-  lexer->lineNumber = 0;
-  lexer->charNumber = 0;
+  lexer->backing = LexerBackingFile;
+
   return lexer;
 }
 
-Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len) {
-  lexer->backing = LexerBackingMemory;
-  lexer->lineNumber = 0;
-  lexer->charNumber = 0;
+Lexer *createLexerMemory(Lexer *lexer, DiagnosticLogger* dl, char *ptr, size_t len) {
+  lexer->ln = 0;
+  lexer->col = 0;
+  lexer->dl = dl;
 
   // Copy memory
+  lexer->backing = LexerBackingMemory;
   lexer->memory.len = len;
   lexer->memory.loc = 0;
   lexer->memory.ptr = malloc(len);
   memcpy(lexer->memory.ptr, ptr, len);
+
   return lexer;
 }
 
-void destroyLexer(Lexer *lexer) {
+Lexer* destroyLexer(Lexer *lexer) {
   switch (lexer->backing) {
   case LexerBackingMemory: {
     free(lexer->memory.ptr);
@@ -42,6 +48,7 @@ void destroyLexer(Lexer *lexer) {
     break;
   }
   }
+  return lexer;
 }
 
 static int32_t nextValueLexer(Lexer *lexer) {
@@ -55,10 +62,10 @@ static int32_t nextValueLexer(Lexer *lexer) {
       nextValue = (lexer->memory.ptr[lexer->memory.loc]);
       lexer->memory.loc++;
       if (nextValue == '\n') {
-        lexer->lineNumber += 1;
-        lexer->charNumber = 0;
+        lexer->ln += 1;
+        lexer->col = 0;
       } else {
-        lexer->charNumber += 1;
+        lexer->col += 1;
       }
     }
     break;
@@ -66,10 +73,10 @@ static int32_t nextValueLexer(Lexer *lexer) {
   case LexerBackingFile: {
     nextValue = getc(lexer->file);
     if (nextValue == '\n') {
-      lexer->lineNumber += 1;
-      lexer->charNumber = 0;
+      lexer->ln += 1;
+      lexer->col = 0;
     } else {
-      lexer->charNumber += 1;
+      lexer->col += 1;
     }
     break;
   }
@@ -98,7 +105,7 @@ static int32_t peekValueLexer(Lexer *lexer) {
 // Stuff to lex with
 typedef struct {
   uint64_t val;
-  Error err;
+  DiagnosticType err;
 } ResultU64;
 
 // Parses integer with radix
@@ -171,7 +178,9 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
     return (ResultToken) {
       .val = (Token) {
         .type = TokenComment,
-        .comment = releaseVector(&data)
+        .comment = releaseVector(&data),
+        .ln = lexer->ln,
+        .col = lexer->col
       },
       .err = ErrorOk
     };
@@ -201,7 +210,9 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
     return (ResultToken) {
       .val = (Token) {
         .type = TokenAnnotation,
-        .annotationLiteral = releaseVector(&data)
+        .annotationLiteral = releaseVector(&data),
+        .ln = lexer->ln,
+        .col = lexer->col
       },
       .err = ErrorOk
     };
@@ -228,7 +239,9 @@ static ResultToken lexCommentOrAnnotation(Lexer *lexer) {
     return (ResultToken) {
       .val = (Token) {
         .type = TokenComment,
-        .comment = releaseVector(&data)
+        .comment = releaseVector(&data),
+        .ln = lexer->ln,
+        .col = lexer->col
       },
       .err = ErrorOk
     };
@@ -263,7 +276,9 @@ static ResultToken lexStringLiteral(Lexer *lexer) {
   return (ResultToken) {
     .val = (Token) {
       .type = TokenStringLiteral,
-      .stringLiteral = releaseVector(&data)
+      .stringLiteral = releaseVector(&data),
+      .ln = lexer->ln,
+      .col = lexer->col
     },
     .err = ErrorOk
   };
@@ -291,7 +306,7 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
         c == 'x' // Character Interpretation
     ) {
       // If there's a decimal point we note the location
-      // If this is the second time we've seen it, then it's probably 
+      // If this is the second time we've seen it, then it's probably
       if (c == '.') {
         if (hasDecimalPoint) {
           break;
@@ -312,7 +327,7 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
   // The definition of string length doesn't include the \0
   size_t length = VEC_LEN(&data, char);
   *VEC_PUSH(&data, char) = '\0';
-  char* string = releaseVector(&data);
+  char *string = releaseVector(&data);
 
   // If it's an integer
   if (!hasDecimalPoint) {
@@ -324,8 +339,7 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
     // Special Radix
     // More than 2 characters and first character is 0 and second character is
     // not digit
-    if (length > 2 && string[0] == '0' &&
-        !isdigit(string[1])) {
+    if (length > 2 && string[0] == '0' && !isdigit(string[1])) {
       // Set radix to what it has to be
       // Switch on the second character aka x, or b or whatever comes after 0
       switch (string[1]) {
@@ -346,7 +360,8 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
         break;
       }
       default: {
-        logError(SeverityError, ErrorIntLiteralUnrecognizedRadixCode, lexer->lineNumber, lexer->charNumber);
+        logDiagnostic(lexer->dl, ErrorIntLiteralUnrecognizedRadixCode, lexer->ln,
+                 lexer->col);
         free(string);
         return (ResultToken){.err = ErrorIntLiteralUnrecognizedRadixCode};
       }
@@ -363,11 +378,7 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
     // Now we get on to parsing the integer
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
     if (ret.err != ErrorOk) {
-      logError(
-          ErrLevelError,
-          "malformed integer literal: `%s`: %s: %" PRIu64 ", %" PRIu64 "\n",
-          string, strErrVal(ret.err), lexer->lineNumber, lexer->charNumber);
-
+      logDiagnostic(lexer->dl, ret.err, lexer->ln, lexer->col);
       free(string);
       return (ResultToken){.err = ret.err};
     } else {
@@ -402,20 +413,17 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
 
     // Parse the part ahead of the decimal point
     ResultU64 initialRet = parseInteger(initialPortion, initialPortionLen, 10);
-    if (initialRet.err == ErrOk) {
+    if (initialRet.err == ErrorOk) {
       result += initialRet.val;
     } else {
-      logError(ErrLevelError,
-               "malformed float literal: `%s': %s: %" PRIu64 ", %" PRIu64 "\n",
-               string, strErrVal(initialRet.err), lexer->lineNumber,
-               lexer->charNumber);
+      logDiagnostic(lexer->dl, initialRet.err, lexer->ln, lexer->col);
       free(string);
-      return (ResultToken){.err = ErrBadargs};
+      return (ResultToken){.err = initialRet.err};
     }
     // If there's a bit after the inital part, then we must add it
     if (finalPortionLen > 0) {
       ResultU64 finalRet = parseInteger(finalPortion, finalPortionLen, 10);
-      if (finalRet.err == ErrOk) {
+      if (finalRet.err == ErrorOk) {
         // don't want to include math.h, so we'll repeatedly divide by 10
         // this is probably dumb
         double decimalResult = finalRet.val;
@@ -424,13 +432,9 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
         }
         result += decimalResult;
       } else {
-        logError(ErrLevelError,
-                 "malformed float literal: `%s`: %s: %" PRIu64 ", %" PRIu64
-                 "\n",
-                 string, strErrVal(initialRet.err), lexer->lineNumber,
-                 lexer->charNumber);
+        logDiagnostic(lexer->dl, initialRet.err, lexer->ln, lexer->col);
         free(string);
-        return (ResultToken){.err = ErrBadargs};
+        return (ResultToken){.err = initialRet.err};
       }
     }
 
@@ -442,21 +446,22 @@ static ResultToken lexNumberLiteral(Lexer *lexer) {
     return (ResultToken) {
       .val = (Token) {
         .type = TokenFloatLiteral,
-        .floatLiteral = result
+        .floatLiteral = result,
+        .ln = lexer->ln,
+        .col = lexer->col
       },
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   }
 }
 
 static ResultToken lexCharLiteral(Lexer *lexer) {
-  if (nextValueLexer(lexer) != '\'') {
-    logError(ErrLevelError,
-             "malformed character literal: %" PRIu64 ", %" PRIu64 "\n",
-             lexer->lineNumber, lexer->charNumber);
-    return (ResultToken){.err = ErrBadargs};
-  }
+  // Skip leading '
+  nextValueLexer(lexer);
+
+  uint64_t ln = lexer->ln;
+  uint64_t col = lexer->col;
 
   // We basically read the whole thing into a string.
   Vector data;
@@ -471,12 +476,10 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
   while ((c = nextValueLexer(lexer)) != EOF) {
     // If we encounter a closing '
     if (c == '\'') {
-      // If not (previous value is a backslash and the previous previous char is not a backslash)
-      // Then we can break
-      // Ex: '\' -> keep reading
-      // Ex: '\\' -> break
-      // Ex: '\a' -> break
-      if(!(pC == '\\' && ppC != '\\')) {
+      // If not (previous value is a backslash and the previous previous char is
+      // not a backslash) Then we can break Ex: '\' -> keep reading Ex: '\\' ->
+      // break Ex: '\a' -> break
+      if (!(pC == '\\' && ppC != '\\')) {
         break;
       }
     }
@@ -488,16 +491,14 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
   // get size and length + terminate string
   size_t length = VEC_LEN(&data, char);
   *VEC_PUSH(&data, char) = '\0';
-  char* string = releaseVector(&data);
+  char *string = releaseVector(&data);
 
   switch (length) {
   case 0: {
     // Clean up
     free(string);
-    logError(ErrLevelError,
-             "malformed character literal: empty @ %" PRIu64 ", %" PRIu64 "\n",
-             lexer->lineNumber, lexer->charNumber);
-    return (ResultToken){.err = ErrBadargs};
+    logDiagnostic(lexer->dl, ErrorCharLiteralEmpty, ln, col);
+    return (ResultToken){.err = ErrorCharLiteralEmpty};
   }
   case 1: {
     // We return the first character in the vector
@@ -506,9 +507,11 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
     ResultToken result = (ResultToken) {
       .val = (Token) {
         .type = TokenCharLiteral,
-        .charLiteral = string[0]
+        .charLiteral = string[0],
+        .ln = ln,
+        .col = col
       },
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
 
@@ -517,45 +520,43 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
     return result;
   }
   case 2: {
-    if(string[0] != '\\') {
-        logError(ErrLevelError, "malformed char literal: too long: `%c` @ %" PRIu64 ", %" PRIu64,
-            string[1], lexer->lineNumber, lexer->charNumber);
-        free(string);
-        return (ResultToken) {.err=ErrBadargs};
+    if (string[0] != '\\') {
+      logDiagnostic(lexer->dl, ErrorCharLiteralTooLong, ln, col);
+      free(string);
+      return (ResultToken){.err = ErrorCharLiteralTooLong};
     }
 
     char code;
-    switch(string[1]) {
-      case 'n': {
-        code = '\n';
-        break;
-      }
-      case 't': {
-        code = '\t';
-        break;
-      }
-      case '\\': {
-        code = '\\';
-        break;
-      }
-      case '\'': {
-        code = '\'';
-        break;
-      }
-      case '\"': {
-        code = '\"';
-        break;
-      }
-      case '\0': {
-        code = '\0';
-        break;
-      }
-      default: {
-        logError(ErrLevelError, "malformed char literal: unexpected escape code: `%c` @ " PRIu64 ", " PRIu64,
-            string[1], lexer->lineNumber, lexer->charNumber);
-        free(string);
-        return (ResultToken) {.err=ErrBadargs};
-      }
+    switch (string[1]) {
+    case 'n': {
+      code = '\n';
+      break;
+    }
+    case 't': {
+      code = '\t';
+      break;
+    }
+    case '\\': {
+      code = '\\';
+      break;
+    }
+    case '\'': {
+      code = '\'';
+      break;
+    }
+    case '\"': {
+      code = '\"';
+      break;
+    }
+    case '\0': {
+      code = '\0';
+      break;
+    }
+    default: {
+      logDiagnostic(lexer->dl, ErrorCharLiteralUnrecognizedEscapeCode, ln, col);
+      free(string);
+      return (ResultToken){.err = ErrorCharLiteralUnrecognizedEscapeCode};
+    }
     }
 
     // Clean up
@@ -565,19 +566,18 @@ static ResultToken lexCharLiteral(Lexer *lexer) {
     return (ResultToken) {
       .val = (Token) {
         .type = TokenCharLiteral,
-        .charLiteral = code
+        .charLiteral = code,
+        .ln = ln,
+        .col = col
       },
-      .err = ErrOk
+      .err = ErrorOk
     };
     // clang-format on
   }
   default: {
-    logError(ErrLevelError,
-             "malformed character literal: too long %" PRIu64 ", %" PRIu64 "\n",
-             lexer->lineNumber, lexer->charNumber);
-    // Clean up
+    logDiagnostic(lexer->dl, ErrorCharLiteralTooLong, ln, col);
     free(string);
-    return (ResultToken){.err = ErrBadargs};
+    return (ResultToken){.err = ErrorCharLiteralTooLong};
   }
   }
 }
@@ -598,47 +598,48 @@ static ResultToken lexIdentifier(Lexer *lexer) {
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
 
-  char* string = releaseVector(&data);
+  char *string = releaseVector(&data);
 
   Token t;
 
   if (!strcmp(string, "if")) {
-    t = (Token){.type = TokenIf, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenIf, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "else")) {
-    t = (Token){.type = TokenElse, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenElse, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "while")) {
-    t = (Token){.type = TokenWhile, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenWhile, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "with")) {
-    t = (Token){.type = TokenWith, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenWith, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "for")) {
-    t = (Token){.type = TokenFor, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenFor, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "break")) {
-    t = (Token){.type = TokenBreak, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenBreak, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "continue")) {
-    t = (Token){.type = TokenContinue, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenContinue, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "return")) {
-    t = (Token){.type = TokenReturn, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenReturn, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "fn")) {
-    t = (Token){.type = TokenFunction, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenFunction, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "let")) {
-    t = (Token){.type = TokenLet, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenLet, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "mut")) {
-    t = (Token){.type = TokenMut, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenMut, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "struct")) {
-    t = (Token){.type = TokenStruct, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenStruct, .ln = lexer->ln, .col = lexer->col};
   } else if (!strcmp(string, "alias")) {
-    t = (Token){.type = TokenAlias, .lineNumber = lexer->lineNumber};
+    t = (Token){.type = TokenAlias, .ln = lexer->ln, .col = lexer->col};
   } else {
     // It is an identifier
     // clang-format off
     t = (Token) {
       .type = TokenIdentifier,
       .identifier = string,
-      .lineNumber = lexer->lineNumber
+      .ln = lexer->ln,
+      .col = lexer->col
     };
     // clang-format on
   }
-  return (ResultToken){.val = t, .err = ErrOk};
+  return (ResultToken){.val = t, .err = ErrorOk};
 }
 
 /* clang-format off */
@@ -646,15 +647,15 @@ static ResultToken lexIdentifier(Lexer *lexer) {
   return (ResultToken) {                                                       \
     .val = (Token){                                                            \
       .type = tokenType,                                                       \
-      .lineNumber = lexer->lineNumber                                          \
+      .ln = lexer->ln                                                          \
+      .col = lexer->col                                                        \
     },                                                                         \
-    .err = ErrOk                                                               \
+    .err = ErrorOk                                                             \
   };                                                                           \
 
 #define NEXT_AND_RETURN_RESULT_TOKEN(tokenType) \
   nextValueLexer(lexer); \
   RETURN_RESULT_TOKEN(tokenType)
-
 /* clang-format on */
 ResultToken lexNextToken(Lexer *lexer) {
   int32_t c;
@@ -795,9 +796,7 @@ ResultToken lexNextToken(Lexer *lexer) {
       } else {
         // If we simply don't recognize the character, we're going to give
         // an error and move on to the next value
-        logError(ErrLevelError,
-                 "unrecognized character: `%c`: %" PRIu64 ", %" PRIu64 "\n", c,
-                 lexer->lineNumber, lexer->charNumber);
+        logDiagnostic(lexer->dl, ErrorUnrecognizedCharacter, lexer->ln, lexer->col);
         nextValueLexer(lexer);
       }
     }

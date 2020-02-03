@@ -55,7 +55,7 @@ void *pushVector(Vector *vector, size_t len) {
 
 void popVector(Vector *vector, void *data, size_t len) {
   if (len > vector->length) {
-    logError(ErrLevelFatal, "BUG vector underflow");
+    INTERNAL_ERROR("vector underflow");
     PANIC();
   }
   if (data != NULL) {
@@ -81,7 +81,7 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
 
 void removeVector(Vector *vector, size_t loc, size_t len) {
   if (len > vector->length - loc) {
-    logInternalError(__LINE__, __func__, "Vector Underflow");
+    INTERNAL_ERROR("vector underflow");
     PANIC();
   }
 
@@ -94,7 +94,7 @@ void removeVector(Vector *vector, size_t loc, size_t len) {
 
 void *getVector(Vector *vector, size_t loc) {
   if (loc > vector->length) {
-    logError(ErrLevelFatal, "BUG vector out of bounds");
+    INTERNAL_ERROR("out of bounds");
     PANIC();
   }
   uint8_t *data = vector->data;

@@ -7,61 +7,131 @@
 
 #include "constants.h"
 
-char *toStrSeverity(Severity level) {
-  switch (level) {
-  case SeverityDebug:
-    return "debug";
-  case SeverityInfo:
-    return "info";
-  case SeverityWarn:
-    return "warn";
-  case SeverityError:
-    return "error";
-  case SeverityFatal:
-    return "fatal";
-  case SeverityUnknown:
-    return "unknown";
-  }
+DiagnosticLogger *createDiagnosticLogger(DiagnosticLogger *dl, FILE *file) {
+  dl->created = true;
+  dl->destroyed = false;
+  dl->messagePrinted = false;
+  dl->file = file;
+
+  fprintf(dl->file, "[");
+  return dl;
 }
 
-char *toStrError(Error e) {
-  switch (e) {
-  case ErrorOk:
-    return "E000: no error";
-  case ErrorBadOption:
-    return "E001: an invalid option or argument was provided. Use the -h flag "
-           "for help.";
-  case ErrorEOF:
-    return "E002: unexpected end of file";
-  case ErrorUnrecognizedCharacter:
-    return "E003: unrecognized character";
-  case ErrorIntLiteralUnrecognizedRadixCode:
-    return "E004: radix code after 0 may only be `b` for 2, `o` for 8, `d` for "
-           "10, and `x` for 16";
-  case ErrorIntLiteralDigitExceedsRadix:
-    return "E005: the digit value exceeds the radix specified";
-  case ErrorIntLiteralOverflow:
-    return "E006: the integer literal specified overflows 64 bits";
-  case ErrorFloatLiteralDigitExceedsRadix:
-    return "E007: the digit value exceeds the radix specified";
-  case ErrorFloatLiteralExceedsMaxPrecision:
-    return "E008: the float literal overflows the max precision";
-  case ErrorCharLiteralEmpty:
-    return "E009: the character literal must contain one character";
-  case ErrorCharLiteralUnrecognizedEscapeCode:
-    return "E010: unrecognized escape code";
-  case ErrorCharLiteralTooLong:
-    return "E011: the character literal is longer than one character";
-  case ErrorStringLiteralTooLong:
-    return "E012: the string literal is too long";
-  case ErrorStringLiteralUnrecognizedEscapeCode:
-    return "E013: unrecognized escape code";
-  }
+DiagnosticLogger *destroyDiagnosticLogger(DiagnosticLogger *dl) {
+  fprintf(dl->file, "]");
+  dl->created = false;
+  dl->messagePrinted = false;
+  dl->destroyed = true;
+  dl->file = NULL;
+  return dl;
 }
 
-void logError(Severity severity, Error err, uint64_t ln, uint64_t col) {
-  fprintf(stderr, APPNAME ": %s %s @ ln %" PRIu64 " col %" PRIu64,
-          toStrSeverity(severity), toStrError(err), ln, col);
+void logDiagnostic(DiagnosticLogger *dl, DiagnosticType dt, uint64_t ln,
+                   uint64_t col) {
+  char *severity;
+  char *code;
+  char *message;
+
+  switch (dt) {
+  case ErrorOk: {
+    severity = "error";
+    code = "E000";
+    message = "no error";
+    break;
+  }
+  case ErrorBadOption: {
+    severity = "error";
+    code = "E001";
+    message = "an invalid option or argument was provided. Use the -h flag "
+              "for help.";
+    break;
+  }
+  case ErrorEOF: {
+    severity = "error";
+    code = "E002";
+    message = "unexpected end of file";
+    break;
+  }
+  case ErrorUnrecognizedCharacter: {
+    severity = "error";
+    code = "E003";
+    message = "unrecognized character";
+    break;
+  }
+  case ErrorIntLiteralUnrecognizedRadixCode: {
+    severity = "error";
+    code = "E004";
+    message = "radix code after 0 may only be `b` for 2, `o` for 8, `d` for "
+              "10, and `x` for 16";
+    break;
+  }
+  case ErrorIntLiteralDigitExceedsRadix: {
+    severity = "error";
+    code = "E005";
+    message = "the digit value exceeds the radix specified";
+    break;
+  }
+  case ErrorIntLiteralOverflow: {
+    severity = "error";
+    code = "E006";
+    message = "the integer literal specified overflows 64 bits";
+    break;
+  }
+  case ErrorFloatLiteralDigitExceedsRadix: {
+    severity = "error";
+    code = "E007";
+    message = "the digit value exceeds the radix specified";
+    break;
+  }
+  case ErrorFloatLiteralExceedsMaxPrecision: {
+    severity = "error";
+    code = "E008";
+    message = "the float literal overflows the max precision";
+    break;
+  }
+  case ErrorCharLiteralEmpty: {
+    severity = "error";
+    code = "E009";
+    message = "the character literal must contain one character";
+    break;
+  }
+  case ErrorCharLiteralUnrecognizedEscapeCode: {
+    severity = "error";
+    code = "E010";
+    message = "unrecognized escape code";
+    break;
+  }
+  case ErrorCharLiteralTooLong: {
+    severity = "error";
+    code = "E011";
+    message = "the character literal is longer than one character";
+    break;
+  }
+  case ErrorStringLiteralTooLong: {
+    severity = "error";
+    code = "E012";
+    message = "the string literal is too long";
+    break;
+  }
+  case ErrorStringLiteralUnrecognizedEscapeCode: {
+    severity = "error";
+    code = "E013";
+    message = "unrecognized escape code";
+    break;
+  }
+  }
+
+  // Print separator
+  if (dl->messagePrinted) {
+    fprintf(dl->file, ",");
+  } else {
+    dl->messagePrinted = true;
+  }
+
+  fprintf(dl->file,
+          "{ \"severity\":\"%s\", \"code\":\"%s\", \"message\":\"%s\", "
+          "\"ln\":%" PRIu64 ", \"col\":%" PRIu64 "}",
+          severity, code, message, ln, col);
 }
 
 void logInternalError(uint64_t line, const char *func, const char *fmt, ...) {

@@ -1,12 +1,14 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include "token.h"
+
 #include <stdint.h>
 #include <stdio.h>
 
-#include "token.h"
+#include "error.h"
 
-typedef enum {
+typedef enum LexerBacking_e {
   LexerBackingMemory,
   LexerBackingFile,
 } LexerBacking;
@@ -17,26 +19,27 @@ typedef struct {
   LexerBacking backing;
   // Can either be a File ptr or a memory with location and length
   union {
-    FILE* file;
+    FILE *file;
     struct {
-      char* ptr;
+      char *ptr;
       size_t len;
       size_t loc;
     } memory;
   };
+  // Place to log errors to
+  DiagnosticLogger* dl;
   // Caches the number of newlines encountered
-  uint64_t lineNumber;
-  // Caches the number of characters encountered in this line
-  uint64_t charNumber;
+  uint64_t ln;
+  // Caches the current column of the code
+  uint64_t col;
 } Lexer;
 
+Lexer *createLexerFile(Lexer *lexer, DiagnosticLogger* dl, FILE *file);
+Lexer *createLexerMemory(Lexer *lexer, DiagnosticLogger* dl, char *ptr, size_t len);
 
-Lexer* createLexerFile(Lexer* lexer, FILE* file);
-Lexer* createLexerMemory(Lexer* lexer, char* ptr, size_t len);
-
-void destroyLexer(Lexer* lexer);
+Lexer *destroyLexer(Lexer *lexer);
 
 // Returns the next available token, or a EofError
-ResultToken lexNextToken(Lexer* lexer);
+ResultToken lexNextToken(Lexer *lexer);
 
 #endif

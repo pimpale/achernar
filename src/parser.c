@@ -86,49 +86,24 @@ static ResultTokenPtr advanceParser(Parser *p) {
 
 // Gets current token
 static ResultTokenPtr peekParser(Parser *p) {
-  switch (p->backing) {
-  case ParserBackingLexer: {
-    if (p->lex.loc < VEC_LEN(&p->lex.tokVec, Token)) {
-      // clang-format off
-      return (ResultTokenPtr) {
-        .val=VEC_GET(&p->lex.tokVec, p->lex.loc, Token),
-        .err=ErrorOk
-      };
-      // clang-format on
-    } else {
-      ResultToken ret = lexNextToken(p->lex.lexer);
-      if (ret.err == ErrorOk) {
-        *VEC_PUSH(&p->lex.tokVec, Token) = ret.val;
-        // clang-format off
-        return (ResultTokenPtr) {
-          .val=VEC_GET(&p->lex.tokVec, p->lex.loc, Token),
-          .err=ErrorOk
-        };
-        // clang-format on
-      } else {
-        return (ResultTokenPtr){.err = ret.err};
-      }
+  ResultTokenPtr ret = advanceParser(p);
+  if (ret.err == ErrorOk) {
+    switch (p->backing) {
+    case ParserBackingLexer: {
+      p->lex.loc--;
+      break;
+    }
+    case ParserBackingMemory: {
+      p->mem.loc--;
+      break;
+    }
     }
   }
-  case ParserBackingMemory: {
-    if (p->mem.loc < p->mem.len) {
-      // Increment and return
-      // clang-format off
-        return (ResultTokenPtr){
-          .val = &p->mem.ptr[p->mem.loc],
-          .err = ErrorOk
-        };
-      // clang-format on
-    } else {
-      // Issue Eof Error
-      return (ResultTokenPtr){.err = ErrorEOF};
-    }
-  }
-  }
+  return ret;
 }
 
 static ResultFuncDeclStmnt parseFuncDeclStmnt(Parser *p) {
-  // TODO
+  advanceParser(p);
   return (ResultFuncDeclStmnt){.err = ErrorOk};
 }
 
@@ -173,7 +148,8 @@ ResultTranslationUnit parseTranslationUnit(Parser *p) {
       INTERNAL_ERROR("finished reading file!");
       break;
     } else if (ret.err != ErrorOk) {
-      logInternalError(176, __func__, "TODO add error handling system: %s", "yeet");
+      logInternalError(176, __func__, "TODO add error handling system: %s",
+                       "yeet");
       break;
     }
     // Only reachable if it is equal to err ok

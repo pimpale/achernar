@@ -140,12 +140,12 @@ void logDiagnostic(DiagnosticLogger *dl, DiagnosticType dt, uint64_t ln,
           severity, code, message, ln, col);
 }
 
-void logInternalError(uint64_t line, const char *func, const char *fmt, ...) {
+void logInternalError(uint32_t line, const char *func, const char *fmt, ...) {
   char macro_message_formatted[MAX_PRINT_LENGTH];
   va_list args;
   va_start(args, fmt);
   vsnprintf(macro_message_formatted, MAX_PRINT_LENGTH, fmt, args);
   va_end(args);
-  fprintf(stderr, APPNAME ": internal error: %s\n", macro_message_formatted);
+  fprintf(stderr, APPNAME ": internal error @ %s:%d: %s\n", func, line, macro_message_formatted);
   fprintf(stderr, APPNAME ": report bugs at " APP_REPORT_BUG_LINK "\n");
 }

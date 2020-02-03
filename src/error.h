@@ -35,10 +35,10 @@ typedef enum DiagnosticType_e {
 } DiagnosticType;
 
 typedef struct DiagnosticLogger_s {
+  FILE* file;
   bool created;
   bool destroyed;
   bool messagePrinted;
-  FILE* file;
 } DiagnosticLogger;
 
 DiagnosticLogger* createDiagnosticLogger(DiagnosticLogger* dl, FILE* file);
@@ -46,7 +46,7 @@ DiagnosticLogger* destroyDiagnosticLogger(DiagnosticLogger* dl);
 
 
 void logDiagnostic(DiagnosticLogger* dl, DiagnosticType dt, uint64_t ln, uint64_t col);
-void logInternalError(uint64_t line, const char* func, const char* fmt, ...);
+void logInternalError(uint32_t line, const char* func, const char* fmt, ...);
 
 #define UNUSED(x) (void)(x)
 #define PANIC() exit(EXIT_FAILURE)

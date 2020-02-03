@@ -679,8 +679,6 @@ ResultToken lexNextToken(Lexer *lexer) {
       // || or |
       if (n == '|') {
         NEXT_AND_RETURN_RESULT_TOKEN(TokenOr)
-      } else if (n == '>') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenPipe)
       } else {
         RETURN_RESULT_TOKEN(TokenBitOr)
       }
@@ -731,7 +729,13 @@ ResultToken lexNextToken(Lexer *lexer) {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenAdd)
     }
     case '-': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenSub)
+      nextValueLexer(lexer);
+      int32_t n = peekValueLexer(lexer);
+      if(n == '>') {
+        NEXT_AND_RETURN_RESULT_TOKEN(TokenPipe)
+      } else {
+        RETURN_RESULT_TOKEN(TokenSub)
+      }
     }
     case '*': {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenMul)

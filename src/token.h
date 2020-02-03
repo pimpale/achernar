@@ -59,7 +59,7 @@ typedef enum {
   // Assignment
   TokenAssign, // =
   // Pipelines
-  TokenPipe, // |>
+  TokenPipe, // ->
   // Other Miscellaneous Operator Things
   TokenParenLeft,    // (
   TokenParenRight,   // )
@@ -73,7 +73,7 @@ typedef enum {
   TokenSemicolon,    // ;
   // Comments, and Annotations
   TokenComment,   // #* comment *# and # comment
-  TokenAnnotation // #@Annotation
+  TokenAnnotation // [[Annotation]]
 } TokenType;
 
 typedef struct Token_s {

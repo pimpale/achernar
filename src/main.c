@@ -10,7 +10,7 @@
 
 static char *newAstString(FILE *stream) {
   DiagnosticLogger *dl =
-      createDiagnosticLogger(malloc(sizeof(DiagnosticLogger)), stderr);
+      createDiagnosticLogger(malloc(sizeof(DiagnosticLogger)), stdout);
   Lexer *l = createLexerFile(malloc(sizeof(Lexer)), dl, stream);
   Parser *p = createParserLexer(malloc(sizeof(Parser)), l);
 

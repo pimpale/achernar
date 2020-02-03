@@ -7,64 +7,123 @@
 #include "token.h"
 #include "vector.h"
 
-Parser *createParserLexer(Parser *parser, Lexer* lexer) {
+Parser *createParserLexer(Parser *parser, Lexer *lexer) {
   parser->backing = ParserBackingLexer;
-  parser->lexer = lexer;
+  parser->lex.lexer = lexer;
+  parser->lex.loc = 0;
+  createVector(&parser->lex.tokVec);
   parser->dl = lexer->dl;
   return parser;
 }
 
-Parser *createParserMemory(Parser *parser, DiagnosticLogger* dl, Token *tokens, size_t tokenCount) {
+Parser *createParserMemory(Parser *parser, DiagnosticLogger *dl, Token *tokens,
+                           size_t tokenCount) {
   parser->backing = ParserBackingMemory;
-  parser->memory.ptr = malloc(tokenCount*sizeof(Token));
-  memcpy(parser->memory.ptr, tokens, tokenCount * sizeof(Token));
-  parser->memory.len = tokenCount;
-  parser->memory.loc = 0;
+  parser->mem.ptr = malloc(tokenCount * sizeof(Token));
+  memcpy(parser->mem.ptr, tokens, tokenCount * sizeof(Token));
+  parser->mem.len = tokenCount;
+  parser->mem.loc = 0;
   parser->dl = dl;
   return parser;
 }
 
-Parser *destroyParser(Parser* parser) {
-  switch(parser->backing) {
-    case ParserBackingMemory: {
-      free(parser->memory.ptr);
-      break;
-    }
-    case ParserBackingLexer: {
-      break;
-    }
+// TODO also have to destroy the nested tokens
+Parser *destroyParser(Parser *parser) {
+  switch (parser->backing) {
+  case ParserBackingMemory: {
+    free(parser->mem.ptr);
+    break;
+  }
+  case ParserBackingLexer: {
+    destroyVector(&parser->lex.tokVec);
+    break;
+  }
   }
   return parser;
 }
 
 static ResultTokenPtr advanceParser(Parser *p) {
-  if (p->currentToken < p->tokenCount) {
-    // Increment and return
-    // clang-format off
-    return (ResultTokenPtr){
-      .val = &p->tokens[p->currentToken++],
-      .err = ErrorOk
-    };
-    // clang-format on
-  } else {
-    // Issue Eof Error
-    return (ResultTokenPtr){.err = ErrorEOF};
+  switch (p->backing) {
+  case ParserBackingLexer: {
+    if (p->lex.loc < VEC_LEN(p->lex.tokVec, Token)) {
+      // clang-format off
+      return (ResultTokenPtr) {
+        .val=VEC_GET(p->lex.tokVec, p->lex.loc++, Token),
+        .err=ErrorOk
+      };
+      // clang-format on
+    } else {
+      ResultToken ret = lexNextToken(p->lex.lexer);
+      if (ret.err == ErrorOk) {
+        *VEC_PUSH(p->lex.tokVec, Token) = ret.val;
+        // clang-format off
+        return (ResultTokenPtr) {
+          .val=VEC_GET(p->lex.tokVec, p->lex.loc++, Token),
+          .err=ErrorOk
+        };
+        // clang-format on
+      } else {
+        return (ResultTokenPtr){.err = ret.err};
+      }
+    }
+  }
+  case ParserBackingMemory: {
+    if (p->mem.loc < p->mem.len) {
+      // Increment and return
+      // clang-format off
+        return (ResultTokenPtr){
+          .val = &p->mem.ptr[p->mem.loc++],
+          .err = ErrorOk
+        };
+      // clang-format on
+    } else {
+      // Issue Eof Error
+      return (ResultTokenPtr){.err = ErrorEOF};
+    }
+  }
   }
 }
 
 // Gets current token
 static ResultTokenPtr peekParser(Parser *p) {
-  if (p->currentToken < p->tokenCount) {
-    // Increment and return
-    // clang-format off
-    return (ResultTokenPtr){
-      .val = &p->tokens[p->currentToken],
-      .err = ErrorOk
-    };
-    // clang-format on
-  } else {
-    // Issue Eof Error
-    return (ResultTokenPtr){.err = ErrorEOF};
+  switch (p->backing) {
+  case ParserBackingLexer: {
+    if (p->lex.loc < VEC_LEN(p->lex.tokVec, Token)) {
+      // clang-format off
+      return (ResultTokenPtr) {
+        .val=VEC_GET(p->lex.tokVec, p->lex.loc, Token),
+        .err=ErrorOk
+      };
+      // clang-format on
+    } else {
+      ResultToken ret = lexNextToken(p->lex.lexer);
+      if (ret.err == ErrorOk) {
+        *VEC_PUSH(p->lex.tokVec, Token) = ret.val;
+        // clang-format off
+        return (ResultTokenPtr) {
+          .val=VEC_GET(p->lex.tokVec, p->lex.loc, Token),
+          .err=ErrorOk
+        };
+        // clang-format on
+      } else {
+        return (ResultTokenPtr){.err = ret.err};
+      }
+    }
+  }
+  case ParserBackingMemory: {
+    if (p->mem.loc < p->mem.len) {
+      // Increment and return
+      // clang-format off
+        return (ResultTokenPtr){
+          .val = &p->mem.ptr[p->mem.loc],
+          .err = ErrorOk
+        };
+      // clang-format on
+    } else {
+      // Issue Eof Error
+      return (ResultTokenPtr){.err = ErrorEOF};
+    }
+  }
   }
 }
 

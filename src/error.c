@@ -26,24 +26,23 @@ DiagnosticLogger *destroyDiagnosticLogger(DiagnosticLogger *dl) {
   return dl;
 }
 
-void logDiagnostic(DiagnosticLogger *dl, DiagnosticType dt, uint64_t ln,
-                   uint64_t col) {
+void logDiagnostic(DiagnosticLogger *dl, Diagnostic diagnostic) {
+
   char *severity;
   char *code;
   char *message;
 
-  switch (dt) {
+  switch (diagnostic.type) {
   case ErrorOk: {
     severity = "error";
     code = "E000";
     message = "no error";
     break;
   }
-  case ErrorBadOption: {
+  case ErrorUnknown: {
     severity = "error";
     code = "E001";
-    message = "an invalid option or argument was provided. Use the -h flag "
-              "for help.";
+    message = "an unknown error has occured";
     break;
   }
   case ErrorEOF: {
@@ -137,7 +136,7 @@ void logDiagnostic(DiagnosticLogger *dl, DiagnosticType dt, uint64_t ln,
   fprintf(dl->file,
           "{ \"severity\":\"%s\", \"code\":\"%s\", \"message\":\"%s\", "
           "\"ln\":%" PRIu64 ", \"col\":%" PRIu64 "}",
-          severity, code, message, ln, col);
+          severity, code, message, diagnostic.ln, diagnostic.col);
 }
 
 void logInternalError(uint32_t line, const char *func, const char *fmt, ...) {

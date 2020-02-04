@@ -7,15 +7,17 @@
 #include "token.h"
 #include "vector.h"
 
-Parser *createParserLexer(Parser *parser, Lexer *lexer) {
+// Creates a new parser based on parsing a file on demand
+Parser *createParserLexer(Parser *parser, DiagnosticLogger *dl, Lexer *lexer) {
   parser->backing = ParserBackingLexer;
   parser->lex.lexer = lexer;
   parser->lex.loc = 0;
   createVector(&parser->lex.tokVec);
-  parser->dl = lexer->dl;
+  parser->dl = dl;
   return parser;
 }
 
+// Creates a new parser based on parsing an array.
 Parser *createParserMemory(Parser *parser, DiagnosticLogger *dl, Token *tokens,
                            size_t tokenCount) {
   parser->backing = ParserBackingMemory;
@@ -42,52 +44,62 @@ Parser *destroyParser(Parser *parser) {
   return parser;
 }
 
-static ResultTokenPtr advanceParser(Parser *p) {
+// Returns a copy of next token, unless end of file. Returns ErrorEOF if hits
+// end of file Will print lexing errors
+static Diagnostic advanceParser(Parser *p, Token *token) {
   switch (p->backing) {
   case ParserBackingLexer: {
     if (p->lex.loc < VEC_LEN(&p->lex.tokVec, Token)) {
-      // clang-format off
-      return (ResultTokenPtr) {
-        .val=VEC_GET(&p->lex.tokVec, p->lex.loc++, Token),
-        .err=ErrorOk
-      };
-      // clang-format on
+      // Return cached value
+      *token = *VEC_GET(&p->lex.tokVec, p->lex.loc++, Token);
+      return (Diagnostic){.type = ErrorOk, .ln = token->ln, .col = token->col};
     } else {
-      ResultToken ret = lexNextToken(p->lex.lexer);
-      if (ret.err == ErrorOk) {
-        *VEC_PUSH(&p->lex.tokVec, Token) = ret.val;
-        // clang-format off
-        return (ResultTokenPtr) {
-          .val=VEC_GET(&p->lex.tokVec, p->lex.loc++, Token),
-          .err=ErrorOk
-        };
-        // clang-format on
-      } else {
-        return (ResultTokenPtr){.err = ret.err};
+      // Iterate till we get a non broken integer
+      while (true) {
+        Diagnostic diag = lexNextToken(p->lex.lexer, token);
+        switch (diag.type) {
+        case ErrorOk: {
+          // Increment the location
+          p->lex.loc++;
+          // Append it to the vector cache
+          *VEC_PUSH(&p->lex.tokVec, Token) = *token;
+          return diag;
+        }
+        case ErrorEOF: {
+          return diag;
+        }
+        default: {
+          logDiagnostic(p->dl, diag);
+        }
+        }
       }
     }
   }
   case ParserBackingMemory: {
     if (p->mem.loc < p->mem.len) {
       // Increment and return
-      // clang-format off
-        return (ResultTokenPtr){
-          .val = &p->mem.ptr[p->mem.loc++],
-          .err = ErrorOk
-        };
-      // clang-format on
+      *token = p->mem.ptr[p->mem.loc++];
+      return (Diagnostic){.type = ErrorOk, .ln = token->ln, .col = token->col};
     } else {
       // Issue Eof Error
-      return (ResultTokenPtr){.err = ErrorEOF};
+      // If we don't have a last token to issue it at, issue it at 0,0
+      if (p->mem.len != 0) {
+        Token lastToken;
+        lastToken = p->mem.ptr[p->mem.len - 1];
+        return (Diagnostic){
+            .type = ErrorEOF, .ln = lastToken.ln, .col = lastToken.col};
+      } else {
+        return (Diagnostic){.type = ErrorEOF, .ln = 0, .col = 0};
+      }
     }
   }
   }
 }
 
 // Gets current token
-static ResultTokenPtr peekParser(Parser *p) {
-  ResultTokenPtr ret = advanceParser(p);
-  if (ret.err == ErrorOk) {
+static Diagnostic peekParser(Parser *p, Token *token) {
+  Diagnostic diag = advanceParser(p, token);
+  if (diag.type == ErrorOk) {
     switch (p->backing) {
     case ParserBackingLexer: {
       p->lex.loc--;
@@ -99,73 +111,112 @@ static ResultTokenPtr peekParser(Parser *p) {
     }
     }
   }
-  return ret;
+  return diag;
 }
 
-static ResultFuncDeclStmnt parseFuncDeclStmnt(Parser *p) {
-  advanceParser(p);
-  return (ResultFuncDeclStmnt){.err = ErrorOk};
+#define EXPECT_NO_ERROR(diag)                                                  \
+  do {                                                                         \
+    if ((diag).type != ErrorOk) {                                              \
+      return (diag);                                                           \
+    }                                                                          \
+  } while (false)
+
+#define EXPECT_TYPE(tokenPtr, tokenType)                                       \
+  do {                                                                         \
+    if ((tokenPtr)->type != (tokenType)) {                                     \
+      return (Diagnostic){.type = ErrorUnexpectedToken,                        \
+                          .ln = (tokenPtr)->ln,                                \
+                          .col = (tokenPtr)->col};                             \
+    }                                                                          \
+  } while (false)
+
+// TODO
+static Diagnostic parseExpr(Expr *expr, Parser *p);
+
+static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
+  // these variables will be reused
+  Token t;
+  Diagnostic d;
+
+  // Skip fn declaration
+  advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenFunction);
+
+  // the location of the whole function
+  uint64_t ln = d.ln;
+  uint64_t col = d.col;
+
+  // get name
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenIdentifier);
+  fdsp->name = strdup(t.identifier);
+
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenParenLeft);
+
+  // TODO parse parameter expressions
+
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenParenLeft);
+
+  // TODO parse expressions
+
+  return (Diagnostic){.type = ErrorOk, .ln = ln, .col = col};
 }
 
-static ResultStmnt parseStmnt(Parser *p) {
-  ResultTokenPtr ret = peekParser(p);
-  if (ret.err != ErrorOk) {
-    return (ResultStmnt){.err = ret.err};
-  }
+static Diagnostic parseStmnt(Stmnt *s, Parser *p) {
+  // these variables will be reused
+  Token t;
+  Diagnostic d;
 
-  Stmnt s;
-  switch (ret.val->type) {
+  // get thing
+  d = peekParser(p, &t);
+  EXPECT_NO_ERROR(d);
+
+  switch (t.type) {
   case TokenFunction: {
-    ResultFuncDeclStmnt ret = parseFuncDeclStmnt(p);
-    if (ret.err != ErrorOk) {
-      // TODO probably
-      return (ResultStmnt){.err = ret.err};
-    }
+    FuncDeclStmnt fds;
+    d = parseFuncDeclStmnt(&fds, p);
+    EXPECT_NO_ERROR(d);
 
-    s.type = StmntFuncDecl;
-    s.value = malloc(sizeof(FuncDeclStmnt));
-    memcpy(s.value, &ret.val, sizeof(ret.val));
-    // clang-format off
-    return (ResultStmnt) {
-      .val = s,
-      .err = ErrorOk
-    };
-    // clang-format on
+    // Initialize statement
+    s->type = StmntFuncDecl;
+    s->value = malloc(sizeof(FuncDeclStmnt));
+    memcpy(s->value, &t, sizeof(FuncDeclStmnt));
+
+    return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
   }
   default: {
-    logDiagnostic(p->dl, ErrorUnexpectedToken, ret.val->ln, ret.val->col);
-    return (ResultStmnt){.err = ErrorUnexpectedToken};
+    logDiagnostic(p->dl, d);
+    return d;
   }
   }
 }
 
-ResultTranslationUnit parseTranslationUnit(Parser *p) {
+Diagnostic parseTranslationUnit(TranslationUnit *tu, Parser *p) {
+  // reused
+  Diagnostic d;
+
   Vector data;
   createVector(&data);
+
   while (true) {
-    ResultStmnt ret = parseStmnt(p);
-    if (ret.err == ErrorEOF) {
-      INTERNAL_ERROR("finished reading file!");
+    Stmnt s;
+    d = parseStmnt(&s, p);
+    if(d.type == ErrorEOF) {
       break;
-    } else if (ret.err != ErrorOk) {
-      logInternalError(176, __func__, "TODO add error handling system: %s",
-                       "yeet");
-      break;
+    } else if(d.type != ErrorOk) {
+      logDiagnostic(p->dl, d);
     }
-    // Only reachable if it is equal to err ok
-    *VEC_PUSH(&data, Stmnt) = ret.val;
+    *VEC_PUSH(&data, Stmnt) = s;
   }
 
   size_t length = VEC_LEN(&data, Stmnt);
   Stmnt *statements = releaseVector(&data);
 
-  // clang-format off
-  return (ResultTranslationUnit) {
-    .val = (TranslationUnit) {
-      .statements = statements,
-      .length = length
-    },
-    .err = ErrorOk
-  };
-  // clang-format on
+  return (Diagnostic){.type=ErrorOk, .ln=0,.col=0};
 }

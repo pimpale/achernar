@@ -11,19 +11,20 @@
 static char *newAstString(FILE *stream) {
   DiagnosticLogger *dl =
       createDiagnosticLogger(malloc(sizeof(DiagnosticLogger)), stdout);
-  Lexer *l = createLexerFile(malloc(sizeof(Lexer)), dl, stream);
-  Parser *p = createParserLexer(malloc(sizeof(Parser)), l);
+  Lexer *l = createLexerFile(malloc(sizeof(Lexer)), stream);
+  Parser *p = createParserLexer(malloc(sizeof(Parser)), dl, l);
 
-  ResultTranslationUnit rtu = parseTranslationUnit(p);
+  TranslationUnit tu;
+  parseTranslationUnit(&tu, p);
 
 
   free(destroyParser(p));
-  free(destroyLexer(l));
   free(destroyDiagnosticLogger(dl));
+  free(destroyLexer(l));
   return "";
 }
 
-int main(int argc, char **argv) {
+int main() {
   char *ast = newAstString(stdin);
   puts(ast);
 }

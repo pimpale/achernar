@@ -26,20 +26,19 @@ typedef struct {
       size_t loc;
     } memory;
   };
-  // Place to log errors to
-  DiagnosticLogger* dl;
   // Caches the number of newlines encountered
   uint64_t ln;
   // Caches the current column of the code
   uint64_t col;
 } Lexer;
 
-Lexer *createLexerFile(Lexer *lexer, DiagnosticLogger* dl, FILE *file);
-Lexer *createLexerMemory(Lexer *lexer, DiagnosticLogger* dl, char *ptr, size_t len);
+Lexer *createLexerFile(Lexer *lexer, FILE *file);
+Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len);
 
 Lexer *destroyLexer(Lexer *lexer);
 
-// Returns the next available token, or a EofError
-ResultToken lexNextToken(Lexer *lexer);
+// Initializes Token to the value of the next token if there has not been an error.
+// returns the type of any failure
+Diagnostic lexNextToken(Lexer *lexer, Token* token);
 
 #endif

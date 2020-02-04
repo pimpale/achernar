@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "error.h"
-#include "identifier.h"
 #include "token.h"
 
 typedef enum {
@@ -30,7 +29,6 @@ typedef enum {
   ExprFieldAccess,
   ExprPipe,
   ExprIf,
-  ExprIfElse,
   ExprWhile,
   ExprFor,
   ExprWith,
@@ -38,6 +36,7 @@ typedef enum {
   ExprContinue,
   ExprReturn,
   ExprMatch,
+  ExprEntry,
   ExprBlock,
 } ExprType;
 
@@ -93,14 +92,20 @@ struct StringLiteralExpr_s {
 };
 
 struct ArrayLiteralExpr_s {
-  Identifier *type;        // Type of array
+  char *type;        // Type of array
   struct Expr_s *elements; // List
   uint64_t length;         // Number of elements
 };
 
+struct EntryExpr_s {
+  struct Expr_s* key; // An integer literal to be matched
+  struct Expr_s *value;        // The returned value
+};
+
+
 struct StructLiteralExpr_s {
-  Identifier *structName;                // Name of struct
-  IdentifierValuePair *structAttributes; // List of structAttributes
+  char *structName;                // Name of struct
+  struct EntryExpr_s * structEntries; // List of structEntries
   uint64_t length;                       // number of structAttributes specified
 };
 
@@ -128,7 +133,7 @@ struct CallExpr_s {
 
 struct FieldAccessExpr_s {
   struct Expr_s *record; // the struct
-  Identifier *field;     // the field of the struct
+  char *field;     // the field of the struct
 };
 
 struct PipeExpr_s {
@@ -139,11 +144,7 @@ struct PipeExpr_s {
 struct IfExpr_s {
   struct Expr_s *condition;
   struct Expr_s *body;
-};
-
-struct IfElseExpr_s {
-  struct Expr_s *condition;
-  struct Expr_s *ifbody;
+  bool hasElse;
   struct Expr_s *elsebody;
 };
 
@@ -174,13 +175,8 @@ struct ReturnExpr_s {
   struct Expr_s *value;
 };
 
-struct MatchEntryExpr_s {
-  struct IntLiteralExpr_s key; // An integer literal to be matched
-  struct Expr_s *value;        // The returned value
-};
-
 struct MatchExpr_s {
-  struct MatchEntryExpr_s *cases; // Points to array of cases
+  struct EntryExpr_s *cases; // Points to array of cases
   uint64_t length;                // number of cases
 };
 
@@ -197,27 +193,27 @@ struct Stmnt_s {
 };
 
 struct FuncDeclStmnt_s {
-  Identifier *funcName;             // Name of Function
+  char *name;             // Name of Function
   struct VarDeclStmnt_s *arguments; // Arguments to the function
-  Identifier *type;
+  char *type;
   struct Expr_s *body;
 };
 
 struct VarDeclStmnt_s {
-  Identifier *type;    // The type of the variable
-  Identifier *varName; // The name of the variable
+  char *name; // The name of the variable
+  char *type;    // The type of the variable
   bool isMutable;      // If the variable is mutable
 };
 
 struct StructDeclStmnt_s {
-  Identifier name; // The name of the struct (struct is not necessary)
+  char* name; // The name of the struct (struct is not necessary)
   struct VarDeclStmnt_s *fields; // An array of the fields in the struct
   uint64_t length;               // The number of elements in fields
 };
 
 struct AliasDeclStmnt_s {
-  Identifier *type;  // The original type name
-  Identifier *alias; // The new type name
+  char *type;  // The original type name
+  char *alias; // The new type name
 };
 
 struct ExprStmnt_s {
@@ -231,10 +227,6 @@ struct TranslationUnit_s {
 
 #define DECL_RESULT_TYPE(type)                                                 \
   typedef struct type##_s type;                                                \
-  typedef struct Result##type##_s {                                            \
-    struct type##_s val;                                                       \
-    DiagnosticType err;                                                        \
-  } Result##type;
 
 DECL_RESULT_TYPE(Expr)              // Expression
 DECL_RESULT_TYPE(IntLiteralExpr)    // Integer Literal Expression
@@ -250,7 +242,6 @@ DECL_RESULT_TYPE(CallExpr)          // Function Call Expression
 DECL_RESULT_TYPE(FieldAccessExpr)   // Field Access Expression
 DECL_RESULT_TYPE(PipeExpr)          // Pipeline Expression
 DECL_RESULT_TYPE(IfExpr)            // If Expression
-DECL_RESULT_TYPE(IfElseExpr)        // If Else Expression
 DECL_RESULT_TYPE(WhileExpr)         // While Expression
 DECL_RESULT_TYPE(ForExpr)           // For Expression
 DECL_RESULT_TYPE(WithExpr)          // With Expression
@@ -258,7 +249,7 @@ DECL_RESULT_TYPE(BreakExpr)         // Break Expression
 DECL_RESULT_TYPE(ContinueExpr)      // Continue Expression
 DECL_RESULT_TYPE(ReturnExpr)        // Return Expression
 DECL_RESULT_TYPE(MatchExpr)         // Match Expression
-DECL_RESULT_TYPE(MatchEntryExpr)    // Match Expression
+DECL_RESULT_TYPE(EntryExpr)         // Match or Struct Entry Expression
 DECL_RESULT_TYPE(BlockExpr)         // Expression in Parentheses
 DECL_RESULT_TYPE(Stmnt)             // Statement
 DECL_RESULT_TYPE(FuncDeclStmnt)     // Function Declaration Statement

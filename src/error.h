@@ -11,8 +11,8 @@
 typedef enum DiagnosticType_e {
   // no error
   ErrorOk,
-  // Initialization
-  ErrorBadOption,
+  // unknown error
+  ErrorUnknown,
   // Generic Lexing Errors
   ErrorEOF,
   ErrorUnrecognizedCharacter,
@@ -41,11 +41,17 @@ typedef struct DiagnosticLogger_s {
   bool messagePrinted;
 } DiagnosticLogger;
 
+typedef struct Diagnostic_s {
+  DiagnosticType type;
+  uint64_t ln;
+  uint64_t col;
+} Diagnostic;
+
 DiagnosticLogger* createDiagnosticLogger(DiagnosticLogger* dl, FILE* file);
 DiagnosticLogger* destroyDiagnosticLogger(DiagnosticLogger* dl);
 
 
-void logDiagnostic(DiagnosticLogger* dl, DiagnosticType dt, uint64_t ln, uint64_t col);
+void logDiagnostic(DiagnosticLogger* dl, Diagnostic diagnostic);
 void logInternalError(uint32_t line, const char* func, const char* fmt, ...);
 
 #define UNUSED(x) (void)(x)

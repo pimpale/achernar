@@ -120,22 +120,77 @@ static Diagnostic peekParser(Parser *p, Token *token) {
     }                                                                          \
   } while (false)
 
-// TODO
-static Diagnostic parseExpr(Expr *expr, Parser *p);
-
 // Shunting yard algorithm
-static Diagnostic parseExpr(Expr *expr, Parser *p) {
+static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p) {
   Vector opStack;
   Vector output;
   createVector(&opStack);
   createVector(&output);
 
   while(true) {
-    
+    puts("parsing expr");
   }
 }
 
-static Diagnostic parseType(
+static Diagnostic parseVarDeclStmnt(VarDeclStmnt *vdsp, Parser *p) {
+  // these variables will be reused
+  Token t;
+  Diagnostic d;
+
+  // Skip let declaration
+  advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenLet);
+
+  // the location of the whole function
+  uint64_t ln = d.ln;
+  uint64_t col = d.col;
+
+  // This might be a mutable or type
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  if(t.type == TokenMut) {
+    vdsp->isMutable = true;
+  }
+  // Now grab the actual type
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+
+  // Now check for any pointer layers
+  // Loop will exit with t holding the first nonref token
+  vdsp->pointerCount = 0;
+  while(true) {
+    d = advanceParser(p, &t);
+    EXPECT_NO_ERROR(d);
+    if(t.type == TokenRef) {
+      vdsp->pointerCount++;
+    } else {
+      break;
+    }
+  }
+
+  // Copy identifier
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenIdentifier);
+  vdsp->name = strdup(t.identifier);
+
+  // Expect Assign
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenAssign);
+
+  // Expect Expression (no implicit undefined)
+  vdsp->hasValue = true;
+  parseExprProxy(&vdsp->value, p);
+
+  // Expect Semicolon
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenSemicolon);
+
+  return (Diagnostic){.type = ErrorOk, .ln = ln, .col = col};
+}
 
 static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   // these variables will be reused
@@ -167,6 +222,7 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   Vector parameterDeclarations;
   createVector(&parameterDeclarations);
   while(true) {
+    puts("looking for args");
     VarDeclStmnt vds;
     d = advanceParser(p, &t);
     EXPECT_NO_ERROR(d);
@@ -176,6 +232,7 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
       // Now grab the actual type
       d = advanceParser(p, &t);
       EXPECT_NO_ERROR(d);
+
     } else if(t.type == TokenParenRight) {
       // Bailing once we hit the other end
       break;
@@ -185,7 +242,22 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
     EXPECT_TYPE(&t, TokenIdentifier);
     vds.type = strdup(t.identifier);
 
+    // Now check for any pointer layers
+    // Loop will exit with t holding the first nonref token
+    vds.pointerCount = 0;
+    while(true) {
+      d = advanceParser(p, &t);
+      EXPECT_NO_ERROR(d);
+      if(t.type == TokenRef) {
+        vds.pointerCount++;
+      } else {
+        break;
+      }
+    }
+
     // Copy identifier
+    d = advanceParser(p, &t);
+    EXPECT_NO_ERROR(d);
     EXPECT_TYPE(&t, TokenIdentifier);
     vds.name = strdup(t.identifier);
 
@@ -202,22 +274,25 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   fdsp->arguments = releaseVector(&parameterDeclarations);
 
   // Colon return type delimiter
-  d = peekParser(p, &t);
+  d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
   EXPECT_TYPE(&t, TokenColon);
 
   // Return type
-  d = peekParser(p, &t);
+  d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
   EXPECT_TYPE(&t, TokenIdentifier);
   fdsp->type = strdup(t.identifier);
 
-  // TODO parse expressions
+
+
+  d = parseExprProxy(&fdsp->body, p);
+  EXPECT_NO_ERROR(d);
 
   return (Diagnostic){.type = ErrorOk, .ln = ln, .col = col};
 }
 
-static Diagnostic parseStmnt(Stmnt *s, Parser *p) {
+static Diagnostic parseStmntProxy(StmntProxy *s, Parser *p) {
   // these variables will be reused
   Token t;
   Diagnostic d;
@@ -228,19 +303,23 @@ static Diagnostic parseStmnt(Stmnt *s, Parser *p) {
 
   switch (t.type) {
   case TokenFunction: {
-    FuncDeclStmnt fds;
-    d = parseFuncDeclStmnt(&fds, p);
-    EXPECT_NO_ERROR(d);
-
     // Initialize statement
     s->type = StmntFuncDecl;
     s->value = malloc(sizeof(FuncDeclStmnt));
-    memcpy(s->value, &t, sizeof(FuncDeclStmnt));
-
+    d = parseFuncDeclStmnt((FuncDeclStmnt*)s->value, p);
+    EXPECT_NO_ERROR(d);
+    return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
+  }
+  case TokenLet: {
+    // Initialize statement
+    s->type = StmntVarDecl;
+    s->value = malloc(sizeof(StmntVarDecl));
+    d = parseVarDeclStmnt((VarDeclStmnt*)s->value, p);
+    EXPECT_NO_ERROR(d);
     return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
   }
   default: {
-    logDiagnostic(p->dl, d);
+    // TODO logDiagnostic(p->dl, d);
     return d;
   }
   }
@@ -254,18 +333,17 @@ Diagnostic parseTranslationUnit(TranslationUnit *tu, Parser *p) {
   createVector(&data);
 
   while (true) {
-    Stmnt s;
-    d = parseStmnt(&s, p);
+    StmntProxy s;
+    d = parseStmntProxy(&s, p);
     if(d.type == ErrorEOF) {
       break;
     } else if(d.type != ErrorOk) {
-      logDiagnostic(p->dl, d);
+      // TODO logDiagnostic(p->dl, d);
     }
-    *VEC_PUSH(&data, Stmnt) = s;
+    *VEC_PUSH(&data, StmntProxy) = s;
   }
 
-  size_t length = VEC_LEN(&data, Stmnt);
-  Stmnt *statements = releaseVector(&data);
-
+  tu->statements_length = VEC_LEN(&data, StmntProxy);
+  tu->statements = releaseVector(&data);
   return (Diagnostic){.type=ErrorOk, .ln=0,.col=0};
 }

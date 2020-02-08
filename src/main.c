@@ -9,17 +9,14 @@
 #include "vector.h"
 
 static char *newAstString(FILE *stream) {
-  DiagnosticLogger *dl =
-      createDiagnosticLogger(malloc(sizeof(DiagnosticLogger)), stdout);
   Lexer *l = createLexerFile(malloc(sizeof(Lexer)), stream);
-  Parser *p = createParserLexer(malloc(sizeof(Parser)), dl, l);
+  Parser *p = createParserLexer(malloc(sizeof(Parser)), l);
 
   TranslationUnit tu;
   parseTranslationUnit(&tu, p);
 
 
   free(destroyParser(p));
-  free(destroyDiagnosticLogger(dl));
   free(destroyLexer(l));
   return "";
 }

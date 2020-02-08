@@ -7,6 +7,8 @@
 
 #include "constants.h"
 
+// TODO Good Code, will save for later
+/* 
 DiagnosticLogger *createDiagnosticLogger(DiagnosticLogger *dl, FILE *file) {
   dl->created = true;
   dl->destroyed = false;
@@ -138,6 +140,7 @@ void logDiagnostic(DiagnosticLogger *dl, Diagnostic diagnostic) {
           "\"ln\":%" PRIu64 ", \"col\":%" PRIu64 "}",
           severity, code, message, diagnostic.ln, diagnostic.col);
 }
+*/
 
 void logInternalError(uint32_t line, const char *func, const char *fmt, ...) {
   char macro_message_formatted[MAX_PRINT_LENGTH];

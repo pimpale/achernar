@@ -6,8 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-
-
 typedef enum DiagnosticType_e {
   // no error
   ErrorOk,
@@ -34,12 +32,6 @@ typedef enum DiagnosticType_e {
   ErrorUnexpectedToken,
 } DiagnosticType;
 
-typedef struct DiagnosticLogger_s {
-  FILE* file;
-  bool created;
-  bool destroyed;
-  bool messagePrinted;
-} DiagnosticLogger;
 
 typedef struct Diagnostic_s {
   DiagnosticType type;
@@ -47,11 +39,6 @@ typedef struct Diagnostic_s {
   uint64_t col;
 } Diagnostic;
 
-DiagnosticLogger* createDiagnosticLogger(DiagnosticLogger* dl, FILE* file);
-DiagnosticLogger* destroyDiagnosticLogger(DiagnosticLogger* dl);
-
-
-void logDiagnostic(DiagnosticLogger* dl, Diagnostic diagnostic);
 void logInternalError(uint32_t line, const char* func, const char* fmt, ...);
 
 #define UNUSED(x) (void)(x)

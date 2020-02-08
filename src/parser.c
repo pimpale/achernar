@@ -8,24 +8,22 @@
 #include "vector.h"
 
 // Creates a new parser based on parsing a file on demand
-Parser *createParserLexer(Parser *parser, DiagnosticLogger *dl, Lexer *lexer) {
+Parser *createParserLexer(Parser *parser, Lexer *lexer) {
   parser->backing = ParserBackingLexer;
   parser->lex.lexer = lexer;
   parser->lex.loc = 0;
   createVector(&parser->lex.tokVec);
-  parser->dl = dl;
   return parser;
 }
 
 // Creates a new parser based on parsing an array.
-Parser *createParserMemory(Parser *parser, DiagnosticLogger *dl, Token *tokens,
+Parser *createParserMemory(Parser *parser, Token *tokens,
                            size_t tokenCount) {
   parser->backing = ParserBackingMemory;
   parser->mem.ptr = malloc(tokenCount * sizeof(Token));
   memcpy(parser->mem.ptr, tokens, tokenCount * sizeof(Token));
   parser->mem.len = tokenCount;
   parser->mem.loc = 0;
-  parser->dl = dl;
   return parser;
 }
 
@@ -57,21 +55,13 @@ static Diagnostic advanceParser(Parser *p, Token *token) {
       // Iterate till we get a non broken integer
       while (true) {
         Diagnostic diag = lexNextToken(p->lex.lexer, token);
-        switch (diag.type) {
-        case ErrorOk: {
+        if(diag.type == ErrorOk) {
           // Increment the location
           p->lex.loc++;
           // Append it to the vector cache
           *VEC_PUSH(&p->lex.tokVec, Token) = *token;
-          return diag;
         }
-        case ErrorEOF: {
-          return diag;
-        }
-        default: {
-          logDiagnostic(p->dl, diag);
-        }
-        }
+        return diag;
       }
     }
   }
@@ -133,6 +123,20 @@ static Diagnostic peekParser(Parser *p, Token *token) {
 // TODO
 static Diagnostic parseExpr(Expr *expr, Parser *p);
 
+// Shunting yard algorithm
+static Diagnostic parseExpr(Expr *expr, Parser *p) {
+  Vector opStack;
+  Vector output;
+  createVector(&opStack);
+  createVector(&output);
+
+  while(true) {
+    
+  }
+}
+
+static Diagnostic parseType(
+
 static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   // these variables will be reused
   Token t;
@@ -157,11 +161,56 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   EXPECT_NO_ERROR(d);
   EXPECT_TYPE(&t, TokenParenLeft);
 
-  // TODO parse parameter expressions
+  // Parse the varDeclStatements
 
-  d = advanceParser(p, &t);
+  // Note that when parsing these declarations, the let is omitted, and we don't look for a value
+  Vector parameterDeclarations;
+  createVector(&parameterDeclarations);
+  while(true) {
+    VarDeclStmnt vds;
+    d = advanceParser(p, &t);
+    EXPECT_NO_ERROR(d);
+    // This might be a mutable or type or closing paren
+    if(t.type == TokenMut) {
+      vds.isMutable = true;
+      // Now grab the actual type
+      d = advanceParser(p, &t);
+      EXPECT_NO_ERROR(d);
+    } else if(t.type == TokenParenRight) {
+      // Bailing once we hit the other end
+      break;
+    }
+
+    // Copy type
+    EXPECT_TYPE(&t, TokenIdentifier);
+    vds.type = strdup(t.identifier);
+
+    // Copy identifier
+    EXPECT_TYPE(&t, TokenIdentifier);
+    vds.name = strdup(t.identifier);
+
+    // No errors
+    vds.errorLength = 0;
+    vds.errors = NULL;
+
+    // Insert into array
+    *VEC_PUSH(&parameterDeclarations, VarDeclStmnt) = vds;
+  }
+
+  // Copy arguments in
+  fdsp->arguments_length = VEC_LEN(&parameterDeclarations, VarDeclStmnt);
+  fdsp->arguments = releaseVector(&parameterDeclarations);
+
+  // Colon return type delimiter
+  d = peekParser(p, &t);
   EXPECT_NO_ERROR(d);
-  EXPECT_TYPE(&t, TokenParenLeft);
+  EXPECT_TYPE(&t, TokenColon);
+
+  // Return type
+  d = peekParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenIdentifier);
+  fdsp->type = strdup(t.identifier);
 
   // TODO parse expressions
 

@@ -30,13 +30,11 @@ typedef struct {
       size_t loc;
     } mem;
   };
-  DiagnosticLogger *dl;
 } Parser;
 
 // initializes a parser using a list of tokens (copies)
-Parser *createParserLexer(Parser *parser, DiagnosticLogger *dl, Lexer *lexer);
-Parser *createParserMemory(Parser *parser, DiagnosticLogger *dl, Token *tokens,
-                           size_t tokenCount);
+Parser *createParserLexer(Parser *parser, Lexer *lexer);
+Parser *createParserMemory(Parser *parser, Token *tokens, size_t tokenCount);
 // deletes parser
 Parser *destroyParser(Parser *parser);
 

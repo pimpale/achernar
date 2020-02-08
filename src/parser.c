@@ -198,7 +198,7 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   Diagnostic d;
 
   // Skip fn declaration
-  advanceParser(p, &t);
+  d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
   EXPECT_TYPE(&t, TokenFunction);
 
@@ -319,6 +319,7 @@ static Diagnostic parseStmntProxy(StmntProxy *s, Parser *p) {
     return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
   }
   default: {
+      advanceParser(p,&t);
     // TODO logDiagnostic(p->dl, d);
     return d;
   }

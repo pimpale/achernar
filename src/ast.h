@@ -12,6 +12,7 @@ typedef enum {
   StmntVarDecl,
   StmntStructDecl,
   StmntTypeAliasDecl,
+  StmntEntry,
   StmntExpr,
 } StmntType;
 
@@ -33,7 +34,6 @@ typedef enum {
   ExprContinue,
   ExprReturn,
   ExprMatch,
-  ExprEntry,
   ExprBlock,
 } ExprType;
 
@@ -74,8 +74,39 @@ typedef enum {
   uint64_t errorLength;
 
 
-// Declare proxy nodes
+#define DECL_TYPE(type) typedef struct type##_s type;
 
+DECL_TYPE(ExprProxy)              // Expression
+DECL_TYPE(StmntProxy)             // Statement
+DECL_TYPE(IntLiteralExpr)    // Integer Literal Expression
+DECL_TYPE(FloatLiteralExpr)  // Float Literal Expression
+DECL_TYPE(CharLiteralExpr)   // Float Literal Expression
+DECL_TYPE(StringLiteralExpr) // Float Literal Expression
+DECL_TYPE(ArrayLiteralExpr)  // Array Literal Expression
+DECL_TYPE(StructLiteralExpr) // Array Literal Expression
+DECL_TYPE(BinaryOpExpr)      // Binary Operator Expression
+DECL_TYPE(UnaryOpExpr)       // Unary Operator Expression
+DECL_TYPE(CallExpr)          // Function Call Expression
+DECL_TYPE(FieldAccessExpr)   // Field Access Expression
+DECL_TYPE(IfExpr)            // If Expression
+DECL_TYPE(WhileExpr)         // While Expression
+DECL_TYPE(ForExpr)           // For Expression
+DECL_TYPE(WithExpr)          // With Expression
+DECL_TYPE(BreakExpr)         // Break Expression
+DECL_TYPE(ContinueExpr)      // Continue Expression
+DECL_TYPE(ReturnExpr)        // Return Expression
+DECL_TYPE(MatchExpr)         // Match Expression
+DECL_TYPE(EntryExpr)         // Match or Struct Entry Expression
+DECL_TYPE(BlockExpr)         // Expression in Parentheses
+DECL_TYPE(FuncDeclStmnt)     // Function Declaration Statement
+DECL_TYPE(VarDeclStmnt)      // Variable Declaration Statement
+DECL_TYPE(StructDeclStmnt)   // Struct Declaration Statement
+DECL_TYPE(AliasDeclStmnt)    // Type Alias Declaration Statement
+DECL_TYPE(ExprStmnt)         // Expression Statement
+DECL_TYPE(TranslationUnit)   // The whole program
+
+
+// Even though we forward declare the structs, we do have to keep Proxies on top
 struct ExprProxy_s {
   ExprType type;
   void *value;
@@ -85,6 +116,8 @@ struct StmntProxy_s {
   StmntType type; // The type of statement
   void *value;    // The value of the statement
 };
+
+// Exprssions
 
 struct IntLiteralExpr_s {
   uint64_t value;
@@ -111,12 +144,6 @@ struct ArrayLiteralExpr_s {
   char *type;               // Type of array
   struct ExprProxy_s *elements;  // List
   uint64_t elements_length; // Number of elements
-  STANDARD_AST_STUFF
-};
-
-struct EntryExpr_s {
-  struct ExprProxy_s key;   // An integer literal to be matched
-  struct ExprProxy_s value; // The returned value
   STANDARD_AST_STUFF
 };
 
@@ -234,6 +261,14 @@ struct AliasDeclStmnt_s {
   STANDARD_AST_STUFF
 };
 
+
+struct StmntExpr_s {
+  struct ExprProxy_s key;   // An integer literal to be matched
+  struct ExprProxy_s value; // The returned value
+  STANDARD_AST_STUFF
+};
+
+
 struct ExprStmnt_s {
   struct ExprProxy_s expr; // the expression
   STANDARD_AST_STUFF
@@ -244,36 +279,5 @@ struct TranslationUnit_s {
   uint64_t statements_length; // The number of statements
   STANDARD_AST_STUFF
 };
-
-#define DECL_RESULT_TYPE(type) typedef struct type##_s type;
-
-DECL_RESULT_TYPE(ExprProxy)              // Expression
-DECL_RESULT_TYPE(StmntProxy)             // Statement
-DECL_RESULT_TYPE(IntLiteralExpr)    // Integer Literal Expression
-DECL_RESULT_TYPE(FloatLiteralExpr)  // Float Literal Expression
-DECL_RESULT_TYPE(CharLiteralExpr)   // Float Literal Expression
-DECL_RESULT_TYPE(StringLiteralExpr) // Float Literal Expression
-DECL_RESULT_TYPE(ArrayLiteralExpr)  // Array Literal Expression
-DECL_RESULT_TYPE(StructLiteralExpr) // Array Literal Expression
-DECL_RESULT_TYPE(BinaryOpExpr)      // Binary Operator Expression
-DECL_RESULT_TYPE(UnaryOpExpr)       // Unary Operator Expression
-DECL_RESULT_TYPE(CallExpr)          // Function Call Expression
-DECL_RESULT_TYPE(FieldAccessExpr)   // Field Access Expression
-DECL_RESULT_TYPE(IfExpr)            // If Expression
-DECL_RESULT_TYPE(WhileExpr)         // While Expression
-DECL_RESULT_TYPE(ForExpr)           // For Expression
-DECL_RESULT_TYPE(WithExpr)          // With Expression
-DECL_RESULT_TYPE(BreakExpr)         // Break Expression
-DECL_RESULT_TYPE(ContinueExpr)      // Continue Expression
-DECL_RESULT_TYPE(ReturnExpr)        // Return Expression
-DECL_RESULT_TYPE(MatchExpr)         // Match Expression
-DECL_RESULT_TYPE(EntryExpr)         // Match or Struct Entry Expression
-DECL_RESULT_TYPE(BlockExpr)         // Expression in Parentheses
-DECL_RESULT_TYPE(FuncDeclStmnt)     // Function Declaration Statement
-DECL_RESULT_TYPE(VarDeclStmnt)      // Variable Declaration Statement
-DECL_RESULT_TYPE(StructDeclStmnt)   // Struct Declaration Statement
-DECL_RESULT_TYPE(AliasDeclStmnt)    // Type Alias Declaration Statement
-DECL_RESULT_TYPE(ExprStmnt)         // Expression Statement
-DECL_RESULT_TYPE(TranslationUnit)   // The whole program
 
 #endif

@@ -17,8 +17,7 @@ Parser *createParserLexer(Parser *parser, Lexer *lexer) {
 }
 
 // Creates a new parser based on parsing an array.
-Parser *createParserMemory(Parser *parser, Token *tokens,
-                           size_t tokenCount) {
+Parser *createParserMemory(Parser *parser, Token *tokens, size_t tokenCount) {
   parser->backing = ParserBackingMemory;
   parser->mem.ptr = malloc(tokenCount * sizeof(Token));
   memcpy(parser->mem.ptr, tokens, tokenCount * sizeof(Token));
@@ -55,7 +54,7 @@ static Diagnostic advanceParser(Parser *p, Token *token) {
       // Iterate till we get a non broken integer
       while (true) {
         Diagnostic diag = lexNextToken(p->lex.lexer, token);
-        if(diag.type == ErrorOk) {
+        if (diag.type == ErrorOk) {
           // Increment the location
           p->lex.loc++;
           // Append it to the vector cache
@@ -120,17 +119,8 @@ static Diagnostic peekParser(Parser *p, Token *token) {
     }                                                                          \
   } while (false)
 
-// Shunting yard algorithm
-static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p) {
-  Vector opStack;
-  Vector output;
-  createVector(&opStack);
-  createVector(&output);
-
-  while(true) {
-    puts("parsing expr");
-  }
-}
+static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p);
+static Diagnostic parseStmntProxy(StmntProxy *expr, Parser *p);
 
 static Diagnostic parseVarDeclStmnt(VarDeclStmnt *vdsp, Parser *p) {
   // these variables will be reused
@@ -149,7 +139,7 @@ static Diagnostic parseVarDeclStmnt(VarDeclStmnt *vdsp, Parser *p) {
   // This might be a mutable or type
   d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
-  if(t.type == TokenMut) {
+  if (t.type == TokenMut) {
     vdsp->isMutable = true;
   }
   // Now grab the actual type
@@ -159,10 +149,10 @@ static Diagnostic parseVarDeclStmnt(VarDeclStmnt *vdsp, Parser *p) {
   // Now check for any pointer layers
   // Loop will exit with t holding the first nonref token
   vdsp->pointerCount = 0;
-  while(true) {
+  while (true) {
     d = advanceParser(p, &t);
     EXPECT_NO_ERROR(d);
-    if(t.type == TokenRef) {
+    if (t.type == TokenRef) {
       vdsp->pointerCount++;
     } else {
       break;
@@ -218,22 +208,23 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
 
   // Parse the varDeclStatements
 
-  // Note that when parsing these declarations, the let is omitted, and we don't look for a value
+  // Note that when parsing these declarations, the let is omitted, and we don't
+  // look for a value
   Vector parameterDeclarations;
   createVector(&parameterDeclarations);
-  while(true) {
+  while (true) {
     puts("looking for args");
     VarDeclStmnt vds;
     d = advanceParser(p, &t);
     EXPECT_NO_ERROR(d);
     // This might be a mutable or type or closing paren
-    if(t.type == TokenMut) {
+    if (t.type == TokenMut) {
       vds.isMutable = true;
       // Now grab the actual type
       d = advanceParser(p, &t);
       EXPECT_NO_ERROR(d);
 
-    } else if(t.type == TokenParenRight) {
+    } else if (t.type == TokenParenRight) {
       // Bailing once we hit the other end
       break;
     }
@@ -245,10 +236,10 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
     // Now check for any pointer layers
     // Loop will exit with t holding the first nonref token
     vds.pointerCount = 0;
-    while(true) {
+    while (true) {
       d = advanceParser(p, &t);
       EXPECT_NO_ERROR(d);
-      if(t.type == TokenRef) {
+      if (t.type == TokenRef) {
         vds.pointerCount++;
       } else {
         break;
@@ -284,12 +275,68 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   EXPECT_TYPE(&t, TokenIdentifier);
   fdsp->type = strdup(t.identifier);
 
-
-
   d = parseExprProxy(&fdsp->body, p);
   EXPECT_NO_ERROR(d);
 
   return (Diagnostic){.type = ErrorOk, .ln = ln, .col = col};
+}
+
+static Diagnostic parseBreakExpr(BreakExpr *bep, Parser *p) {
+  Token t;
+  Diagnostic d;
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(t, TokenBreak);
+  return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
+}
+
+static Diagnostic parseContinueExpr(ContinueExpr *cep, Parser *p) {
+  Token t;
+  Diagnostic d;
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(t, TokenContinue);
+  return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
+}
+
+static Diagnostic parseWhileExpr(WhileExpr *wep, Parser *p) {
+  Token t;
+  Diagnostic d;
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(t, TokenWhile);
+  d = parseExprProxy(&wep->condition, p);
+  EXPECT_NO_ERROR(d);
+  d = parseExprProxy(&wep->body, p);
+  EXPECT_NO_ERROR(d);
+  return d;
+}
+
+// Shunting yard algorithm
+static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p) {
+  Token t;
+  Diagnostic d;
+
+  // get thing
+  d = peekParser(p, &t);
+  EXPECT_NO_ERROR(d);
+
+  switch (t.type) {
+  case ExprBreak: {
+    expr->value = malloc(sizeof(ExprBreak));
+    return parseBreakExpr((BreakExpr *)expr->value, p);
+  }
+  case ExprContinue: {
+    expr->value = malloc(sizeof(ExprContinue));
+    return parseContinueExpr((ContinueExpr *)expr->value, p);
+  }
+  case ExprWhile: {
+    expr->value = malloc(sizeof(ExprWhile));
+    return parseWhileExpr((WhileExpr *)expr->value, p);
+  }
+  case ExprFor: {
+  }
+  }
 }
 
 static Diagnostic parseStmntProxy(StmntProxy *s, Parser *p) {
@@ -306,20 +353,18 @@ static Diagnostic parseStmntProxy(StmntProxy *s, Parser *p) {
     // Initialize statement
     s->type = StmntFuncDecl;
     s->value = malloc(sizeof(FuncDeclStmnt));
-    d = parseFuncDeclStmnt((FuncDeclStmnt*)s->value, p);
-    EXPECT_NO_ERROR(d);
-    return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
+    return parseFuncDeclStmnt((FuncDeclStmnt *)s->value, p);
   }
   case TokenLet: {
     // Initialize statement
     s->type = StmntVarDecl;
     s->value = malloc(sizeof(StmntVarDecl));
-    d = parseVarDeclStmnt((VarDeclStmnt*)s->value, p);
+    d = parseVarDeclStmnt((VarDeclStmnt *)s->value, p);
     EXPECT_NO_ERROR(d);
     return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
   }
   default: {
-      advanceParser(p,&t);
+    advanceParser(p, &t);
     // TODO logDiagnostic(p->dl, d);
     return d;
   }
@@ -336,9 +381,9 @@ Diagnostic parseTranslationUnit(TranslationUnit *tu, Parser *p) {
   while (true) {
     StmntProxy s;
     d = parseStmntProxy(&s, p);
-    if(d.type == ErrorEOF) {
+    if (d.type == ErrorEOF) {
       break;
-    } else if(d.type != ErrorOk) {
+    } else if (d.type != ErrorOk) {
       // TODO logDiagnostic(p->dl, d);
     }
     *VEC_PUSH(&data, StmntProxy) = s;
@@ -346,5 +391,5 @@ Diagnostic parseTranslationUnit(TranslationUnit *tu, Parser *p) {
 
   tu->statements_length = VEC_LEN(&data, StmntProxy);
   tu->statements = releaseVector(&data);
-  return (Diagnostic){.type=ErrorOk, .ln=0,.col=0};
+  return (Diagnostic){.type = ErrorOk, .ln = 0, .col = 0};
 }

@@ -106,7 +106,7 @@ static Diagnostic peekParser(Parser *p, Token *token) {
 #define EXPECT_NO_ERROR(diag)                                                  \
   do {                                                                         \
     if ((diag).type != ErrorOk) {                                              \
-      return (diag);                                                           \
+      goto HANDLE_ERROR;                                                       \
     }                                                                          \
   } while (false)
 
@@ -119,8 +119,9 @@ static Diagnostic peekParser(Parser *p, Token *token) {
     }                                                                          \
   } while (false)
 
-static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p);
+// Note that all errors resynch at the statement level
 static Diagnostic parseStmntProxy(StmntProxy *expr, Parser *p);
+static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p);
 
 static Diagnostic parseVarDeclStmnt(VarDeclStmnt *vdsp, Parser *p) {
   // these variables will be reused
@@ -165,7 +166,7 @@ static Diagnostic parseVarDeclStmnt(VarDeclStmnt *vdsp, Parser *p) {
   EXPECT_TYPE(&t, TokenIdentifier);
   vdsp->name = strdup(t.identifier);
 
-  // Expect Assign
+  // Expect Assign or semicolon
   d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
   EXPECT_TYPE(&t, TokenAssign);
@@ -213,7 +214,6 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   Vector parameterDeclarations;
   createVector(&parameterDeclarations);
   while (true) {
-    puts("looking for args");
     VarDeclStmnt vds;
     d = advanceParser(p, &t);
     EXPECT_NO_ERROR(d);
@@ -286,7 +286,8 @@ static Diagnostic parseBreakExpr(BreakExpr *bep, Parser *p) {
   Diagnostic d;
   d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
-  EXPECT_TYPE(t, TokenBreak);
+  EXPECT_TYPE(&t, TokenBreak);
+  bep->errorLength = 0;
   return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
 }
 
@@ -295,7 +296,8 @@ static Diagnostic parseContinueExpr(ContinueExpr *cep, Parser *p) {
   Diagnostic d;
   d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
-  EXPECT_TYPE(t, TokenContinue);
+  EXPECT_TYPE(&t, TokenContinue);
+  cep->errorLength = 0;
   return (Diagnostic){.type = ErrorOk, .ln = d.ln, .col = d.col};
 }
 
@@ -304,13 +306,90 @@ static Diagnostic parseWhileExpr(WhileExpr *wep, Parser *p) {
   Diagnostic d;
   d = advanceParser(p, &t);
   EXPECT_NO_ERROR(d);
-  EXPECT_TYPE(t, TokenWhile);
+  EXPECT_TYPE(&t, TokenWhile);
   d = parseExprProxy(&wep->condition, p);
   EXPECT_NO_ERROR(d);
   d = parseExprProxy(&wep->body, p);
   EXPECT_NO_ERROR(d);
+
+  // TODO errors
+  wep->errorLength = 0;
   return d;
 }
+
+static Diagnostic parseForExpr(ForExpr *fep, Parser *p) {
+  Token t;
+  Diagnostic d;
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenFor);
+  d = parseStmntProxy(&fep->init, p);
+  EXPECT_NO_ERROR(d);
+  d = parseExprProxy(&fep->test, p);
+  EXPECT_NO_ERROR(d);
+  d = parseStmntProxy(&fep->update, p);
+  EXPECT_NO_ERROR(d);
+  d = parseExprProxy(&fep->body, p);
+  EXPECT_NO_ERROR(d);
+  fep->errorLength = 0;
+  return d;
+}
+
+static Diagnostic parseMatchCaseExpr(MatchCaseExpr *mcep, Parser *p) {
+  Token t;
+  Diagnostic d;
+  // Get pattern
+  d = parseExprProxy(&mcep->pattern, p);
+  EXPECT_NO_ERROR(d);
+  // Expect colon
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenColon);
+  // Get Value
+  d = parseExprProxy(&mcep->pattern, p);
+  EXPECT_NO_ERROR(d);
+  mcep->errorLength = 0;
+  return d;
+}
+
+static Diagnostic parseMatchExpr(MatchExpr *mep, Parser *p) {
+  Token t;
+  Diagnostic d;
+  // Ensure match
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenMatch);
+  // Get expression to match against
+  d = parseExprProxy(&mep->value, p);
+  // now we must parse the block containing the cases
+
+  // Expect beginning brace
+  d = advanceParser(p, &t);
+  EXPECT_NO_ERROR(d);
+  EXPECT_TYPE(&t, TokenBraceLeft);
+
+  // TODO how do i add commas?
+  Vector cases;
+  createVector(&cases);
+  while(true) {
+    d = peekParser(p, &t);
+    EXPECT_NO_ERROR(d);
+    if(t.type == TokenBraceRight) {
+      break;
+    }
+    d = parseMatchCaseExpr(VEC_PUSH(&cases, MatchCaseExpr), p);
+    EXPECT_NO_ERROR(d);
+  }
+
+  // Get interior cases
+  mep->cases_length = VEC_LEN(&cases, MatchCaseExpr);
+  mep->cases = releaseVector(&cases);
+
+  // TODO errors
+  mep->errors = 0;
+  return d;
+}
+
 
 // Shunting yard algorithm
 static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p) {
@@ -322,19 +401,30 @@ static Diagnostic parseExprProxy(ExprProxy *expr, Parser *p) {
   EXPECT_NO_ERROR(d);
 
   switch (t.type) {
-  case ExprBreak: {
+  case TokenBreak: {
+    expr->type = ExprBreak;
     expr->value = malloc(sizeof(ExprBreak));
     return parseBreakExpr((BreakExpr *)expr->value, p);
   }
-  case ExprContinue: {
+  case TokenContinue: {
+                       expr->type = ExprContinue;
     expr->value = malloc(sizeof(ExprContinue));
     return parseContinueExpr((ContinueExpr *)expr->value, p);
   }
-  case ExprWhile: {
+  case TokenWhile: {
+                    expr->type = ExprWhile;
     expr->value = malloc(sizeof(ExprWhile));
     return parseWhileExpr((WhileExpr *)expr->value, p);
   }
-  case ExprFor: {
+  case TokenFor: {
+                  expr->value = ExprFor;
+    expr->value = malloc(sizeof(ExprFor));
+    return parseForExpr((ForExpr*)expr->value, p);
+  }
+  case TokenMatch: {
+                    expr->value = ExprMatch;
+    expr->value = malloc(sizeof(ExprMatch));
+    return parseMatchExpr((MatchExpr*)expr->value, p);
   }
   }
 }

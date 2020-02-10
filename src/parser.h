@@ -9,6 +9,7 @@
 #include "lexer.h"
 #include "token.h"
 #include "vector.h"
+#include "region.h"
 
 typedef enum ParserBacking_e {
   ParserBackingLexer,
@@ -18,6 +19,7 @@ typedef enum ParserBacking_e {
 // Do not manually modify any of these values
 typedef struct {
   ParserBacking backing;
+  Region dataRegion; // Region to store strings and other miscellaneous stuff
   union {
     struct {
       Lexer *lexer;

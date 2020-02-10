@@ -8,7 +8,7 @@
 #include "error.h"
 
 // The initial capacity of the vector
-#define INITIAL_CAPACITY 1
+#define INITIAL_CAPACITY 10
 // The percent it will increase when out of room MUST BE POSITIVE
 // Ex. 1.5 -> 50% expansion each time the limit is hit
 #define LOAD_FACTOR 1.5f
@@ -16,25 +16,29 @@
 void setSizeVector(Vector *vector, size_t size);
 void resizeVector(Vector *vector, size_t size);
 
-/* Sets the size of the vector */
+// Sets the size of the vector
 void setSizeVector(Vector *vector, size_t size) {
   vector->data = realloc(vector->data, size);
   vector->capacity = size;
 }
 
-/* Resizes the vector in order to fit an element of this size in */
+// Resizes the vector in order to fit an element of this size in
 void resizeVector(Vector *vector, size_t size) {
-  /* This is the new size of the vector if we used the loadFactor */
+  // This is the new size of the vector if we used the loadFactor
   size_t newCapacity = (size_t)((vector->length + size) * LOAD_FACTOR);
   setSizeVector(vector, newCapacity);
 }
 
-Vector *createVector(Vector *vector) {
+Vector *createWithCapacityVector(Vector *vector, size_t initialCapacity) {
   vector->data = NULL;
   vector->length = 0;
   vector->capacity = 0;
-  resizeVector(vector, INITIAL_CAPACITY);
+  resizeVector(vector, initialCapacity);
   return vector;
+}
+
+Vector *createVector(Vector *vector) {
+  return createWithCapacityVector(vector, INITIAL_CAPACITY);
 }
 
 Vector *destroyVector(Vector *vector) {
@@ -45,7 +49,12 @@ Vector *destroyVector(Vector *vector) {
 }
 
 void* releaseVector(Vector *vector) {
-  vector->data = realloc(vector->data, vector->length);
+  if(vector->length == 0) {
+    destroyVector(vector);
+    return NULL;
+  } else {
+    vector->data = realloc(vector->data, vector->length);
+  }
   return vector->data;
 }
 
@@ -70,6 +79,7 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
     resizeVector(vector, len);
   }
   vector->length += len;
+  // copy data currently at loc back
   uint8_t *src = getVector(vector, loc);
   uint8_t *dest = getVector(vector, loc + len);
   // Move memory from end of allocation back

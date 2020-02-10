@@ -83,6 +83,7 @@ DECL_TYPE(FloatLiteralExpr)  // Float Literal Expression
 DECL_TYPE(CharLiteralExpr)   // Float Literal Expression
 DECL_TYPE(StringLiteralExpr) // Float Literal Expression
 DECL_TYPE(ArrayLiteralExpr)  // Array Literal Expression
+DECL_TYPE(StructLiteralEntryExpr) // Array Literal Expression
 DECL_TYPE(StructLiteralExpr) // Array Literal Expression
 DECL_TYPE(BinaryOpExpr)      // Binary Operator Expression
 DECL_TYPE(UnaryOpExpr)       // Unary Operator Expression
@@ -95,8 +96,8 @@ DECL_TYPE(WithExpr)          // With Expression
 DECL_TYPE(BreakExpr)         // Break Expression
 DECL_TYPE(ContinueExpr)      // Continue Expression
 DECL_TYPE(ReturnExpr)        // Return Expression
+DECL_TYPE(MatchCaseExpr)     // Match or Struct Entry Expression
 DECL_TYPE(MatchExpr)         // Match Expression
-DECL_TYPE(EntryExpr)         // Match or Struct Entry Expression
 DECL_TYPE(BlockExpr)         // Expression in Parentheses
 DECL_TYPE(FuncDeclStmnt)     // Function Declaration Statement
 DECL_TYPE(VarDeclStmnt)      // Variable Declaration Statement
@@ -144,6 +145,12 @@ struct ArrayLiteralExpr_s {
   char *type;               // Type of array
   struct ExprProxy_s *elements;  // List
   uint64_t elements_length; // Number of elements
+  STANDARD_AST_STUFF
+};
+
+struct StructLiteralEntryExpr_s {
+  char* field;
+  struct ExprProxy_s;
   STANDARD_AST_STUFF
 };
 
@@ -216,7 +223,14 @@ struct ReturnExpr_s {
   STANDARD_AST_STUFF
 };
 
+struct MatchCaseExpr_s {
+  struct ExprProxy_s pattern;  // The value to match against
+  struct ExprProxy_s value;    // The expression to evaluate if true
+  STANDARD_AST_STUFF
+};
+
 struct MatchExpr_s {
+  struct ExprProxy_s value;  // The value to be matched
   struct EntryExpr_s *cases; // Points to array of cases
   uint64_t cases_length;     // number of cases
   STANDARD_AST_STUFF

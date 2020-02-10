@@ -30,6 +30,7 @@ typedef enum DiagnosticType_e {
   ErrorStringLiteralUnrecognizedEscapeCode,
   // Generic Parsing errors
   ErrorUnexpectedToken,
+  ErrorSubcomponentFailedToParse,
 } DiagnosticType;
 
 

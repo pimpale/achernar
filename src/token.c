@@ -21,6 +21,10 @@ void destroyToken(Token* token) {
     free(token->annotationLiteral);
     break;
   }
+  case TokenMacro: {
+    free(token->macro);
+    break;
+  }
   default: {
     break;
   }
@@ -30,6 +34,10 @@ void destroyToken(Token* token) {
 void printToken(Token* token) {
   char* str;
   switch (token->type) {
+    case TokenNone: {
+      str = "(Not A Token)";
+      break;
+    }
     case TokenIdentifier: {
       str = "Identifier";
       break;
@@ -240,6 +248,10 @@ void printToken(Token* token) {
     }
     case TokenSemicolon: {
       str = "Semicolon";
+      break;
+    }
+    case TokenMacro: {
+      str = "Macro";
       break;
     }
     case TokenComment: {

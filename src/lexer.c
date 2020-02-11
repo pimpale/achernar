@@ -100,6 +100,38 @@ static int32_t peekValueLexer(Lexer *lexer) {
   }
 }
 
+// Buffered Lexer
+
+BufferedLexer* createBufferedLexer(BufferedLexer* bl, Lexer* l) {
+  bl->hasNext = false;
+  bl->l = l;
+  return bl;
+}
+
+BufferedLexer * destroyBufferedLexer(BufferedLexer* bl) {
+  // No memory to dealloc lmao
+  return bl;
+}
+
+// If next exists, give that and stop next. Else give the current
+void advanceToken(BufferedLexer* bl, Token* t) {
+  if(bl->hasNext) {
+    *t = bl->next;
+    bl->hasNext = false;
+  } else {
+    lexNextToken(bl->l, t);
+  }
+}
+
+// If next exists, give that. Else make next and give that
+void peekToken(BufferedLexer* bl, Token* t) {
+  if(!bl->hasNext) {
+    lexNextToken(bl->l, &bl->next);
+    bl->hasNext = true;
+  }
+  *t = bl->next;
+}
+
 // Stuff to lex with
 typedef struct {
   uint64_t val;
@@ -138,7 +170,7 @@ static ResultU64 parseInteger(char *str, size_t len, uint64_t radix) {
 // Call this function right before the first hash
 // Returns control at the first noncomment (or nonannotate) area
 // Lexes comments, annotations, and docstrings
-static Diagnostic lexCommentOrAnnotation(Lexer *lexer, Token *token) {
+static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
   uint64_t ln = lexer->ln;
   uint64_t col = lexer->col;
 
@@ -180,9 +212,10 @@ static Diagnostic lexCommentOrAnnotation(Lexer *lexer, Token *token) {
       .type = TokenComment,
       .comment = releaseVector(&data),
       .ln = ln,
-      .col = col
+      .col = col,
+      .error = ErrorOk
     };
-    return (Diagnostic) {.type=ErrorOk, .ln=ln, .col=col};
+    return;
     // clang-format on
   }
   case '@': {
@@ -210,9 +243,10 @@ static Diagnostic lexCommentOrAnnotation(Lexer *lexer, Token *token) {
       .type = TokenAnnotation,
       .annotationLiteral = releaseVector(&data),
       .ln = lexer->ln,
-      .col = lexer->col
+      .col = lexer->col,
+      .error = ErrorOk
     };
-    return (Diagnostic) {.type=ErrorOk, .ln=ln, .col=col};
+    return;
     // clang-format on
   }
   default: {
@@ -237,9 +271,10 @@ static Diagnostic lexCommentOrAnnotation(Lexer *lexer, Token *token) {
       .type = TokenComment,
       .comment = releaseVector(&data),
       .ln = lexer->ln,
-      .col = lexer->col
+      .col = lexer->col,
+      .error = ErrorOk
     };
-    return (Diagnostic) {.type=ErrorOk, .ln=ln, .col=col};
+    return;
     // clang-format on
   }
   }
@@ -248,7 +283,7 @@ static Diagnostic lexCommentOrAnnotation(Lexer *lexer, Token *token) {
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
-static Diagnostic lexStringLiteral(Lexer *lexer, Token *token) {
+static void lexStringLiteral(Lexer *lexer, Token *token) {
   uint64_t ln = lexer->ln;
   uint64_t col = lexer->col;
   // Skip first quote
@@ -274,16 +309,17 @@ static Diagnostic lexStringLiteral(Lexer *lexer, Token *token) {
       .type = TokenStringLiteral,
       .stringLiteral = releaseVector(&data),
       .ln = lexer->ln,
-      .col = lexer->col
+      .col = lexer->col,
+      .error = ErrorOk
     };
   // clang-format on
-  return (Diagnostic){.type = ErrorOk, .ln = ln, .col = col};
+  return;
 }
 
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static Diagnostic lexNumberLiteral(Lexer *lexer, Token *token) {
+static void lexNumberLiteral(Lexer *lexer, Token *token) {
   uint64_t ln = lexer->ln;
   uint64_t col = lexer->col;
 
@@ -359,10 +395,16 @@ static Diagnostic lexNumberLiteral(Lexer *lexer, Token *token) {
       }
       default: {
         free(string);
+        // clang-format off
+        *token = (Token) {
+          .type = TokenNone,
+          .ln = ln,
+          .col = col,
+          .error = ErrorIntLiteralUnrecognizedRadixCode
 
-        return (Diagnostic){.type = ErrorIntLiteralUnrecognizedRadixCode,
-                            .ln = ln,
-                            .col = col + 1};
+        };
+        // clang-format on
+        return;
       }
       }
       // Basically take the string after 0x or whatever
@@ -378,16 +420,30 @@ static Diagnostic lexNumberLiteral(Lexer *lexer, Token *token) {
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
     if (ret.err != ErrorOk) {
       free(string);
-      return (Diagnostic){.type = ret.err, .ln = ln, .col = col};
+      // clang-format off
+      *token = (Token) {
+          .type = TokenNone,
+          .ln = ln,
+          .col = col,
+          .error = ErrorIntLiteralUnrecognizedRadixCode
+
+      };
+      // clang-format on
+      return;
     } else {
       // Return data
+      free(string);
       // clang-format off
       *token  = (Token) {
         .type = TokenIntLiteral,
-        .intLiteral = ret.val
+        .ln = ln,
+        .col = col,
+        .intLiteral = ret.val,
+        .error = ErrorOk
+
       };
-      return (Diagnostic) {.type=ErrorOk, .ln = ln, .col = col};
       // clang-format on
+      return;
     }
   } else {
     // If it has a decimal point, it must be a float
@@ -413,7 +469,16 @@ static Diagnostic lexNumberLiteral(Lexer *lexer, Token *token) {
       result += initialRet.val;
     } else {
       free(string);
-      return (Diagnostic){.type = initialRet.err, .ln = ln, .col = col};
+      // clang-format off
+      *token = (Token) {
+          .type = TokenNone,
+          .ln = ln,
+          .col = col,
+          .error = initialRet.err
+
+      };
+      // clang-format on
+      return;
     }
     // If there's a bit after the inital part, then we must add it
     if (finalPortionLen > 0) {
@@ -428,7 +493,16 @@ static Diagnostic lexNumberLiteral(Lexer *lexer, Token *token) {
         result += decimalResult;
       } else {
         free(string);
-        return (Diagnostic){.type = finalRet.err, .ln = ln, .col = col};
+        // clang-format off
+        *token = (Token) {
+            .type = TokenNone,
+            .ln = ln,
+            .col = col,
+            .error = finalRet.err
+
+        };
+        // clang-format on
+        return;
       }
     }
 
@@ -441,14 +515,15 @@ static Diagnostic lexNumberLiteral(Lexer *lexer, Token *token) {
       .type = TokenFloatLiteral,
       .floatLiteral = result,
       .ln = ln,
-      .col = col
+      .col = col,
+      .error = ErrorOk
     };
-    return (Diagnostic) {.type=ErrorOk, .ln = ln, .col = col};
     // clang-format on
+    return;
   }
 }
 
-static Diagnostic lexCharLiteral(Lexer *lexer, Token *token) {
+static void lexCharLiteral(Lexer *lexer, Token *token) {
   // Skip leading '
   nextValueLexer(lexer);
 
@@ -490,7 +565,15 @@ static Diagnostic lexCharLiteral(Lexer *lexer, Token *token) {
     // Clean up
     free(string);
 
-    return (Diagnostic){.type = ErrorCharLiteralEmpty, .ln = ln, .col = col};
+    // clang-format off
+    *token = (Token) {
+      .type = TokenNone,
+      .ln = ln,
+      .col = col,
+      .error = ErrorCharLiteralEmpty
+    };
+    // clang-format on
+    return;
   }
   case 1: {
     // We return the first character in the vector
@@ -500,18 +583,27 @@ static Diagnostic lexCharLiteral(Lexer *lexer, Token *token) {
       .type = TokenCharLiteral,
       .charLiteral = string[0],
       .ln = ln,
-      .col = col
+      .col = col,
+      .error = ErrorOk
     };
     // clang-format on
 
     // Clean up
     free(string);
-    return (Diagnostic){.type = ErrorOk, .ln = ln, .col = col};
+    return;
   }
   case 2: {
     if (string[0] != '\\') {
       free(string);
-      return (Diagnostic){.type = ErrorCharLiteralTooLong, .ln = ln, .col = col};
+      // clang-format off
+      *token = (Token) {
+        .type = TokenNone,
+        .ln = ln,
+        .col = col,
+        .error = ErrorCharLiteralTooLong
+      };
+      // clang-format on
+      return;
     }
 
     char code;
@@ -542,8 +634,15 @@ static Diagnostic lexCharLiteral(Lexer *lexer, Token *token) {
     }
     default: {
       free(string);
-      return (Diagnostic){
-          .type = ErrorCharLiteralUnrecognizedEscapeCode, .ln = ln, .col = col};
+      // clang-format off
+      *token = (Token) {
+        .type = TokenNone,
+        .ln = ln,
+        .col = col,
+        .error = ErrorCharLiteralUnrecognizedEscapeCode
+      };
+      // clang-format on
+      return;
     }
     }
 
@@ -555,38 +654,63 @@ static Diagnostic lexCharLiteral(Lexer *lexer, Token *token) {
       .type = TokenCharLiteral,
       .charLiteral = code,
       .ln = ln,
-      .col = col
+      .col = col,
+      .error = ErrorOk
     };
-    return (Diagnostic) {.type=ErrorOk, .ln = ln, .col = col};
+    return;
     // clang-format on
   }
   default: {
     free(string);
-    return (Diagnostic){.type = ErrorCharLiteralTooLong, .ln = ln, .col = col};
+    // clang-format off
+    *token = (Token) {
+      .type = TokenNone,
+      .ln = ln,
+      .col = col,
+      .error = ErrorCharLiteralTooLong
+    };
+    // clang-format on
+    return;
   }
   }
 }
 
-static Diagnostic lexIdentifier(Lexer *lexer, Token *token) {
+// Parses an identifer or macro
+static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   Vector data;
   createVector(&data);
 
   token->ln = lexer->ln;
   token->col = lexer->col;
 
+  bool macro = false;
+
   int32_t c;
   while ((c = peekValueLexer(lexer)) != EOF) {
     if (isalnum(c)) {
       *VEC_PUSH(&data, char) = (char)c;
       nextValueLexer(lexer);
+    } else if(c == '!') {
+      macro = true;
+      break;
     } else {
       break;
     }
   }
+
+  // Note that string length does not incude the trailing null byte
+  size_t len = VEC_LEN(&data, char);
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-
   char *string = releaseVector(&data);
+
+  if(macro) {
+    // It is an identifier, and we need to keep the string
+    token->type = TokenMacro;
+    token->macro = string;
+    token->error = ErrorOk;
+    return;
+  }
 
   if (!strcmp(string, "if")) {
     token->type = TokenIf;
@@ -618,27 +742,36 @@ static Diagnostic lexIdentifier(Lexer *lexer, Token *token) {
     // It is an identifier, and we need to keep the string
     token->type = TokenIdentifier;
     token->identifier = string;
-    return (Diagnostic){.type = ErrorOk, .ln = token->ln, .col = token->col};
+    token->error = ErrorOk;
+    return;
   }
+
+  // If it wasn't an identifier
+  token->error = ErrorOk;
   free(string);
-  return (Diagnostic){.type = ErrorOk, .ln = token->ln, .col = token->col};
+  return;
 }
 
 /* clang-format off */
-#define RETURN_RESULT_TOKEN(tokenType)                                         \
+
+#define RESULT_TOKEN(tokenType, errorType) \
   *token = (Token){                                                            \
       .type = tokenType,                                                       \
       .ln = lexer->ln,                                                         \
-      .col = lexer->col                                                        \
+      .col = lexer->col,                                                       \
+      .error = errorType                                                       \
   };                                                                           \
-  return (Diagnostic) {.type=ErrorOk, .ln=lexer->ln, .col=lexer->col};
+
+#define RETURN_RESULT_TOKEN(tokenType)                                         \
+  RESULT_TOKEN(tokenType, errorType)                                           \
+  return;
 
 #define NEXT_AND_RETURN_RESULT_TOKEN(tokenType) \
   nextValueLexer(lexer); \
   RETURN_RESULT_TOKEN(tokenType)
 /* clang-format on */
 
-Diagnostic lexNextToken(Lexer *lexer, Token *token) {
+void lexNextToken(Lexer *lexer, Token *token) {
   int32_t c;
 
   // Set c to first nonblank character
@@ -651,19 +784,24 @@ Diagnostic lexNextToken(Lexer *lexer, Token *token) {
   }
 
   if (isalpha(c)) {
-    return lexIdentifier(lexer, token);
+    lexIdentifierOrMacro(lexer, token);
+    return;
   } else if (isdigit(c)) {
-    return lexNumberLiteral(lexer, token);
+    lexNumberLiteral(lexer, token);
+    return;
   } else {
     switch (c) {
     case '\'': {
-      return lexCharLiteral(lexer, token);
+      lexCharLiteral(lexer, token);
+      return;
     }
     case '\"': {
-      return lexStringLiteral(lexer, token);
+      lexStringLiteral(lexer, token);
+      return;
     }
     case '#': {
-      return lexCommentOrAnnotation(lexer, token);
+      lexCommentOrAnnotation(lexer, token);
+      return;
     }
     case '&': {
       nextValueLexer(lexer);
@@ -785,12 +923,12 @@ Diagnostic lexNextToken(Lexer *lexer, Token *token) {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenSemicolon)
     }
     case EOF: {
-      return (Diagnostic){.type = ErrorEOF, .ln = lexer->ln, .col = lexer->col};
+      RESULT_TOKEN(TokenNone, ErrorEOF);
+      return;
     }
     default: {
-      return (Diagnostic){.type = ErrorUnrecognizedCharacter,
-                          .ln = lexer->ln,
-                          .col = lexer->col};
+      RESULT_TOKEN(TokenNone, ErrorUnrecognizedCharacter);
+      return;
     }
     }
   }

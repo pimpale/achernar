@@ -2,21 +2,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "ast.h"
 #include "error.h"
 #include "lexer.h"
-#include "parser.h"
 #include "token.h"
 #include "vector.h"
 
 static char *newAstString(FILE *stream) {
   Lexer *l = createLexerFile(malloc(sizeof(Lexer)), stream);
-  Parser *p = createParserLexer(malloc(sizeof(Parser)), l);
+  BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), l);
 
   TranslationUnit tu;
-  parseTranslationUnit(&tu, p);
+  parseTranslationUnit(&tu, blp);
 
 
-  free(destroyParser(p));
+  free(destroyBufferedLexer(blp));
   free(destroyLexer(l));
   return "";
 }

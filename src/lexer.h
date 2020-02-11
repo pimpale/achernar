@@ -13,7 +13,7 @@ typedef enum LexerBacking_e {
   LexerBackingFile,
 } LexerBacking;
 
-// Do not manually modify any of these values
+// Do not manually modify or access any of these values
 typedef struct {
   // The backing data structure
   LexerBacking backing;
@@ -38,7 +38,21 @@ Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len);
 Lexer *destroyLexer(Lexer *lexer);
 
 // Initializes Token to the value of the next token if there has not been an error.
-// returns the type of any failure
-Diagnostic lexNextToken(Lexer *lexer, Token* token);
+// Otherwise the token will have the type TokenNone and will contain a diagnostic.
+// Tokens must be deallocated with destroyToken
+void lexNextToken(Lexer *lexer, Token* token);
+
+
+typedef struct {
+  Lexer *l;
+  bool hasNext;
+  Token next;
+} BufferedLexer;
+
+BufferedLexer* createBufferedLexer(BufferedLexer* blp, Lexer* l);
+void advanceToken(BufferedLexer* bl, Token* token);
+void peekToken(BufferedLexer* bl, Token* token);
+BufferedLexer* destroyBufferedLexer(BufferedLexer* blp);
+
 
 #endif

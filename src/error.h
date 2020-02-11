@@ -28,6 +28,11 @@ typedef enum DiagnosticType_e {
   // String Literals
   ErrorStringLiteralTooLong,
   ErrorStringLiteralUnrecognizedEscapeCode,
+  // Parsing Errors
+  // VarDeclStmnt
+  ErrorVarDeclStmntExpectedTypeNameOrModifer,
+  ErrorVarDeclStmntExpectedVarName,
+  ErrorVarDeclStmntExpectedVarName,
   // Generic Parsing errors
   ErrorUnexpectedToken,
   ErrorSubcomponentFailedToParse,

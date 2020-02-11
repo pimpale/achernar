@@ -7,6 +7,8 @@
 #include "error.h"
 
 typedef enum {
+  // This is not a token, and does not contain token data
+  TokenNone,
   // function, type, or variable
   TokenIdentifier,
   // Keywords
@@ -71,16 +73,18 @@ typedef enum {
   TokenComma,        // ,
   TokenColon,        // :
   TokenSemicolon,    // ;
+  // Macros
+  TokenMacro,        // macro!
   // Comments, and Annotations
   TokenComment,   // #* comment *# and # comment
   TokenAnnotation // [[Annotation]]
 } TokenType;
 
 typedef struct Token_s {
-  // Line number of token.
-  uint64_t ln;
-  // column that token starts at
-  uint64_t col;
+  TokenType type; // The type of this token
+  uint64_t col; // column that token starts at
+  uint64_t ln; // Line number of token.
+
   // This points to
   // null terminated string in case of identifier, TokenStringLiteral,
   // TokenComment, TokenDocumentation, or TokenAnnotation uint64_t in case of
@@ -88,6 +92,7 @@ typedef struct Token_s {
   // be null
   union {
     char *identifier;
+    char *macro;
     char *comment;
     char *stringLiteral;
     char *annotationLiteral;
@@ -95,18 +100,9 @@ typedef struct Token_s {
     double floatLiteral;
     char charLiteral;
   };
-  TokenType type;
+
+  DiagnosticType error;
 } Token;
-
-typedef struct ResultToken_s {
-  Token val;
-  DiagnosticType err;
-} ResultToken;
-
-typedef struct ResultTokenPtr_s {
-  Token *val;
-  DiagnosticType err;
-} ResultTokenPtr;
 
 void destroyToken(Token *token);
 void printToken(Token *token);

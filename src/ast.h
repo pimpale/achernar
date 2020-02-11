@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lexer.h"
 #include "error.h"
 #include "token.h"
 
@@ -73,39 +74,37 @@ typedef enum {
   Diagnostic *errors;                                                          \
   uint64_t errorLength;
 
-
 #define DECL_TYPE(type) typedef struct type##_s type;
 
 DECL_TYPE(ExprProxy)              // Expression
 DECL_TYPE(StmntProxy)             // Statement
-DECL_TYPE(IntLiteralExpr)    // Integer Literal Expression
-DECL_TYPE(FloatLiteralExpr)  // Float Literal Expression
-DECL_TYPE(CharLiteralExpr)   // Float Literal Expression
-DECL_TYPE(StringLiteralExpr) // Float Literal Expression
-DECL_TYPE(ArrayLiteralExpr)  // Array Literal Expression
+DECL_TYPE(IntLiteralExpr)         // Integer Literal Expression
+DECL_TYPE(FloatLiteralExpr)       // Float Literal Expression
+DECL_TYPE(CharLiteralExpr)        // Float Literal Expression
+DECL_TYPE(StringLiteralExpr)      // Float Literal Expression
+DECL_TYPE(ArrayLiteralExpr)       // Array Literal Expression
 DECL_TYPE(StructLiteralEntryExpr) // Array Literal Expression
-DECL_TYPE(StructLiteralExpr) // Array Literal Expression
-DECL_TYPE(BinaryOpExpr)      // Binary Operator Expression
-DECL_TYPE(UnaryOpExpr)       // Unary Operator Expression
-DECL_TYPE(CallExpr)          // Function Call Expression
-DECL_TYPE(FieldAccessExpr)   // Field Access Expression
-DECL_TYPE(IfExpr)            // If Expression
-DECL_TYPE(WhileExpr)         // While Expression
-DECL_TYPE(ForExpr)           // For Expression
-DECL_TYPE(WithExpr)          // With Expression
-DECL_TYPE(BreakExpr)         // Break Expression
-DECL_TYPE(ContinueExpr)      // Continue Expression
-DECL_TYPE(ReturnExpr)        // Return Expression
-DECL_TYPE(MatchCaseExpr)     // Match or Struct Entry Expression
-DECL_TYPE(MatchExpr)         // Match Expression
-DECL_TYPE(BlockExpr)         // Expression in Parentheses
-DECL_TYPE(FuncDeclStmnt)     // Function Declaration Statement
-DECL_TYPE(VarDeclStmnt)      // Variable Declaration Statement
-DECL_TYPE(StructDeclStmnt)   // Struct Declaration Statement
-DECL_TYPE(AliasDeclStmnt)    // Type Alias Declaration Statement
-DECL_TYPE(ExprStmnt)         // Expression Statement
-DECL_TYPE(TranslationUnit)   // The whole program
-
+DECL_TYPE(StructLiteralExpr)      // Array Literal Expression
+DECL_TYPE(BinaryOpExpr)           // Binary Operator Expression
+DECL_TYPE(UnaryOpExpr)            // Unary Operator Expression
+DECL_TYPE(CallExpr)               // Function Call Expression
+DECL_TYPE(FieldAccessExpr)        // Field Access Expression
+DECL_TYPE(IfExpr)                 // If Expression
+DECL_TYPE(WhileExpr)              // While Expression
+DECL_TYPE(ForExpr)                // For Expression
+DECL_TYPE(WithExpr)               // With Expression
+DECL_TYPE(BreakExpr)              // Break Expression
+DECL_TYPE(ContinueExpr)           // Continue Expression
+DECL_TYPE(ReturnExpr)             // Return Expression
+DECL_TYPE(MatchCaseExpr)          // Match or Struct Entry Expression
+DECL_TYPE(MatchExpr)              // Match Expression
+DECL_TYPE(BlockExpr)              // Expression in Parentheses
+DECL_TYPE(FuncDeclStmnt)          // Function Declaration Statement
+DECL_TYPE(VarDeclStmnt)           // Variable Declaration Statement
+DECL_TYPE(StructDeclStmnt)        // Struct Declaration Statement
+DECL_TYPE(AliasDeclStmnt)         // Type Alias Declaration Statement
+DECL_TYPE(ExprStmnt)              // Expression Statement
+DECL_TYPE(TranslationUnit)        // The whole program
 
 // Even though we forward declare the structs, we do have to keep Proxies on top
 struct ExprProxy_s {
@@ -142,14 +141,14 @@ struct StringLiteralExpr_s {
 };
 
 struct ArrayLiteralExpr_s {
-  char *type;               // Type of array
-  struct ExprProxy_s *elements;  // List
-  uint64_t elements_length; // Number of elements
+  char *type;                   // Type of array
+  struct ExprProxy_s *elements; // List
+  uint64_t elements_length;     // Number of elements
   STANDARD_AST_STUFF
 };
 
 struct StructLiteralEntryExpr_s {
-  char* field;
+  char *field;
   struct ExprProxy_s;
   STANDARD_AST_STUFF
 };
@@ -163,8 +162,8 @@ struct StructLiteralExpr_s {
 
 struct BinaryOpExpr_s {
   BinaryOpExprType type; // The type of the operation
-  struct ExprProxy_s a;      // First operand
-  struct ExprProxy_s b;      // Second operand
+  struct ExprProxy_s a;  // First operand
+  struct ExprProxy_s b;  // Second operand
   STANDARD_AST_STUFF
 };
 
@@ -175,9 +174,9 @@ struct UnaryOpExpr_s {
 };
 
 struct CallExpr_s {
-  struct ExprProxy_s function;   // The function being called
-  struct ExprProxy_s arguments;  // The arguments to this function
-  uint64_t arguments_length; // Number of arguments
+  struct ExprProxy_s function;  // The function being called
+  struct ExprProxy_s arguments; // The arguments to this function
+  uint64_t arguments_length;    // Number of arguments
   STANDARD_AST_STUFF
 };
 
@@ -205,7 +204,8 @@ struct ForExpr_s {
 
 struct WithExpr_s {
   struct StmntProxy_s constructor; // Statement called to construct environment
-  struct StmntProxy_s destructor; // Statement that will always be called before exit
+  struct StmntProxy_s
+      destructor; // Statement that will always be called before exit
   struct ExprProxy_s body;
   STANDARD_AST_STUFF
 };
@@ -224,8 +224,8 @@ struct ReturnExpr_s {
 };
 
 struct MatchCaseExpr_s {
-  struct ExprProxy_s pattern;  // The value to match against
-  struct ExprProxy_s value;    // The expression to evaluate if true
+  struct ExprProxy_s pattern; // The value to match against
+  struct ExprProxy_s value;   // The expression to evaluate if true
   STANDARD_AST_STUFF
 };
 
@@ -238,7 +238,7 @@ struct MatchExpr_s {
 
 struct BlockExpr_s {
   struct StmntProxy_s *statements; // The statements of the block
-  uint64_t statements_length; // The number of statements
+  uint64_t statements_length;      // The number of statements
   bool hasExpr; // If it has an ending expression or it passes on () type
   STANDARD_AST_STUFF
 };
@@ -253,12 +253,12 @@ struct FuncDeclStmnt_s {
 };
 
 struct VarDeclStmnt_s {
-  char *name;            // The name of the variable
-  char *type;            // The original type of the variable
-  bool isMutable;        // If the variable is mutable
-  uint64_t pointerCount; // Layers of pointers
-  bool hasValue;         // If it has a value assigned
-  struct ExprProxy_s value;     // The value itself
+  char *name;               // The name of the variable
+  char *type;               // The original type of the variable
+  bool isMutable;           // If the variable is mutable
+  uint64_t pointerCount;    // Layers of pointers
+  bool hasValue;            // If it has a value assigned
+  struct ExprProxy_s value; // The value itself
   STANDARD_AST_STUFF
 };
 
@@ -275,13 +275,11 @@ struct AliasDeclStmnt_s {
   STANDARD_AST_STUFF
 };
 
-
 struct StmntExpr_s {
   struct ExprProxy_s key;   // An integer literal to be matched
   struct ExprProxy_s value; // The returned value
   STANDARD_AST_STUFF
 };
-
 
 struct ExprStmnt_s {
   struct ExprProxy_s expr; // the expression
@@ -289,9 +287,12 @@ struct ExprStmnt_s {
 };
 
 struct TranslationUnit_s {
-  struct StmntProxy_s *statements; // The top level is just a series of statements
+  struct StmntProxy_s
+      *statements;            // The top level is just a series of statements
   uint64_t statements_length; // The number of statements
   STANDARD_AST_STUFF
 };
+
+void parseTranslationUnit(TranslationUnit *tup, BufferedLexer *blp);
 
 #endif

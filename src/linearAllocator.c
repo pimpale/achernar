@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "vector.h"
-#include "linalloc.h"
+#include "linearAllocator.h"
 
 LinearAllocator *createLinearAllocator(LinearAllocator* mem) {
   return createVector((Vector*)mem);

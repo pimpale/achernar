@@ -31,8 +31,16 @@ typedef enum DiagnosticType_e {
   // Parsing Errors
   // VarDeclStmnt
   ErrorVarDeclStmntExpectedTypeNameOrModifer,
-  ErrorVarDeclStmntExpectedVarName,
-  ErrorVarDeclStmntExpectedVarName,
+  ErrorVarDeclStmntExpectedIdentifier,
+  ErrorVarDeclStmntExpectedAssign,
+  ErrorVarDeclStmntExpectedValue,
+  // FuncDeclStmnt
+  ErrorFuncDeclStmntExpectedParen,
+  ErrorFuncDeclStmntParamExpectedTypeOrModifier,
+  ErrorFuncDeclStmntParamExpectedIdentifier,
+  ErrorFuncDeclStmntExpectedTypeAnnotation,
+  ErrorFuncDeclStmntExpectedTypeIdentifier,
+  ErrorFuncDeclStmntExpectedBody,
   // Generic Parsing errors
   ErrorUnexpectedToken,
   ErrorSubcomponentFailedToParse,

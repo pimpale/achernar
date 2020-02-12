@@ -1,5 +1,5 @@
-#ifndef LINALLOC_H
-#define LINALLOC_H
+#ifndef LINEAR_ALLOCATOR_H_
+#define LINEAR_ALLOCATOR_H_
 
 #include "vector.h"
 

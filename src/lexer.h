@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "linearAllocator.h"
 #include "error.h"
 
 typedef enum LexerBacking_e {
@@ -15,6 +16,7 @@ typedef enum LexerBacking_e {
 
 // Do not manually modify or access any of these values
 typedef struct {
+  LinearAllocator tokenData;
   // The backing data structure
   LexerBacking backing;
   // Can either be a File ptr or a memory with location and length
@@ -39,19 +41,19 @@ Lexer *destroyLexer(Lexer *lexer);
 
 // Initializes Token to the value of the next token if there has not been an error.
 // Otherwise the token will have the type TokenNone and will contain a diagnostic.
-// Tokens must be deallocated with destroyToken
+// Tokens will be deallocated when the lexer is deallocated.
 void lexNextToken(Lexer *lexer, Token* token);
 
 
 typedef struct {
   Lexer *l;
-  bool hasNext;
-  Token next;
+  bool hasNextToken;
+  Token nextToken;
 } BufferedLexer;
 
 BufferedLexer* createBufferedLexer(BufferedLexer* blp, Lexer* l);
 void advanceToken(BufferedLexer* bl, Token* token);
-void peekToken(BufferedLexer* bl, Token* token);
+void setNextToken(BufferedLexer* bl, Token* token);
 BufferedLexer* destroyBufferedLexer(BufferedLexer* blp);
 
 

@@ -20,13 +20,16 @@ static void parseStmntProxy(StmntProxy *expr, BufferedLexer *blp);
 static void parseExprProxy(ExprProxy *expr, BufferedLexer *blp);
 
 static void parseVarDeclStmnt(VarDeclStmnt *vdsp, BufferedLexer *blp) {
+  // zero-initialize vdsp
+  memset(vdsp, 0, sizeof(*vdsp));
+
   // these variables will be reused
   Token t;
   Diagnostic d;
 
   // Skip let declaration
   advanceToken(blp, &t);
-  EXPECT_TYPE(&t, TokenLet, HANDLE_ERROR);
+  EXPECT_TYPE(&t, TokenLet, HANDLE_NO_LET);
 
   // This might be a mutable or type
   advanceToken(blp, &t);
@@ -36,7 +39,7 @@ static void parseVarDeclStmnt(VarDeclStmnt *vdsp, BufferedLexer *blp) {
     advanceToken(blp, &t);
   }
 
-  EXPECT_TYPE(&t, TokenIdentifier, HANDLE_ERROR);
+  EXPECT_TYPE(&t, TokenIdentifier, HANDLE_NO_TYPE);
   vdsp->type = strdup(t.identifier);
 
   // Now check for any pointer layers
@@ -53,51 +56,71 @@ static void parseVarDeclStmnt(VarDeclStmnt *vdsp, BufferedLexer *blp) {
   }
 
   // When the loop breaks out, t should be an identifier
-  EXPECT_TYPE(&t
-
-
-  // Copy identifier
-  d = advanceParser(p, &t);
-  EXPECT_TYPE(&t, TokenIdentifier);
+  EXPECT_TYPE(&t, Identifier, HANDLE_NO_IDENTIFIER);
   vdsp->name = strdup(t.identifier);
 
   // Expect Assign or semicolon
-  d = advanceParser(p, &t);
-  EXPECT_TYPE(&t, TokenAssign);
+  advanceToken(blp, &t);
+
+  // If the thing is a semicolon, we end here
+  if(t.type == TokenSemicolon) {
+    vdsp->hasValue = false;
+    return;
+  }
+
+  // Otherwise, we expect an assign
+  EXPECT_TYPE(&t, TokenAssign, HANDLE_NO_ASSIGN);
 
   // Expect Expression (no implicit undefined)
   vdsp->hasValue = true;
-  parseExprProxy(&vdsp->value, p);
+  parseExprProxy(&vdsp->value, blp);
 
-  // Expect Semicolon
-  d = advanceParser(p, &t);
-  EXPECT_TYPE(&t, TokenSemicolon);
+  return;
 
-HANDLE_ERROR:
+  // Error handling
+  // Set error, and give back the error causing thing
 
-  return d;
+  HANDLE_NO_LET:
+  INTERNAL_ERROR("called variable declaration parser where there was no variable declaration");
+  PANIC();
+  return;
+
+  HANDLE_NO_TYPE:
+  vdsp->error = ErrorVarDeclStmntExpectedTypeNameOrModifer;
+  setNextToken(blp, &t);
+  return;
+
+  HANDLE_NO_IDENTIFIER:
+  vdsp->error = ErrorVarDeclStmntExpectedTypeNameOrModifer;
+  setNextToken(blp, &t);
+  return;
+
+  HANDLE_NO_ASSIGN:
+  vdsp->error = ErrorVarDeclStmntExpectedAssign;
+  setNextToken(blp, &t);
+  return;
 }
 
-static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
+static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, BufferedLexer *blp) {
+  // zero-initialize fdsp
+  memset(fdsp, 0, sizeof(*fdsp));
+
   // these variables will be reused
   Token t;
   Diagnostic d;
 
   // Skip fn declaration
-  d = advanceParser(p, &t);
-  EXPECT_TYPE(&t, TokenFunction);
-
-  // the location of the whole function
-  uint64_t ln = d.ln;
-  uint64_t col = d.col;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, TokenFunction, HANDLE_NO_FN);
 
   // get name
-  d = advanceParser(p, &t);
-  EXPECT_TYPE(&t, TokenIdentifier);
+  advanceToken(blp, &t);
+  EXPECT_TYPE(&t, TokenIdentifier, HANDLE_NO_IDENTIFIER);
   fdsp->name = strdup(t.identifier);
 
-  d = advanceParser(p, &t);
-  EXPECT_TYPE(&t, TokenParenLeft);
+  advanceToken(blp, &t);
+  EXPECT_TYPE(&t, TokenParenLeft, HANDLE_NO_OPENING_PAREN);
+
 
   // Parse the varDeclStatements
 
@@ -107,27 +130,28 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
   createVector(&parameterDeclarations);
   while (true) {
     VarDeclStmnt vds;
-    d = advanceParser(p, &t);
+    advanceToken(blp, &t);
     // This might be a mutable or type or closing paren
     if (t.type == TokenMut) {
       vds.isMutable = true;
       // Now grab the actual type
-      d = advanceParser(p, &t);
+      advanceToken(blp, &t);
 
     } else if (t.type == TokenParenRight) {
       // Bailing once we hit the other end
       break;
+    } else {
+      EXPECT_TYPE(t, TokenIdentifier, HANDLE_PARAM_NO_TYPE);
     }
 
     // Copy type
-    EXPECT_TYPE(&t, TokenIdentifier);
     vds.type = strdup(t.identifier);
 
     // Now check for any pointer layers
     // Loop will exit with t holding the first nonref token
     vds.pointerCount = 0;
     while (true) {
-      d = advanceParser(p, &t);
+      advanceToken(blp, &t);
       if (t.type == TokenRef) {
         vds.pointerCount++;
       } else {
@@ -136,7 +160,7 @@ static Diagnostic parseFuncDeclStmnt(FuncDeclStmnt *fdsp, Parser *p) {
     }
 
     // Copy identifier
-    d = advanceParser(p, &t);
+    advanceToken(blp, &t);
     EXPECT_TYPE(&t, TokenIdentifier);
     vds.name = strdup(t.identifier);
 

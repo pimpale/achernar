@@ -71,8 +71,7 @@ typedef enum {
 } UnaryOpExprType;
 
 #define STANDARD_AST_STUFF                                                     \
-  Diagnostic *errors;                                                          \
-  uint64_t errorLength;
+  DiagnosticType error;
 
 #define DECL_TYPE(type) typedef struct type##_s type;
 

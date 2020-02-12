@@ -103,7 +103,7 @@ static int32_t peekValueLexer(Lexer *lexer) {
 // Buffered Lexer
 
 BufferedLexer* createBufferedLexer(BufferedLexer* bl, Lexer* l) {
-  bl->hasNext = false;
+  bl->hasNextToken = false;
   bl->l = l;
   return bl;
 }
@@ -113,23 +113,25 @@ BufferedLexer * destroyBufferedLexer(BufferedLexer* bl) {
   return bl;
 }
 
-// If next exists, give that and stop next. Else give the current
+// If has an ungotten token, return that. Else return next in line, and cache it
 void advanceToken(BufferedLexer* bl, Token* t) {
-  if(bl->hasNext) {
-    *t = bl->next;
-    bl->hasNext = false;
+  if(bl->hasNextToken) {
+    *t = bl->nextToken;
+    bl->hasNextToken = false;
   } else {
     lexNextToken(bl->l, t);
   }
 }
 
-// If next exists, give that. Else make next and give that
-void peekToken(BufferedLexer* bl, Token* t) {
-  if(!bl->hasNext) {
-    lexNextToken(bl->l, &bl->next);
-    bl->hasNext = true;
+// If token exists in line
+void setNextToken(BufferedLexer* bl, Token* t) {
+  if(!bl->hasNextToken) {
+    bl->hasNextToken = true;
+    bl->nextToken = *t;
+  } else {
+    INTERNAL_ERROR("already set next token");
+    PANIC();
   }
-  *t = bl->next;
 }
 
 // Stuff to lex with

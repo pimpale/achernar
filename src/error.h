@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "token.h"
+
 typedef enum DiagnosticType_e {
   // no error
   ErrorOk,
@@ -46,12 +48,12 @@ typedef enum DiagnosticType_e {
   ErrorSubcomponentFailedToParse,
 } DiagnosticType;
 
-
 typedef struct Diagnostic_s {
   DiagnosticType type;
-  uint64_t ln;
-  uint64_t col;
+  Span span;
 } Diagnostic;
+
+#define DIAGNOSTIC(type, span) ((Diagnostic) {type, span})
 
 void logInternalError(uint32_t line, const char* func, const char* fmt, ...);
 

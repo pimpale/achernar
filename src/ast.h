@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "lexer.h"
 #include "error.h"
+#include "lexer.h"
 #include "token.h"
 
 typedef enum {
@@ -70,8 +70,9 @@ typedef enum {
   UnaryOpExprDeref       // @
 } UnaryOpExprType;
 
-#define STANDARD_AST_STUFF                                                     \
-  DiagnosticType error;
+#define STANDARD_AST_STUFF \
+    Span span; \
+    Diagnostic_s error; \
 
 #define DECL_TYPE(type) typedef struct type##_s type;
 

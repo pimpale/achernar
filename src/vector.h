@@ -32,7 +32,7 @@ Vector *destroyVector(Vector *vector);
 /// Return the data held by vector, while destroying the vector
 /// REQUIRES: vector is a pointer to a valid Vector
 /// GUARANTEES: vector is no longer valid
-/// GUARANTEES: if length of vector is 0, will return null pointer
+/// GUARANTEES: if length of vector is 0, will free mem + return null pointer
 /// GUARANTEES: return contains a pointer to a valid section of memory
 ///             at least the length of the vector containing the contents 
 ///             of vector

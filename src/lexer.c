@@ -12,8 +12,7 @@
 #include "vector.h"
 
 Lexer *createLexerFile(Lexer *lexer, FILE *file) {
-  lexer->ln = 0;
-  lexer->col = 0;
+  lexer->position = LNCOL(0, 0);
 
   // Files
   lexer->file = file;
@@ -23,8 +22,7 @@ Lexer *createLexerFile(Lexer *lexer, FILE *file) {
 }
 
 Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len) {
-  lexer->ln = 0;
-  lexer->col = 0;
+  lexer->position = LNCOL(0, 0);
 
   // Copy memory
   lexer->backing = LexerBackingMemory;
@@ -60,21 +58,23 @@ static int32_t nextValueLexer(Lexer *lexer) {
       nextValue = (lexer->memory.ptr[lexer->memory.loc]);
       lexer->memory.loc++;
       if (nextValue == '\n') {
-        lexer->ln += 1;
-        lexer->col = 0;
+        lexer->position.ln += 1;
+        lexer->position.col = 0;
       } else {
-        lexer->col += 1;
+        lexer->position.col += 1;
       }
     }
     break;
   }
   case LexerBackingFile: {
     nextValue = getc(lexer->file);
-    if (nextValue == '\n') {
-      lexer->ln += 1;
-      lexer->col = 0;
-    } else {
-      lexer->col += 1;
+    if(nextValue != EOF) {
+      if (nextValue == '\n') {
+        lexer->position.ln += 1;
+        lexer->position.col = 0;
+      } else {
+        lexer->position.col += 1;
+      }
     }
     break;
   }
@@ -173,12 +173,15 @@ static ResultU64 parseInteger(char *str, size_t len, uint64_t radix) {
 // Returns control at the first noncomment (or nonannotate) area
 // Lexes comments, annotations, and docstrings
 static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
-  uint64_t ln = lexer->ln;
-  uint64_t col = lexer->col;
+  LnCol start = lexer->position;
 
-  nextValueLexer(lexer);
+  int32_t c = nextValueLexer(lexer);
+  if(c != '#') {
+    INTERNAL_ERROR("called comment lexer when there wasn't a comment");
+    PANIC();
+  }
 
-  int32_t c = peekValueLexer(lexer);
+  c = peekValueLexer(lexer);
 
   // Now we determine the type of comment as well as gather the comment data
   switch (c) {
@@ -213,29 +216,29 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenComment,
       .comment = releaseVector(&data),
-      .ln = ln,
-      .col = col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
     return;
     // clang-format on
   }
-  case '@': {
-    // This is an annotation. It will continue till a nonalphanumeric character
+  case '[': {
+    // This is an attribute. It will continue till a closing squarebracket is found
     // is found. They are not nestable
-    // #@Annotation
+    // #[annotation]
     Vector data;
     createVector(&data);
 
     nextValueLexer(lexer);
     while ((c = peekValueLexer(lexer)) != EOF) {
-      if (isalnum(c)) {
+      if (c != ']') {
         *VEC_PUSH(&data, char) = (char)c;
         nextValueLexer(lexer);
       } else {
         break;
       }
     }
+
     // Push null byte
     *VEC_PUSH(&data, char) = '\0';
 
@@ -244,8 +247,7 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenAnnotation,
       .annotationLiteral = releaseVector(&data),
-      .ln = lexer->ln,
-      .col = lexer->col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
     return;
@@ -272,8 +274,7 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenComment,
       .comment = releaseVector(&data),
-      .ln = lexer->ln,
-      .col = lexer->col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
     return;
@@ -286,15 +287,17 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
 static void lexStringLiteral(Lexer *lexer, Token *token) {
-  uint64_t ln = lexer->ln;
-  uint64_t col = lexer->col;
+  LnCol start = lexer->position;
   // Skip first quote
-  nextValueLexer(lexer);
+  int32_t c = nextValueLexer(lexer);
+  if(c != '\"') {
+    INTERNAL_ERROR("called string lexer where there wasn't a string");
+    PANIC();
+  }
 
   Vector data;
   createVector(&data);
 
-  int32_t c;
   while ((c = nextValueLexer(lexer)) != EOF) {
     if (c == '\"') {
       break;
@@ -310,8 +313,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   *token = (Token) {
       .type = TokenStringLiteral,
       .stringLiteral = releaseVector(&data),
-      .ln = lexer->ln,
-      .col = lexer->col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
   // clang-format on
@@ -322,8 +324,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
 // Returns control right after the number is finished
 // This function returns a Token or the error
 static void lexNumberLiteral(Lexer *lexer, Token *token) {
-  uint64_t ln = lexer->ln;
-  uint64_t col = lexer->col;
+  LnCol start = lexer->position;
 
   Vector data;
   createVector(&data);
@@ -400,8 +401,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         // clang-format off
         *token = (Token) {
           .type = TokenNone,
-          .ln = ln,
-          .col = col,
+          .span = SPAN(start, lexer->position),
           .error = ErrorIntLiteralUnrecognizedRadixCode
 
         };
@@ -425,8 +425,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       // clang-format off
       *token = (Token) {
           .type = TokenNone,
-          .ln = ln,
-          .col = col,
+          .span = SPAN(start, lexer->position),
           .error = ErrorIntLiteralUnrecognizedRadixCode
 
       };
@@ -438,8 +437,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       // clang-format off
       *token  = (Token) {
         .type = TokenIntLiteral,
-        .ln = ln,
-        .col = col,
+        .span = SPAN(start, lexer->position),
         .intLiteral = ret.val,
         .error = ErrorOk
 
@@ -474,8 +472,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       // clang-format off
       *token = (Token) {
           .type = TokenNone,
-          .ln = ln,
-          .col = col,
+          .span = SPAN(start, lexer->position),
           .error = initialRet.err
 
       };
@@ -498,8 +495,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         // clang-format off
         *token = (Token) {
             .type = TokenNone,
-            .ln = ln,
-            .col = col,
+            .span = SPAN(start, lexer->position),
             .error = finalRet.err
 
         };
@@ -516,8 +512,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenFloatLiteral,
       .floatLiteral = result,
-      .ln = ln,
-      .col = col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
     // clang-format on
@@ -526,11 +521,14 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 }
 
 static void lexCharLiteral(Lexer *lexer, Token *token) {
-  // Skip leading '
-  nextValueLexer(lexer);
+  LnCol start = lexer->position;
 
-  uint64_t ln = lexer->ln;
-  uint64_t col = lexer->col;
+  // Skip leading '
+  if(nextValueLexer(lexer) != '\'') {
+    INTERNAL_ERROR("called char lit lexer where there was no char literal");
+    PANIC();
+  }
+
 
   // We basically read the whole thing into a string.
   Vector data;
@@ -570,8 +568,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     // clang-format off
     *token = (Token) {
       .type = TokenNone,
-      .ln = ln,
-      .col = col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorCharLiteralEmpty
     };
     // clang-format on
@@ -584,8 +581,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenCharLiteral,
       .charLiteral = string[0],
-      .ln = ln,
-      .col = col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
     // clang-format on
@@ -600,8 +596,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       // clang-format off
       *token = (Token) {
         .type = TokenNone,
-        .ln = ln,
-        .col = col,
+        .span = SPAN(start, lexer->position),
         .error = ErrorCharLiteralTooLong
       };
       // clang-format on
@@ -639,8 +634,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       // clang-format off
       *token = (Token) {
         .type = TokenNone,
-        .ln = ln,
-        .col = col,
+        .span = SPAN(start, lexer->position),
         .error = ErrorCharLiteralUnrecognizedEscapeCode
       };
       // clang-format on
@@ -655,8 +649,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenCharLiteral,
       .charLiteral = code,
-      .ln = ln,
-      .col = col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
     return;
@@ -667,8 +660,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     // clang-format off
     *token = (Token) {
       .type = TokenNone,
-      .ln = ln,
-      .col = col,
+      .span = SPAN(start, lexer->position),
       .error = ErrorCharLiteralTooLong
     };
     // clang-format on
@@ -679,11 +671,12 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
 
 // Parses an identifer or macro
 static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
+
+
+  LnCol start = lexer->position;
+
   Vector data;
   createVector(&data);
-
-  token->ln = lexer->ln;
-  token->col = lexer->col;
 
   bool macro = false;
 
@@ -699,6 +692,8 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
       break;
     }
   }
+
+  token->span = SPAN(start, lexer->position);
 
   // Note that string length does not incude the trailing null byte
   size_t len = VEC_LEN(&data, char);
@@ -759,8 +754,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
 #define RESULT_TOKEN(tokenType, errorType) \
   *token = (Token){                                                            \
       .type = tokenType,                                                       \
-      .ln = lexer->ln,                                                         \
-      .col = lexer->col,                                                       \
+      .span = SPAN(start, lexer->position),                                    \
       .error = errorType                                                       \
   };                                                                           \
 
@@ -784,6 +778,8 @@ void lexNextToken(Lexer *lexer, Token *token) {
       break;
     }
   }
+
+  LnCol start = lexer->position;
 
   if (isalpha(c)) {
     lexIdentifierOrMacro(lexer, token);

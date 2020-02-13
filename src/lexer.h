@@ -28,10 +28,8 @@ typedef struct {
       size_t loc;
     } memory;
   };
-  // Caches the number of newlines encountered
-  uint64_t ln;
-  // Caches the current column of the code
-  uint64_t col;
+  // Caches the current location in file
+  LnCol position;
 } Lexer;
 
 Lexer *createLexerFile(Lexer *lexer, FILE *file);

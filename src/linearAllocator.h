@@ -5,7 +5,7 @@
 
 /* This header includes linear allocator aware duplications of common functions */
 
-typedef vector_s LinearAllocator;
+typedef struct vector_s LinearAllocator;
 
 /// Creates a linear allocator in a region of a memory
 /// GUARANTEES: mem points to valid memory

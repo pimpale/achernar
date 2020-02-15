@@ -72,7 +72,7 @@ typedef enum {
 
 #define STANDARD_AST_STUFF \
     Span span; \
-    Diagnostic_s error; \
+    Diagnostic error; \
 
 #define DECL_TYPE(type) typedef struct type##_s type;
 

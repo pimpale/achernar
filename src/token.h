@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lncol.h"
 #include "error.h"
 
 typedef enum {
@@ -80,19 +81,6 @@ typedef enum {
   TokenAnnotation // [[Annotation]]
 } TokenType;
 
-typedef struct LnCol_s {
-  uint64_t ln;
-  uint64_t col;
-} LnCol;
-
-// [start, end)
-typedef struct Span_s {
-  LnCol start;
-  LnCol end;
-} Span;
-
-#define LNCOL(ln, col) ((LnCol){ln, col})
-#define SPAN(start, end) ((Span){start, end})
 
 typedef struct Token_s {
   TokenType type; // The type of this token

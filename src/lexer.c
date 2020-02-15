@@ -68,7 +68,7 @@ static int32_t nextValueLexer(Lexer *lexer) {
   }
   case LexerBackingFile: {
     nextValue = getc(lexer->file);
-    if(nextValue != EOF) {
+    if (nextValue != EOF) {
       if (nextValue == '\n') {
         lexer->position.ln += 1;
         lexer->position.col = 0;
@@ -102,20 +102,20 @@ static int32_t peekValueLexer(Lexer *lexer) {
 
 // Buffered Lexer
 
-BufferedLexer* createBufferedLexer(BufferedLexer* bl, Lexer* l) {
+BufferedLexer *createBufferedLexer(BufferedLexer *bl, Lexer *l) {
   bl->hasNextToken = false;
   bl->l = l;
   return bl;
 }
 
-BufferedLexer * destroyBufferedLexer(BufferedLexer* bl) {
+BufferedLexer *destroyBufferedLexer(BufferedLexer *bl) {
   // No memory to dealloc lmao
   return bl;
 }
 
 // If has an ungotten token, return that. Else return next in line, and cache it
-void advanceToken(BufferedLexer* bl, Token* t) {
-  if(bl->hasNextToken) {
+void advanceToken(BufferedLexer *bl, Token *t) {
+  if (bl->hasNextToken) {
     *t = bl->nextToken;
     bl->hasNextToken = false;
   } else {
@@ -124,8 +124,8 @@ void advanceToken(BufferedLexer* bl, Token* t) {
 }
 
 // If token exists in line
-void setNextToken(BufferedLexer* bl, Token* t) {
-  if(!bl->hasNextToken) {
+void setNextToken(BufferedLexer *bl, Token *t) {
+  if (!bl->hasNextToken) {
     bl->hasNextToken = true;
     bl->nextToken = *t;
   } else {
@@ -176,7 +176,7 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   int32_t c = nextValueLexer(lexer);
-  if(c != '#') {
+  if (c != '#') {
     INTERNAL_ERROR("called comment lexer when there wasn't a comment");
     PANIC();
   }
@@ -223,8 +223,8 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
     // clang-format on
   }
   case '[': {
-    // This is an attribute. It will continue till a closing squarebracket is found
-    // is found. They are not nestable
+    // This is an attribute. It will continue till a closing squarebracket is
+    // found is found. They are not nestable
     // #[annotation]
     Vector data;
     createVector(&data);
@@ -290,7 +290,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = nextValueLexer(lexer);
-  if(c != '\"') {
+  if (c != '\"') {
     INTERNAL_ERROR("called string lexer where there wasn't a string");
     PANIC();
   }
@@ -524,11 +524,10 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   // Skip leading '
-  if(nextValueLexer(lexer) != '\'') {
+  if (nextValueLexer(lexer) != '\'') {
     INTERNAL_ERROR("called char lit lexer where there was no char literal");
     PANIC();
   }
-
 
   // We basically read the whole thing into a string.
   Vector data;
@@ -672,7 +671,6 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
 // Parses an identifer or macro
 static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
 
-
   LnCol start = lexer->position;
 
   Vector data;
@@ -685,7 +683,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     if (isalnum(c)) {
       *VEC_PUSH(&data, char) = (char)c;
       nextValueLexer(lexer);
-    } else if(c == '!') {
+    } else if (c == '!') {
       macro = true;
       break;
     } else {
@@ -701,7 +699,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   *VEC_PUSH(&data, char) = '\0';
   char *string = releaseVector(&data);
 
-  if(macro) {
+  if (macro) {
     // It is an identifier, and we need to keep the string
     token->type = TokenMacro;
     token->macro = string;
@@ -751,7 +749,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
 
 /* clang-format off */
 
-#define RESULT_TOKEN(tokenType, errorType) \
+#define RESULT_TOKEN(tokenType, errorType)                                     \
   *token = (Token){                                                            \
       .type = tokenType,                                                       \
       .span = SPAN(start, lexer->position),                                    \
@@ -759,11 +757,11 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   };                                                                           \
 
 #define RETURN_RESULT_TOKEN(tokenType)                                         \
-  RESULT_TOKEN(tokenType, errorType)                                           \
+  RESULT_TOKEN(tokenType, ErrorOk)                                             \
   return;
 
-#define NEXT_AND_RETURN_RESULT_TOKEN(tokenType) \
-  nextValueLexer(lexer); \
+#define NEXT_AND_RETURN_RESULT_TOKEN(tokenType)                                \
+  nextValueLexer(lexer);                                                       \
   RETURN_RESULT_TOKEN(tokenType)
 /* clang-format on */
 

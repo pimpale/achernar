@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "token.h"
+#include "lncol.h"
 
 typedef enum DiagnosticType_e {
   // no error

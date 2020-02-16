@@ -107,115 +107,91 @@ DECL_TYPE(ExprStmnt)              // Expression Statement
 DECL_TYPE(TranslationUnit)        // The whole program
 
 // Even though we forward declare the structs, we do have to keep Proxies on top
-struct ExprProxy_s {
-  ExprType type;
-  void *value;
+struct Expr_s {
+  ExprKind kind;
+  Span span;
+  Diagnostic d;
+  union {
+    struct IntLiteral_s {
+      uint64_t value;
+    } IntLiteral;
+    struct FloatLiteral_s {
+      double value;
+    } FloatLiteral;
+    struct CharLiteral_s {
+      char value;
+    } CharLiteral;
+    struct StringLiteral_s {
+      char* value;
+      size_t value_length;
+    } StringLiteral;
+    struct ArrayLiteral_s {
+      struct Expr_s* elements;
+      size_t elements_length;
+    } ArrayLiteral;
+    struct StructLiteralEntry_s {
+      char* field;
+      struct Expr_s* value;
+    } StructLiteralEntry;
+    struct StructLiteral_s {
+      struct StructLiteralEntry_s* entries;
+      size_t entries_length;
+    } StructLiteral;
+    struct UnaryOp_s {
+      UnaryOpExprType operator;
+      struct Expr_s* operand;
+    } UnaryOp;
+    struct BinaryOp_s {
+      BinaryOpExprType operator;
+      struct Expr_s* operand_1;
+      struct Expr_s* operand_2;
+    } BinaryOp;
+    struct If_s {
+      struct Expr_s* condition;
+      struct Expr_s* body;
+      bool has_expr;
+      struct Expr_s* else_body
+    } If;
+    struct While_s {
+      struct Expr_s* condition;
+      struct Expr_s* body;
+    } While;
+    struct For_s {
+      struct Expr_s* init;
+      struct Expr_s* condition;
+      struct Expr_s* update;
+    } For;
+    struct Call_s {
+      Expr_s* function;
+      Expr_s* arguments;
+      size_t arguments_length;
+    } Call;
+    struct Return_s {
+      bool has_value;
+      Expr_s* value;
+    } Return;
+    struct MatchCase_s {
+      struct Expr_s* pattern;
+      struct Expr_s* value;
+    } MatchCase;
+    struct Match_s {
+      struct Expr_s* cases;
+      size_t cases_length;
+    } Match;
+    struct Block_s {
+      struct Expr_s* statements;
+
+
+
+
+
+
+  }
 };
 
 struct StmntProxy_s {
   StmntType type; // The type of statement
   void *value;    // The value of the statement
-};
-
-// Exprssions
-
-struct IntLiteralExpr_s {
-  uint64_t value;
-  STANDARD_AST_STUFF
-};
-
-struct FloatLiteralExpr_s {
-  double value;
-  STANDARD_AST_STUFF
-};
-
-struct CharLiteralExpr_s {
-  char value;
-  STANDARD_AST_STUFF
-};
-
-struct StringLiteralExpr_s {
-  char *value;
-  uint64_t length; // Number of characters in string
-  STANDARD_AST_STUFF
-};
-
-struct ArrayLiteralExpr_s {
-  char *type;                   // Type of array
-  struct ExprProxy_s *elements; // List
-  uint64_t elements_length;     // Number of elements
-  STANDARD_AST_STUFF
-};
-
-struct StructLiteralEntryExpr_s {
-  char *field;
-  struct ExprProxy_s;
-  STANDARD_AST_STUFF
-};
-
-struct StructLiteralExpr_s {
-  char *structName;            // Name of struct
-  struct EntryExpr_s *entries; // List of structEntries
-  uint64_t entries_length;     // number of structAttributes specified
-  STANDARD_AST_STUFF
-};
-
-struct BinaryOpExpr_s {
-  BinaryOpExprType type; // The type of the operation
-  struct ExprProxy_s a;  // First operand
-  struct ExprProxy_s b;  // Second operand
-  STANDARD_AST_STUFF
-};
-
-struct UnaryOpExpr_s {
-  UnaryOpExprType type;
-  struct ExprProxy_s a; // Operand
-  STANDARD_AST_STUFF
-};
-
-struct CallExpr_s {
-  struct ExprProxy_s function;  // The function being called
-  struct ExprProxy_s arguments; // The arguments to this function
-  uint64_t arguments_length;    // Number of arguments
-  STANDARD_AST_STUFF
-};
-
-struct IfExpr_s {
-  struct ExprProxy_s condition;
-  struct ExprProxy_s body;
-  bool hasElse;
-  struct ExprProxy_s elsebody;
-  STANDARD_AST_STUFF
-};
-
-struct WhileExpr_s {
-  struct ExprProxy_s condition;
-  struct ExprProxy_s body;
-  STANDARD_AST_STUFF
-};
-
-struct ForExpr_s {
-  struct StmntProxy_s init;
-  struct ExprProxy_s test;
-  struct StmntProxy_s update;
-  struct ExprProxy_s body;
-  STANDARD_AST_STUFF
-};
-
-struct WithExpr_s {
-  struct StmntProxy_s constructor; // Statement called to construct environment
-  struct StmntProxy_s
-      destructor; // Statement that will always be called before exit
-  struct ExprProxy_s body;
-  STANDARD_AST_STUFF
-};
-
-struct BreakExpr_s {
-  STANDARD_AST_STUFF
-};
-
-struct ContinueExpr_s {
-  STANDARD_AST_STUFF
 };
 
 struct ReturnExpr_s {

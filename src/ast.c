@@ -30,7 +30,7 @@ static void parseVarDeclStmnt(VarDeclStmnt *vdsp, BufferedLexer *blp) {
   advanceToken(blp, &t);
   // The start of the variable declaration
   LnCol start = t.span.start;
-  EXPECT_TYPE(&t, TokenLet, HANDLE_NO_LET);
+  EXPECT_TYPE(t, TokenLet, HANDLE_NO_LET);
 
   // This might be a mutable or type
   advanceToken(blp, &t);
@@ -40,7 +40,7 @@ static void parseVarDeclStmnt(VarDeclStmnt *vdsp, BufferedLexer *blp) {
     advanceToken(blp, &t);
   }
 
-  EXPECT_TYPE(&t, TokenIdentifier, HANDLE_NO_TYPE);
+  EXPECT_TYPE(t, TokenIdentifier, HANDLE_NO_TYPE);
   vdsp->type = strdup(t.identifier);
 
   // Now check for any pointer layers
@@ -57,7 +57,7 @@ static void parseVarDeclStmnt(VarDeclStmnt *vdsp, BufferedLexer *blp) {
   }
 
   // When the loop breaks out, t should be an identifier
-  EXPECT_TYPE(&t, Identifier, HANDLE_NO_IDENTIFIER);
+  EXPECT_TYPE(t, TokenIdentifier, HANDLE_NO_IDENTIFIER);
   vdsp->name = strdup(t.identifier);
 
   // Expect Assign or semicolon
@@ -71,7 +71,7 @@ static void parseVarDeclStmnt(VarDeclStmnt *vdsp, BufferedLexer *blp) {
   }
 
   // Otherwise, we expect an assign
-  EXPECT_TYPE(&t, TokenAssign, HANDLE_NO_ASSIGN);
+  EXPECT_TYPE(t, TokenAssign, HANDLE_NO_ASSIGN);
 
   // Expect Expression (no implicit undefined)
   vdsp->hasValue = true;

@@ -40,8 +40,10 @@ typedef enum DiagnosticType_e {
   E_FuncDeclStmntExpectedParen,
   E_FuncDeclStmntParamExpectedType,
   E_FuncDeclStmntParamExpectedIdentifier,
-  E_FuncDeclStmntExpectedTypeAnnotation,
-  E_FuncDeclStmntExpectedTypeIdentifier,
+  E_FuncDeclStmntExpectedType,
+  E_FuncDeclStmntExpectedIdentifier,
+  E_FuncDeclStmntExpectedColon,
+  E_FuncDeclStmntExpectedAssign,
   E_FuncDeclStmntExpectedBody,
   // Generic Parsing errors
   E_UnexpectedToken,

@@ -32,7 +32,7 @@ static void parsePattern(Pattern *pp, BufferedLexer *blp);
 static void parseVarDeclPlaceExpr(PlaceExpr *vdpep, BufferedLexer *blp) {
   // zero-initialize vdsp
   memset(vdpep, 0, sizeof(*vdpep));
-
+  vdpep->kind = PE_VarDecl;
   // these variables will be reused
   Token t;
 
@@ -74,6 +74,8 @@ HANDLE_TYPE_ERR:
 static void parseParamVarDeclStmnt(PlaceExpr *vdpep, BufferedLexer *blp) {
   // Zero struct
   memset(vdpep, 0, sizeof(*vdpep));
+  vdpep->kind = PE_VarDecl;
+
   // these variables will be reused
   Token t;
 
@@ -107,10 +109,10 @@ HANDLE_NO_IDENTIFIER:
 static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   // zero-initialize fdsp
   memset(fdsp, 0, sizeof(*fdsp));
+  fdsp->kind = S_FuncDecl;
 
   // these variables will be reused
   Token t;
-  Diagnostic d;
   Vector parameterDeclarations;
   createVector(&parameterDeclarations);
 
@@ -171,21 +173,20 @@ static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   EXPECT_TYPE(t, TokenAssign, HANDLE_NO_ASSIGN);
 
   fdsp->span = SPAN(start, t.span.end);
-  parseExpr(&fdsp->body, blp);
-  fdsp->error = DIAGNOSTIC(ErrorOk, fdsp->span);
+  parseValueExpr(fdsp->FuncDecl.body, blp);
+  fdsp->diagnostic = DIAGNOSTIC(E_Ok, fdsp->span);
   return;
 
 HANDLE_NO_FN:
   INTERNAL_ERROR("called function declaration parser where there was no "
                  "function declaration");
   PANIC();
-  return;
 
   // Error handlers
 
 HANDLE_NO_IDENTIFIER:
   fdsp->diagnostic =
-      DIAGNOSTIC(E_FuncDeclStmntExpectedTypeIdentifier, t.span);
+      DIAGNOSTIC(E_FuncDeclStmntExpectedIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->FuncDecl.params_length = VEC_LEN(&parameterDeclarations, PlaceExpr);
   fdsp->FuncDecl.params = releaseVector(&parameterDeclarations);
@@ -205,19 +206,32 @@ HANDLE_NO_COMMA:
   fdsp->FuncDecl.params = releaseVector(&parameterDeclarations);
   return;
 
+HANDLE_NO_COLON:
+  fdsp->diagnostic =
+      DIAGNOSTIC(E_FuncDeclStmntExpectedColon, t.span);
+  fdsp->span = SPAN(start, t.span.end);
+  return;
+
+HANDLE_NO_ASSIGN:
+  fdsp->diagnostic =
+      DIAGNOSTIC(E_FuncDeclStmntExpectedAssign, t.span);
+  fdsp->span = SPAN(start, t.span.end);
+  return;
+
 HANDLE_TYPE_ERR:
   fdsp->diagnostic =
-      DIAGNOSTIC(E_FuncDeclStmntExpectedTypeIdentifier, t.span);
+      DIAGNOSTIC(E_FuncDeclStmntExpectedType, t.span);
   fdsp->span = SPAN(start, t.span.end);
   return;
 }
 
-static void parseBreakExpr(BreakExpr *bep, BufferedLexer *blp) {
+static void parseBreakExpr(ValueExpr *bep, BufferedLexer *blp) {
+  bep->kind = VE_Break;
   Token t;
   advanceToken(blp, &t);
   bep->span = t.span;
   EXPECT_TYPE(t, TokenBreak, HANDLE_NO_BREAK);
-  bep->error = DIAGNOSTIC(ErrorOk, t.span);
+  bep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
   return;
 
 HANDLE_NO_BREAK:
@@ -225,12 +239,13 @@ HANDLE_NO_BREAK:
   PANIC();
 }
 
-static void parseContinueExpr(ContinueExpr *cep, BufferedLexer *blp) {
+static void parseContinueExpr(ValueExpr *cep, BufferedLexer *blp) {
+  cep->kind = VE_Continue;
   Token t;
   advanceToken(blp, &t);
   cep->span = t.span;
   EXPECT_TYPE(t, TokenContinue, HANDLE_NO_CONTINUE);
-  cep->error = DIAGNOSTIC(ErrorOk, t.span);
+  cep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
   return;
 
 HANDLE_NO_CONTINUE:
@@ -238,30 +253,36 @@ HANDLE_NO_CONTINUE:
   PANIC();
 }
 
-static void parseWhileExpr(WhileExpr *wep, BufferedLexer *blp) {
+static void parseWhileExpr(ValueExpr *wep, BufferedLexer *blp) {
+  wep->kind = VE_While;
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TokenWhile, HANDLE_NO_WHILE);
-  parseExprProxy(&wep->condition, blp);
-  parseExprProxy(&wep->body, blp);
+  parseValueExpr(wep->While.condition, blp);
+  parseValueExpr(wep->While.body, blp);
   wep->span = t.span;
+  return;
 
 HANDLE_NO_WHILE:
   INTERNAL_ERROR("called continue parser where there was no continue");
   PANIC();
 }
 
-static void parseForExpr(ForExpr *fep, BufferedLexer *blp) {
+static void parseForExpr(ValueExpr *fep, BufferedLexer *blp) {
+  fep->kind = VE_For;
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(&t, TokenFor, HANDLE_NO_FOR);
+  EXPECT_TYPE(t, TokenFor, HANDLE_NO_FOR);
 
-  parseStmntProxy(&fep->init, blp);
-  parseExprProxy(&fep->test, blp);
-  parseStmntProxy(&fep->update, blp);
-  parseExprProxy(&fep->body, blp);
+  parseValueExpr(fep->For.init, blp);
+  parseValueExpr(fep->For.condition, blp);
+  parseValueExpr(fep->For.update, blp);
+  parseValueExpr(fep->For.body, blp);
   // TODO
   return;
+
+HANDLE_NO_FOR:
+  r
 }
 
 static void parseMatchCaseExpr(MatchCaseExpr *mcep, Parser *p) {

@@ -135,63 +135,64 @@ typedef struct ValueExpr_s {
       size_t value_length;
     } StringLiteral;
     struct ArrayLiteral_s {
-      struct Expr_s* elements;
+      struct ValueExpr_s* elements;
       size_t elements_length;
     } ArrayLiteral;
     struct StructLiteralEntry_s {
       char* field;
-      struct Expr_s* value;
+      struct ValueExpr_s* value;
     } StructLiteralEntry;
     struct StructLiteral_s {
-      struct Expr_s* entries; // MUST be of type StructLiteralEntry
+      struct ValueExpr_s* entries; // MUST be of type StructLiteralEntry
       size_t entries_length;
     } StructLiteral;
     struct UnaryOp_s {
       ExprUnOpKind operator;
-      struct Expr_s* operand;
+      struct ValueExpr_s* operand;
     } UnaryOp;
     struct BinaryOp_s {
       ExprBinOpKind operator;
-      struct Expr_s* operand_1;
-      struct Expr_s* operand_2;
+      struct ValueExpr_s* operand_1;
+      struct ValueExpr_s* operand_2;
     } BinaryOp;
     struct If_s {
-      struct Expr_s* condition;
-      struct Expr_s* body;
+      struct ValueExpr_s* condition;
+      struct ValueExpr_s* body;
       bool has_expr;
-      struct Expr_s* else_body;
+      struct ValueExpr_s* else_body;
     } If;
     struct While_s {
-      struct Expr_s* condition;
-      struct Expr_s* body;
+      struct ValueExpr_s* condition;
+      struct ValueExpr_s* body;
     } While;
     struct For_s {
-      struct Expr_s* init;
-      struct Expr_s* condition;
-      struct Expr_s* update;
+      struct ValueExpr_s* init;
+      struct ValueExpr_s* condition;
+      struct ValueExpr_s* update;
+      struct ValueExpr_s* body;
     } For;
     struct Call_s {
       char* function;
-      struct Expr_s* arguments;
+      struct ValueExpr_s* arguments;
       size_t arguments_length;
     } Call;
     struct Return_s {
       bool has_value;
-      struct Expr_s* value;
+      struct ValueExpr_s* value;
     } Return;
     struct MatchCase_s {
       struct Pattern_s* pattern;
-      struct Expr_s* value;
+      struct ValueExpr_s* value;
     } MatchCase;
     struct Match_s {
-      struct Expr_s* value;
-      struct Expr_s* cases; // MUST be of type matchCase
+      struct ValueExpr_s* value;
+      struct ValueExpr_s* cases; // MUST be of type matchCase
       size_t cases_length;
     } Match;
     struct Block_s {
       struct Stmnt_s* statements;
       size_t statements_length;
-      struct Expr_s* expr;
+      struct ValueExpr_s* expr;
     } Block;
   };
 } ValueExpr;
@@ -205,7 +206,8 @@ typedef struct Stmnt_s {
       char* name;
       struct PlaceExpr_s* params; // MUST be of type VarDecl
       size_t params_length;
-      struct Expr_s* expr;
+      struct TypeExpr_s* type;
+      struct ValueExpr_s* body;
     } FuncDecl;
     struct StructDecl_s {
       char* field;

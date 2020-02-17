@@ -42,7 +42,14 @@ typedef enum {
   PE_VarDecl,     // let
   PE_FieldAccess, // .
   PE_ArrayIndex
-} ValueExprKind;
+} PlaceExprKind;
+
+
+typedef enum {
+  TE_VarDecl,     // let
+  TE_FieldAccess, // .
+  TE_ArrayIndex
+} TypeExprKind;
 
 typedef enum {
   EBO_Add,              // +
@@ -66,7 +73,7 @@ typedef enum {
   EBO_FieldAccess,      // .
   EBO_ArrayAccess,      // []
   EBO_Pipeline,         // ->
-} BinaryOpExprKind;
+} ExprBinOpKind;
 
 typedef enum {
   EUO_Negate,     // -
@@ -74,7 +81,7 @@ typedef enum {
   EUO_BitNot,     // ~
   EUO_Ref,        // $
   EUO_Deref       // @
-} UnaryOpExprKind;
+} ExprUnOpKind;
 
 typedef struct Attr_s {
   // TODO what goes in here?
@@ -96,26 +103,21 @@ typedef struct TypeExpr_s {
   // TODO
 } TypeExpr;
 
-typedef enum PlaceExprKind_e {
-  PEK_VarDecl
-
 // Expressions and operations yielding a memory location
 typedef struct PlaceExpr_s {
   PlaceExprKind kind;
   Span span;
   Diagnostic diagnostic;
-  union
+  union {
     struct VarDecl_s {
       char* name;
-      char* type;
-      uint64_t pointerCount;
-      bool hasValue;
-      struct Expr_s* value;
+      struct TypeExpr_s* type;
     } VarDecl;
-}
+  };
+} PlaceExpr;
 
 typedef struct ValueExpr_s {
-  ExprKind kind;
+  ValueExprKind kind;
   Span span;
   Diagnostic diagnostic;
   union {
@@ -145,11 +147,11 @@ typedef struct ValueExpr_s {
       size_t entries_length;
     } StructLiteral;
     struct UnaryOp_s {
-      UnaryOpExprType operator;
+      ExprUnOpKind operator;
       struct Expr_s* operand;
     } UnaryOp;
     struct BinaryOp_s {
-      BinaryOpExprType operator;
+      ExprBinOpKind operator;
       struct Expr_s* operand_1;
       struct Expr_s* operand_2;
     } BinaryOp;
@@ -201,9 +203,9 @@ typedef struct Stmnt_s {
   union {
     struct FuncDecl_s {
       char* name;
-      struct Stmnt_s* params; // MUST be of type VarDecl
+      struct PlaceExpr_s* params; // MUST be of type VarDecl
       size_t params_length;
-      VarD
+      struct Expr_s* expr;
     } FuncDecl;
     struct StructDecl_s {
       char* field;
@@ -211,7 +213,7 @@ typedef struct Stmnt_s {
       size_t members_length;
     } StructDecl;
     struct ExprStmnt_s {
-      struct Expr_s* value;
+      struct ValueExpr_s* value;
     } ExprStmnt;
   };
 } Stmnt;

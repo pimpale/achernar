@@ -152,21 +152,21 @@ static ResultU64 parseInteger(char *str, size_t len, uint64_t radix) {
     } else if (isdigit(c)) {
       digitValue = (uint64_t)(c - '0');
     } else {
-      return (ResultU64){0, ErrorUnrecognizedCharacter};
+      return (ResultU64){0, E_UnrecognizedCharacter};
     }
 
     // If you put something higher than is requested
     if (digitValue >= radix) {
-      return (ResultU64){0, ErrorIntLiteralDigitExceedsRadix};
+      return (ResultU64){0, E_IntLiteralDigitExceedsRadix};
     }
 
     uint64_t oldret = ret;
     ret = ret * radix + digitValue;
     if (oldret > ret) {
-      return (ResultU64){0, ErrorIntLiteralOverflow};
+      return (ResultU64){0, E_IntLiteralOverflow};
     }
   }
-  return (ResultU64){ret, ErrorOk};
+  return (ResultU64){ret, E_Ok};
 }
 
 // Call this function right before the first hash
@@ -217,7 +217,7 @@ static void lexComment(Lexer *lexer, Token *token) {
       .type = TokenComment,
       .comment = releaseVector(&data),
       .span = SPAN(start, lexer->position),
-      .error = ErrorOk
+      .error = E_Ok
     };
     return;
     // clang-format on
@@ -244,7 +244,7 @@ static void lexComment(Lexer *lexer, Token *token) {
       .type = TokenComment,
       .comment = releaseVector(&data),
       .span = SPAN(start, lexer->position),
-      .error = ErrorOk
+      .error = E_Ok
     };
     return;
     // clang-format on
@@ -283,7 +283,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
       .type = TokenStringLiteral,
       .stringLiteral = releaseVector(&data),
       .span = SPAN(start, lexer->position),
-      .error = ErrorOk
+      .error = E_Ok
     };
   // clang-format on
   return;
@@ -371,7 +371,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         *token = (Token) {
           .type = TokenNone,
           .span = SPAN(start, lexer->position),
-          .error = ErrorIntLiteralUnrecognizedRadixCode
+          .error = E_IntLiteralUnrecognizedRadixCode
 
         };
         // clang-format on
@@ -389,13 +389,13 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
     // Now we get on to parsing the integer
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
-    if (ret.err != ErrorOk) {
+    if (ret.err != E_Ok) {
       free(string);
       // clang-format off
       *token = (Token) {
           .type = TokenNone,
           .span = SPAN(start, lexer->position),
-          .error = ErrorIntLiteralUnrecognizedRadixCode
+          .error = E_IntLiteralUnrecognizedRadixCode
 
       };
       // clang-format on
@@ -408,7 +408,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         .type = TokenIntLiteral,
         .span = SPAN(start, lexer->position),
         .intLiteral = ret.val,
-        .error = ErrorOk
+        .error = E_Ok
 
       };
       // clang-format on
@@ -434,7 +434,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
     // Parse the part ahead of the decimal point
     ResultU64 initialRet = parseInteger(initialPortion, initialPortionLen, 10);
-    if (initialRet.err == ErrorOk) {
+    if (initialRet.err == E_Ok) {
       result += initialRet.val;
     } else {
       free(string);
@@ -451,7 +451,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     // If there's a bit after the inital part, then we must add it
     if (finalPortionLen > 0) {
       ResultU64 finalRet = parseInteger(finalPortion, finalPortionLen, 10);
-      if (finalRet.err == ErrorOk) {
+      if (finalRet.err == E_Ok) {
         // don't want to include math.h, so we'll repeatedly divide by 10
         // this is probably dumb
         double decimalResult = finalRet.val;
@@ -482,7 +482,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       .type = TokenFloatLiteral,
       .floatLiteral = result,
       .span = SPAN(start, lexer->position),
-      .error = ErrorOk
+      .error = E_Ok
     };
     // clang-format on
     return;
@@ -537,7 +537,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenNone,
       .span = SPAN(start, lexer->position),
-      .error = ErrorCharLiteralEmpty
+      .error = E_CharLiteralEmpty
     };
     // clang-format on
     return;
@@ -550,7 +550,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       .type = TokenCharLiteral,
       .charLiteral = string[0],
       .span = SPAN(start, lexer->position),
-      .error = ErrorOk
+      .error = E_Ok
     };
     // clang-format on
 
@@ -565,7 +565,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       *token = (Token) {
         .type = TokenNone,
         .span = SPAN(start, lexer->position),
-        .error = ErrorCharLiteralTooLong
+        .error = E_CharLiteralTooLong
       };
       // clang-format on
       return;
@@ -603,7 +603,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       *token = (Token) {
         .type = TokenNone,
         .span = SPAN(start, lexer->position),
-        .error = ErrorCharLiteralUnrecognizedEscapeCode
+        .error = E_CharLiteralUnrecognizedEscapeCode
       };
       // clang-format on
       return;
@@ -618,7 +618,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       .type = TokenCharLiteral,
       .charLiteral = code,
       .span = SPAN(start, lexer->position),
-      .error = ErrorOk
+      .error = E_Ok
     };
     return;
     // clang-format on
@@ -629,7 +629,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenNone,
       .span = SPAN(start, lexer->position),
-      .error = ErrorCharLiteralTooLong
+      .error = E_CharLiteralTooLong
     };
     // clang-format on
     return;
@@ -672,7 +672,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     // It is an identifier, and we need to keep the string
     token->type = TokenMacro;
     token->macro = string;
-    token->error = ErrorOk;
+    token->error = E_Ok;
     return;
   }
 
@@ -704,12 +704,12 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     // It is an identifier, and we need to keep the string
     token->type = TokenIdentifier;
     token->identifier = string;
-    token->error = ErrorOk;
+    token->error = E_Ok;
     return;
   }
 
   // If it wasn't an identifier
-  token->error = ErrorOk;
+  token->error = E_Ok;
   free(string);
   return;
 }
@@ -724,7 +724,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   };                                                                           \
 
 #define RETURN_RESULT_TOKEN(tokenType)                                         \
-  RESULT_TOKEN(tokenType, ErrorOk)                                             \
+  RESULT_TOKEN(tokenType, E_Ok)                                                \
   return;
 
 #define NEXT_AND_RETURN_RESULT_TOKEN(tokenType)                                \
@@ -898,11 +898,11 @@ void lexNextToken(Lexer *lexer, Token *token) {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenSemicolon)
     }
     case EOF: {
-      RESULT_TOKEN(TokenNone, ErrorEOF)
+      RESULT_TOKEN(TokenNone, E_EOF)
       return;
     }
     default: {
-      RESULT_TOKEN(TokenNone, ErrorUnrecognizedCharacter)
+      RESULT_TOKEN(TokenNone, E_UnrecognizedCharacter)
       return;
     }
     }

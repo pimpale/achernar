@@ -8,20 +8,30 @@
 #include "token.h"
 #include "vector.h"
 
-#define EXPECT_TYPE(token, tokenType, onErrLabel)                           \
+#define EXPECT_TYPE(token, tokenType, onErrLabel)                              \
   do {                                                                         \
-    if ((token).type != (tokenType)) {                                     \
+    if ((token).type != (tokenType)) {                                         \
+      goto onErrLabel;                                                         \
+    }                                                                          \
+  } while (false)
+
+#define EXPECT_NO_ERROR(thingPtr, onErrLabel)                                  \
+  do {                                                                         \
+    if ((thingPtr)->diagnostic.type != E_Ok) {                                 \
       goto onErrLabel;                                                         \
     }                                                                          \
   } while (false)
 
 // Note that all errors resynch at the statement level
-static void parseStmnt(Stmnt* sp, BufferedLexer *blp);
-static void parseExpr(Expr *ep, BufferedLexer *blp);
+static void parseStmnt(Stmnt *sp, BufferedLexer *blp);
+static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
+static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
+static void parsePlaceExpr(PlaceExpr *pep, BufferedLexer *blp);
+static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
-static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
+static void parseVarDeclPlaceExpr(PlaceExpr *vdpep, BufferedLexer *blp) {
   // zero-initialize vdsp
-  memset(vdsp, 0, sizeof(*vdsp));
+  memset(vdpep, 0, sizeof(*vdpep));
 
   // these variables will be reused
   Token t;
@@ -33,117 +43,63 @@ static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
   EXPECT_TYPE(t, TokenLet, HANDLE_NO_LET);
 
   // Get type of variable
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, TokenIdentifier, HANDLE_NO_TYPE);
-  vdsp->VarDecl.type = strdup(t.identifier);
+  parseTypeExpr(vdpep->VarDecl.type, blp);
+  EXPECT_NO_ERROR(vdpep->VarDecl.type, HANDLE_TYPE_ERR);
 
-  // Now check for any pointer layers
-  // Loop will exit with t holding the first nonref token
-
-  vdsp->VarDecl.pointerCount = 0;
-  while (true) {
-    advanceToken(blp, &t);
-    if (t.type == TokenRef) {
-      vdsp->VarDecl.pointerCount++;
-    } else {
-      break;
-    }
-  }
-
-  // When the loop breaks out, t should be an identifier
+  // Now we get the identifier
   EXPECT_TYPE(t, TokenIdentifier, HANDLE_NO_IDENTIFIER);
-  vdsp->VarDecl.name = strdup(t.identifier);
-
-  // Expect Assign or semicolon
-  advanceToken(blp, &t);
-
-  // If the thing is a semicolon, we end here
-  if(t.type == TokenSemicolon) {
-    vdsp->span = SPAN(start, t.span.end);
-    vdsp->VarDecl.hasValue = false;
-    return;
-  }
-
-  // Otherwise, we expect an assign
-  EXPECT_TYPE(t, TokenAssign, HANDLE_NO_ASSIGN);
-
-  // Expect Expression (no implicit undefined)
-  vdsp->VarDecl.hasValue = true;
-  parseExpr(vdsp->VarDecl.value, blp);
-  vdsp->span = SPAN(start, vdsp->VarDecl.value->span.end);
-  return;
+  vdpep->VarDecl.name = strdup(t.identifier);
 
   // Error handling
   // Set error, and give back the error causing thing
   // Generally, we use the t token to find the last parsed token
 
-  HANDLE_NO_LET:
-  INTERNAL_ERROR("called variable declaration parser where there was no variable declaration");
+HANDLE_NO_LET:
+  INTERNAL_ERROR("called variable declaration parser where there was no "
+                 "variable declaration");
   PANIC();
 
-  HANDLE_NO_TYPE:
-  vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(ErrorVarDeclStmntExpectedTypeNameOrModifer, t.span);
+HANDLE_NO_IDENTIFIER:
+  vdpep->span = SPAN(start, t.span.end);
+  vdpep->diagnostic = DIAGNOSTIC(E_VarDeclStmntExpectedIdentifier, t.span);
   setNextToken(blp, &t);
   return;
 
-  HANDLE_NO_IDENTIFIER:
-  vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(ErrorVarDeclStmntExpectedIdentifier, t.span);
-  setNextToken(blp, &t);
-  return;
-
-  HANDLE_NO_ASSIGN:
-  vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(ErrorVarDeclStmntExpectedAssign, t.span);
-  setNextToken(blp, &t);
+HANDLE_TYPE_ERR:
+  vdpep->span = SPAN(start, t.span.end);
+  vdpep->diagnostic = DIAGNOSTIC(E_VarDeclStmntExpectedType, t.span);
   return;
 }
 
-static void parseParamVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
+static void parseParamVarDeclStmnt(PlaceExpr *vdpep, BufferedLexer *blp) {
   // Zero struct
-  memset(vdsp, 0, sizeof(*vdsp));
+  memset(vdpep, 0, sizeof(*vdpep));
   // these variables will be reused
   Token t;
-  advanceToken(blp, &t);
-  // Get start parameter
-  LnCol start = t.span.start;
-  // Expect type name
-  EXPECT_TYPE(t, TokenIdentifier, HANDLE_NO_TYPE);
 
-  // Copy identifier
-  vdsp->VarDecl.type = strdup(t.identifier);
-
-  // Now check for any pointer layers
-  // Loop will exit with t holding the first nonref token
-  vdsp->VarDecl.pointerCount = 0;
-  while (true) {
-    advanceToken(blp, &t);
-    if (t.type == TokenRef) {
-      vdsp->VarDecl.pointerCount++;
-    } else {
-      break;
-    }
-  }
+  parseTypeExpr(vdpep->VarDecl.type, blp);
+  EXPECT_NO_ERROR(vdpep->VarDecl.type, HANDLE_TYPE_ERR);
 
   // Copy identifier
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TokenIdentifier, HANDLE_NO_IDENTIFIER);
-  vdsp->VarDecl.name = strdup(t.identifier);
+  vdpep->VarDecl.name = strdup(t.identifier);
   // Now set span to the space
-  vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(ErrorOk, vdsp->span);
+
+  vdpep->span = SPAN(vdpep->VarDecl.type->span.start, t.span.end);
+  vdpep->diagnostic = DIAGNOSTIC(E_Ok, vdpep->span);
   return;
 
-  HANDLE_NO_TYPE:
-  vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(ErrorFuncDeclStmntParamExpectedTypeOrModifier, t.span);
-  setNextToken(blp, &t);
+HANDLE_TYPE_ERR:
+  vdpep->span = SPAN(vdpep->VarDecl.type->span.start, t.span.end);
+  vdpep->diagnostic =
+      DIAGNOSTIC(E_FuncDeclStmntParamExpectedType, t.span);
   return;
 
-  HANDLE_NO_IDENTIFIER:
-  vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(ErrorFuncDeclStmntParamExpectedIdentifier, t.span);
+HANDLE_NO_IDENTIFIER:
+  vdpep->span =  SPAN(vdpep->VarDecl.type->span.start, t.span.end);
+  vdpep->diagnostic =
+      DIAGNOSTIC(E_FuncDeclStmntParamExpectedIdentifier, t.span);
   setNextToken(blp, &t);
   return;
 }
@@ -178,20 +134,20 @@ static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   while (true) {
     // Check for end paren
     advanceToken(blp, &t);
-    if(t.type == TokenParenRight) {
+    if (t.type == TokenParenRight) {
       break;
     }
 
     setNextToken(blp, &t);
 
     // Parse and push the parameter
-    parseParamVarDeclStmnt(VEC_PUSH(&parameterDeclarations, Stmnt), blp);
+    parseParamVarDeclStmnt(VEC_PUSH(&parameterDeclarations, PlaceExpr), blp);
 
     // Accept comma, if any
     // If there's no comma then we must bail
     // This also allows trailing commas
     advanceToken(blp, &t);
-    if(t.type != TokenComma) {
+    if (t.type != TokenComma) {
       setNextToken(blp, &t);
       EXPECT_TYPE(t, TokenParenRight, HANDLE_NO_COMMA);
       break;
@@ -207,45 +163,51 @@ static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   EXPECT_TYPE(t, TokenColon, HANDLE_NO_COLON);
 
   // Return type
+  parseTypeExpr(fdsp->FuncDecl.type, blp);
+  EXPECT_NO_ERROR(fdsp->FuncDecl.type, HANDLE_TYPE_ERR);
+
+  // Equal sign expression delimiter
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, TokenIdentifier, HANDLE_NO_TYPE_SPECIFIER);
-  fdsp->FuncDecl.type = strdup(t.identifier);
+  EXPECT_TYPE(t, TokenAssign, HANDLE_NO_ASSIGN);
 
   fdsp->span = SPAN(start, t.span.end);
-  parseExprProxy(&fdsp->body, blp);
+  parseExpr(&fdsp->body, blp);
   fdsp->error = DIAGNOSTIC(ErrorOk, fdsp->span);
   return;
 
-  HANDLE_NO_FN:
-  INTERNAL_ERROR("called function declaration parser where there was no function declaration");
+HANDLE_NO_FN:
+  INTERNAL_ERROR("called function declaration parser where there was no "
+                 "function declaration");
   PANIC();
   return;
 
   // Error handlers
 
-  HANDLE_NO_IDENTIFIER:
-  fdsp->error= DIAGNOSTIC(ErrorFuncDeclStmntExpectedTypeIdentifier, t.span);
+HANDLE_NO_IDENTIFIER:
+  fdsp->diagnostic =
+      DIAGNOSTIC(E_FuncDeclStmntExpectedTypeIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
-  fdsp->arguments_length = VEC_LEN(&parameterDeclarations, VarDeclStmnt);
-  fdsp->arguments = releaseVector(&parameterDeclarations);
+  fdsp->FuncDecl.params_length = VEC_LEN(&parameterDeclarations, PlaceExpr);
+  fdsp->FuncDecl.params = releaseVector(&parameterDeclarations);
   return;
 
-  HANDLE_NO_OPENING_PAREN:
-  fdsp->error= DIAGNOSTIC(ErrorFuncDeclStmntExpectedParen, t.span);
+HANDLE_NO_OPENING_PAREN:
+  fdsp->diagnostic = DIAGNOSTIC(E_FuncDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
-  fdsp->arguments_length = VEC_LEN(&parameterDeclarations, VarDeclStmnt);
-  fdsp->arguments = releaseVector(&parameterDeclarations);
+  fdsp->FuncDecl.params_length = VEC_LEN(&parameterDeclarations, PlaceExpr);
+  fdsp->FuncDecl.params = releaseVector(&parameterDeclarations);
   return;
 
-  HANDLE_NO_COMMA:
-  fdsp->error= DIAGNOSTIC(ErrorFuncDeclStmntExpectedParen, t.span);
+HANDLE_NO_COMMA:
+  fdsp->diagnostic = DIAGNOSTIC(E_FuncDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
-  fdsp->arguments_length = VEC_LEN(&parameterDeclarations, VarDeclStmnt);
-  fdsp->arguments = releaseVector(&parameterDeclarations);
+  fdsp->FuncDecl.params_length = VEC_LEN(&parameterDeclarations, PlaceExpr);
+  fdsp->FuncDecl.params = releaseVector(&parameterDeclarations);
   return;
 
-  HANDLE_NO_TYPE_SPECIFIER:
-  fdsp->error= DIAGNOSTIC(ErrorFuncDeclStmntExpectedTypeIdentifier, t.span);
+HANDLE_TYPE_ERR:
+  fdsp->diagnostic =
+      DIAGNOSTIC(E_FuncDeclStmntExpectedTypeIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
   return;
 }
@@ -258,7 +220,7 @@ static void parseBreakExpr(BreakExpr *bep, BufferedLexer *blp) {
   bep->error = DIAGNOSTIC(ErrorOk, t.span);
   return;
 
-  HANDLE_NO_BREAK:
+HANDLE_NO_BREAK:
   INTERNAL_ERROR("called break parser where there was no break");
   PANIC();
 }
@@ -271,7 +233,7 @@ static void parseContinueExpr(ContinueExpr *cep, BufferedLexer *blp) {
   cep->error = DIAGNOSTIC(ErrorOk, t.span);
   return;
 
-  HANDLE_NO_CONTINUE:
+HANDLE_NO_CONTINUE:
   INTERNAL_ERROR("called continue parser where there was no continue");
   PANIC();
 }
@@ -284,7 +246,7 @@ static void parseWhileExpr(WhileExpr *wep, BufferedLexer *blp) {
   parseExprProxy(&wep->body, blp);
   wep->span = t.span;
 
-  HANDLE_NO_WHILE:
+HANDLE_NO_WHILE:
   INTERNAL_ERROR("called continue parser where there was no continue");
   PANIC();
 }

@@ -10,42 +10,42 @@
 
 typedef enum DiagnosticType_e {
   // no error
-  ErrorOk,
+  E_Ok,
   // unknown error
-  ErrorUnknown,
+  E_Unknown,
   // Generic Lexing Errors
-  ErrorEOF,
-  ErrorUnrecognizedCharacter,
+  E_EOF,
+  E_UnrecognizedCharacter,
   // Integer Literals
-  ErrorIntLiteralUnrecognizedRadixCode,
-  ErrorIntLiteralDigitExceedsRadix,
-  ErrorIntLiteralOverflow,
+  E_IntLiteralUnrecognizedRadixCode,
+  E_IntLiteralDigitExceedsRadix,
+  E_IntLiteralOverflow,
   // Float Literals
-  ErrorFloatLiteralDigitExceedsRadix,
-  ErrorFloatLiteralExceedsMaxPrecision,
+  E_FloatLiteralDigitExceedsRadix,
+  E_FloatLiteralExceedsMaxPrecision,
   // Character Literals
-  ErrorCharLiteralEmpty,
-  ErrorCharLiteralTooLong,
-  ErrorCharLiteralUnrecognizedEscapeCode,
+  E_CharLiteralEmpty,
+  E_CharLiteralTooLong,
+  E_CharLiteralUnrecognizedEscapeCode,
   // String Literals
-  ErrorStringLiteralTooLong,
-  ErrorStringLiteralUnrecognizedEscapeCode,
+  E_StringLiteralTooLong,
+  E_StringLiteralUnrecognizedEscapeCode,
   // Parsing Errors
   // VarDeclStmnt
-  ErrorVarDeclStmntExpectedTypeNameOrModifer,
-  ErrorVarDeclStmntExpectedIdentifier,
-  ErrorVarDeclStmntExpectedAssign,
-  ErrorVarDeclStmntExpectedValue,
+  E_VarDeclStmntExpectedType,
+  E_VarDeclStmntExpectedIdentifier,
+  E_VarDeclStmntExpectedAssign,
+  E_VarDeclStmntExpectedValue,
   // FuncDeclStmnt
-  ErrorFuncDeclStmntExpectedParen,
-  ErrorFuncDeclStmntParamExpectedTypeOrModifier,
-  ErrorFuncDeclStmntParamExpectedIdentifier,
-  ErrorFuncDeclStmntExpectedTypeAnnotation,
-  ErrorFuncDeclStmntExpectedTypeIdentifier,
-  ErrorFuncDeclStmntExpectedBody,
+  E_FuncDeclStmntExpectedParen,
+  E_FuncDeclStmntParamExpectedType,
+  E_FuncDeclStmntParamExpectedIdentifier,
+  E_FuncDeclStmntExpectedTypeAnnotation,
+  E_FuncDeclStmntExpectedTypeIdentifier,
+  E_FuncDeclStmntExpectedBody,
   // Generic Parsing errors
-  ErrorUnexpectedToken,
-  ErrorSubcomponentFailedToParse,
+  E_UnexpectedToken,
+  E_SubcomponentFailedToParse,
 } DiagnosticType;
 
 typedef struct Diagnostic_s {

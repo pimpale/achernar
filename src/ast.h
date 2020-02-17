@@ -9,108 +9,115 @@
 #include "token.h"
 
 typedef enum {
-  StmntFuncDecl,
-  StmntVarDecl,
-  StmntStructDecl,
-  StmntTypeAliasDecl,
-  StmntEntry,
-  StmntExpr,
-} StmntType;
+  S_FuncDecl,
+  S_VarDecl,
+  S_StructDecl,
+  S_TypeAliasDecl,
+  S_Entry,
+  S_Expr,
+} StmntKind;
 
 typedef enum {
-  ExprIntLiteral,
-  ExprFloatLiteral,
-  ExprCharLiteral,
-  ExprStringLiteral,
-  ExprArrayLiteral,
-  ExprStructLiteral,
-  ExprBinaryOp,
-  ExprUnaryOp,
-  ExprCall,
-  ExprIf,
-  ExprWhile,
-  ExprFor,
-  ExprWith,
-  ExprBreak,
-  ExprContinue,
-  ExprReturn,
-  ExprMatch,
-  ExprBlock,
-} ExprType;
+  VE_IntLiteral,
+  VE_FloatLiteral,
+  VE_CharLiteral,
+  VE_StringLiteral,
+  VE_ArrayLiteral,
+  VE_StructLiteral,
+  VE_BinaryOp,
+  VE_UnaryOp,
+  VE_Call,
+  VE_If,
+  VE_While,
+  VE_For,
+  VE_With,
+  VE_Break,
+  VE_Continue,
+  VE_Return,
+  VE_Match,
+  VE_Block,
+} ValueExprKind;
 
 typedef enum {
-  BinaryOpExprAdd,              // +
-  BinaryOpExprSub,              // -
-  BinaryOpExprMul,              // *
-  BinaryOpExprDiv,              // /
-  BinaryOpExprMod,              // %
-  BinaryOpExprBitAnd,           // &
-  BinaryOpExprBitOr,            // |
-  BinaryOpExprBitXor,           // ^
-  BinaryOpExprBitShl,           // <<
-  BinaryOpExprBitShr,           // >>
-  BinaryOpExprLogicalAnd,       // &&
-  BinaryOpExprLogicalOr,        // ||
-  BinaryOpExprCompEqual,        // ==
-  BinaryOpExprCompNotEqual,     // !=
-  BinaryOpExprCompLess,         // <
-  BinaryOpExprCompLessEqual,    // <=
-  BinaryOpExprCompGreater,      // >
-  BinaryOpExprCompGreaterEqual, // >=
-  BinaryOpExprFieldAccess,      // .
-  BinaryOpExprArrayAccess,      // []
-  BinaryOpExprPipeline,         // ->
-} BinaryOpExprType;
+  PE_VarDecl,     // let
+  PE_FieldAccess, // .
+  PE_ArrayIndex
+} ValueExprKind;
 
 typedef enum {
-  UnaryOpExprNegate,     // -
-  UnaryOpExprLogicalNot, // !
-  UnaryOpExprBitNot,     // ~
-  UnaryOpExprRef,        // $
-  UnaryOpExprDeref       // @
-} UnaryOpExprType;
+  EBO_Add,              // +
+  EBO_Sub,              // -
+  EBO_Mul,              // *
+  EBO_Div,              // /
+  EBO_Mod,              // %
+  EBO_BitAnd,           // &
+  EBO_BitOr,            // |
+  EBO_BitXor,           // ^
+  EBO_BitShl,           // <<
+  EBO_BitShr,           // >>
+  EBO_LogicalAnd,       // &&
+  EBO_LogicalOr,        // ||
+  EBO_CompEqual,        // ==
+  EBO_CompNotEqual,     // !=
+  EBO_CompLess,         // <
+  EBO_CompLessEqual,    // <=
+  EBO_CompGreater,      // >
+  EBO_CompGreaterEqual, // >=
+  EBO_FieldAccess,      // .
+  EBO_ArrayAccess,      // []
+  EBO_Pipeline,         // ->
+} BinaryOpExprKind;
 
-#define STANDARD_AST_STUFF \
-    Span span; \
-    Diagnostic error; \
+typedef enum {
+  EUO_Negate,     // -
+  EUO_LogicalNot, // !
+  EUO_BitNot,     // ~
+  EUO_Ref,        // $
+  EUO_Deref       // @
+} UnaryOpExprKind;
 
-#define DECL_TYPE(type) typedef struct type##_s type;
+typedef struct Attr_s {
+  // TODO what goes in here?
+  Span span;
+  Diagnostic diagnostic;
+} Attr;
 
-DECL_TYPE(ExprProxy)              // Expression
-DECL_TYPE(StmntProxy)             // Statement
-DECL_TYPE(IntLiteralExpr)         // Integer Literal Expression
-DECL_TYPE(FloatLiteralExpr)       // Float Literal Expression
-DECL_TYPE(CharLiteralExpr)        // Float Literal Expression
-DECL_TYPE(StringLiteralExpr)      // Float Literal Expression
-DECL_TYPE(ArrayLiteralExpr)       // Array Literal Expression
-DECL_TYPE(StructLiteralEntryExpr) // Array Literal Expression
-DECL_TYPE(StructLiteralExpr)      // Array Literal Expression
-DECL_TYPE(BinaryOpExpr)           // Binary Operator Expression
-DECL_TYPE(UnaryOpExpr)            // Unary Operator Expression
-DECL_TYPE(CallExpr)               // Function Call Expression
-DECL_TYPE(FieldAccessExpr)        // Field Access Expression
-DECL_TYPE(IfExpr)                 // If Expression
-DECL_TYPE(WhileExpr)              // While Expression
-DECL_TYPE(ForExpr)                // For Expression
-DECL_TYPE(WithExpr)               // With Expression
-DECL_TYPE(BreakExpr)              // Break Expression
-DECL_TYPE(ContinueExpr)           // Continue Expression
-DECL_TYPE(ReturnExpr)             // Return Expression
-DECL_TYPE(MatchCaseExpr)          // Match or Struct Entry Expression
-DECL_TYPE(MatchExpr)              // Match Expression
-DECL_TYPE(BlockExpr)              // Expression in Parentheses
-DECL_TYPE(FuncDeclStmnt)          // Function Declaration Statement
-DECL_TYPE(VarDeclStmnt)           // Variable Declaration Statement
-DECL_TYPE(StructDeclStmnt)        // Struct Declaration Statement
-DECL_TYPE(AliasDeclStmnt)         // Type Alias Declaration Statement
-DECL_TYPE(ExprStmnt)              // Expression Statement
-DECL_TYPE(TranslationUnit)        // The whole program
+// Expressions and operations yielding a matchable pattern
+typedef struct Pattern_s {
+  Span span;
+  Diagnostic diagnostic;
+} Pattern;
 
-// Even though we forward declare the structs, we do have to keep Proxies on top
-struct Expr_s {
+// Expressions and operations yielding a type
+typedef struct TypeExpr_s {
+  TypeExprKind kind;
+  Span span;
+  Diagnostic diagnostic;
+  // TODO
+} TypeExpr;
+
+typedef enum PlaceExprKind_e {
+  PEK_VarDecl
+
+// Expressions and operations yielding a memory location
+typedef struct PlaceExpr_s {
+  PlaceExprKind kind;
+  Span span;
+  Diagnostic diagnostic;
+  union
+    struct VarDecl_s {
+      char* name;
+      char* type;
+      uint64_t pointerCount;
+      bool hasValue;
+      struct Expr_s* value;
+    } VarDecl;
+}
+
+typedef struct ValueExpr_s {
   ExprKind kind;
   Span span;
-  Diagnostic d;
+  Diagnostic diagnostic;
   union {
     struct IntLiteral_s {
       uint64_t value;
@@ -134,7 +141,7 @@ struct Expr_s {
       struct Expr_s* value;
     } StructLiteralEntry;
     struct StructLiteral_s {
-      struct StructLiteralEntry_s* entries;
+      struct Expr_s* entries; // MUST be of type StructLiteralEntry
       size_t entries_length;
     } StructLiteral;
     struct UnaryOp_s {
@@ -150,7 +157,7 @@ struct Expr_s {
       struct Expr_s* condition;
       struct Expr_s* body;
       bool has_expr;
-      struct Expr_s* else_body
+      struct Expr_s* else_body;
     } If;
     struct While_s {
       struct Expr_s* condition;
@@ -162,112 +169,58 @@ struct Expr_s {
       struct Expr_s* update;
     } For;
     struct Call_s {
-      Expr_s* function;
-      Expr_s* arguments;
+      char* function;
+      struct Expr_s* arguments;
       size_t arguments_length;
     } Call;
     struct Return_s {
       bool has_value;
-      Expr_s* value;
+      struct Expr_s* value;
     } Return;
     struct MatchCase_s {
-      struct Expr_s* pattern;
+      struct Pattern_s* pattern;
       struct Expr_s* value;
     } MatchCase;
     struct Match_s {
-      struct Expr_s* cases;
+      struct Expr_s* value;
+      struct Expr_s* cases; // MUST be of type matchCase
       size_t cases_length;
     } Match;
     struct Block_s {
-      struct Expr_s* statements;
+      struct Stmnt_s* statements;
+      size_t statements_length;
+      struct Expr_s* expr;
+    } Block;
+  };
+} ValueExpr;
 
+typedef struct Stmnt_s {
+  StmntKind kind;
+  Span span;
+  Diagnostic diagnostic;
+  union {
+    struct FuncDecl_s {
+      char* name;
+      struct Stmnt_s* params; // MUST be of type VarDecl
+      size_t params_length;
+      VarD
+    } FuncDecl;
+    struct StructDecl_s {
+      char* field;
+      struct Decl_s* members; // MUST be of type VarDecl
+      size_t members_length;
+    } StructDecl;
+    struct ExprStmnt_s {
+      struct Expr_s* value;
+    } ExprStmnt;
+  };
+} Stmnt;
 
-
-
-
-
-  }
-};
-
-struct StmntProxy_s {
-  StmntType type; // The type of statement
-  void *value;    // The value of the statement
-};
-
-struct ReturnExpr_s {
-  struct ExprProxy_s value;
-  STANDARD_AST_STUFF
-};
-
-struct MatchCaseExpr_s {
-  struct ExprProxy_s pattern; // The value to match against
-  struct ExprProxy_s value;   // The expression to evaluate if true
-  STANDARD_AST_STUFF
-};
-
-struct MatchExpr_s {
-  struct ExprProxy_s value;  // The value to be matched
-  struct EntryExpr_s *cases; // Points to array of cases
-  uint64_t cases_length;     // number of cases
-  STANDARD_AST_STUFF
-};
-
-struct BlockExpr_s {
-  struct StmntProxy_s *statements; // The statements of the block
-  uint64_t statements_length;      // The number of statements
-  bool hasExpr; // If it has an ending expression or it passes on () type
-  STANDARD_AST_STUFF
-};
-
-struct FuncDeclStmnt_s {
-  char *name;                       // Name of Function
-  struct VarDeclStmnt_s *arguments; // Arguments to the function
-  uint64_t arguments_length;
-  char *type;
-  struct ExprProxy_s body;
-  STANDARD_AST_STUFF
-};
-
-struct VarDeclStmnt_s {
-  char *name;               // The name of the variable
-  char *type;               // The original type of the variable
-  bool isMutable;           // If the variable is mutable
-  uint64_t pointerCount;    // Layers of pointers
-  bool hasValue;            // If it has a value assigned
-  struct ExprProxy_s value; // The value itself
-  STANDARD_AST_STUFF
-};
-
-struct StructDeclStmnt_s {
-  char *name; // The name of the struct (struct is not necessary)
-  struct VarDeclStmnt_s *fields; // An array of the fields in the struct
-  uint64_t fields_length;        // The number of elements in fields
-  STANDARD_AST_STUFF
-};
-
-struct AliasDeclStmnt_s {
-  char *type;  // The original type name
-  char *alias; // The new type name
-  STANDARD_AST_STUFF
-};
-
-struct StmntExpr_s {
-  struct ExprProxy_s key;   // An integer literal to be matched
-  struct ExprProxy_s value; // The returned value
-  STANDARD_AST_STUFF
-};
-
-struct ExprStmnt_s {
-  struct ExprProxy_s expr; // the expression
-  STANDARD_AST_STUFF
-};
-
-struct TranslationUnit_s {
-  struct StmntProxy_s
+typedef struct TranslationUnit_s {
+  struct Stmnt_s
       *statements;            // The top level is just a series of statements
   uint64_t statements_length; // The number of statements
-  STANDARD_AST_STUFF
-};
+} TranslationUnit;
 
 void parseTranslationUnit(TranslationUnit *tup, BufferedLexer *blp);
 

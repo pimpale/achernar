@@ -172,7 +172,7 @@ static ResultU64 parseInteger(char *str, size_t len, uint64_t radix) {
 // Call this function right before the first hash
 // Returns control at the first noncomment (or nonannotate) area
 // Lexes comments, annotations, and docstrings
-static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
+static void lexComment(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   int32_t c = nextValueLexer(lexer);
@@ -185,24 +185,24 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
 
   // Now we determine the type of comment as well as gather the comment data
   switch (c) {
-  case '*': {
+  case '[': {
     // This is a comment. It will continue until another quote asterix is found.
     // These strings are preserved in the AST. They are nestable
     // also nestable
-    // #* Comment *#
+    // #[ Comment ]#
     Vector data;
     createVector(&data);
     nextValueLexer(lexer);
     size_t stackDepth = 1;
     char lastChar = '\0';
     while ((c = nextValueLexer(lexer)) != EOF) {
-      if (c == '#' && lastChar == '*') {
+      if (c == '#' && lastChar == ']') {
         // If we see a "# to pair off the starting #"
         stackDepth--;
         if (stackDepth == 0) {
           break;
         }
-      } else if (c == '*' && lastChar == '#') {
+      } else if (c == '[' && lastChar == '#') {
         stackDepth++;
       }
       *VEC_PUSH(&data, char) = (char)c;
@@ -216,37 +216,6 @@ static void lexCommentOrAnnotation(Lexer *lexer, Token *token) {
     *token = (Token) {
       .type = TokenComment,
       .comment = releaseVector(&data),
-      .span = SPAN(start, lexer->position),
-      .error = ErrorOk
-    };
-    return;
-    // clang-format on
-  }
-  case '[': {
-    // This is an attribute. It will continue till a closing squarebracket is
-    // found is found. They are not nestable
-    // #[annotation]
-    Vector data;
-    createVector(&data);
-
-    nextValueLexer(lexer);
-    while ((c = peekValueLexer(lexer)) != EOF) {
-      if (c != ']') {
-        *VEC_PUSH(&data, char) = (char)c;
-        nextValueLexer(lexer);
-      } else {
-        break;
-      }
-    }
-
-    // Push null byte
-    *VEC_PUSH(&data, char) = '\0';
-
-    // Return data
-    // clang-format off
-    *token = (Token) {
-      .type = TokenAnnotation,
-      .annotationLiteral = releaseVector(&data),
       .span = SPAN(start, lexer->position),
       .error = ErrorOk
     };
@@ -727,8 +696,6 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->type = TokenFunction;
   } else if (!strcmp(string, "let")) {
     token->type = TokenLet;
-  } else if (!strcmp(string, "mut")) {
-    token->type = TokenMut;
   } else if (!strcmp(string, "struct")) {
     token->type = TokenStruct;
   } else if (!strcmp(string, "alias")) {
@@ -796,7 +763,7 @@ void lexNextToken(Lexer *lexer, Token *token) {
       return;
     }
     case '#': {
-      lexCommentOrAnnotation(lexer, token);
+      lexComment(lexer, token);
       return;
     }
     case '&': {
@@ -873,6 +840,24 @@ void lexNextToken(Lexer *lexer, Token *token) {
         RETURN_RESULT_TOKEN(TokenSub)
       }
     }
+    case '[': {
+      nextValueLexer(lexer);
+      int32_t n = peekValueLexer(lexer);
+      if (n == '[') {
+        NEXT_AND_RETURN_RESULT_TOKEN(TokenAttrLeft)
+      } else {
+        RETURN_RESULT_TOKEN(TokenBracketLeft)
+      }
+    }
+    case ']': {
+      nextValueLexer(lexer);
+      int32_t n = peekValueLexer(lexer);
+      if (n == ']') {
+        NEXT_AND_RETURN_RESULT_TOKEN(TokenAttrRight)
+      } else {
+        RETURN_RESULT_TOKEN(TokenBracketRight)
+      }
+    }
     case '*': {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenMul)
     }
@@ -894,12 +879,6 @@ void lexNextToken(Lexer *lexer, Token *token) {
     case ')': {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenParenRight)
     }
-    case '[': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenBracketLeft)
-    }
-    case ']': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenBracketRight)
-    }
     case '{': {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenBraceLeft)
     }
@@ -919,11 +898,11 @@ void lexNextToken(Lexer *lexer, Token *token) {
       NEXT_AND_RETURN_RESULT_TOKEN(TokenSemicolon)
     }
     case EOF: {
-      RESULT_TOKEN(TokenNone, ErrorEOF);
+      RESULT_TOKEN(TokenNone, ErrorEOF)
       return;
     }
     default: {
-      RESULT_TOKEN(TokenNone, ErrorUnrecognizedCharacter);
+      RESULT_TOKEN(TokenNone, ErrorUnrecognizedCharacter)
       return;
     }
     }

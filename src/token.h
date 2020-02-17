@@ -24,7 +24,6 @@ typedef enum {
   TokenReturn,   // return
   TokenFunction, // fn
   TokenLet,      // let
-  TokenMut,      // mut
   TokenStruct,   // struct
   TokenAlias,    // alias
   // Literals and constants
@@ -76,9 +75,10 @@ typedef enum {
   TokenSemicolon,    // ;
   // Macros
   TokenMacro,        // macro!
-  // Comments, and Annotations
-  TokenComment,   // #* comment *# and # comment
-  TokenAnnotation // [[Annotation]]
+  // Comments, and Attributes
+  TokenComment,   // #[ comment ]# and # comment
+  TokenAttrLeft,  // [[
+  TokenAttrRight, // ]]
 } TokenType;
 
 

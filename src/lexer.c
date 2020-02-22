@@ -771,9 +771,9 @@ void lexNextToken(Lexer *lexer, Token *token) {
       int32_t n = peekValueLexer(lexer);
       // && or &
       if (n == '&') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenAnd)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_And)
       } else {
-        RETURN_RESULT_TOKEN(TokenBitAnd)
+        RETURN_RESULT_TOKEN(T_BitAnd)
       }
     }
     case '|': {
@@ -781,9 +781,9 @@ void lexNextToken(Lexer *lexer, Token *token) {
       int32_t n = peekValueLexer(lexer);
       // || or |
       if (n == '|') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenOr)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_Or)
       } else {
-        RETURN_RESULT_TOKEN(TokenBitOr)
+        RETURN_RESULT_TOKEN(T_BitOr)
       }
     }
     case '!': {
@@ -791,9 +791,9 @@ void lexNextToken(Lexer *lexer, Token *token) {
       int32_t n = peekValueLexer(lexer);
       // ! or !=
       if (n == '=') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenNotEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_NotEqual)
       } else {
-        RETURN_RESULT_TOKEN(TokenNot)
+        RETURN_RESULT_TOKEN(T_Not)
       }
     }
     case '=': {
@@ -801,108 +801,108 @@ void lexNextToken(Lexer *lexer, Token *token) {
       int32_t n = peekValueLexer(lexer);
       // = or ==
       if (n == '=') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_Equal)
       } else {
-        RETURN_RESULT_TOKEN(TokenAssign)
+        RETURN_RESULT_TOKEN(T_Assign)
       }
     }
     case '<': {
       nextValueLexer(lexer);
       int32_t n = peekValueLexer(lexer);
       if (n == '<') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenShiftLeft)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_ShiftLeft)
       } else if (n == '=') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenCompLessEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_CompLessEqual)
       } else {
-        RETURN_RESULT_TOKEN(TokenCompLess)
+        RETURN_RESULT_TOKEN(T_CompLess)
       }
     }
     case '>': {
       nextValueLexer(lexer);
       int32_t n = peekValueLexer(lexer);
       if (n == '>') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenShiftRight)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_ShiftRight)
       } else if (n == '=') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenCompGreaterEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_CompGreaterEqual)
       } else {
-        RETURN_RESULT_TOKEN(TokenCompGreater)
+        RETURN_RESULT_TOKEN(T_CompGreater)
       }
     }
     case '+': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenAdd)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Add)
     }
     case '-': {
       nextValueLexer(lexer);
       int32_t n = peekValueLexer(lexer);
       if (n == '>') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenPipe)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_Pipe)
       } else {
-        RETURN_RESULT_TOKEN(TokenSub)
+        RETURN_RESULT_TOKEN(T_Sub)
       }
     }
     case '[': {
       nextValueLexer(lexer);
       int32_t n = peekValueLexer(lexer);
       if (n == '[') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenAttrLeft)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_AttrLeft)
       } else {
-        RETURN_RESULT_TOKEN(TokenBracketLeft)
+        RETURN_RESULT_TOKEN(T_BracketLeft)
       }
     }
     case ']': {
       nextValueLexer(lexer);
       int32_t n = peekValueLexer(lexer);
       if (n == ']') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TokenAttrRight)
+        NEXT_AND_RETURN_RESULT_TOKEN(T_AttrRight)
       } else {
-        RETURN_RESULT_TOKEN(TokenBracketRight)
+        RETURN_RESULT_TOKEN(T_BracketRight)
       }
     }
     case '*': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenMul)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Mul)
     }
     case '/': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenDiv)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Div)
     }
     case '%': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenMod)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Mod)
     }
     case '$': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenRef)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Ref)
     }
     case '@': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenDeref)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Deref)
     }
     case '(': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenParenLeft)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_ParenLeft)
     }
     case ')': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenParenRight)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_ParenRight)
     }
     case '{': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenBraceLeft)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_BraceLeft)
     }
     case '}': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenBraceRight)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_BraceRight)
     }
     case '.': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenDot)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Dot)
     }
     case ',': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenComma)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Comma)
     }
     case ':': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenColon)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Colon)
     }
     case ';': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TokenSemicolon)
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Semicolon)
     }
     case EOF: {
-      RESULT_TOKEN(TokenNone, E_EOF)
+      RESULT_TOKEN(T_None, E_EOF)
       return;
     }
     default: {
-      RESULT_TOKEN(TokenNone, E_UnrecognizedCharacter)
+      RESULT_TOKEN(T_None, E_UnrecognizedCharacter)
       return;
     }
     }

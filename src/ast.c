@@ -278,14 +278,15 @@ static void parseForExpr(ValueExpr *fep, BufferedLexer *blp) {
   parseValueExpr(fep->For.condition, blp);
   parseValueExpr(fep->For.update, blp);
   parseValueExpr(fep->For.body, blp);
-  // TODO
+  // TODO probably want to implement generators... frick...
   return;
 
 HANDLE_NO_FOR:
-  r
+  INTERNAL_ERROR("called for parser where there was no for");
+  PANIC();
 }
 
-static void parseMatchCaseExpr(MatchCaseExpr *mcep, Parser *p) {
+static void parseMatchCaseExpr(V *mcep, BufferedLexer *p) {
   Token t;
   // Get pattern
   parseExprProxy(&mcep->pattern, p);

@@ -103,6 +103,16 @@ typedef struct TypeExpr_s {
   // TODO
 } TypeExpr;
 
+typedef struct Binding_s {
+  BindingKind kind;
+  Span span;
+  Diagnostic diagnostic;
+  union {
+    struct VarBinding_s {
+      char *name;
+
+}
+
 // Expressions and operations yielding a memory location
 typedef struct PlaceExpr_s {
   PlaceExprKind kind;
@@ -186,7 +196,7 @@ typedef struct ValueExpr_s {
     } MatchCase;
     struct Match_s {
       struct ValueExpr_s* value;
-      struct ValueExpr_s* cases; // MUST be of type matchCase
+      struct CaseExpr_s* cases; // MUST be of type matchCase
       size_t cases_length;
     } Match;
     struct Block_s {
@@ -204,7 +214,7 @@ typedef struct Stmnt_s {
   union {
     struct FuncDecl_s {
       char* name;
-      struct PlaceExpr_s* params; // MUST be of type VarDecl
+      struct * params; // MUST be of type VarDecl
       size_t params_length;
       struct TypeExpr_s* type;
       struct ValueExpr_s* body;

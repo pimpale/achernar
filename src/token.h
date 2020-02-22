@@ -9,76 +9,76 @@
 
 typedef enum {
   // This is not a token, and does not contain token data
-  TokenNone,
+  T_None,
   // function, type, or variable
-  TokenIdentifier,
+  T_Identifier,
   // Keywords
-  TokenIf,       // if
-  TokenElse,     // else
-  TokenWhile,    // while
-  TokenFor,      // for
-  TokenWith,     // with
-  TokenMatch,    // match
-  TokenBreak,    // break
-  TokenContinue, // continue
-  TokenReturn,   // return
-  TokenFunction, // fn
-  TokenLet,      // let
-  TokenStruct,   // struct
-  TokenAlias,    // alias
+  T_If,       // if
+  T_Else,     // else
+  T_While,    // while
+  T_For,      // for
+  T_With,     // with
+  T_Match,    // match
+  T_Break,    // break
+  T_Continue, // continue
+  T_Return,   // return
+  T_Function, // fn
+  T_Let,      // let
+  T_Struct,   // struct
+  T_Alias,    // alias
   // Literals and constants
-  TokenStringLiteral, // "string"
-  TokenCharLiteral,   // 'a'
-  TokenFloatLiteral,  // 0.7
-  TokenIntLiteral,    // 7
+  T_StringLiteral, // "string"
+  T_CharLiteral,   // 'a'
+  T_FloatLiteral,  // 0.7
+  T_IntLiteral,    // 7
   // Math Operators
-  TokenAdd, // +
-  TokenSub, // -
-  TokenMul, // *
-  TokenDiv, // /
-  TokenMod, // %
+  T_Add, // +
+  T_Sub, // -
+  T_Mul, // *
+  T_Div, // /
+  T_Mod, // %
   // Logical Operators
-  TokenAnd, // &&
-  TokenOr,  // ||
-  TokenNot, // !
+  T_And, // &&
+  T_Or,  // ||
+  T_Not, // !
   // Bitwise Operators
-  TokenBitAnd,     // &
-  TokenBitOr,      // |
-  TokenBitXor,     // ^
-  TokenBitNot,     // ~
-  TokenShiftLeft,  // <<
-  TokenShiftRight, // >>
+  T_BitAnd,     // &
+  T_BitOr,      // |
+  T_BitXor,     // ^
+  T_BitNot,     // ~
+  T_ShiftLeft,  // <<
+  T_ShiftRight, // >>
   // Comparison and Equality
-  TokenEqual,            // ==
-  TokenNotEqual,         // !=
-  TokenCompLess,         // <
-  TokenCompLessEqual,    // <=
-  TokenCompGreater,      // >
-  TokenCompGreaterEqual, // >=
+  T_Equal,            // ==
+  T_NotEqual,         // !=
+  T_CompLess,         // <
+  T_CompLessEqual,    // <=
+  T_CompGreater,      // >
+  T_CompGreaterEqual, // >=
   // Memory Manipulation Operators
-  TokenRef,   // $
-  TokenDeref, // @
+  T_Ref,   // $
+  T_Deref, // @
   // Assignment
-  TokenAssign, // =
+  T_Assign, // =
   // Pipelines
-  TokenPipe, // ->
+  T_Pipe, // ->
   // Other Miscellaneous Operator Things
-  TokenParenLeft,    // (
-  TokenParenRight,   // )
-  TokenBracketLeft,  // [
-  TokenBracketRight, // ]
-  TokenBraceLeft,    // {
-  TokenBraceRight,   // }
-  TokenDot,          // .
-  TokenComma,        // ,
-  TokenColon,        // :
-  TokenSemicolon,    // ;
+  T_ParenLeft,    // (
+  T_ParenRight,   // )
+  T_BracketLeft,  // [
+  T_BracketRight, // ]
+  T_BraceLeft,    // {
+  T_BraceRight,   // }
+  T_Dot,          // .
+  T_Comma,        // ,
+  T_Colon,        // :
+  T_Semicolon,    // ;
   // Macros
-  TokenMacro,        // macro!
+  T_Macro,        // macro!
   // Comments, and Attributes
-  TokenComment,   // #[ comment ]# and # comment
-  TokenAttrLeft,  // [[
-  TokenAttrRight, // ]]
+  T_Comment,   // #[ comment ]# and # comment
+  T_AttrLeft,  // [[
+  T_AttrRight, // ]]
 } TokenType;
 
 
@@ -86,9 +86,9 @@ typedef struct Token_s {
   TokenType type; // The type of this token
   Span span; // position in the file
   // This points to
-  // null terminated string in case of identifier, TokenStringLiteral,
-  // TokenComment, TokenDocumentation, or TokenAnnotation uint64_t in case of
-  // TokenIntLiteral double double in case of TokenFloatLiteral Otherwise must
+  // null terminated string in case of identifier, T_StringLiteral,
+  // T_Comment, T_Documentation, or T_Annotation uint64_t in case of
+  // T_IntLiteral double double in case of T_FloatLiteral Otherwise must
   // be null
   union {
     char *identifier;

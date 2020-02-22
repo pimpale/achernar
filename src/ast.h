@@ -83,17 +83,19 @@ typedef enum {
   EUO_Deref       // @
 } ExprUnOpKind;
 
+typedef struct TypeExpr_s TypeExpr;
+typedef struct ValueExpr_s ValueExpr;
+typedef struct PlaceExpr_s PlaceExpr;
+typedef struct StructEntryExpr_s StructEntryExpr;
+typedef struct MatchCaseExpr_s MatchCaseExpr;
+typedef struct Binding_s Binding;
+typedef struct Pattern_s Pattern;
+
 typedef struct Attr_s {
   // TODO what goes in here?
   Span span;
   Diagnostic diagnostic;
 } Attr;
-
-// Expressions and operations yielding a matchable pattern
-typedef struct Pattern_s {
-  Span span;
-  Diagnostic diagnostic;
-} Pattern;
 
 // Expressions and operations yielding a type
 typedef struct TypeExpr_s {
@@ -104,14 +106,35 @@ typedef struct TypeExpr_s {
 } TypeExpr;
 
 typedef struct Binding_s {
-  BindingKind kind;
   Span span;
   Diagnostic diagnostic;
-  union {
-    struct VarBinding_s {
-      char *name;
+  // Elements
+  char *name;
+  TypeExpr *type;
+} Binding;
 
-}
+// Expressions and operations yielding a matchable pattern
+typedef struct Pattern_s {
+  Span span;
+  Diagnostic diagnostic;
+} Pattern;
+
+// Expressions and operations yielding a match case
+typedef struct MatchCaseExpr_s {
+  Span span;
+  Diagnostic diagnostic;
+  Pattern* pattern;
+  ValueExpr* value;
+} MatchCaseExpr;
+
+// Expressions and operations yielding a struct entry case
+typedef struct StructEntryExpr_s {
+  Span span;
+  Diagnostic diagnostic;
+  char* name;
+  ValueExpr *value;
+} StructEntryExpr;
+
 
 // Expressions and operations yielding a memory location
 typedef struct PlaceExpr_s {
@@ -119,10 +142,9 @@ typedef struct PlaceExpr_s {
   Span span;
   Diagnostic diagnostic;
   union {
-    struct VarDecl_s {
-      char* name;
-      struct TypeExpr_s* type;
-    } VarDecl;
+    struct {
+      Binding *binding;
+    } varDecl;
   };
 } PlaceExpr;
 
@@ -131,74 +153,66 @@ typedef struct ValueExpr_s {
   Span span;
   Diagnostic diagnostic;
   union {
-    struct IntLiteral_s {
+    struct {
       uint64_t value;
-    } IntLiteral;
-    struct FloatLiteral_s {
+    } intLiteral;
+    struct {
       double value;
-    } FloatLiteral;
-    struct CharLiteral_s {
+    } floatLiteral;
+    struct {
       char value;
-    } CharLiteral;
-    struct StringLiteral_s {
+    } charLiteral;
+    struct {
       char* value;
       size_t value_length;
-    } StringLiteral;
-    struct ArrayLiteral_s {
+    } stringLiteral;
+    struct {
       struct ValueExpr_s* elements;
       size_t elements_length;
-    } ArrayLiteral;
-    struct StructLiteralEntry_s {
-      char* field;
-      struct ValueExpr_s* value;
-    } StructLiteralEntry;
-    struct StructLiteral_s {
-      struct ValueExpr_s* entries; // MUST be of type StructLiteralEntry
+    } arrayLiteral;
+    struct {
+      struct StructEntryExpr_s* entries;
       size_t entries_length;
-    } StructLiteral;
-    struct UnaryOp_s {
+    } structLiteral;
+    struct {
       ExprUnOpKind operator;
       struct ValueExpr_s* operand;
-    } UnaryOp;
-    struct BinaryOp_s {
+    } unaryOp;
+    struct {
       ExprBinOpKind operator;
       struct ValueExpr_s* operand_1;
       struct ValueExpr_s* operand_2;
-    } BinaryOp;
-    struct If_s {
+    } binaryOp;
+    struct {
       struct ValueExpr_s* condition;
       struct ValueExpr_s* body;
       bool has_expr;
       struct ValueExpr_s* else_body;
-    } If;
-    struct While_s {
+    } ifExpr;
+    struct {
       struct ValueExpr_s* condition;
       struct ValueExpr_s* body;
-    } While;
-    struct For_s {
+    } whileExpr;
+    struct {
       struct ValueExpr_s* init;
       struct ValueExpr_s* condition;
       struct ValueExpr_s* update;
       struct ValueExpr_s* body;
-    } For;
-    struct Call_s {
+    } forExpr;
+    struct {
       char* function;
       struct ValueExpr_s* arguments;
       size_t arguments_length;
-    } Call;
-    struct Return_s {
+    } callExpr;
+    struct {
       bool has_value;
       struct ValueExpr_s* value;
-    } Return;
-    struct MatchCase_s {
-      struct Pattern_s* pattern;
-      struct ValueExpr_s* value;
-    } MatchCase;
+    } returnExpr;
     struct Match_s {
       struct ValueExpr_s* value;
-      struct CaseExpr_s* cases; // MUST be of type matchCase
+      struct MatchCaseExpr_s* cases;
       size_t cases_length;
-    } Match;
+    } matchExpr;
     struct Block_s {
       struct Stmnt_s* statements;
       size_t statements_length;
@@ -212,21 +226,21 @@ typedef struct Stmnt_s {
   Span span;
   Diagnostic diagnostic;
   union {
-    struct FuncDecl_s {
+    struct {
       char* name;
-      struct * params; // MUST be of type VarDecl
+      struct Binding_s* params;
       size_t params_length;
       struct TypeExpr_s* type;
       struct ValueExpr_s* body;
-    } FuncDecl;
-    struct StructDecl_s {
+    } funcDecl;
+    struct {
       char* field;
-      struct Decl_s* members; // MUST be of type VarDecl
+      struct Binding_s* members;
       size_t members_length;
-    } StructDecl;
-    struct ExprStmnt_s {
+    } structDecl;
+    struct {
       struct ValueExpr_s* value;
-    } ExprStmnt;
+    } exprStmnt;
   };
 } Stmnt;
 

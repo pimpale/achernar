@@ -214,7 +214,7 @@ static void lexComment(Lexer *lexer, Token *token) {
     // Return data
     // clang-format off
     *token = (Token) {
-      .type = TokenComment,
+      .type = T_Comment,
       .comment = releaseVector(&data),
       .span = SPAN(start, lexer->position),
       .error = E_Ok
@@ -241,7 +241,7 @@ static void lexComment(Lexer *lexer, Token *token) {
     // Return data
     // clang-format off
     *token = (Token) {
-      .type = TokenComment,
+      .type = T_Comment,
       .comment = releaseVector(&data),
       .span = SPAN(start, lexer->position),
       .error = E_Ok
@@ -280,7 +280,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   // Return data
   // clang-format off
   *token = (Token) {
-      .type = TokenStringLiteral,
+      .type = T_StringLiteral,
       .stringLiteral = releaseVector(&data),
       .span = SPAN(start, lexer->position),
       .error = E_Ok
@@ -369,7 +369,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         free(string);
         // clang-format off
         *token = (Token) {
-          .type = TokenNone,
+          .type = T_None,
           .span = SPAN(start, lexer->position),
           .error = E_IntLiteralUnrecognizedRadixCode
 
@@ -393,7 +393,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       free(string);
       // clang-format off
       *token = (Token) {
-          .type = TokenNone,
+          .type = T_None,
           .span = SPAN(start, lexer->position),
           .error = E_IntLiteralUnrecognizedRadixCode
 
@@ -405,7 +405,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       free(string);
       // clang-format off
       *token  = (Token) {
-        .type = TokenIntLiteral,
+        .type = T_IntLiteral,
         .span = SPAN(start, lexer->position),
         .intLiteral = ret.val,
         .error = E_Ok
@@ -440,7 +440,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       free(string);
       // clang-format off
       *token = (Token) {
-          .type = TokenNone,
+          .type = T_None,
           .span = SPAN(start, lexer->position),
           .error = initialRet.err
 
@@ -463,7 +463,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         free(string);
         // clang-format off
         *token = (Token) {
-            .type = TokenNone,
+            .type = T_None,
             .span = SPAN(start, lexer->position),
             .error = finalRet.err
 
@@ -479,7 +479,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     // Return data
     // clang-format off
     *token = (Token) {
-      .type = TokenFloatLiteral,
+      .type = T_FloatLiteral,
       .floatLiteral = result,
       .span = SPAN(start, lexer->position),
       .error = E_Ok
@@ -535,7 +535,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
 
     // clang-format off
     *token = (Token) {
-      .type = TokenNone,
+      .type = T_None,
       .span = SPAN(start, lexer->position),
       .error = E_CharLiteralEmpty
     };
@@ -547,7 +547,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
 
     // clang-format off
     *token = (Token) {
-      .type = TokenCharLiteral,
+      .type = T_CharLiteral,
       .charLiteral = string[0],
       .span = SPAN(start, lexer->position),
       .error = E_Ok
@@ -563,7 +563,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       free(string);
       // clang-format off
       *token = (Token) {
-        .type = TokenNone,
+        .type = T_None,
         .span = SPAN(start, lexer->position),
         .error = E_CharLiteralTooLong
       };
@@ -601,7 +601,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       free(string);
       // clang-format off
       *token = (Token) {
-        .type = TokenNone,
+        .type = T_None,
         .span = SPAN(start, lexer->position),
         .error = E_CharLiteralUnrecognizedEscapeCode
       };
@@ -615,7 +615,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
 
     // clang-format off
     *token = (Token) {
-      .type = TokenCharLiteral,
+      .type = T_CharLiteral,
       .charLiteral = code,
       .span = SPAN(start, lexer->position),
       .error = E_Ok
@@ -627,7 +627,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     free(string);
     // clang-format off
     *token = (Token) {
-      .type = TokenNone,
+      .type = T_None,
       .span = SPAN(start, lexer->position),
       .error = E_CharLiteralTooLong
     };
@@ -670,39 +670,39 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    token->type = TokenMacro;
+    token->type = T_Macro;
     token->macro = string;
     token->error = E_Ok;
     return;
   }
 
   if (!strcmp(string, "if")) {
-    token->type = TokenIf;
+    token->type = T_If;
   } else if (!strcmp(string, "else")) {
-    token->type = TokenElse;
+    token->type = T_Else;
   } else if (!strcmp(string, "while")) {
-    token->type = TokenWhile;
+    token->type = T_While;
   } else if (!strcmp(string, "with")) {
-    token->type = TokenWith;
+    token->type = T_With;
   } else if (!strcmp(string, "for")) {
-    token->type = TokenFor;
+    token->type = T_For;
   } else if (!strcmp(string, "break")) {
-    token->type = TokenBreak;
+    token->type = T_Break;
   } else if (!strcmp(string, "continue")) {
-    token->type = TokenContinue;
+    token->type = T_Continue;
   } else if (!strcmp(string, "return")) {
-    token->type = TokenReturn;
+    token->type = T_Return;
   } else if (!strcmp(string, "fn")) {
-    token->type = TokenFunction;
+    token->type = T_Function;
   } else if (!strcmp(string, "let")) {
-    token->type = TokenLet;
+    token->type = T_Let;
   } else if (!strcmp(string, "struct")) {
-    token->type = TokenStruct;
+    token->type = T_Struct;
   } else if (!strcmp(string, "alias")) {
-    token->type = TokenAlias;
+    token->type = T_Alias;
   } else {
     // It is an identifier, and we need to keep the string
-    token->type = TokenIdentifier;
+    token->type = T_Identifier;
     token->identifier = string;
     token->error = E_Ok;
     return;

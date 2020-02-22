@@ -5,19 +5,19 @@
 
 void destroyToken(Token *token) {
   switch (token->type) {
-  case TokenIdentifier: {
+  case T_Identifier: {
     free(token->identifier);
     break;
   }
-  case TokenComment: {
+  case T_Comment: {
     free(token->comment);
     break;
   }
-  case TokenStringLiteral: {
+  case T_StringLiteral: {
     free(token->stringLiteral);
     break;
   }
-  case TokenMacro: {
+  case T_Macro: {
     free(token->macro);
     break;
   }
@@ -30,231 +30,231 @@ void destroyToken(Token *token) {
 void printToken(Token *token) {
   char *str;
   switch (token->type) {
-  case TokenNone: {
-    str = "(Not A Token)";
+  case T_None: {
+    str = "(Not A T_)";
     break;
   }
-  case TokenIdentifier: {
+  case T_Identifier: {
     str = "Identifier";
     break;
   }
-  case TokenIf: {
+  case T_If: {
     str = "If";
     break;
   }
-  case TokenElse: {
+  case T_Else: {
     str = "Else";
     break;
   }
-  case TokenWhile: {
+  case T_While: {
     str = "While";
     break;
   }
-  case TokenFor: {
+  case T_For: {
     str = "For";
     break;
   }
-  case TokenWith: {
+  case T_With: {
     str = "With";
     break;
   }
-  case TokenMatch: {
+  case T_Match: {
     str = "Match";
     break;
   }
-  case TokenBreak: {
+  case T_Break: {
     str = "Break";
     break;
   }
-  case TokenContinue: {
+  case T_Continue: {
     str = "Continue";
     break;
   }
-  case TokenReturn: {
+  case T_Return: {
     str = "Return";
     break;
   }
-  case TokenFunction: {
+  case T_Function: {
     str = "Function";
     break;
   }
-  case TokenLet: {
+  case T_Let: {
     str = "Let";
     break;
   }
-  case TokenStruct: {
+  case T_Struct: {
     str = "Struct";
     break;
   }
-  case TokenAlias: {
+  case T_Alias: {
     str = "Alias";
     break;
   }
-  case TokenStringLiteral: {
+  case T_StringLiteral: {
     str = "StringLiteral";
     break;
   }
-  case TokenCharLiteral: {
+  case T_CharLiteral: {
     str = "CharacterLiteral";
     break;
   }
-  case TokenFloatLiteral: {
+  case T_FloatLiteral: {
     str = "FloatLiteral";
     break;
   }
-  case TokenIntLiteral: {
+  case T_IntLiteral: {
     str = "IntLiteral";
     break;
   }
-  case TokenAdd: {
+  case T_Add: {
     str = "Add";
     break;
   }
-  case TokenSub: {
+  case T_Sub: {
     str = "Sub";
     break;
   }
-  case TokenMul: {
+  case T_Mul: {
     str = "Mul";
     break;
   }
-  case TokenDiv: {
+  case T_Div: {
     str = "Div";
     break;
   }
-  case TokenMod: {
+  case T_Mod: {
     str = "Mod";
     break;
   }
-  case TokenAnd: {
+  case T_And: {
     str = "And";
     break;
   }
-  case TokenOr: {
+  case T_Or: {
     str = "Or";
     break;
   }
-  case TokenNot: {
+  case T_Not: {
     str = "Not";
     break;
   }
-  case TokenBitAnd: {
+  case T_BitAnd: {
     str = "BitAnd";
     break;
   }
-  case TokenBitOr: {
+  case T_BitOr: {
     str = "BitOr";
     break;
   }
-  case TokenBitXor: {
+  case T_BitXor: {
     str = "BitXor";
     break;
   }
-  case TokenBitNot: {
+  case T_BitNot: {
     str = "BitNot";
     break;
   }
-  case TokenShiftLeft: {
+  case T_ShiftLeft: {
     str = "ShiftLeft";
     break;
   }
-  case TokenShiftRight: {
+  case T_ShiftRight: {
     str = "ShiftRight";
     break;
   }
-  case TokenEqual: {
+  case T_Equal: {
     str = "Equal";
     break;
   }
-  case TokenNotEqual: {
+  case T_NotEqual: {
     str = "NotEqual";
     break;
   }
-  case TokenCompLess: {
+  case T_CompLess: {
     str = "CompLess";
     break;
   }
-  case TokenCompLessEqual: {
+  case T_CompLessEqual: {
     str = "CompLessEqual";
     break;
   }
-  case TokenCompGreater: {
+  case T_CompGreater: {
     str = "CompGreater";
     break;
   }
-  case TokenCompGreaterEqual: {
+  case T_CompGreaterEqual: {
     str = "CompGreaterEqual";
     break;
   }
-  case TokenRef: {
+  case T_Ref: {
     str = "Ref";
     break;
   }
-  case TokenDeref: {
+  case T_Deref: {
     str = "Deref";
     break;
   }
-  case TokenAssign: {
+  case T_Assign: {
     str = "Assign";
     break;
   }
-  case TokenPipe: {
+  case T_Pipe: {
     str = "Pipe";
     break;
   }
-  case TokenParenLeft: {
+  case T_ParenLeft: {
     str = "ParenLeft";
     break;
   }
-  case TokenParenRight: {
+  case T_ParenRight: {
     str = "ParenRight";
     break;
   }
-  case TokenBracketLeft: {
+  case T_BracketLeft: {
     str = "BracketLeft";
     break;
   }
-  case TokenBracketRight: {
+  case T_BracketRight: {
     str = "BracketRight";
     break;
   }
-  case TokenBraceLeft: {
+  case T_BraceLeft: {
     str = "BraceLeft";
     break;
   }
-  case TokenBraceRight: {
+  case T_BraceRight: {
     str = "BraceRight";
     break;
   }
-  case TokenAttrLeft: {
+  case T_AttrLeft: {
     str = "AttrLeft";
     break;
   }
-  case TokenAttrRight: {
+  case T_AttrRight: {
     str = "AttrRight";
     break;
   }
-  case TokenDot: {
+  case T_Dot: {
     str = "Dot";
     break;
   }
-  case TokenComma: {
+  case T_Comma: {
     str = "Comma";
     break;
   }
-  case TokenColon: {
+  case T_Colon: {
     str = "Colon";
     break;
   }
-  case TokenSemicolon: {
+  case T_Semicolon: {
     str = "Semicolon";
     break;
   }
-  case TokenMacro: {
+  case T_Macro: {
     str = "Macro";
     break;
   }
-  case TokenComment: {
+  case T_Comment: {
     str = "Comment";
     break;
   }

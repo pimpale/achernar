@@ -90,6 +90,18 @@ void printToken(Token *token) {
     str = "Alias";
     break;
   }
+  case T_Sizeof: {
+    str = "Sizeof";
+    break;
+  }
+  case T_Typeof: {
+    str = "Typeof";
+    break;
+  }
+  case T_Alignof: {
+    str = "Alignof";
+    break;
+  }
   case T_StringLiteral: {
     str = "StringLiteral";
     break;

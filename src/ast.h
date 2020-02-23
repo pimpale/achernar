@@ -38,17 +38,10 @@ typedef enum {
   VE_Block,
 } ValueExprKind;
 
-typedef enum {
-  PE_VarDecl,     // let
-  PE_FieldAccess, // .
-  PE_ArrayIndex
-} PlaceExprKind;
-
 
 typedef enum {
-  TE_VarDecl,     // let
-  TE_FieldAccess, // .
-  TE_ArrayIndex
+  TE_Type, // type
+  TE_Typeof, // typeof
 } TypeExprKind;
 
 typedef enum {
@@ -70,7 +63,6 @@ typedef enum {
   EBO_CompLessEqual,    // <=
   EBO_CompGreater,      // >
   EBO_CompGreaterEqual, // >=
-  EBO_FieldAccess,      // .
   EBO_ArrayAccess,      // []
   EBO_Pipeline,         // ->
 } ExprBinOpKind;
@@ -85,7 +77,6 @@ typedef enum {
 
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
-typedef struct PlaceExpr_s PlaceExpr;
 typedef struct StructEntryExpr_s StructEntryExpr;
 typedef struct MatchCaseExpr_s MatchCaseExpr;
 typedef struct Binding_s Binding;
@@ -102,7 +93,15 @@ typedef struct TypeExpr_s {
   TypeExprKind kind;
   Span span;
   Diagnostic diagnostic;
-  // TODO
+  union {
+    struct {
+      char* name;
+      uint64_t ptrCount;
+    } type;
+    struct {
+      struct ValueExpr_s* value;
+    } typeofExpr;
+  };
 } TypeExpr;
 
 typedef struct Binding_s {
@@ -117,6 +116,7 @@ typedef struct Binding_s {
 typedef struct Pattern_s {
   Span span;
   Diagnostic diagnostic;
+  // TODO how do patterns work? no clue atm
 } Pattern;
 
 // Expressions and operations yielding a match case
@@ -134,19 +134,6 @@ typedef struct StructEntryExpr_s {
   char* name;
   ValueExpr *value;
 } StructEntryExpr;
-
-
-// Expressions and operations yielding a memory location
-typedef struct PlaceExpr_s {
-  PlaceExprKind kind;
-  Span span;
-  Diagnostic diagnostic;
-  union {
-    struct {
-      Binding *binding;
-    } varDecl;
-  };
-} PlaceExpr;
 
 typedef struct ValueExpr_s {
   ValueExprKind kind;
@@ -174,6 +161,10 @@ typedef struct ValueExpr_s {
       struct StructEntryExpr_s* entries;
       size_t entries_length;
     } structLiteral;
+    struct {
+      struct ValueExpr_s* value;
+      char* field;
+    } fieldAccess;
     struct {
       ExprUnOpKind operator;
       struct ValueExpr_s* operand;
@@ -238,6 +229,14 @@ typedef struct Stmnt_s {
       struct Binding_s* members;
       size_t members_length;
     } structDecl;
+    struct {
+      struct Binding_s* binding;
+      struct ValueExpr_s* value;
+    } varDecl;
+    struct {
+      struct ValueExpr_s* lvalue;
+      struct ValueExpr_s* rvalue;
+    } assignStmnt;
     struct {
       struct ValueExpr_s* value;
     } exprStmnt;

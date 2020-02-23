@@ -31,15 +31,16 @@ typedef enum DiagnosticType_e {
   E_StringLiteralTooLong,
   E_StringLiteralUnrecognizedEscapeCode,
   // Parsing Errors
+  // Binding
+  E_BindingExpectedType,
+  E_BindingExpectedIdentifier,
+  // TypeExpr
+  E_TypeExprUnexpectedToken,
   // VarDeclStmnt
-  E_VarDeclStmntExpectedType,
-  E_VarDeclStmntExpectedIdentifier,
   E_VarDeclStmntExpectedAssign,
   E_VarDeclStmntExpectedValue,
   // FuncDeclStmnt
   E_FuncDeclStmntExpectedParen,
-  E_FuncDeclStmntParamExpectedType,
-  E_FuncDeclStmntParamExpectedIdentifier,
   E_FuncDeclStmntExpectedType,
   E_FuncDeclStmntExpectedIdentifier,
   E_FuncDeclStmntExpectedColon,

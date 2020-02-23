@@ -26,6 +26,9 @@ typedef enum {
   T_Let,      // let
   T_Struct,   // struct
   T_Alias,    // alias
+  T_Typeof,   // typeof
+  T_Sizeof,   // sizeof
+  T_Alignof,  // sizeof
   // Literals and constants
   T_StringLiteral, // "string"
   T_CharLiteral,   // 'a'

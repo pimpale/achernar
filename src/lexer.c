@@ -700,6 +700,12 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->type = T_Struct;
   } else if (!strcmp(string, "alias")) {
     token->type = T_Alias;
+  } else if (!strcmp(string, "sizeof")) {
+    token->type = T_Sizeof;
+  } else if (!strcmp(string, "typeof")) {
+    token->type = T_Typeof;
+  } else if (!strcmp(string, "alignof")) {
+    token->type = T_Alignof;
   } else {
     // It is an identifier, and we need to keep the string
     token->type = T_Identifier;

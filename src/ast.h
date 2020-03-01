@@ -38,9 +38,8 @@ typedef enum {
   VE_Block,
 } ValueExprKind;
 
-
 typedef enum {
-  TE_Type, // type
+  TE_Type,   // type
   TE_Typeof, // typeof
 } TypeExprKind;
 
@@ -69,6 +68,7 @@ typedef enum {
 
 typedef enum {
   EUO_Negate,     // -
+  EUO_Posit,      // +
   EUO_LogicalNot, // !
   EUO_BitNot,     // ~
   EUO_Ref,        // $
@@ -81,6 +81,7 @@ typedef struct StructEntryExpr_s StructEntryExpr;
 typedef struct MatchCaseExpr_s MatchCaseExpr;
 typedef struct Binding_s Binding;
 typedef struct Pattern_s Pattern;
+typedef struct Stmnt_s Stmnt;
 
 typedef struct Attr_s {
   // TODO what goes in here?
@@ -95,11 +96,11 @@ typedef struct TypeExpr_s {
   Diagnostic diagnostic;
   union {
     struct {
-      char* name;
+      char *name;
       uint64_t ptrCount;
     } type;
     struct {
-      struct ValueExpr_s* value;
+      ValueExpr *value;
     } typeofExpr;
   };
 } TypeExpr;
@@ -123,15 +124,15 @@ typedef struct Pattern_s {
 typedef struct MatchCaseExpr_s {
   Span span;
   Diagnostic diagnostic;
-  Pattern* pattern;
-  ValueExpr* value;
+  Pattern *pattern;
+  ValueExpr *value;
 } MatchCaseExpr;
 
 // Expressions and operations yielding a struct entry case
 typedef struct StructEntryExpr_s {
   Span span;
   Diagnostic diagnostic;
-  char* name;
+  char *name;
   ValueExpr *value;
 } StructEntryExpr;
 
@@ -150,64 +151,64 @@ typedef struct ValueExpr_s {
       char value;
     } charLiteral;
     struct {
-      char* value;
+      char *value;
       size_t value_length;
     } stringLiteral;
     struct {
-      struct ValueExpr_s* elements;
+      ValueExpr *elements;
       size_t elements_length;
     } arrayLiteral;
     struct {
-      struct StructEntryExpr_s* entries;
+      StructEntryExpr *entries;
       size_t entries_length;
     } structLiteral;
     struct {
-      struct ValueExpr_s* value;
-      char* field;
+      ValueExpr *value;
+      char *field;
     } fieldAccess;
     struct {
       ExprUnOpKind operator;
-      struct ValueExpr_s* operand;
+      ValueExpr *operand;
     } unaryOp;
     struct {
       ExprBinOpKind operator;
-      struct ValueExpr_s* operand_1;
-      struct ValueExpr_s* operand_2;
+      ValueExpr *operand_1;
+      ValueExpr *operand_2;
     } binaryOp;
     struct {
-      struct ValueExpr_s* condition;
-      struct ValueExpr_s* body;
+      ValueExpr *condition;
+      ValueExpr *body;
       bool has_expr;
-      struct ValueExpr_s* else_body;
+      ValueExpr *else_body;
     } ifExpr;
     struct {
-      struct ValueExpr_s* condition;
-      struct ValueExpr_s* body;
+      ValueExpr *condition;
+      ValueExpr *body;
     } whileExpr;
     struct {
-      struct ValueExpr_s* init;
-      struct ValueExpr_s* condition;
-      struct ValueExpr_s* update;
-      struct ValueExpr_s* body;
+      ValueExpr *init;
+      ValueExpr *condition;
+      ValueExpr *update;
+      ValueExpr *body;
     } forExpr;
     struct {
-      char* function;
-      struct ValueExpr_s* arguments;
+      ValueExpr *function;
+      ValueExpr *arguments;
       size_t arguments_length;
     } callExpr;
     struct {
       bool has_value;
-      struct ValueExpr_s* value;
+      ValueExpr *value;
     } returnExpr;
     struct Match_s {
-      struct ValueExpr_s* value;
-      struct MatchCaseExpr_s* cases;
+      ValueExpr *value;
+      MatchCaseExpr *cases;
       size_t cases_length;
     } matchExpr;
     struct Block_s {
-      struct Stmnt_s* statements;
+      Stmnt *statements;
       size_t statements_length;
-      struct ValueExpr_s* expr;
+      ValueExpr *expr;
     } Block;
   };
 } ValueExpr;
@@ -218,34 +219,33 @@ typedef struct Stmnt_s {
   Diagnostic diagnostic;
   union {
     struct {
-      char* name;
-      struct Binding_s* params;
+      char *name;
+      Binding *params;
       size_t params_length;
-      struct TypeExpr_s* type;
-      struct ValueExpr_s* body;
+      TypeExpr *type;
+      ValueExpr *body;
     } funcDecl;
     struct {
-      char* field;
-      struct Binding_s* members;
+      char *field;
+      Binding *members;
       size_t members_length;
     } structDecl;
     struct {
-      struct Binding_s* binding;
-      struct ValueExpr_s* value;
+      Binding *binding;
+      ValueExpr *value;
     } varDecl;
     struct {
-      struct ValueExpr_s* lvalue;
-      struct ValueExpr_s* rvalue;
+      ValueExpr *lvalue;
+      ValueExpr *rvalue;
     } assignStmnt;
     struct {
-      struct ValueExpr_s* value;
+      ValueExpr *value;
     } exprStmnt;
   };
 } Stmnt;
 
 typedef struct TranslationUnit_s {
-  struct Stmnt_s
-      *statements;            // The top level is just a series of statements
+  Stmnt *statements;          // The top level is just a series of statements
   uint64_t statements_length; // The number of statements
 } TranslationUnit;
 

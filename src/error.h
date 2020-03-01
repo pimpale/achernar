@@ -50,6 +50,10 @@ typedef enum DiagnosticType_e {
   E_MatchNoColon,
   E_MatchNoLeftbrace,
   E_MatchNoRightBrace,
+  // Array Access
+  E_ArrayAccessExpectedBracket,
+  // Function Calls
+  E_FunctionCallExpectedParen,
   // Generic Parsing errors
   E_UnexpectedToken,
   E_SubcomponentFailedToParse,

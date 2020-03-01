@@ -46,6 +46,8 @@ typedef enum DiagnosticType_e {
   E_FuncDeclStmntExpectedColon,
   E_FuncDeclStmntExpectedAssign,
   E_FuncDeclStmntExpectedBody,
+  // Match
+  E_MatchNoColon,
   // Generic Parsing errors
   E_UnexpectedToken,
   E_SubcomponentFailedToParse,
@@ -61,6 +63,7 @@ typedef struct Diagnostic_s {
 void logInternalError(uint32_t line, const char* func, const char* fmt, ...);
 
 #define UNUSED(x) (void)(x)
+#define ZERO(ptr) (memset(ptr, 0, sizeof(*ptr)))
 #define PANIC() exit(EXIT_FAILURE)
 #define INTERNAL_ERROR(msg) logInternalError(__LINE__, __func__, msg)
 

@@ -131,7 +131,7 @@ static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
   // zero-initialize tep
-  memset(tep, 0, sizeof(*tep));
+  ZERO(tep);
 
   Token t;
 
@@ -173,7 +173,7 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
 
 static void parseBinding(Binding *bp, BufferedLexer *blp) {
   // zero-initialize bp
-  memset(bp, 0, sizeof(*bp));
+  ZERO(bp);
 
   // these variables will be reused
   Token t;
@@ -201,7 +201,7 @@ HANDLE_NO_IDENTIFIER:
 
 static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
   // zero-initialize vdsp
-  memset(vdsp, 0, sizeof(*vdsp));
+  ZERO(vdsp);
   vdsp->kind = S_VarDecl;
   // these variables will be reused
   Token t;
@@ -237,7 +237,8 @@ HANDLE_NO_ASSIGN:
 
 static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   // zero-initialize fdsp
-  memset(fdsp, 0, sizeof(*fdsp));
+  ZERO(fdsp);
+
   fdsp->kind = S_FuncDecl;
 
   // these variables will be reused
@@ -315,6 +316,7 @@ HANDLE_NO_IDENTIFIER:
   fdsp->span = SPAN(start, t.span.end);
   fdsp->funcDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
   fdsp->funcDecl.params = releaseVector(&parameterDeclarations);
+  resyncStmnt(blp);
   return;
 
 HANDLE_NO_OPENING_PAREN:
@@ -322,6 +324,7 @@ HANDLE_NO_OPENING_PAREN:
   fdsp->span = SPAN(start, t.span.end);
   fdsp->funcDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
   fdsp->funcDecl.params = releaseVector(&parameterDeclarations);
+  resyncStmnt(blp);
   return;
 
 HANDLE_NO_CLOSING_PAREN:
@@ -329,16 +332,19 @@ HANDLE_NO_CLOSING_PAREN:
   fdsp->span = SPAN(start, t.span.end);
   fdsp->funcDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
   fdsp->funcDecl.params = releaseVector(&parameterDeclarations);
+  resyncStmnt(blp);
   return;
 
 HANDLE_NO_COLON:
   fdsp->diagnostic = DIAGNOSTIC(E_FuncDeclStmntExpectedColon, t.span);
   fdsp->span = SPAN(start, t.span.end);
+  resyncStmnt(blp);
   return;
 
 HANDLE_NO_ASSIGN:
   fdsp->diagnostic = DIAGNOSTIC(E_FuncDeclStmntExpectedAssign, t.span);
   fdsp->span = SPAN(start, t.span.end);
+  resyncStmnt(blp);
   return;
 }
 
@@ -376,8 +382,13 @@ static void parseWhileExpr(ValueExpr *wep, BufferedLexer *blp) {
   advanceToken(blp, &t);
   LnCol start = t.span.start;
   EXPECT_TYPE(t, T_While, HANDLE_NO_WHILE);
+
+  wep->whileExpr.condition = malloc(sizeof(ValueExpr));
   parseValueExpr(wep->whileExpr.condition, blp);
+
+  wep->whileExpr.body = malloc(sizeof(ValueExpr));
   parseValueExpr(wep->whileExpr.body, blp);
+
   wep->span = SPAN(start, wep->whileExpr.body->span.end);
   wep->diagnostic = DIAGNOSTIC(E_Ok, wep->span);
   return;
@@ -389,14 +400,17 @@ HANDLE_NO_WHILE:
 
 // Pattern : Expr,
 static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
-  memset(mcep, 0, sizeof(*mcep));
+  ZERO(mcep);
+
   Token t;
   // Get pattern
+  mcep->pattern = malloc(sizeof(MatchCaseExpr));
   parsePattern(mcep->pattern, blp);
   // Expect colon
   advanceToken(blp, &t);
   EXPECT_TYPE(t, T_Colon, HANDLE_NO_COLON);
   // Get Value
+  mcep->value = malloc(sizeof(ValueExpr));
   parseValueExpr(mcep->value, blp);
   mcep->span = SPAN(mcep->pattern->span.start, mcep->value->span.end);
   mcep->diagnostic = DIAGNOSTIC(E_Ok, mcep->span);
@@ -404,17 +418,20 @@ static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
 
 HANDLE_NO_COLON:
   mcep->span = mcep->pattern->span;
-  mcep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  mcep->diagnostic = DIAGNOSTIC(E_MatchNoColon, t.span);
   resyncStmnt(blp);
   return;
 }
 
 static void parseMatchExpr(ValueExpr *mep, BufferedLexer *blp) {
+  ZERO(mep);
+
   Token t;
   // Ensure match
   advanceToken(blp, &t);
   EXPECT_TYPE(t, T_Match, HANDLE_NO_MATCH);
   // Get expression to match against
+  mep->matchExpr.value = malloc(sizeof(ValueExpr));
   parseValueExpr(mep->matchExpr.value, blp);
   // now we must parse the block containing the cases
 
@@ -426,12 +443,26 @@ static void parseMatchExpr(ValueExpr *mep, BufferedLexer *blp) {
   Vector matchCases;
   createVector(&matchCases);
   while (true) {
+    // Check if right brace
     advanceToken(blp, &t);
     if (t.type == T_BraceRight) {
       break;
     }
     setNextToken(blp, &t);
+
+    // Parse the match case expr
     parseMatchCaseExpr(VEC_PUSH(&matchCases, MatchCaseExpr), blp);
+
+    // Accept comma, if any
+    // If there's no comma then it MUST be followed by an end brace
+    // This also allows trailing commas
+    advanceToken(blp, &t);
+    if (t.type != T_Comma) {
+      // If the next value isn't an end paren, then we throw an error
+      EXPECT_TYPE(t, T_BraceRight, HANDLE_NO_RIGHTBRACE);
+      break;
+    }
+    // TODO where i left off
   }
 
   // Get interior cases

@@ -48,6 +48,8 @@ typedef enum DiagnosticType_e {
   E_FuncDeclStmntExpectedBody,
   // Match
   E_MatchNoColon,
+  E_MatchNoLeftbrace,
+  E_MatchNoRightBrace,
   // Generic Parsing errors
   E_UnexpectedToken,
   E_SubcomponentFailedToParse,

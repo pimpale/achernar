@@ -129,6 +129,181 @@ static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
 static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
+// Level0Term (literals of any kind)
+// Level1Term parentheses, braces
+// Level2Term () [] $ @ . -> (suffixes)
+// Level3Term - + ~ ! (prefixes)
+// Level4Term * / % (multiplication and division)
+// Level5Term + - (addition and subtraction)
+// Level6Term << >> & | ^ (bitwise operators)
+// Level7Term < <= > >= == != (comparators)
+// Level8Term && || (Boolean Operators)
+
+parseLevel1Term(ValueExpr *l1, BufferedLexer *blp) { ZERO(l1); }
+
+static void parseL4Term
+
+static void parseL5Term(ValueExpr *l5, BufferedLexer *blp) {
+  ValueExpr v;
+  parseL4Term(&v);
+
+  Token t;
+  advanceToken(blp, &t);
+  switch (t.type) {
+  case T_Add: {
+    l5->binaryOp.operator= EBO_Add;
+    break;
+  }
+  case T_Sub: {
+    l5->binaryOp.operator= EBO_Sub;
+    break;
+  }
+  default: {
+    // there is no level 5 expression
+    setNextToken(blp, &t);
+    *l5 = v;
+  }
+  }
+
+  l5->kind = VE_BinaryOp;
+  l5->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
+  *l5->binaryOp.operand_1 = v;
+  l5->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
+  parseL4Term(l5->binaryOp.operand_2, blp);
+  l5->span = SPAN(l5->binaryOp.operand_1->span.start,
+                  l5->binaryOp.operand_2->span.end);
+  l5->diagnostic = DIAGNOSTIC(E_Ok, l5->span);
+  return;
+}
+
+static void parseL6Term(ValueExpr *l6, BufferedLexer *blp) {
+  ValueExpr v;
+  parseL5Term(&v);
+
+  Token t;
+  advanceToken(blp, &t);
+  switch (t.type) {
+  case T_ShiftLeft: {
+    l6->binaryOp.operator= EBO_BitShl;
+    break;
+  }
+  case T_ShiftRight: {
+    l6->binaryOp.operator= EBO_BitShr;
+    break;
+  }
+  case T_BitAnd: {
+    l6->binaryOp.operator= EBO_BitAnd;
+    break;
+  }
+  case T_BitOr: {
+    l6->binaryOp.operator= EBO_BitOr;
+    break;
+  }
+  case T_BitXor: {
+    l6->binaryOp.operator= EBO_BitXor;
+    break;
+  }
+  default: {
+    // there is no level 6 expression
+    setNextToken(blp, &t);
+    *l6 = v;
+  }
+  }
+
+  l6->kind = VE_BinaryOp;
+  l6->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
+  *l6->binaryOp.operand_1 = v;
+  l6->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
+  parseL5Term(l6->binaryOp.operand_2, blp);
+  l6->span = SPAN(l6->binaryOp.operand_1->span.start,
+                  l6->binaryOp.operand_2->span.end);
+  l6->diagnostic = DIAGNOSTIC(E_Ok, l6->span);
+  return;
+}
+
+static void parseL7Term(ValueExpr *l7, BufferedLexer *blp) {
+  ValueExpr v;
+  parseL6Term(&v);
+
+  Token t;
+  advanceToken(blp, &t);
+  switch (t.type) {
+  case T_CompLess: {
+    l7->binaryOp.operator= EBO_CompLess;
+    break;
+  }
+  case T_CompGreater: {
+    l7->binaryOp.operator= EBO_CompGreater;
+    break;
+  }
+  case T_CompLessEqual: {
+    l7->binaryOp.operator= EBO_CompLessEqual;
+    break;
+  }
+  case T_CompGreaterEqual: {
+    l7->binaryOp.operator= EBO_CompGreaterEqual;
+    break;
+  }
+  case T_Equal: {
+    l7->binaryOp.operator= EBO_CompEqual;
+    break;
+  }
+  case T_NotEqual: {
+    l7->binaryOp.operator= EBO_CompNotEqual;
+    break;
+  }
+  default: {
+    // there is no level 7 expression
+    setNextToken(blp, &t);
+    *l7 = v;
+  }
+  }
+
+  l7->kind = VE_BinaryOp;
+  l7->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
+  *l7->binaryOp.operand_1 = v;
+  l7->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
+  parseL6Term(l7->binaryOp.operand_2, blp);
+  l7->span = SPAN(l7->binaryOp.operand_1->span.start,
+                  l7->binaryOp.operand_2->span.end);
+  l7->diagnostic = DIAGNOSTIC(E_Ok, l7->span);
+  return;
+}
+
+static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
+  ValueExpr v;
+  parseL7Term(&v);
+
+  Token t;
+  advanceToken(blp, &t);
+  switch (t.type) {
+  case T_And: {
+    l8->binaryOp.operator= EBO_LogicalAnd;
+    break;
+  }
+  case T_Or: {
+    l8->binaryOp.operator= EBO_LogicalOr;
+    break;
+  }
+  default: {
+    // There is no level 8 expr
+    setNextToken(blp, &t);
+    *l8 = v;
+    return;
+  }
+  }
+
+  l8->kind = VE_BinaryOp;
+  l8->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
+  *l8->binaryOp.operand_1 = v;
+  l8->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
+  parseL7Term(l8->binaryOp.operand_2, blp);
+  l8->span = SPAN(l8->binaryOp.operand_1->span.start,
+                  l8->binaryOp.operand_2->span.end);
+  l8->diagnostic = DIAGNOSTIC(E_Ok, l8->span);
+  return;
+}
+
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
   // zero-initialize tep
   ZERO(tep);
@@ -162,11 +337,11 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
     break;
   }
   default: {
-      tep->span = t.span;
-      tep->diagnostic = DIAGNOSTIC(E_TypeExprUnexpectedToken, t.span);
-      // Resync
-      resyncType(blp);
-      break;
+    tep->span = t.span;
+    tep->diagnostic = DIAGNOSTIC(E_TypeExprUnexpectedToken, t.span);
+    // Resync
+    resyncType(blp);
+    break;
   }
   }
 }
@@ -310,7 +485,6 @@ HANDLE_NO_FN:
                  "function declaration");
   PANIC();
 
-
 HANDLE_NO_IDENTIFIER:
   fdsp->diagnostic = DIAGNOSTIC(E_FuncDeclStmntExpectedIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
@@ -430,6 +604,9 @@ static void parseMatchExpr(ValueExpr *mep, BufferedLexer *blp) {
   // Ensure match
   advanceToken(blp, &t);
   EXPECT_TYPE(t, T_Match, HANDLE_NO_MATCH);
+
+  LnCol start = t.span.start;
+
   // Get expression to match against
   mep->matchExpr.value = malloc(sizeof(ValueExpr));
   parseValueExpr(mep->matchExpr.value, blp);
@@ -439,7 +616,6 @@ static void parseMatchExpr(ValueExpr *mep, BufferedLexer *blp) {
   advanceToken(blp, &t);
   EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
 
-  // TODO how do i add commas?
   Vector matchCases;
   createVector(&matchCases);
   while (true) {
@@ -458,11 +634,10 @@ static void parseMatchExpr(ValueExpr *mep, BufferedLexer *blp) {
     // This also allows trailing commas
     advanceToken(blp, &t);
     if (t.type != T_Comma) {
-      // If the next value isn't an end paren, then we throw an error
+      // If the next value isn't an end brace, then we throw an error
       EXPECT_TYPE(t, T_BraceRight, HANDLE_NO_RIGHTBRACE);
       break;
     }
-    // TODO where i left off
   }
 
   // Get interior cases
@@ -476,8 +651,20 @@ HANDLE_NO_MATCH:
   INTERNAL_ERROR("called match parser where there was no match");
   PANIC();
 
+HANDLE_NO_RIGHTBRACE:
+  mep->diagnostic = DIAGNOSTIC(E_MatchNoRightBrace, t.span);
+  mep->span = SPAN(start, t.span.end);
+  mep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mep->matchExpr.cases = releaseVector(&matchCases);
+  resyncStmnt(blp);
+  return;
+
 HANDLE_NO_LEFTBRACE:
-  // TODO fricking errors
+  mep->diagnostic = DIAGNOSTIC(E_MatchNoLeftbrace, t.span);
+  mep->span = SPAN(start, t.span.end);
+  mep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mep->matchExpr.cases = releaseVector(&matchCases);
+  resyncStmnt(blp);
   return;
 }
 

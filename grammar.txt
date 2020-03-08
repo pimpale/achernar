@@ -1,3 +1,28 @@
+binaryDigit = "0" | "1";
+octalDigit = binaryDigit | "2" | "3" | "4" | "5" | "6" | "7";
+decimalDigit = octalDigit | "8" | "9";
+hexadecimalDigit = decimalDigit | "A" | "B" | "C" | "D" | "E" | "F" | "a" | "b" | "c" | "d" | "e" | "f";
+
+digit = decimalDigit;
+
+letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
+       | "H" | "I" | "J" | "K" | "L" | "M" | "N"
+       | "O" | "P" | "Q" | "R" | "S" | "T" | "U"
+       | "V" | "W" | "X" | "Y" | "Z" | "a" | "b"
+       | "c" | "d" | "e" | "f" | "g" | "h" | "i"
+       | "j" | "k" | "l" | "m" | "n" | "o" | "p"
+       | "q" | "r" | "s" | "t" | "u" | "v" | "w"
+       | "x" | "y" | "z" ;
+
+symbol =  "!" | "\"" | "#" | "$" | "%" | "&" | "'"
+       | "(" | ")" | "*" | "+" | "," | "-" | "."
+       | "/" | ":" | ";" | "<" | "=" | ">" | "?"
+       | "@" | "[" | "\" | "]" | "^" | "_" | "`"
+       | "{" | "|" | "}" | "~" ;
+
+identifier = 
+
+
 translationUnit = { stmnt };
 stmnt = funcDecl | structdecl | vardecl | assignstmnt | exprstmnt ;
 funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
@@ -7,6 +32,8 @@ assignStmnt = valueExpr, "=", valueExpr, ";"
 exprStmnt = valueExpr, ";"
 
 binding = type, identifier
+
+identifier = letter
 
 valueExpr = l8expr;
 l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
@@ -29,31 +56,19 @@ octalIntLiteral = "0o", octalDigit, { octalDigit };
 decimalIntLiteral = [ "0d" ], decimalDigit, { decimalDigit }
 hexadecimalIntLiteral = "0x", hexadecimalDigit, { hexadecimalDigit };
 
-digit = decimalDigit;
-binaryDigit = "0" | "1";
-octalDigit = binaryDigit | "2" | "3" | "4" | "5" | "6" | "7";
-decimalDigit = octalDigit | "8" | "9";
-hexadecimalDigit = decimalDigit | "A" | "B" | "C" | "D" | "E" | "F" | "a" | "b" | "c" | "d" | "e" | "f";
+
+controlCode = "\\t" | "\\n" | "\\\\" | "\\\"" | "\\'";
+
 
 floatLiteral = digit, { digit }, "." digit, { digit };
 
 charLiteral = "'", (letter | digit | symbol | controlCode), "'";
 
-letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
-       | "H" | "I" | "J" | "K" | "L" | "M" | "N"
-       | "O" | "P" | "Q" | "R" | "S" | "T" | "U"
-       | "V" | "W" | "X" | "Y" | "Z" | "a" | "b"
-       | "c" | "d" | "e" | "f" | "g" | "h" | "i"
-       | "j" | "k" | "l" | "m" | "n" | "o" | "p"
-       | "q" | "r" | "s" | "t" | "u" | "v" | "w"
-       | "x" | "y" | "z" ;
-symbol =  "!" | "\"" | "#" | "$" | "%" | "&" | "'"
-       | "(" | ")" | "*" | "+" | "," | "-" | "."
-       | "/" | ":" | ";" | "<" | "=" | ">" | "?"
-       | "@" | "[" | "\" | "]" | "^" | "_" | "`"
-       | "{" | "|" | "}" | "~" ;
-
-controlCode = "\\t" | "\\n" | "\\\\" | "\\\"" | "\\'";
 
 stringLiteral = "\"", { letter | digit | symbol | controlCode }, "\"";
+
+arrayLiteral = type, "[", [ valueExpr ], { ",", valueExpr }, [ "," ], "]";
+
+structLiteral = "struct", identifier, "{", [ binding ], { ",", binding }, [ "," ], "}";
+
 

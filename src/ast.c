@@ -129,6 +129,10 @@ static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
 static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
+static void parseStmnt(Stmnt *s, BufferedLexer *blp) {
+  ZERO(s);
+}
+
 // Level0Term (literals of any kind)
 // Level1Term parentheses, braces
 // Level2Term () [] $ @ . -> (suffixes)

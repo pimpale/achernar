@@ -3,6 +3,8 @@ octalDigit = binaryDigit | "2" | "3" | "4" | "5" | "6" | "7";
 decimalDigit = octalDigit | "8" | "9";
 hexadecimalDigit = decimalDigit | "A" | "B" | "C" | "D" | "E" | "F" | "a" | "b" | "c" | "d" | "e" | "f";
 
+whitespace = "\n" | " " | "\t";
+
 digit = decimalDigit;
 
 letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
@@ -20,20 +22,32 @@ symbol =  "!" | "\"" | "#" | "$" | "%" | "&" | "'"
        | "@" | "[" | "\" | "]" | "^" | "_" | "`"
        | "{" | "|" | "}" | "~" ;
 
-identifier = 
+controlCode = "\\t" | "\\n" | "\\\\" | "\\\"" | "\\'";
 
+identifier = letter, { digit | letter };
 
-translationUnit = { stmnt };
-stmnt = funcDecl | structdecl | vardecl | assignstmnt | exprstmnt ;
-funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
-structDecl = "struct", "{", [ binding ], { "," binding }, [ "," ], "}";
-varDecl = "let", type, identifier, "=", expr, ";";
-assignStmnt = valueExpr, "=", valueExpr, ";"
-exprStmnt = valueExpr, ";"
+macro = identifier, "!";
+
+# Literals
+floatLiteral = digit, { digit }, "." digit, { digit };
+
+intLiteral = binaryIntLiteral | octalIntLiteral | decimalIntLiteral | hexadecimalIntLiteral;
+binaryIntLiteral = "0x", binaryDigit, { binaryDigit };
+octalIntLiteral = "0o", octalDigit, { octalDigit };
+decimalIntLiteral = [ "0d" ], decimalDigit, { decimalDigit }
+hexadecimalIntLiteral = "0x", hexadecimalDigit, { hexadecimalDigit };
+
+charLiteral = "'", (letter | digit | symbol | controlCode | whitespace), "'";
+
+stringLiteral = "\"", { letter | digit | symbol | controlCode | whitespace }, "\"";
+
+arrayLiteral = arrayElementLiteral | arrayFillLiteral;
+arrayElementLiteral = type, "[", [ valueExpr ], { ",", valueExpr }, [ "," ], "]";
+arrayFillLiteral = type, "[", valueExpr, ";", intLiteral, "]"
 
 binding = type, identifier
 
-identifier = letter
+structLiteral = "struct", identifier, "{", [ binding ], { ",", binding }, [ "," ], "}";
 
 valueExpr = l8expr;
 l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
@@ -43,32 +57,23 @@ l6expr = l4expr | (l4expr, ("+" | "-"), l5expr);
 l4expr = l3expr | (l3expr, ("*" | "/" | "%"), l4expr);
 l3expr = l2expr | (("+" | "-" | "~" | "!"), l3expr);
 l2expr = l1expr | (l2expr, ("$" | "@" | funcCall | arrayAccess | fieldAccess));
+l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | parenExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
+
+translationUnit = { stmnt };
+stmnt = funcDecl | structdecl | vardecl | assignstmnt | exprstmnt ;
+funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
+structDecl = "struct", "{", [ binding ], { "," binding }, [ "," ], "}";
+varDecl = "let", type, identifier, "=", expr, ";";
+assignStmnt = valueExpr, "=", valueExpr, ";"
+exprStmnt = valueExpr, ";"
+
 
 funcCall = "(", [ valueExpr ], { ",", valueExpr }, [ "," ], ")";
 arrayAccess = "[", valueExpr, "]";
 fieldAccess = ".", identifier;
 
-l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | parenExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
-
-intLiteral = binaryIntLiteral | octalIntLiteral | decimalIntLiteral | hexadecimalIntLiteral;
-binaryIntLiteral = "0x", binaryDigit, { binaryDigit };
-octalIntLiteral = "0o", octalDigit, { octalDigit };
-decimalIntLiteral = [ "0d" ], decimalDigit, { decimalDigit }
-hexadecimalIntLiteral = "0x", hexadecimalDigit, { hexadecimalDigit };
 
 
-controlCode = "\\t" | "\\n" | "\\\\" | "\\\"" | "\\'";
 
-
-floatLiteral = digit, { digit }, "." digit, { digit };
-
-charLiteral = "'", (letter | digit | symbol | controlCode), "'";
-
-
-stringLiteral = "\"", { letter | digit | symbol | controlCode }, "\"";
-
-arrayLiteral = type, "[", [ valueExpr ], { ",", valueExpr }, [ "," ], "]";
-
-structLiteral = "struct", identifier, "{", [ binding ], { ",", binding }, [ "," ], "}";
 
 

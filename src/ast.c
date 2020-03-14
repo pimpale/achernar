@@ -129,6 +129,7 @@ static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
 static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
+<<<<<<< HEAD
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
@@ -217,6 +218,10 @@ HANDLE_NO_RIGHTPAREN:
 
 static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
    //todo
+=======
+static void parseStmnt(Stmnt *s, BufferedLexer *blp) {
+  ZERO(s);
+>>>>>>> 12c56dbd823fe8050fd32f3fcf96fbc479daafb5
 }
 
 // Level0Term (literals of any kind)

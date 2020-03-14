@@ -1,43 +1,11 @@
-translationUnit = { stmnt };
-stmnt = funcDecl | structdecl | vardecl | assignstmnt | exprstmnt ;
-funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
-structDecl = "struct", "{", [ binding ], { "," binding }, [ "," ], "}";
-varDecl = "let", type, identifier, "=", expr, ";";
-assignStmnt = valueExpr, "=", valueExpr, ";"
-exprStmnt = valueExpr, ";"
-
-binding = type, identifier
-
-valueExpr = l8expr;
-l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
-l7expr = l6expr | (l6expr, ("<" | ">" | "<=" | ">=" | "==" | "!="), l7expr);
-l6expr = l5expr | (l5expr, ("<<" | ">>" | "&" | "|" | "^"), l6expr);
-l6expr = l4expr | (l4expr, ("+" | "-"), l5expr);
-l4expr = l3expr | (l3expr, ("*" | "/" | "%"), l4expr);
-l3expr = l2expr | (("+" | "-" | "~" | "!"), l3expr);
-l2expr = l1expr | (l2expr, ("$" | "@" | funcCall | arrayAccess | fieldAccess));
-
-funcCall = "(", [ valueExpr ], { ",", valueExpr }, [ "," ], ")";
-arrayAccess = "[", valueExpr, "]";
-fieldAccess = ".", identifier;
-
-l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | groupExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
-
-intLiteral = binaryIntLiteral | octalIntLiteral | decimalIntLiteral | hexadecimalIntLiteral;
-binaryIntLiteral = "0x", binaryDigit, { binaryDigit };
-octalIntLiteral = "0o", octalDigit, { octalDigit };
-decimalIntLiteral = [ "0d" ], decimalDigit, { decimalDigit }
-hexadecimalIntLiteral = "0x", hexadecimalDigit, { hexadecimalDigit };
-
-digit = decimalDigit;
 binaryDigit = "0" | "1";
 octalDigit = binaryDigit | "2" | "3" | "4" | "5" | "6" | "7";
 decimalDigit = octalDigit | "8" | "9";
 hexadecimalDigit = decimalDigit | "A" | "B" | "C" | "D" | "E" | "F" | "a" | "b" | "c" | "d" | "e" | "f";
 
-floatLiteral = digit, { digit }, "." digit, { digit };
+whitespace = "\n" | " " | "\t";
 
-charLiteral = "'", (letter | digit | symbol | controlCode), "'";
+digit = decimalDigit;
 
 letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
        | "H" | "I" | "J" | "K" | "L" | "M" | "N"
@@ -47,6 +15,7 @@ letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
        | "j" | "k" | "l" | "m" | "n" | "o" | "p"
        | "q" | "r" | "s" | "t" | "u" | "v" | "w"
        | "x" | "y" | "z" ;
+
 symbol =  "!" | "\"" | "#" | "$" | "%" | "&" | "'"
        | "(" | ")" | "*" | "+" | "," | "-" | "."
        | "/" | ":" | ";" | "<" | "=" | ">" | "?"
@@ -55,5 +24,56 @@ symbol =  "!" | "\"" | "#" | "$" | "%" | "&" | "'"
 
 controlCode = "\\t" | "\\n" | "\\\\" | "\\\"" | "\\'";
 
-stringLiteral = "\"", { letter | digit | symbol | controlCode }, "\"";
+identifier = letter, { digit | letter };
+
+macro = identifier, "!";
+
+# Literals
+floatLiteral = digit, { digit }, "." digit, { digit };
+
+intLiteral = binaryIntLiteral | octalIntLiteral | decimalIntLiteral | hexadecimalIntLiteral;
+binaryIntLiteral = "0x", binaryDigit, { binaryDigit };
+octalIntLiteral = "0o", octalDigit, { octalDigit };
+decimalIntLiteral = [ "0d" ], decimalDigit, { decimalDigit }
+hexadecimalIntLiteral = "0x", hexadecimalDigit, { hexadecimalDigit };
+
+charLiteral = "'", (letter | digit | symbol | controlCode | whitespace), "'";
+
+stringLiteral = "\"", { letter | digit | symbol | controlCode | whitespace }, "\"";
+
+arrayLiteral = arrayElementLiteral | arrayFillLiteral;
+arrayElementLiteral = type, "[", [ valueExpr ], { ",", valueExpr }, [ "," ], "]";
+arrayFillLiteral = type, "[", valueExpr, ";", intLiteral, "]"
+
+binding = type, identifier
+
+structLiteral = "struct", identifier, "{", [ binding ], { ",", binding }, [ "," ], "}";
+
+valueExpr = l8expr;
+l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
+l7expr = l6expr | (l6expr, ("<" | ">" | "<=" | ">=" | "==" | "!="), l7expr);
+l6expr = l5expr | (l5expr, ("<<" | ">>" | "&" | "|" | "^"), l6expr);
+l6expr = l4expr | (l4expr, ("+" | "-"), l5expr);
+l4expr = l3expr | (l3expr, ("*" | "/" | "%"), l4expr);
+l3expr = l2expr | (("+" | "-" | "~" | "!"), l3expr);
+l2expr = l1expr | (l2expr, ("$" | "@" | funcCall | arrayAccess | fieldAccess));
+l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | parenExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
+
+translationUnit = { stmnt };
+stmnt = funcDecl | structdecl | vardecl | assignstmnt | exprstmnt ;
+funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
+structDecl = "struct", "{", [ binding ], { "," binding }, [ "," ], "}";
+varDecl = "let", type, identifier, "=", expr, ";";
+assignStmnt = valueExpr, "=", valueExpr, ";"
+exprStmnt = valueExpr, ";"
+
+
+funcCall = "(", [ valueExpr ], { ",", valueExpr }, [ "," ], ")";
+arrayAccess = "[", valueExpr, "]";
+fieldAccess = ".", identifier;
+
+
+
+
+
 

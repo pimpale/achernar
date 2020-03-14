@@ -21,7 +21,7 @@ funcCall = "(", [ valueExpr ], { ",", valueExpr }, [ "," ], ")";
 arrayAccess = "[", valueExpr, "]";
 fieldAccess = ".", identifier;
 
-l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | parenExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
+l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | groupExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
 
 intLiteral = binaryIntLiteral | octalIntLiteral | decimalIntLiteral | hexadecimalIntLiteral;
 binaryIntLiteral = "0x", binaryDigit, { binaryDigit };

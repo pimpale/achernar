@@ -129,6 +129,96 @@ static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
 static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
+static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_IntLiteral, HANDLE_NO_INT_LITERAL);
+  ivep->kind = VE_IntLiteral;
+  ivep->intLiteral.value = t.intLiteral;
+  ivep->span = t.span;
+  ivep->diagnostic = DIAGNOSTIC(E_Ok, ivep->span);
+  return;
+HANDLE_NO_INT_LITERAL:
+  INTERNAL_ERROR("called int literal parser where there was no "
+                 "int literal");
+  PANIC();
+}
+
+static void parseFloatValueExpr(ValueExpr *fvep, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_IntLiteral, HANDLE_NO_FLOAT_LITERAL);
+  fvep->kind = VE_FloatLiteral;
+  fvep->floatLiteral.value = t.floatLiteral;
+  fvep->span = t.span;
+  fvep->diagnostic = DIAGNOSTIC(E_Ok, fvep->span);
+  return;
+HANDLE_NO_FLOAT_LITERAL:
+  INTERNAL_ERROR("called float literal parser where there was no "
+                 "float literal");
+  PANIC();
+}
+
+static void parseCharValueExpr(ValueExpr *cvep, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_IntLiteral, HANDLE_NO_CHAR_LITERAL);
+  cvep->kind = VE_CharLiteral;
+  cvep->charLiteral.value = t.charLiteral;
+  cvep->span = t.span;
+  cvep->diagnostic = DIAGNOSTIC(E_Ok, cvep->span);
+  return;
+HANDLE_NO_CHAR_LITERAL:
+  INTERNAL_ERROR("called char literal parser where there was no "
+                 "char literal");
+  PANIC();
+}
+
+static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_IntLiteral, HANDLE_NO_STRING_LITERAL);
+  svep->kind = VE_StringLiteral;
+  svep->stringLiteral.value = strdup(t.stringLiteral);
+  svep->span = t.span;
+  svep->diagnostic = DIAGNOSTIC(E_Ok, svep->span);
+  return;
+HANDLE_NO_STRING_LITERAL:
+  INTERNAL_ERROR("called string literal parser where there was no "
+                 "string literal");
+  PANIC();
+}
+
+static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  LnCol start = t.span.start;
+  EXPECT_TYPE(t, T_ParenLeft, HANDLE_NO_LEFTPAREN);
+  gvep->kind = VE_Group;
+  gvep->group.value = malloc(sizeof(ValueExpr));
+  parseValueExpr(gvep->group.value, blp);
+
+  // Expect a rightparen
+  advanceToken(blp, &t);
+  gvep->span = SPAN(start, t.span.end);
+  EXPECT_TYPE(t, T_ParenRight, HANDLE_NO_RIGHTPAREN);
+  gvep->diagnostic = DIAGNOSTIC(E_Ok, gvep->span);
+  return;
+
+HANDLE_NO_LEFTPAREN:
+  INTERNAL_ERROR("called group parser where there was no "
+                 "group");
+  PANIC();
+
+HANDLE_NO_RIGHTPAREN:
+  resyncStmnt(blp);
+  gvep->diagnostic = DIAGNOSTIC(E_GroupExpectRightParen, gvep->span);
+}
+
+static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
+   //todo
+}
+
 // Level0Term (literals of any kind)
 // Level1Term parentheses, braces
 // Level2Term () [] $ @ . -> (suffixes)
@@ -139,7 +229,43 @@ static void parsePattern(Pattern *pp, BufferedLexer *blp);
 // Level7Term < <= > >= == != (comparators)
 // Level8Term && || (Boolean Operators)
 
-static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) { ZERO(l1); }
+static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  LnCol start = t.span.start;
+  // Decide which expression it is
+  switch (t.type) {
+  // Literals
+  case T_IntLiteral: {
+    setNextToken(blp, &t);
+    parseIntValueExpr(l1, blp);
+    return;
+  }
+  case T_FloatLiteral: {
+    setNextToken(blp, &t);
+    parseFloatValueExpr(l1, blp);
+    return;
+  }
+  case T_CharLiteral: {
+    setNextToken(blp, &t);
+    parseCharValueExpr(l1, blp);
+    return;
+  }
+  case T_StringLiteral: {
+    setNextToken(blp, &t);
+    parseStringValueExpr(l1, blp);
+    return;
+  }
+  case T_ParenLeft: {
+    setNextToken(blp, &t);
+    parseGroupValueExpr(l1, blp);
+    return;
+  }
+  case T_If: {
+    setNextToken(blp, &t);
+    parse
+             }
+}
 
 static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 
@@ -174,7 +300,29 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       v.span = SPAN(start, t.span.end);
       v.diagnostic = DIAGNOSTIC(E_Ok, v.span);
       currentTopLevel = v;
-      return;
+      break;
+    }
+    case T_Dot: {
+      ValueExpr v;
+      v.kind = VE_FieldAccess;
+      v.fieldAccess.value = malloc(sizeof(ValueExpr));
+      *v.fieldAccess.value = currentTopLevel;
+
+      // Now we get the next thing
+      advanceToken(blp, &t);
+      v.span = SPAN(start, t.span.end);
+      if (t.type != T_Identifier) {
+        // If we encounter an error, we bail out of this L2Term
+        v.fieldAccess.field = NULL;
+        setNextToken(blp, &t);
+        v.diagnostic = DIAGNOSTIC(E_FieldAccessExpectedIdentifier, v.span);
+        *l2 = v;
+        return;
+      }
+      v.fieldAccess.field = strdup(t.identifier);
+      v.diagnostic = DIAGNOSTIC(E_Ok, v.span);
+      currentTopLevel = v;
+      break;
     }
     case T_BracketLeft: {
       ValueExpr v;
@@ -182,7 +330,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       v.binaryOp.operator= EBO_ArrayAccess;
       v.binaryOp.operand_1 = malloc(sizeof(ValueExpr));
       v.binaryOp.operand_2 = malloc(sizeof(ValueExpr));
-      *v.binaryOp.operand_1 = v;
+      *v.binaryOp.operand_1 = currentTopLevel;
       parseValueExpr(v.binaryOp.operand_2, blp);
       // expect closing bracket
       advanceToken(blp, &t);
@@ -190,11 +338,16 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       // Calculate span and diagnostics
       v.span = SPAN(start, t.span.end);
       if (t.type != T_BracketRight) {
+        // If we miss the bracket we bail out of this subexpr, setting the next
+        // token
         v.diagnostic = DIAGNOSTIC(E_ArrayAccessExpectedBracket, v.span);
+        setNextToken(blp, &t);
+        *l2 = v;
+        return;
       }
       v.diagnostic = DIAGNOSTIC(E_Ok, v.span);
-      // TODO handle error??
-      return;
+      currentTopLevel = v;
+      break;
     }
     case T_ParenLeft: {
       ValueExpr v;
@@ -231,7 +384,9 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
             // Calculate span and diagnostics
             v.span = SPAN(start, t.span.end);
             v.diagnostic = DIAGNOSTIC(E_FunctionCallExpectedParen, v.span);
-            // TODO handle error??
+            // Bail out of the subexpr
+            setNextToken(blp, &t);
+            *l2 = v;
             return;
           }
         }
@@ -259,7 +414,6 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 }
 
 static void parseL3Term(ValueExpr *l3, BufferedLexer *blp) {
-
   Token t;
   advanceToken(blp, &t);
   switch (t.type) {

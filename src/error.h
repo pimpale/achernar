@@ -46,6 +46,8 @@ typedef enum DiagnosticType_e {
   E_FuncDeclStmntExpectedColon,
   E_FuncDeclStmntExpectedAssign,
   E_FuncDeclStmntExpectedBody,
+  // Groups
+  E_GroupExpectRightParen,
   // Match
   E_MatchNoColon,
   E_MatchNoLeftbrace,
@@ -57,6 +59,7 @@ typedef enum DiagnosticType_e {
   // Generic Parsing errors
   E_UnexpectedToken,
   E_SubcomponentFailedToParse,
+  E_FieldAccessExpectedIdentifier,
 } DiagnosticType;
 
 typedef struct Diagnostic_s {

@@ -36,6 +36,8 @@ typedef enum {
   VE_Return,
   VE_Match,
   VE_Block,
+  VE_Group,
+  VE_FieldAccess,
 } ValueExprKind;
 
 typedef enum {
@@ -205,11 +207,14 @@ typedef struct ValueExpr_s {
       MatchCaseExpr *cases;
       size_t cases_length;
     } matchExpr;
+    struct Group_s {
+      ValueExpr *value;
+    } group;
     struct Block_s {
       Stmnt *statements;
       size_t statements_length;
       ValueExpr *expr;
-    } Block;
+    } block;
   };
 } ValueExpr;
 

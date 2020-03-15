@@ -180,7 +180,7 @@ typedef struct ValueExpr_s {
     struct {
       ValueExpr *condition;
       ValueExpr *body;
-      bool has_expr;
+      bool has_else;
       ValueExpr *else_body;
     } ifExpr;
     struct {

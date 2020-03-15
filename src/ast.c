@@ -129,7 +129,6 @@ static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
 static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
-<<<<<<< HEAD
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
@@ -217,11 +216,83 @@ HANDLE_NO_RIGHTPAREN:
 }
 
 static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
-   //todo
-=======
-static void parseStmnt(Stmnt *s, BufferedLexer *blp) {
-  ZERO(s);
->>>>>>> 12c56dbd823fe8050fd32f3fcf96fbc479daafb5
+  ZERO(ivep);
+  Token t;
+  advanceToken(blp, &t);
+  LnCol start = t.span.start;
+  EXPECT_TYPE(t, T_If, HANDLE_NO_IF);
+  ivep->kind = VE_If;
+
+  // parse condition
+  ivep->ifExpr.condition = malloc(sizeof(ValueExpr));
+  parseValueExpr(ivep->ifExpr.condition, blp);
+
+  // parse body
+  ivep->ifExpr.body = malloc(sizeof(ValueExpr));
+  parseValueExpr(ivep->ifExpr.body, blp);
+
+  // if the next value is else
+  advanceToken(blp, &t);
+  if (t.type == T_Else) {
+    ivep->ifExpr.has_else = true;
+    ivep->ifExpr.else_body = malloc(sizeof(ValueExpr));
+    parseValueExpr(ivep->ifExpr.else_body, blp);
+  }
+
+HANDLE_NO_IF:
+  INTERNAL_ERROR("called if expression parser where there was no "
+                 "if expression");
+  PANIC();
+}
+
+static void parseBreakExpr(ValueExpr *bep, BufferedLexer *blp) {
+  bep->kind = VE_Break;
+  Token t;
+  advanceToken(blp, &t);
+  bep->span = t.span;
+  EXPECT_TYPE(t, T_Break, HANDLE_NO_BREAK);
+  bep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  return;
+
+HANDLE_NO_BREAK:
+  INTERNAL_ERROR("called break parser where there was no break");
+  PANIC();
+}
+
+static void parseContinueExpr(ValueExpr *cep, BufferedLexer *blp) {
+  cep->kind = VE_Continue;
+  Token t;
+  advanceToken(blp, &t);
+  cep->span = t.span;
+  EXPECT_TYPE(t, T_Continue, HANDLE_NO_CONTINUE);
+  cep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  return;
+
+HANDLE_NO_CONTINUE:
+  INTERNAL_ERROR("called continue parser where there was no continue");
+  PANIC();
+}
+
+static void parseWhileExpr(ValueExpr *wep, BufferedLexer *blp) {
+  wep->kind = VE_While;
+  Token t;
+  advanceToken(blp, &t);
+  LnCol start = t.span.start;
+  EXPECT_TYPE(t, T_While, HANDLE_NO_WHILE);
+
+  wep->whileExpr.condition = malloc(sizeof(ValueExpr));
+  parseValueExpr(wep->whileExpr.condition, blp);
+
+  wep->whileExpr.body = malloc(sizeof(ValueExpr));
+  parseValueExpr(wep->whileExpr.body, blp);
+
+  wep->span = SPAN(start, wep->whileExpr.body->span.end);
+  wep->diagnostic = DIAGNOSTIC(E_Ok, wep->span);
+  return;
+
+HANDLE_NO_WHILE:
+  INTERNAL_ERROR("called continue parser where there was no continue");
+  PANIC();
 }
 
 // Level0Term (literals of any kind)
@@ -268,8 +339,25 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   }
   case T_If: {
     setNextToken(blp, &t);
-    parse
-             }
+    parseIfValueExpr(l1, blp);
+    return;
+  }
+  case T_Break: {
+    setNextToken(blp, &t);
+    parseBreakExpr(l1, blp);
+    return;
+  }
+  case T_Continue: {
+    setNextToken(blp, &t);
+    parseContinueExpr(l1, blp);
+    return;
+  }
+  case T_While: {
+    setNextToken(blp, &t);
+    parseWhileExpr(l1, blp);
+    return;
+  }
+  }
 }
 
 static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
@@ -343,8 +431,8 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       // Calculate span and diagnostics
       v.span = SPAN(start, t.span.end);
       if (t.type != T_BracketRight) {
-        // If we miss the bracket we bail out of this subexpr, setting the next
-        // token
+        // If we miss the bracket we bail out of this subexpr, setting the
+        // next token
         v.diagnostic = DIAGNOSTIC(E_ArrayAccessExpectedBracket, v.span);
         setNextToken(blp, &t);
         *l2 = v;
@@ -869,56 +957,6 @@ HANDLE_NO_ASSIGN:
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
-}
-
-static void parseBreakExpr(ValueExpr *bep, BufferedLexer *blp) {
-  bep->kind = VE_Break;
-  Token t;
-  advanceToken(blp, &t);
-  bep->span = t.span;
-  EXPECT_TYPE(t, T_Break, HANDLE_NO_BREAK);
-  bep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
-  return;
-
-HANDLE_NO_BREAK:
-  INTERNAL_ERROR("called break parser where there was no break");
-  PANIC();
-}
-
-static void parseContinueExpr(ValueExpr *cep, BufferedLexer *blp) {
-  cep->kind = VE_Continue;
-  Token t;
-  advanceToken(blp, &t);
-  cep->span = t.span;
-  EXPECT_TYPE(t, T_Continue, HANDLE_NO_CONTINUE);
-  cep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
-  return;
-
-HANDLE_NO_CONTINUE:
-  INTERNAL_ERROR("called continue parser where there was no continue");
-  PANIC();
-}
-
-static void parseWhileExpr(ValueExpr *wep, BufferedLexer *blp) {
-  wep->kind = VE_While;
-  Token t;
-  advanceToken(blp, &t);
-  LnCol start = t.span.start;
-  EXPECT_TYPE(t, T_While, HANDLE_NO_WHILE);
-
-  wep->whileExpr.condition = malloc(sizeof(ValueExpr));
-  parseValueExpr(wep->whileExpr.condition, blp);
-
-  wep->whileExpr.body = malloc(sizeof(ValueExpr));
-  parseValueExpr(wep->whileExpr.body, blp);
-
-  wep->span = SPAN(start, wep->whileExpr.body->span.end);
-  wep->diagnostic = DIAGNOSTIC(E_Ok, wep->span);
-  return;
-
-HANDLE_NO_WHILE:
-  INTERNAL_ERROR("called continue parser where there was no continue");
-  PANIC();
 }
 
 // Pattern : Expr,

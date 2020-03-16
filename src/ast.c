@@ -190,13 +190,15 @@ HANDLE_NO_STRING_LITERAL:
 }
 
 static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp) {
+  ZERO(gvep);
+  gvep->kind = VE_Group;
+
   Token t;
   advanceToken(blp, &t);
   LnCol start = t.span.start;
   EXPECT_TYPE(t, T_ParenLeft, HANDLE_NO_LEFTPAREN);
-  gvep->kind = VE_Group;
-  gvep->group.value = malloc(sizeof(ValueExpr));
-  parseValueExpr(gvep->group.value, blp);
+  gvep->groupExpr.value = malloc(sizeof(ValueExpr));
+  parseValueExpr(gvep->groupExpr.value, blp);
 
   // Expect a rightparen
   advanceToken(blp, &t);
@@ -213,6 +215,69 @@ HANDLE_NO_LEFTPAREN:
 HANDLE_NO_RIGHTPAREN:
   resyncStmnt(blp);
   gvep->diagnostic = DIAGNOSTIC(E_GroupExpectRightParen, gvep->span);
+}
+
+static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
+  ZERO(bvep);
+  bvep->kind = VE_Block;
+
+  Token t;
+  advanceToken(blp, &t);
+  LnCol start = t.span.start;
+  EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
+
+  // Create list of statements
+  Vector statements;
+  createVector(&statements);
+
+  Stmnt s;
+  parseStmnt(&s, blp);
+  *VEC_PUSH(&statements, Stmnt) = s;
+
+  // Parse the elements
+  while (true) {
+    // Check for end paren
+    advanceToken(blp, &t);
+    if (t.type == T_BraceRight) {
+      bvep->blockExpr.trailing_semicolon = false;
+      break;
+    }
+    // If it wasn't an end brace, we push it back
+    setNextToken(blp, &t);
+
+    // Parse and push the statement
+    parseStmnt(VEC_PUSH(&statements, Stmnt), blp);
+
+    // Accept semicolon, if any
+    // If there's no semicolon then it MUST be followed by an right brace
+    // This also allows a trailing semicolon
+    advanceToken(blp, &t);
+    if (t.type != T_Semicolon) {
+      bvep->blockExpr.trailing_semicolon = false;
+      // If the next value isn't a right brace, then we throw an error
+      EXPECT_TYPE(t, T_BraceRight, HANDLE_NO_RIGHTBRACE);
+    }
+  }
+
+  bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
+  bvep->blockExpr.statements = releaseVector(&statements);
+  bvep->span = SPAN(start, t.span.end);
+  bvep->diagnostic = DIAGNOSTIC(E_Ok, bvep->span);
+  return;
+
+HANDLE_NO_RIGHTBRACE:
+  bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
+  bvep->blockExpr.statements = releaseVector(&statements);
+  bvep->diagnostic = DIAGNOSTIC(E_BlockExpectedSemicolon, t.span);
+  resyncStmnt(blp);
+  advanceToken(blp, &t);
+  setNextToken(blp, &t);
+  bvep->span = SPAN(start, t.span.end);
+
+HANDLE_NO_LEFTBRACE:
+  INTERNAL_ERROR(
+      "called a block expresion parser where there was no leftbrace");
+  PANIC();
 }
 
 static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
@@ -237,11 +302,30 @@ static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
     ivep->ifExpr.has_else = true;
     ivep->ifExpr.else_body = malloc(sizeof(ValueExpr));
     parseValueExpr(ivep->ifExpr.else_body, blp);
+    ivep->span = SPAN(start, ivep->ifExpr.else_body->span.end);
+  } else {
+    // back up
+    setNextToken(blp, &t);
+    ivep->span = SPAN(start, ivep->ifExpr.body->span.end);
   }
 
 HANDLE_NO_IF:
   INTERNAL_ERROR("called if expression parser where there was no "
                  "if expression");
+  PANIC();
+}
+
+static void parsePassExpr(ValueExpr *pep, BufferedLexer *blp) {
+  pep->kind = VE_Pass;
+  Token t;
+  advanceToken(blp, &t);
+  pep->span = t.span;
+  EXPECT_TYPE(t, T_Pass, HANDLE_NO_PASS);
+  pep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  return;
+
+HANDLE_NO_PASS:
+  INTERNAL_ERROR("called pass parser where there was no pass");
   PANIC();
 }
 
@@ -308,7 +392,6 @@ HANDLE_NO_WHILE:
 static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
-  LnCol start = t.span.start;
   // Decide which expression it is
   switch (t.type) {
   // Literals
@@ -337,6 +420,11 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
     parseGroupValueExpr(l1, blp);
     return;
   }
+  case T_BraceRight: {
+    setNextToken(blp, &t);
+    parseBlockValueExpr(l1, blp);
+    return;
+  }
   case T_If: {
     setNextToken(blp, &t);
     parseIfValueExpr(l1, blp);
@@ -350,6 +438,11 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   case T_Continue: {
     setNextToken(blp, &t);
     parseContinueExpr(l1, blp);
+    return;
+  }
+  case T_Pass: {
+    setNextToken(blp, &t);
+    parsePassExpr(l1, blp);
     return;
   }
   case T_While: {

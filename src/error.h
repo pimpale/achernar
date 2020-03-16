@@ -52,6 +52,8 @@ typedef enum DiagnosticType_e {
   E_MatchNoColon,
   E_MatchNoLeftbrace,
   E_MatchNoRightBrace,
+  // Block
+  E_BlockExpectedSemicolon,
   // Array Access
   E_ArrayAccessExpectedBracket,
   // Function Calls

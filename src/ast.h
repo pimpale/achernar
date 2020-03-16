@@ -31,6 +31,7 @@ typedef enum {
   VE_While,
   VE_For,
   VE_With,
+  VE_Pass,
   VE_Break,
   VE_Continue,
   VE_Return,
@@ -209,12 +210,12 @@ typedef struct ValueExpr_s {
     } matchExpr;
     struct Group_s {
       ValueExpr *value;
-    } group;
+    } groupExpr;
     struct Block_s {
       Stmnt *statements;
       size_t statements_length;
-      ValueExpr *expr;
-    } block;
+      bool trailing_semicolon;
+    } blockExpr;
   };
 } ValueExpr;
 

@@ -74,6 +74,10 @@ void printToken(Token *token) {
     str = "Return";
     break;
   }
+  case T_Pass: {
+    str = "Pass";
+    break;
+  }
   case T_Function: {
     str = "Function";
     break;

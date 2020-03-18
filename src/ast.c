@@ -834,6 +834,11 @@ static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
   return;
 }
 
+// shim method
+static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp) {
+  parseL8Term(vep, blp);
+}
+
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
   // zero-initialize tep
   ZERO(tep);
@@ -948,9 +953,6 @@ static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
 
   // these variables will be reused
   Token t;
-  Vector parameterDeclarations;
-  createVector(&parameterDeclarations);
-
   // Skip fn declaration
   advanceToken(blp, &t);
   LnCol start = t.span.start;
@@ -963,6 +965,9 @@ static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
 
   advanceToken(blp, &t);
   EXPECT_TYPE(t, T_ParenLeft, HANDLE_NO_LEFTPAREN);
+
+  Vector parameterDeclarations;
+  createVector(&parameterDeclarations);
 
   // Parse the parameters (Comma Seperated list of bindings)
   while (true) {
@@ -989,8 +994,8 @@ static void parseFuncDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   }
 
   // Copy arguments in
-  fdsp->funcDecl.params = releaseVector(&parameterDeclarations);
   fdsp->funcDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
+  fdsp->funcDecl.params = releaseVector(&parameterDeclarations);
 
   // Colon return type delimiter
   advanceToken(blp, &t);
@@ -1018,16 +1023,16 @@ HANDLE_NO_FN:
 HANDLE_NO_IDENTIFIER:
   fdsp->diagnostic = DIAGNOSTIC(E_FuncDeclStmntExpectedIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
-  fdsp->funcDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->funcDecl.params = releaseVector(&parameterDeclarations);
+  fdsp->funcDecl.params_length = 0;
+  fdsp->funcDecl.params = NULL;
   resyncStmnt(blp);
   return;
 
 HANDLE_NO_LEFTPAREN:
   fdsp->diagnostic = DIAGNOSTIC(E_FuncDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
-  fdsp->funcDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->funcDecl.params = releaseVector(&parameterDeclarations);
+  fdsp->funcDecl.params_length = 0;
+  fdsp->funcDecl.params = NULL;
   resyncStmnt(blp);
   return;
 
@@ -1050,6 +1055,152 @@ HANDLE_NO_ASSIGN:
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
+}
+
+static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
+  ZERO(sdsp);
+  sdsp->kind = S_StructDecl;
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_Struct, HANDLE_NO_STRUCT);
+  LnCol start = t.span.start;
+
+  // get name
+  advanceToken(blp, &t);
+  if(t.type == T_Identifier) {
+    sdsp->structDecl.has_name = true;
+    sdsp->structDecl.name = strdup(t.identifier);
+    advanceToken(blp, &t);
+  } else {
+    sdsp->structDecl.has_name = false;
+  }
+
+  EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
+
+  Vector bindings;
+  createVector(&bindings);
+
+  // Parse the parameters (Comma Separated list of bindings)
+  while (true) {
+    // Check for end brace
+    advanceToken(blp, &t);
+    if (t.type == T_BraceRight) {
+      break;
+    }
+    // If it wasn't an end brace, we push it back
+    setNextToken(blp, &t);
+
+    // Parse and push the parameter
+    parseBinding(VEC_PUSH(&bindings, Binding), blp);
+    // Accept comma, if any
+    // If there's no comma then it MUST be followed by an end brace
+    // This also allows trailing commas
+    advanceToken(blp, &t);
+    if (t.type != T_Comma) {
+      // If the next value isn't an end paren, then we throw an error
+      EXPECT_TYPE(t, T_ParenRight, HANDLE_NO_RIGHTBRACE);
+      break;
+    }
+  }
+
+  sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
+  sdsp->structDecl.members = releaseVector(&bindings);
+  sdsp->span = SPAN(start, t.span.end);
+  sdsp->diagnostic = DIAGNOSTIC(E_Ok, sdsp->span);
+  return;
+
+HANDLE_NO_LEFTBRACE:
+  sdsp->structDecl.members_length = 0;
+  sdsp->structDecl.members = NULL;
+  sdsp->span = SPAN(start, t.span.end);
+  sdsp->diagnostic = DIAGNOSTIC(E_StructDeclStmntExpectedLeftBrace, sdsp->span);
+
+
+HANDLE_NO_RIGHTBRACE:
+  sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
+  sdsp->structDecl.members = releaseVector(&bindings);
+  sdsp->span = SPAN(start, t.span.end);
+  sdsp->diagnostic = DIAGNOSTIC(E_StructDeclStmntExpectedRightBrace, t.span);
+  return;
+
+HANDLE_NO_STRUCT:
+  INTERNAL_ERROR("called struct declaration parser where there was no "
+                 "struct declaration");
+  PANIC();
+}
+
+static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp) {
+  ZERO(adsp);
+  adsp->kind = S_TypeAliasDecl;
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_Alias, HANDLE_NO_ALIAS);
+  LnCol start = t.span.start;
+
+  adsp->aliasStmnt.type = malloc(sizeof(TypeExpr));
+  parseTypeExpr(adsp->aliasStmnt.type, blp);
+
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_Identifier, HANDLE_NO_IDENTIFIER);
+  adsp->aliasStmnt.name = strdup(t.identifier);
+  adsp->span = SPAN(start, t.span.end);
+  adsp->diagnostic = DIAGNOSTIC(E_Ok, adsp->span);
+
+HANDLE_NO_IDENTIFIER:
+  adsp->aliasStmnt.name = NULL;
+  adsp->span = SPAN(start, t.span.end);
+  adsp->diagnostic = DIAGNOSTIC(E_AliasDeclStmntExpectedIdentifier, t.span);
+
+HANDLE_NO_ALIAS:
+  INTERNAL_ERROR("called alias declaration parser where there was no "
+                 "alias declaration");
+  PANIC();
+}
+
+static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
+  Token t;
+  // peek next token
+  advanceToken(blp, &t);
+  setNextToken(blp, &t);
+
+  switch (t.type) {
+  case T_Function: {
+    parseFuncDeclStmnt(sp, blp);
+    return;
+  }
+  case T_Let: {
+    parseVarDeclStmnt(sp, blp);
+    return;
+  }
+  case T_Struct: {
+    parseStructDeclStmnt(sp, blp);
+    return;
+  }
+  case T_Alias: {
+    parseAliasDeclStmnt(sp, blp);
+    return;
+  }
+  default: {
+    // Value Expr Statement
+    sp->kind = S_Expr;
+    parseValueExpr(sp->exprStmnt.value, blp);
+    sp->span = sp->exprStmnt.value->span;
+    sp->diagnostic = DIAGNOSTIC(E_Ok, sp->span);
+    return;
+  }
+  }
+}
+
+// Pattern
+static void parsePatternExpr(Pattern* pp, BufferedLexer *blp) {
+  
+  // get name
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_Identifier, HANDLE_NO_IDENTIFIER);
+  fdsp->funcDecl.name = strdup(t.identifier);
+
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_ParenLeft, HANDLE_NO_LEFTPAREN);
 }
 
 // Pattern : Expr,

@@ -268,12 +268,64 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   createVector(&data);
 
   while ((c = nextValueLexer(lexer)) != EOF) {
-    if (c == '\"') {
+    if (c == '\\') {
+      c = nextValueLexer(lexer);
+      switch (c) {
+      case '\\': {
+        *VEC_PUSH(&data, char) = '\\';
+        break;
+      }
+      case '\'': {
+        *VEC_PUSH(&data, char) = '\'';
+        break;
+      }
+      case '\"': {
+        *VEC_PUSH(&data, char) = '\"';
+        break;
+      }
+      case 'a': {
+        *VEC_PUSH(&data, char) = '\a';
+        break;
+      }
+      case 'b': {
+        *VEC_PUSH(&data, char) = '\b';
+        break;
+      }
+      case 'f': {
+        *VEC_PUSH(&data, char) = '\f';
+        break;
+      }
+      case 'n': {
+        *VEC_PUSH(&data, char) = '\n';
+        break;
+      }
+      case 'r': {
+        *VEC_PUSH(&data, char) = '\r';
+        break;
+      }
+      case 't': {
+        *VEC_PUSH(&data, char) = '\t';
+        break;
+      }
+      case 'v': {
+        *VEC_PUSH(&data, char) = '\v';
+        break;
+      }
+      default: {
+        *token = (Token){.type = T_None,
+                         .span = SPAN(start, lexer->position),
+                         .error = E_StringLiteralUnrecognizedEscapeCode};
+        destroyVector(&data);
+        return;
+      }
+      }
+    } else if (c == '\"') {
       break;
     } else {
       *VEC_PUSH(&data, char) = (char)c;
     }
   }
+
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
 
@@ -318,7 +370,8 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
           break;
         } else {
           hasDecimalPoint = true;
-          // Since we haven't appended the new dot yet, it's the previous value
+          // Since we haven't appended the new dot yet, it's the previous
+          // value
           decimalPointIndex = VEC_LEN(&data, char);
         }
       }
@@ -343,11 +396,12 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     size_t intStrLen;
 
     // Special Radix
-    // More than 2 characters and first character is 0 and second character is
-    // not digit
+    // More than 2 characters and first character is 0 and second character
+    // is not digit
     if (length > 2 && string[0] == '0' && !isdigit(string[1])) {
       // Set radix to what it has to be
-      // Switch on the second character aka x, or b or whatever comes after 0
+      // Switch on the second character aka x, or b or whatever comes after
+      // 0
       switch (string[1]) {
       case 'b': {
         radix = 2;
@@ -416,12 +470,13 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     }
   } else {
     // If it has a decimal point, it must be a float
-    // We have already guaranteed that the string only has one decimal point,
-    // at decimalPointIndex Floats are always in decimal notation
+    // We have already guaranteed that the string only has one decimal
+    // point, at decimalPointIndex Floats are always in decimal notation
 
     // We parse the float as an integer above decimal point, and one below
 
-    // Represents the portion of the float literal prior to the decimal point
+    // Represents the portion of the float literal prior to the decimal
+    // point
     char *initialPortion = string;
     size_t initialPortionLen = decimalPointIndex;
 
@@ -491,36 +546,73 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
 static void lexCharLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
-
-  // Skip leading '
-  if (nextValueLexer(lexer) != '\'') {
-    INTERNAL_ERROR("called char lit lexer where there was no char literal");
+  // Skip first quote
+  int32_t c = nextValueLexer(lexer);
+  if (c != '\'') {
+    INTERNAL_ERROR("called char lexer where there wasn't a char");
     PANIC();
   }
 
-  // We basically read the whole thing into a string.
   Vector data;
   createVector(&data);
 
-  // Current character
-  int32_t c;
-  // last character
-  int32_t pC = '\0';
-  // last to last character
-  int32_t ppC = '\0';
   while ((c = nextValueLexer(lexer)) != EOF) {
-    // If we encounter a closing '
-    if (c == '\'') {
-      // If not (previous value is a backslash and the previous previous char is
-      // not a backslash) Then we can break Ex: '\' -> keep reading Ex: '\\' ->
-      // break Ex: '\a' -> break
-      if (!(pC == '\\' && ppC != '\\')) {
+    if (c == '\\') {
+      c = nextValueLexer(lexer);
+      switch (c) {
+      case '\\': {
+        *VEC_PUSH(&data, char) = '\\';
         break;
       }
+      case '\'': {
+        *VEC_PUSH(&data, char) = '\'';
+        break;
+      }
+      case '\"': {
+        *VEC_PUSH(&data, char) = '\"';
+        break;
+      }
+      case 'a': {
+        *VEC_PUSH(&data, char) = '\a';
+        break;
+      }
+      case 'b': {
+        *VEC_PUSH(&data, char) = '\b';
+        break;
+      }
+      case 'f': {
+        *VEC_PUSH(&data, char) = '\f';
+        break;
+      }
+      case 'n': {
+        *VEC_PUSH(&data, char) = '\n';
+        break;
+      }
+      case 'r': {
+        *VEC_PUSH(&data, char) = '\r';
+        break;
+      }
+      case 't': {
+        *VEC_PUSH(&data, char) = '\t';
+        break;
+      }
+      case 'v': {
+        *VEC_PUSH(&data, char) = '\v';
+        break;
+      }
+      default: {
+        *token = (Token){.type = T_None,
+                         .span = SPAN(start, lexer->position),
+                         .error = E_CharLiteralUnrecognizedEscapeCode};
+        destroyVector(&data);
+        return;
+      }
+      }
+    } else if (c == '\'') {
+      break;
+    } else {
+      *VEC_PUSH(&data, char) = (char)c;
     }
-    *VEC_PUSH(&data, char) = (char)c;
-    ppC = pC;
-    pC = c;
   }
 
   // get size and length + terminate string
@@ -557,71 +649,6 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
     // Clean up
     free(string);
     return;
-  }
-  case 2: {
-    if (string[0] != '\\') {
-      free(string);
-      // clang-format off
-      *token = (Token) {
-        .type = T_None,
-        .span = SPAN(start, lexer->position),
-        .error = E_CharLiteralTooLong
-      };
-      // clang-format on
-      return;
-    }
-
-    char code;
-    switch (string[1]) {
-    case 'n': {
-      code = '\n';
-      break;
-    }
-    case 't': {
-      code = '\t';
-      break;
-    }
-    case '\\': {
-      code = '\\';
-      break;
-    }
-    case '\'': {
-      code = '\'';
-      break;
-    }
-    case '\"': {
-      code = '\"';
-      break;
-    }
-    case '\0': {
-      code = '\0';
-      break;
-    }
-    default: {
-      free(string);
-      // clang-format off
-      *token = (Token) {
-        .type = T_None,
-        .span = SPAN(start, lexer->position),
-        .error = E_CharLiteralUnrecognizedEscapeCode
-      };
-      // clang-format on
-      return;
-    }
-    }
-
-    // Clean up
-    free(string);
-
-    // clang-format off
-    *token = (Token) {
-      .type = T_CharLiteral,
-      .charLiteral = code,
-      .span = SPAN(start, lexer->position),
-      .error = E_Ok
-    };
-    return;
-    // clang-format on
   }
   default: {
     free(string);
@@ -902,6 +929,9 @@ void lexNextToken(Lexer *lexer, Token *token) {
     }
     case ';': {
       NEXT_AND_RETURN_RESULT_TOKEN(T_Semicolon)
+    }
+    case '_': {
+      NEXT_AND_RETURN_RESULT_TOKEN(T_Underscore)
     }
     case EOF: {
       RESULT_TOKEN(T_None, E_EOF)

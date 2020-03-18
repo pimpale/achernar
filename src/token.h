@@ -77,6 +77,7 @@ typedef enum {
   T_Comma,        // ,
   T_Colon,        // :
   T_Semicolon,    // ;
+  T_Underscore,   // _
   // Macros
   T_Macro,        // macro!
   // Comments, and Attributes

@@ -13,7 +13,6 @@ typedef enum {
   S_VarDecl,
   S_StructDecl,
   S_TypeAliasDecl,
-  S_Entry,
   S_Expr,
 } StmntKind;
 
@@ -232,9 +231,11 @@ typedef struct Stmnt_s {
       ValueExpr *body;
     } funcDecl;
     struct {
-      char *field;
+      bool has_name;
+      char* name;
       Binding *members;
       size_t members_length;
+      bool trailing_comma;
     } structDecl;
     struct {
       Binding *binding;
@@ -244,6 +245,10 @@ typedef struct Stmnt_s {
       ValueExpr *lvalue;
       ValueExpr *rvalue;
     } assignStmnt;
+    struct {
+      TypeExpr *type;
+      char* name;
+    } aliasStmnt;
     struct {
       ValueExpr *value;
     } exprStmnt;

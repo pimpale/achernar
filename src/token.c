@@ -266,6 +266,10 @@ void printToken(Token *token) {
     str = "Semicolon";
     break;
   }
+  case T_Underscore: {
+    str = "Underscore";
+    break;
+  }
   case T_Macro: {
     str = "Macro";
     break;

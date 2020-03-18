@@ -39,6 +39,11 @@ typedef enum DiagnosticType_e {
   // VarDeclStmnt
   E_VarDeclStmntExpectedAssign,
   E_VarDeclStmntExpectedValue,
+  // AliasDeclStmnt
+  E_AliasDeclStmntExpectedIdentifier,
+  // StructDeclStmnt
+  E_StructDeclStmntExpectedLeftBrace,
+  E_StructDeclStmntExpectedRightBrace,
   // FuncDeclStmnt
   E_FuncDeclStmntExpectedParen,
   E_FuncDeclStmntExpectedType,

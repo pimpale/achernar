@@ -127,7 +127,6 @@ static void resyncType(BufferedLexer *blp) {
 static void parseStmnt(Stmnt *sp, BufferedLexer *blp);
 static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
-static void parsePattern(Pattern *pp, BufferedLexer *blp);
 
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
@@ -308,6 +307,7 @@ static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
     setNextToken(blp, &t);
     ivep->span = SPAN(start, ivep->ifExpr.body->span.end);
   }
+  return;
 
 HANDLE_NO_IF:
   INTERNAL_ERROR("called if expression parser where there was no "
@@ -315,7 +315,7 @@ HANDLE_NO_IF:
   PANIC();
 }
 
-static void parsePassExpr(ValueExpr *pep, BufferedLexer *blp) {
+static void parsePassValueExpr(ValueExpr *pep, BufferedLexer *blp) {
   pep->kind = VE_Pass;
   Token t;
   advanceToken(blp, &t);
@@ -329,7 +329,7 @@ HANDLE_NO_PASS:
   PANIC();
 }
 
-static void parseBreakExpr(ValueExpr *bep, BufferedLexer *blp) {
+static void parseBreakValueExpr(ValueExpr *bep, BufferedLexer *blp) {
   bep->kind = VE_Break;
   Token t;
   advanceToken(blp, &t);
@@ -343,7 +343,7 @@ HANDLE_NO_BREAK:
   PANIC();
 }
 
-static void parseContinueExpr(ValueExpr *cep, BufferedLexer *blp) {
+static void parseContinueValueExpr(ValueExpr *cep, BufferedLexer *blp) {
   cep->kind = VE_Continue;
   Token t;
   advanceToken(blp, &t);
@@ -357,7 +357,7 @@ HANDLE_NO_CONTINUE:
   PANIC();
 }
 
-static void parseWhileExpr(ValueExpr *wep, BufferedLexer *blp) {
+static void parseWhileValueExpr(ValueExpr *wep, BufferedLexer *blp) {
   wep->kind = VE_While;
   Token t;
   advanceToken(blp, &t);
@@ -377,6 +377,104 @@ static void parseWhileExpr(ValueExpr *wep, BufferedLexer *blp) {
 HANDLE_NO_WHILE:
   INTERNAL_ERROR("called continue parser where there was no continue");
   PANIC();
+}
+
+// Pattern : Expr,
+static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
+  ZERO(mcep);
+
+  Token t;
+  // Get pattern
+  mcep->pattern = malloc(sizeof(ValueExpr));
+  parseValueExpr(mcep->pattern, blp);
+  // Expect colon
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_Colon, HANDLE_NO_COLON);
+  // Get Value
+  mcep->value = malloc(sizeof(ValueExpr));
+  parseValueExpr(mcep->value, blp);
+  mcep->span = SPAN(mcep->pattern->span.start, mcep->value->span.end);
+  mcep->diagnostic = DIAGNOSTIC(E_Ok, mcep->span);
+  return;
+
+HANDLE_NO_COLON:
+  mcep->span = mcep->pattern->span;
+  mcep->diagnostic = DIAGNOSTIC(E_MatchNoColon, t.span);
+  resyncStmnt(blp);
+  return;
+}
+
+static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
+  ZERO(mvep);
+  mvep->kind = VE_Match;
+  Token t;
+  // Ensure match
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_Match, HANDLE_NO_MATCH);
+
+  LnCol start = t.span.start;
+
+  // Get expression to match against
+  mvep->matchExpr.value = malloc(sizeof(ValueExpr));
+  parseValueExpr(mvep->matchExpr.value, blp);
+  // now we must parse the block containing the cases
+
+  // Expect beginning brace
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
+
+  Vector matchCases;
+  createVector(&matchCases);
+  while (true) {
+    // Check if right brace
+    advanceToken(blp, &t);
+    if (t.type == T_BraceRight) {
+      break;
+    }
+    setNextToken(blp, &t);
+
+    // Parse the match case expr
+    parseMatchCaseExpr(VEC_PUSH(&matchCases, MatchCaseExpr), blp);
+
+    // Accept comma, if any
+    // If there's no comma then it MUST be followed by an end brace
+    // This also allows trailing commas
+    advanceToken(blp, &t);
+    if (t.type != T_Comma) {
+      // If the next value isn't an end brace, then we throw an error
+      EXPECT_TYPE(t, T_BraceRight, HANDLE_NO_RIGHTBRACE);
+      break;
+    }
+  }
+
+  // Get interior cases
+  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mvep->matchExpr.cases = releaseVector(&matchCases);
+
+  mvep->span = SPAN(start, t.span.end);
+  mvep->diagnostic = DIAGNOSTIC(E_Ok, mvep->span);
+
+  return;
+
+HANDLE_NO_MATCH:
+  INTERNAL_ERROR("called match parser where there was no match");
+  PANIC();
+
+HANDLE_NO_RIGHTBRACE:
+  mvep->diagnostic = DIAGNOSTIC(E_MatchNoRightBrace, t.span);
+  mvep->span = SPAN(start, t.span.end);
+  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mvep->matchExpr.cases = releaseVector(&matchCases);
+  resyncStmnt(blp);
+  return;
+
+HANDLE_NO_LEFTBRACE:
+  mvep->diagnostic = DIAGNOSTIC(E_MatchNoLeftbrace, t.span);
+  mvep->span = SPAN(start, t.span.end);
+  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mvep->matchExpr.cases = releaseVector(&matchCases);
+  resyncStmnt(blp);
+  return;
 }
 
 // Level0Term (literals of any kind)
@@ -432,22 +530,27 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   }
   case T_Break: {
     setNextToken(blp, &t);
-    parseBreakExpr(l1, blp);
+    parseBreakValueExpr(l1, blp);
     return;
   }
   case T_Continue: {
     setNextToken(blp, &t);
-    parseContinueExpr(l1, blp);
+    parseContinueValueExpr(l1, blp);
     return;
   }
   case T_Pass: {
     setNextToken(blp, &t);
-    parsePassExpr(l1, blp);
+    parsePassValueExpr(l1, blp);
     return;
   }
   case T_While: {
     setNextToken(blp, &t);
-    parseWhileExpr(l1, blp);
+    parseWhileValueExpr(l1, blp);
+    return;
+  }
+  case T_Match: {
+    setNextToken(blp, &t);
+    parseMatchValueExpr(l1, blp);
     return;
   }
   }
@@ -1067,7 +1170,7 @@ static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
 
   // get name
   advanceToken(blp, &t);
-  if(t.type == T_Identifier) {
+  if (t.type == T_Identifier) {
     sdsp->structDecl.has_name = true;
     sdsp->structDecl.name = strdup(t.identifier);
     advanceToken(blp, &t);
@@ -1115,12 +1218,12 @@ HANDLE_NO_LEFTBRACE:
   sdsp->span = SPAN(start, t.span.end);
   sdsp->diagnostic = DIAGNOSTIC(E_StructDeclStmntExpectedLeftBrace, sdsp->span);
 
-
 HANDLE_NO_RIGHTBRACE:
   sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
   sdsp->structDecl.members = releaseVector(&bindings);
   sdsp->span = SPAN(start, t.span.end);
   sdsp->diagnostic = DIAGNOSTIC(E_StructDeclStmntExpectedRightBrace, t.span);
+  resyncStmnt(blp);
   return;
 
 HANDLE_NO_STRUCT:
@@ -1189,114 +1292,6 @@ static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
     return;
   }
   }
-}
-
-// Pattern
-static void parsePatternExpr(Pattern* pp, BufferedLexer *blp) {
-  
-  // get name
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Identifier, HANDLE_NO_IDENTIFIER);
-  fdsp->funcDecl.name = strdup(t.identifier);
-
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_ParenLeft, HANDLE_NO_LEFTPAREN);
-}
-
-// Pattern : Expr,
-static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
-  ZERO(mcep);
-
-  Token t;
-  // Get pattern
-  mcep->pattern = malloc(sizeof(MatchCaseExpr));
-  parsePattern(mcep->pattern, blp);
-  // Expect colon
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Colon, HANDLE_NO_COLON);
-  // Get Value
-  mcep->value = malloc(sizeof(ValueExpr));
-  parseValueExpr(mcep->value, blp);
-  mcep->span = SPAN(mcep->pattern->span.start, mcep->value->span.end);
-  mcep->diagnostic = DIAGNOSTIC(E_Ok, mcep->span);
-  return;
-
-HANDLE_NO_COLON:
-  mcep->span = mcep->pattern->span;
-  mcep->diagnostic = DIAGNOSTIC(E_MatchNoColon, t.span);
-  resyncStmnt(blp);
-  return;
-}
-
-static void parseMatchExpr(ValueExpr *mep, BufferedLexer *blp) {
-  ZERO(mep);
-
-  Token t;
-  // Ensure match
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Match, HANDLE_NO_MATCH);
-
-  LnCol start = t.span.start;
-
-  // Get expression to match against
-  mep->matchExpr.value = malloc(sizeof(ValueExpr));
-  parseValueExpr(mep->matchExpr.value, blp);
-  // now we must parse the block containing the cases
-
-  // Expect beginning brace
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
-
-  Vector matchCases;
-  createVector(&matchCases);
-  while (true) {
-    // Check if right brace
-    advanceToken(blp, &t);
-    if (t.type == T_BraceRight) {
-      break;
-    }
-    setNextToken(blp, &t);
-
-    // Parse the match case expr
-    parseMatchCaseExpr(VEC_PUSH(&matchCases, MatchCaseExpr), blp);
-
-    // Accept comma, if any
-    // If there's no comma then it MUST be followed by an end brace
-    // This also allows trailing commas
-    advanceToken(blp, &t);
-    if (t.type != T_Comma) {
-      // If the next value isn't an end brace, then we throw an error
-      EXPECT_TYPE(t, T_BraceRight, HANDLE_NO_RIGHTBRACE);
-      break;
-    }
-  }
-
-  // Get interior cases
-  mep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
-  mep->matchExpr.cases = releaseVector(&matchCases);
-
-  // TODO Diagnostics and Span
-  return;
-
-HANDLE_NO_MATCH:
-  INTERNAL_ERROR("called match parser where there was no match");
-  PANIC();
-
-HANDLE_NO_RIGHTBRACE:
-  mep->diagnostic = DIAGNOSTIC(E_MatchNoRightBrace, t.span);
-  mep->span = SPAN(start, t.span.end);
-  mep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
-  mep->matchExpr.cases = releaseVector(&matchCases);
-  resyncStmnt(blp);
-  return;
-
-HANDLE_NO_LEFTBRACE:
-  mep->diagnostic = DIAGNOSTIC(E_MatchNoLeftbrace, t.span);
-  mep->span = SPAN(start, t.span.end);
-  mep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
-  mep->matchExpr.cases = releaseVector(&matchCases);
-  resyncStmnt(blp);
-  return;
 }
 
 void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {

@@ -82,7 +82,6 @@ typedef struct ValueExpr_s ValueExpr;
 typedef struct StructEntryExpr_s StructEntryExpr;
 typedef struct MatchCaseExpr_s MatchCaseExpr;
 typedef struct Binding_s Binding;
-typedef struct Pattern_s Pattern;
 typedef struct Stmnt_s Stmnt;
 
 typedef struct Attr_s {
@@ -115,18 +114,11 @@ typedef struct Binding_s {
   TypeExpr *type;
 } Binding;
 
-// Expressions and operations yielding a matchable pattern
-typedef struct Pattern_s {
-  Span span;
-  Diagnostic diagnostic;
-  // TODO how do patterns work? no clue atm
-} Pattern;
-
 // Expressions and operations yielding a match case
 typedef struct MatchCaseExpr_s {
   Span span;
   Diagnostic diagnostic;
-  Pattern *pattern;
+  ValueExpr *pattern;
   ValueExpr *value;
 } MatchCaseExpr;
 

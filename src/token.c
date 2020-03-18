@@ -28,256 +28,254 @@ void destroyToken(Token *token) {
 }
 
 void printToken(Token *token) {
-  char *str;
   switch (token->type) {
   case T_None: {
-    str = "(Not A T_)";
+    printf("(Not A Token)\n");
     break;
   }
   case T_Identifier: {
-    str = "Identifier";
+    printf("Identifier: %s\n", token->identifier);
     break;
   }
   case T_If: {
-    str = "If";
+    printf("If\n");
     break;
   }
   case T_Else: {
-    str = "Else";
+    printf("Else\n");
     break;
   }
   case T_While: {
-    str = "While";
+    printf("While\n");
     break;
   }
   case T_For: {
-    str = "For";
+    printf("For\n");
     break;
   }
   case T_With: {
-    str = "With";
+    printf("With\n");
     break;
   }
   case T_Match: {
-    str = "Match";
+    printf("Match\n");
     break;
   }
   case T_Break: {
-    str = "Break";
+    printf("Break\n");
     break;
   }
   case T_Continue: {
-    str = "Continue";
+    printf("Continue\n");
     break;
   }
   case T_Return: {
-    str = "Return";
+    printf("Return\n");
     break;
   }
   case T_Pass: {
-    str = "Pass";
+    printf("Pass\n");
     break;
   }
   case T_Function: {
-    str = "Function";
+    printf("Function\n");
     break;
   }
   case T_Let: {
-    str = "Let";
+    printf("Let\n");
     break;
   }
   case T_Struct: {
-    str = "Struct";
+    printf("Struct\n");
     break;
   }
   case T_Alias: {
-    str = "Alias";
+    printf("Alias\n");
     break;
   }
   case T_Sizeof: {
-    str = "Sizeof";
+    printf("Sizeof\n");
     break;
   }
   case T_Typeof: {
-    str = "Typeof";
+    printf("Typeof\n");
     break;
   }
   case T_Alignof: {
-    str = "Alignof";
+    printf("Alignof\n");
     break;
   }
   case T_StringLiteral: {
-    str = "StringLiteral";
+    printf("StringLiteral: %s\n", token->stringLiteral);
     break;
   }
   case T_CharLiteral: {
-    str = "CharacterLiteral";
+    printf("CharacterLiteral: %c\n", token->charLiteral);
     break;
   }
   case T_FloatLiteral: {
-    str = "FloatLiteral";
+    printf("FloatLiteral %f\n", token->floatLiteral);
     break;
   }
   case T_IntLiteral: {
-    str = "IntLiteral";
+    printf("IntLiteral %zu\n", token->intLiteral);
     break;
   }
   case T_Add: {
-    str = "Add";
+    printf("Add\n");
     break;
   }
   case T_Sub: {
-    str = "Sub";
+    printf("Sub\n");
     break;
   }
   case T_Mul: {
-    str = "Mul";
+    printf("Mul\n");
     break;
   }
   case T_Div: {
-    str = "Div";
+    printf("Div\n");
     break;
   }
   case T_Mod: {
-    str = "Mod";
+    printf("Mod\n");
     break;
   }
   case T_And: {
-    str = "And";
+    printf("And\n");
     break;
   }
   case T_Or: {
-    str = "Or";
+    printf("Or\n");
     break;
   }
   case T_Not: {
-    str = "Not";
+    printf("Not\n");
     break;
   }
   case T_BitAnd: {
-    str = "BitAnd";
+    printf("BitAnd\n");
     break;
   }
   case T_BitOr: {
-    str = "BitOr";
+    printf("BitOr\n");
     break;
   }
   case T_BitXor: {
-    str = "BitXor";
+    printf("BitXor\n");
     break;
   }
   case T_BitNot: {
-    str = "BitNot";
+    printf("BitNot\n");
     break;
   }
   case T_ShiftLeft: {
-    str = "ShiftLeft";
+    printf("ShiftLeft\n");
     break;
   }
   case T_ShiftRight: {
-    str = "ShiftRight";
+    printf("ShiftRight\n");
     break;
   }
   case T_Equal: {
-    str = "Equal";
+    printf("Equal\n");
     break;
   }
   case T_NotEqual: {
-    str = "NotEqual";
+    printf("NotEqual\n");
     break;
   }
   case T_CompLess: {
-    str = "CompLess";
+    printf("CompLess\n");
     break;
   }
   case T_CompLessEqual: {
-    str = "CompLessEqual";
+    printf("CompLessEqual\n");
     break;
   }
   case T_CompGreater: {
-    str = "CompGreater";
+    printf("CompGreater\n");
     break;
   }
   case T_CompGreaterEqual: {
-    str = "CompGreaterEqual";
+    printf("CompGreaterEqual\n");
     break;
   }
   case T_Ref: {
-    str = "Ref";
+    printf("Ref\n");
     break;
   }
   case T_Deref: {
-    str = "Deref";
+    printf("Deref\n");
     break;
   }
   case T_Assign: {
-    str = "Assign";
+    printf("Assign\n");
     break;
   }
   case T_Pipe: {
-    str = "Pipe";
+    printf("Pipe\n");
     break;
   }
   case T_ParenLeft: {
-    str = "ParenLeft";
+    printf("ParenLeft\n");
     break;
   }
   case T_ParenRight: {
-    str = "ParenRight";
+    printf("ParenRight\n");
     break;
   }
   case T_BracketLeft: {
-    str = "BracketLeft";
+    printf("BracketLeft\n");
     break;
   }
   case T_BracketRight: {
-    str = "BracketRight";
+    printf("BracketRight\n");
     break;
   }
   case T_BraceLeft: {
-    str = "BraceLeft";
+    printf("BraceLeft\n");
     break;
   }
   case T_BraceRight: {
-    str = "BraceRight";
+    printf("BraceRight\n");
     break;
   }
   case T_AttrLeft: {
-    str = "AttrLeft";
+    printf("AttrLeft\n");
     break;
   }
   case T_AttrRight: {
-    str = "AttrRight";
+    printf("AttrRight\n");
     break;
   }
   case T_Dot: {
-    str = "Dot";
+    printf("Dot\n");
     break;
   }
   case T_Comma: {
-    str = "Comma";
+    printf("Comma\n");
     break;
   }
   case T_Colon: {
-    str = "Colon";
+    printf("Colon\n");
     break;
   }
   case T_Semicolon: {
-    str = "Semicolon";
+    printf("Semicolon\n");
     break;
   }
   case T_Underscore: {
-    str = "Underscore";
+    printf("Underscore\n");
     break;
   }
   case T_Macro: {
-    str = "Macro";
+    printf("Macro: %s\n", token->macro);
     break;
   }
   case T_Comment: {
-    str = "Comment";
+    printf("Comment: %s\n", token->comment);
     break;
   }
   }
-  puts(str);
 }

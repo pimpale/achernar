@@ -56,13 +56,16 @@ void *getVector(Vector *vector, size_t loc);
 void *insertVector(Vector *vector, size_t loc, size_t len);
 
 /// Removes len bytes of memory
+/// If data is not NULL, the removed memory will be copied to data
+/// REQUIRES: data is NULL or a pointer to a segment of memory at least len bytes
 /// REQUIRES: vector is a pointer to a valid Vector
 /// REQUIRES: loc < vector's current length
 /// REQUIRES: len <= vector's current length - loc
 /// GUARANTEES: vector's length is decreased by len byte
 /// GUARANTEES: vector's byes from [loc, loc + len) will be removed
 /// GUARANTEES: the remainder of the vector will be moved backward len bytes
-void removeVector(Vector *vector, size_t loc, size_t len);
+/// GUARANTEES: len bytes at data will be overwritten with the removed data
+void removeVector(Vector *vector, void* data, size_t loc, size_t len);
 
 /// Appends len bytes of memory to the end of the vector
 /// REQUIRES: vector is a pointer to a valid vector
@@ -73,9 +76,11 @@ void removeVector(Vector *vector, size_t loc, size_t len);
 void *pushVector(Vector *vector, size_t len);
 
 /// Deletes len bytes of memory from the end of the vector
+/// If data is not NULL, the removed memory will be copied to data
 /// REQUIRES: vector is a pointer to a valid vector
-/// GUARANTEES: until the subsequent operation, return value will point to len
-///             bytes of valid memory
+/// REQUIRES: len < vector's current length
+/// REQUIRES: data is either NULL, or a pointer to a segment of memory at least len bytes long
+/// GUARANTEES: the vector's length is decreased by len bytes
 void popVector(Vector *vector, void *data, size_t len);
 
 /// Returns the length of the vector
@@ -93,8 +98,8 @@ size_t capacityVector(Vector *vector);
   ((type *)getVector(vector, index * sizeof(type)))
 #define VEC_INS(vector, index, type)                                           \
   ((type *)insertVector(vector, index * sizeof(type), sizeof(type)))
-#define VEC_REM(vector, index, type)                                           \
-  removeVector(vector, index * sizeof(type), sizeof(type))
+#define VEC_REM(vector, data, index, type)                                           \
+  removeVector(vector, data, index * sizeof(type), sizeof(type))
 #define VEC_PUSH(vector, type) ((type *)pushVector(vector, sizeof(type)))
 #define VEC_POP(vector, data, type) popVector(vector, data, sizeof(type))
 #define VEC_LEN(vector, type) (lengthVector(vector) / sizeof(type))

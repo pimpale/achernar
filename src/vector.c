@@ -67,10 +67,7 @@ void popVector(Vector *vector, void *data, size_t len) {
     INTERNAL_ERROR("vector underflow");
     PANIC();
   }
-  if (data != NULL) {
-    memmove(data, (uint8_t *)vector->data + vector->length - len, len);
-  }
-  removeVector(vector, vector->length - len, len);
+  removeVector(vector, data, vector->length - len, len);
 }
 
 // Insert a segment of empty data of len length at the specified position loc
@@ -89,7 +86,7 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
   return src;
 }
 
-void removeVector(Vector *vector, size_t loc, size_t len) {
+void removeVector(Vector *vector, void* data, size_t loc, size_t len) {
   if (len > vector->length - loc) {
     INTERNAL_ERROR("vector underflow");
     PANIC();
@@ -97,6 +94,10 @@ void removeVector(Vector *vector, size_t loc, size_t len) {
 
   uint8_t *src = getVector(vector, loc + len);
   uint8_t *dest = getVector(vector, loc);
+
+  if (data != NULL) {
+    memmove(data, dest, len);
+  }
 
   vector->length -= len;
   memmove(dest, src, vector->length - loc);

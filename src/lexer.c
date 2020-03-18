@@ -208,6 +208,8 @@ static void lexComment(Lexer *lexer, Token *token) {
       *VEC_PUSH(&data, char) = (char)c;
       lastChar = (char)c;
     }
+    // Pop last bracket
+    VEC_POP(&data, NULL, char);
     // Push null byte
     *VEC_PUSH(&data, char) = '\0';
 
@@ -231,7 +233,6 @@ static void lexComment(Lexer *lexer, Token *token) {
     while ((c = nextValueLexer(lexer)) != EOF) {
       if (c != '\n') {
         *VEC_PUSH(&data, char) = (char)c;
-        nextValueLexer(lexer);
       } else {
         break;
       }
@@ -357,12 +358,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
   int32_t c;
   while ((c = nextValueLexer(lexer)) != EOF) {
-    if (isdigit(c)                // Normal digit
-        || c == '.'               // Decimal point
-        || (c >= 'a' && c <= 'f') // Hexadecimal Character
-        || c == 'b' || c == 'd' || c == 'o' ||
-        c == 'x' // Character Interpretation
-    ) {
+    if (isalnum(c) || c == '.') {
       // If there's a decimal point we note the location
       // If this is the second time we've seen it, then it's probably
       if (c == '.') {
@@ -680,6 +676,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
       *VEC_PUSH(&data, char) = (char)c;
       nextValueLexer(lexer);
     } else if (c == '!') {
+      nextValueLexer(lexer);
       macro = true;
       break;
     } else {
@@ -939,6 +936,7 @@ void lexNextToken(Lexer *lexer, Token *token) {
     }
     default: {
       RESULT_TOKEN(T_None, E_UnrecognizedCharacter)
+      nextValueLexer(lexer);
       return;
     }
     }

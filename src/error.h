@@ -44,13 +44,13 @@ typedef enum DiagnosticType_e {
   // StructDeclStmnt
   E_StructDeclStmntExpectedLeftBrace,
   E_StructDeclStmntExpectedRightBrace,
-  // FuncDeclStmnt
-  E_FuncDeclStmntExpectedParen,
-  E_FuncDeclStmntExpectedType,
-  E_FuncDeclStmntExpectedIdentifier,
-  E_FuncDeclStmntExpectedColon,
-  E_FuncDeclStmntExpectedAssign,
-  E_FuncDeclStmntExpectedBody,
+  // FnDeclStmnt
+  E_FnDeclStmntExpectedParen,
+  E_FnDeclStmntExpectedType,
+  E_FnDeclStmntExpectedIdentifier,
+  E_FnDeclStmntExpectedColon,
+  E_FnDeclStmntExpectedAssign,
+  E_FnDeclStmntExpectedBody,
   // Groups
   E_GroupExpectRightParen,
   // Match

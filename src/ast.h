@@ -9,7 +9,7 @@
 #include "token.h"
 
 typedef enum {
-  S_FuncDecl,
+  S_FnDecl,
   S_VarDecl,
   S_StructDecl,
   S_TypeAliasDecl,
@@ -38,6 +38,7 @@ typedef enum {
   VE_Block,
   VE_Group,
   VE_FieldAccess,
+  VE_Reference,
 } ValueExprKind;
 
 typedef enum {
@@ -161,6 +162,9 @@ typedef struct ValueExpr_s {
       char *field;
     } fieldAccess;
     struct {
+      char *identifier;
+    } reference;
+    struct {
       ExprUnOpKind operator;
       ValueExpr *operand;
     } unaryOp;
@@ -221,7 +225,7 @@ typedef struct Stmnt_s {
       size_t params_length;
       TypeExpr *type;
       ValueExpr *body;
-    } funcDecl;
+    } fnDecl;
     struct {
       bool has_name;
       char* name;

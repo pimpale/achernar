@@ -1362,3 +1362,19 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
   tu->statements = releaseVector(&statements);
   return;
 }
+
+// PRINTING
+
+void printTranslationUnit(TranslationUnit* tu) {
+  puts("{");
+  printf("", tu->
+  for(size_t i = 0; i < tu->statements_length; i++) {
+    print
+
+    // Skip comma on last line
+    if(i != tu->statements_length - 1) {
+      puts(",");
+    }
+  }
+  puts("[");
+}

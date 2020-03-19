@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "error.h"
 #include "lexer.h"
@@ -1365,16 +1366,17 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
 
 // PRINTING
 
-void printTranslationUnit(TranslationUnit* tu) {
+char* printTranslationUnit(TranslationUnit* tup) {
   puts("{");
-  printf("", tu->
-  for(size_t i = 0; i < tu->statements_length; i++) {
-    print
-
+  printf("\"%s\":\"%s\"", "kind", "TranslationUnit");
+  for(size_t i = 0; i < tup->statements_length; i++) {
+    Stmnt s = tup->statements[i];
+    switch(s.kind) 
     // Skip comma on last line
-    if(i != tu->statements_length - 1) {
+    if(i != tup->statements_length - 1) {
       puts(",");
     }
   }
-  puts("[");
+  puts("] }");
+  return "yeet";
 }

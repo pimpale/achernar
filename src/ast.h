@@ -257,5 +257,6 @@ typedef struct TranslationUnit_s {
 } TranslationUnit;
 
 void parseTranslationUnit(TranslationUnit *tup, BufferedLexer *blp);
+char* printTranslationUnit(TranslationUnit *tup);
 
 #endif

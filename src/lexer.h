@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "linearAllocator.h"
+#include "arena.h"
 #include "error.h"
 
 typedef enum LexerBacking_e {
@@ -16,7 +16,7 @@ typedef enum LexerBacking_e {
 
 // Do not manually modify or access any of these values
 typedef struct {
-  LinearAllocator tokenData;
+  Arena arena;
   // The backing data structure
   LexerBacking backing;
   // Can either be a File ptr or a memory with location and length
@@ -34,7 +34,7 @@ typedef struct {
 
 Lexer *createLexerFile(Lexer *lexer, FILE *file);
 Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len);
-
+Arena releaseLexer(Lexer *lexer);
 Lexer *destroyLexer(Lexer *lexer);
 
 // Initializes Token to the value of the next token if there has not been an error.

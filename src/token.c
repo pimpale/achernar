@@ -3,30 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void destroyToken(Token *token) {
-  switch (token->type) {
-  case T_Identifier: {
-    free(token->identifier);
-    break;
-  }
-  case T_Comment: {
-    free(token->comment);
-    break;
-  }
-  case T_StringLiteral: {
-    free(token->stringLiteral);
-    break;
-  }
-  case T_Macro: {
-    free(token->macro);
-    break;
-  }
-  default: {
-    break;
-  }
-  }
-}
-
 void printToken(Token *token) {
   switch (token->type) {
   case T_None: {

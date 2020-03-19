@@ -13,6 +13,7 @@
 
 Lexer *createLexerFile(Lexer *lexer, FILE *file) {
   lexer->position = LNCOL(0, 0);
+  createArena(&lexer->arena);
 
   // Files
   lexer->file = file;
@@ -23,6 +24,7 @@ Lexer *createLexerFile(Lexer *lexer, FILE *file) {
 
 Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len) {
   lexer->position = LNCOL(0, 0);
+  createArena(&lexer->arena);
 
   // Copy memory
   lexer->backing = LexerBackingMemory;
@@ -34,7 +36,7 @@ Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len) {
   return lexer;
 }
 
-Lexer *destroyLexer(Lexer *lexer) {
+Arena releaseLexer(Lexer *lexer) {
   switch (lexer->backing) {
   case LexerBackingMemory: {
     free(lexer->memory.ptr);
@@ -44,6 +46,12 @@ Lexer *destroyLexer(Lexer *lexer) {
     break;
   }
   }
+  return lexer->arena;
+}
+
+Lexer *destroyLexer(Lexer *lexer) {
+  Arena a = releaseLexer(lexer);
+  destroyArena(&a);
   return lexer;
 }
 
@@ -192,6 +200,7 @@ static void lexComment(Lexer *lexer, Token *token) {
     // #[ Comment ]#
     Vector data;
     createVector(&data);
+    // skip hash
     nextValueLexer(lexer);
     size_t stackDepth = 1;
     char lastChar = '\0';
@@ -212,17 +221,19 @@ static void lexComment(Lexer *lexer, Token *token) {
     VEC_POP(&data, NULL, char);
     // Push null byte
     *VEC_PUSH(&data, char) = '\0';
+    char *string = releaseVector(&data);
 
     // Return data
     // clang-format off
     *token = (Token) {
       .type = T_Comment,
-      .comment = releaseVector(&data),
+      .comment = intern(string, &lexer->arena),
       .span = SPAN(start, lexer->position),
       .error = E_Ok
     };
-    return;
     // clang-format on
+    free(string);
+    return;
   }
   default: {
     // If we don't recognize any of these characters, it's just a normal single
@@ -239,16 +250,19 @@ static void lexComment(Lexer *lexer, Token *token) {
     }
     *VEC_PUSH(&data, char) = '\0';
 
+    char* string = releaseVector(&data);
+
     // Return data
     // clang-format off
     *token = (Token) {
       .type = T_Comment,
-      .comment = releaseVector(&data),
+      .comment = intern(string, &lexer->arena),
       .span = SPAN(start, lexer->position),
       .error = E_Ok
     };
-    return;
     // clang-format on
+    free(string);
+    return;
   }
   }
 }
@@ -330,15 +344,18 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
 
+  char* string = releaseVector(&data);
+
   // Return data
   // clang-format off
   *token = (Token) {
       .type = T_StringLiteral,
-      .stringLiteral = releaseVector(&data),
+      .stringLiteral = intern(string, &lexer->arena),
       .span = SPAN(start, lexer->position),
       .error = E_Ok
     };
   // clang-format on
+  free(string);
   return;
 }
 
@@ -416,7 +433,6 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         break;
       }
       default: {
-        free(string);
         // clang-format off
         *token = (Token) {
           .type = T_None,
@@ -425,7 +441,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
         };
         // clang-format on
-        return;
+        goto CLEANUP;
       }
       }
       // Basically take the string after 0x or whatever
@@ -440,19 +456,17 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     // Now we get on to parsing the integer
     ResultU64 ret = parseInteger(intStr, intStrLen, radix);
     if (ret.err != E_Ok) {
-      free(string);
       // clang-format off
       *token = (Token) {
           .type = T_None,
           .span = SPAN(start, lexer->position),
-          .error = E_IntLiteralUnrecognizedRadixCode
+          .error = ret.err
 
       };
       // clang-format on
-      return;
+      goto CLEANUP;
     } else {
       // Return data
-      free(string);
       // clang-format off
       *token  = (Token) {
         .type = T_IntLiteral,
@@ -462,7 +476,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
       };
       // clang-format on
-      return;
+      goto CLEANUP;
     }
   } else {
     // If it has a decimal point, it must be a float
@@ -488,7 +502,6 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     if (initialRet.err == E_Ok) {
       result += initialRet.val;
     } else {
-      free(string);
       // clang-format off
       *token = (Token) {
           .type = T_None,
@@ -497,7 +510,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
       };
       // clang-format on
-      return;
+      goto CLEANUP;
     }
     // If there's a bit after the inital part, then we must add it
     if (finalPortionLen > 0) {
@@ -511,7 +524,6 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
         }
         result += decimalResult;
       } else {
-        free(string);
         // clang-format off
         *token = (Token) {
             .type = T_None,
@@ -520,12 +532,9 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
 
         };
         // clang-format on
-        return;
+        goto CLEANUP;
       }
     }
-
-    // avoid leaking memory
-    free(string);
 
     // Return data
     // clang-format off
@@ -536,8 +545,12 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       .error = E_Ok
     };
     // clang-format on
-    return;
+    goto CLEANUP;
   }
+
+CLEANUP:
+  free(string);
+  return;
 }
 
 static void lexCharLiteral(Lexer *lexer, Token *token) {
@@ -618,9 +631,6 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
 
   switch (length) {
   case 0: {
-    // Clean up
-    free(string);
-
     // clang-format off
     *token = (Token) {
       .type = T_None,
@@ -628,7 +638,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       .error = E_CharLiteralEmpty
     };
     // clang-format on
-    return;
+    goto CLEANUP;
   }
   case 1: {
     // We return the first character in the vector
@@ -641,13 +651,9 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       .error = E_Ok
     };
     // clang-format on
-
-    // Clean up
-    free(string);
-    return;
+    goto CLEANUP;
   }
   default: {
-    free(string);
     // clang-format off
     *token = (Token) {
       .type = T_None,
@@ -655,9 +661,12 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
       .error = E_CharLiteralTooLong
     };
     // clang-format on
-    return;
+    goto CLEANUP;
   }
   }
+CLEANUP:
+  free(string);
+  return;
 }
 
 // Parses an identifer or macro
@@ -695,9 +704,9 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   if (macro) {
     // It is an identifier, and we need to keep the string
     token->type = T_Macro;
-    token->macro = string;
+    token->macro = intern(string, &lexer->arena);
     token->error = E_Ok;
-    return;
+    goto CLEANUP;
   }
 
   if (!strcmp(string, "if")) {
@@ -733,13 +742,14 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   } else {
     // It is an identifier, and we need to keep the string
     token->type = T_Identifier;
-    token->identifier = string;
+    token->identifier = intern(string, &lexer->arena);
     token->error = E_Ok;
-    return;
+    goto CLEANUP;
   }
-
   // If it wasn't an identifier
   token->error = E_Ok;
+
+CLEANUP:
   free(string);
   return;
 }

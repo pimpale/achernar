@@ -195,7 +195,6 @@ typedef struct ValueExpr_s {
       size_t arguments_length;
     } callExpr;
     struct {
-      bool has_value;
       ValueExpr *value;
     } returnExpr;
     struct Match_s {

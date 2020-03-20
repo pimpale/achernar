@@ -366,6 +366,22 @@ HANDLE_NO_CONTINUE:
   PANIC();
 }
 
+static void parseReturnValueExpr(ValueExpr *rep, BufferedLexer *blp) {
+  rep->kind = VE_Return;
+  Token t;
+  advanceToken(blp, &t);
+  rep->span = t.span;
+  EXPECT_TYPE(t, T_Return, HANDLE_NO_RETURN);
+  rep->returnExpr.value = malloc(sizeof(ValueExpr));
+  parseValueExpr(rep->returnExpr.value, blp);
+  rep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  return;
+
+HANDLE_NO_RETURN:
+  INTERNAL_ERROR("called return parser where there was no continue");
+  PANIC();
+}
+
 static void parseWhileValueExpr(ValueExpr *wep, BufferedLexer *blp) {
   wep->kind = VE_While;
   Token t;
@@ -561,6 +577,11 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   case T_Continue: {
     setNextToken(blp, &t);
     parseContinueValueExpr(l1, blp);
+    return;
+  }
+  case T_Return: {
+    setNextToken(blp, &t);
+    parseReturnValueExpr(l1, blp);
     return;
   }
   case T_Pass: {

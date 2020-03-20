@@ -4,6 +4,7 @@
 
 #include "ast.h"
 #include "printAst.h"
+#include "parseAst.h"
 #include "error.h"
 #include "lexer.h"
 #include "token.h"

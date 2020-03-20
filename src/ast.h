@@ -258,7 +258,5 @@ typedef struct TranslationUnit_s {
   uint64_t statements_length; // The number of statements
 } TranslationUnit;
 
-void parseTranslationUnit(TranslationUnit *tup, BufferedLexer *blp);
-char* printTranslationUnit(TranslationUnit *tup);
 
 #endif

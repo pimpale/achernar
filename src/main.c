@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "ast.h"
+#include "printAst.h"
 #include "error.h"
 #include "lexer.h"
 #include "token.h"

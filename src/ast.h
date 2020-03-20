@@ -252,6 +252,8 @@ typedef struct Stmnt_s {
 } Stmnt;
 
 typedef struct TranslationUnit_s {
+  Span span; // span of the translation unit
+  Diagnostic diagnostic;      // any errors that occur during parsing
   Stmnt *statements;          // The top level is just a series of statements
   uint64_t statements_length; // The number of statements
 } TranslationUnit;

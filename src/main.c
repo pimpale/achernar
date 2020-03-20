@@ -15,7 +15,7 @@ static char *newAstString(FILE *stream) {
   TranslationUnit tu;
   parseTranslationUnit(&tu, blp);
 
-  char* str = printTranslationUnit(tu);
+  char* str = printTranslationUnit(&tu);
 
   free(destroyBufferedLexer(blp));
   free(destroyLexer(l));

@@ -1,10 +1,11 @@
 #include "ast.h"
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "error.h"
+#include "json.h"
 #include "lexer.h"
 #include "token.h"
 #include "vector.h"
@@ -1348,10 +1349,10 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
 
     // semicolon is required
     advanceToken(blp, &t);
-    if(t.type == T_None && t.error == E_EOF) {
+    if (t.type == T_None && t.error == E_EOF) {
       // We've hit the end of the file
       break;
-    } else if(t.type == T_Semicolon) {
+    } else if (t.type == T_Semicolon) {
       // Do nothing
     } else {
       // Set next, and move on
@@ -1362,21 +1363,4 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
   tu->statements_length = VEC_LEN(&statements, Stmnt);
   tu->statements = releaseVector(&statements);
   return;
-}
-
-// PRINTING
-
-char* printTranslationUnit(TranslationUnit* tup) {
-  puts("{");
-  printf("\"%s\":\"%s\"", "kind", "TranslationUnit");
-  for(size_t i = 0; i < tup->statements_length; i++) {
-    Stmnt s = tup->statements[i];
-    switch(s.kind) 
-    // Skip comma on last line
-    if(i != tup->statements_length - 1) {
-      puts(",");
-    }
-  }
-  puts("] }");
-  return "yeet";
 }

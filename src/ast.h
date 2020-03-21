@@ -9,74 +9,74 @@
 #include "token.h"
 
 typedef enum {
-  S_FnDecl,
-  S_VarDecl,
-  S_StructDecl,
-  S_TypeAliasDecl,
-  S_Expr,
+  SK_FnDecl,
+  SK_VarDecl,
+  SK_StructDecl,
+  SK_TypeAliasDecl,
+  SK_Expr,
 } StmntKind;
 
 typedef enum {
-  VE_IntLiteral,
-  VE_FloatLiteral,
-  VE_CharLiteral,
-  VE_StringLiteral,
-  VE_ArrayLiteral,
-  VE_StructLiteral,
-  VE_BinaryOp,
-  VE_UnaryOp,
-  VE_Call,
-  VE_If,
-  VE_While,
-  VE_For,
-  VE_With,
-  VE_Pass,
-  VE_Break,
-  VE_Continue,
-  VE_Return,
-  VE_Match,
-  VE_Block,
-  VE_Group,
-  VE_FieldAccess,
-  VE_Reference,
+  VEK_IntLiteral,
+  VEK_FloatLiteral,
+  VEK_CharLiteral,
+  VEK_StringLiteral,
+  VEK_ArrayLiteral,
+  VEK_StructLiteral,
+  VEK_BinaryOp,
+  VEK_UnaryOp,
+  VEK_Call,
+  VEK_If,
+  VEK_While,
+  VEK_For,
+  VEK_With,
+  VEK_Pass,
+  VEK_Break,
+  VEK_Continue,
+  VEK_Return,
+  VEK_Match,
+  VEK_Block,
+  VEK_Group,
+  VEK_FieldAccess,
+  VEK_Reference,
 } ValueExprKind;
 
 typedef enum {
-  TE_Type,   // type
-  TE_Typeof, // typeof
+  TEK_Type,   // type
+  TEK_Typeof, // typeof
 } TypeExprKind;
 
 typedef enum {
-  EBO_Add,              // +
-  EBO_Sub,              // -
-  EBO_Mul,              // *
-  EBO_Div,              // /
-  EBO_Mod,              // %
-  EBO_BitAnd,           // &
-  EBO_BitOr,            // |
-  EBO_BitXor,           // ^
-  EBO_BitShl,           // <<
-  EBO_BitShr,           // >>
-  EBO_LogicalAnd,       // &&
-  EBO_LogicalOr,        // ||
-  EBO_CompEqual,        // ==
-  EBO_CompNotEqual,     // !=
-  EBO_CompLess,         // <
-  EBO_CompLessEqual,    // <=
-  EBO_CompGreater,      // >
-  EBO_CompGreaterEqual, // >=
-  EBO_ArrayAccess,      // []
-  EBO_Pipeline,         // ->
-} ExprBinOpKind;
+  BOK_Add,              // +
+  BOK_Sub,              // -
+  BOK_Mul,              // *
+  BOK_Div,              // /
+  BOK_Mod,              // %
+  BOK_BitAnd,           // &
+  BOK_BitOr,            // |
+  BOK_BitXor,           // ^
+  BOK_BitShl,           // <<
+  BOK_BitShr,           // >>
+  BOK_LogicalAnd,       // &&
+  BOK_LogicalOr,        // ||
+  BOK_CompEqual,        // ==
+  BOK_CompNotEqual,     // !=
+  BOK_CompLess,         // <
+  BOK_CompLessEqual,    // <=
+  BOK_CompGreater,      // >
+  BOK_CompGreaterEqual, // >=
+  BOK_ArrayAccess,      // []
+  BOK_Pipeline,         // ->
+} BinaryOpKind;
 
 typedef enum {
-  EUO_Negate,     // -
-  EUO_Posit,      // +
-  EUO_LogicalNot, // !
-  EUO_BitNot,     // ~
-  EUO_Ref,        // $
-  EUO_Deref       // @
-} ExprUnOpKind;
+  UOK_Negate,     // -
+  UOK_Posit,      // +
+  UOK_LogicalNot, // !
+  UOK_BitNot,     // ~
+  UOK_Ref,        // $
+  UOK_Deref       // @
+} UnaryOpKind;
 
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
@@ -165,11 +165,11 @@ typedef struct ValueExpr_s {
       char *identifier;
     } reference;
     struct {
-      ExprUnOpKind operator;
+      UnaryOpKind operator;
       ValueExpr *operand;
     } unaryOp;
     struct {
-      ExprBinOpKind operator;
+      BinaryOpKind operator;
       ValueExpr *operand_1;
       ValueExpr *operand_2;
     } binaryOp;
@@ -227,7 +227,7 @@ typedef struct Stmnt_s {
     } fnDecl;
     struct {
       bool has_name;
-      char* name;
+      char *name;
       Binding *members;
       size_t members_length;
       bool trailing_comma;
@@ -242,7 +242,7 @@ typedef struct Stmnt_s {
     } assignStmnt;
     struct {
       TypeExpr *type;
-      char* name;
+      char *name;
     } aliasStmnt;
     struct {
       ValueExpr *value;
@@ -251,11 +251,10 @@ typedef struct Stmnt_s {
 } Stmnt;
 
 typedef struct TranslationUnit_s {
-  Span span; // span of the translation unit
+  Span span;                  // span of the translation unit
   Diagnostic diagnostic;      // any errors that occur during parsing
   Stmnt *statements;          // The top level is just a series of statements
   uint64_t statements_length; // The number of statements
 } TranslationUnit;
-
 
 #endif

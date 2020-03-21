@@ -13,14 +13,14 @@
 
 #define EXPECT_TYPE(token, tokenType, onErrLabel)                              \
   do {                                                                         \
-    if ((token).type != (tokenType)) {                                         \
+    if ((token).kind != (tokenType)) {                                         \
       goto onErrLabel;                                                         \
     }                                                                          \
   } while (false)
 
 #define EXPECT_NO_ERROR(thingPtr, onErrLabel)                                  \
   do {                                                                         \
-    if ((thingPtr)->diagnostic.type != E_Ok) {                                 \
+    if ((thingPtr)->diagnostic.kind != DK_Ok) {                                 \
       goto onErrLabel;                                                         \
     }                                                                          \
   } while (false)
@@ -38,53 +38,53 @@ static void resyncStmnt(BufferedLexer *blp) {
   while (true) {
     Token t;
     advanceToken(blp, &t);
-    switch (t.type) {
-    case T_ParenLeft: {
+    switch (t.kind) {
+    case TK_ParenLeft: {
       parenDepth++;
       break;
     }
-    case T_ParenRight: {
+    case TK_ParenRight: {
       parenDepth--;
       if (parenDepth < 0) {
         return;
       }
       break;
     }
-    case T_BraceLeft: {
+    case TK_BraceLeft: {
       braceDepth++;
       break;
     }
-    case T_BraceRight: {
+    case TK_BraceRight: {
       braceDepth--;
       if (braceDepth < 0) {
         return;
       }
       break;
     }
-    case T_BracketLeft: {
+    case TK_BracketLeft: {
       bracketDepth++;
       break;
     }
-    case T_BracketRight: {
+    case TK_BracketRight: {
       bracketDepth--;
       if (bracketDepth < 0) {
         return;
       }
       break;
     }
-    case T_AttrLeft: {
+    case TK_AttrLeft: {
       attrDepth++;
       break;
     }
-    case T_AttrRight: {
+    case TK_AttrRight: {
       attrDepth--;
       if (attrDepth < 0) {
         return;
       }
       break;
     }
-    case T_Semicolon: // Fallthrough
-    case T_Comma: {
+    case TK_Semicolon: // Fallthrough
+    case TK_Comma: {
       if (braceDepth <= 0 && bracketDepth <= 0 && parenDepth <= 0 &&
           attrDepth <= 0) {
         // put the comma or semicolon back on the stack to parse
@@ -93,8 +93,8 @@ static void resyncStmnt(BufferedLexer *blp) {
       }
       break;
     }
-    case T_None: {
-      if (t.error == E_EOF) {
+    case TK_None: {
+      if (t.error == DK_EOF) {
         return;
       }
       break;
@@ -113,9 +113,9 @@ static void resyncType(BufferedLexer *blp) {
   while (true) {
     Token t;
     advanceToken(blp, &t);
-    switch (t.type) {
-    case T_Assign:
-    case T_Identifier: {
+    switch (t.kind) {
+    case TK_Assign:
+    case TK_Identifier: {
       setNextToken(blp, &t);
       return;
     }
@@ -134,14 +134,14 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_IntLiteral, HANDLE_NO_INT_LITERAL);
-  ivep->kind = VE_IntLiteral;
-  ivep->intLiteral.value = t.intLiteral;
+  EXPECT_TYPE(t, TK_IntLiteral, HANDLDK_NO_INTK_LITERAL);
+  ivep->kind = VEK_IntLiteral;
+  ivep->intLiteral.value = t.integer_literal;
   ivep->span = t.span;
-  ivep->diagnostic = DIAGNOSTIC(E_Ok, ivep->span);
+  ivep->diagnostic = DIAGNOSTIC(DK_Ok, ivep->span);
   return;
 
-HANDLE_NO_INT_LITERAL:
+HANDLDK_NO_INTK_LITERAL:
   INTERNAL_ERROR("called int literal parser where there was no "
                  "int literal");
   PANIC();
@@ -150,14 +150,14 @@ HANDLE_NO_INT_LITERAL:
 static void parseFloatValueExpr(ValueExpr *fvep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_FloatLiteral, HANDLE_NO_FLOAT_LITERAL);
-  fvep->kind = VE_FloatLiteral;
-  fvep->floatLiteral.value = t.floatLiteral;
+  EXPECT_TYPE(t, TK_FloatLiteral, HANDLDK_NO_FLOATK_LITERAL);
+  fvep->kind = VEK_FloatLiteral;
+  fvep->floatLiteral.value = t.float_literal;
   fvep->span = t.span;
-  fvep->diagnostic = DIAGNOSTIC(E_Ok, fvep->span);
+  fvep->diagnostic = DIAGNOSTIC(DK_Ok, fvep->span);
   return;
 
-HANDLE_NO_FLOAT_LITERAL:
+HANDLDK_NO_FLOATK_LITERAL:
   INTERNAL_ERROR("called float literal parser where there was no "
                  "float literal");
   PANIC();
@@ -166,14 +166,14 @@ HANDLE_NO_FLOAT_LITERAL:
 static void parseCharValueExpr(ValueExpr *cvep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_CharLiteral, HANDLE_NO_CHAR_LITERAL);
-  cvep->kind = VE_CharLiteral;
-  cvep->charLiteral.value = t.charLiteral;
+  EXPECT_TYPE(t, TK_CharLiteral, HANDLDK_NO_CHAR_LITERAL);
+  cvep->kind = VEK_CharLiteral;
+  cvep->charLiteral.value = t.char_literal;
   cvep->span = t.span;
-  cvep->diagnostic = DIAGNOSTIC(E_Ok, cvep->span);
+  cvep->diagnostic = DIAGNOSTIC(DK_Ok, cvep->span);
   return;
 
-HANDLE_NO_CHAR_LITERAL:
+HANDLDK_NO_CHAR_LITERAL:
   INTERNAL_ERROR("called char literal parser where there was no "
                  "char literal");
   PANIC();
@@ -182,14 +182,14 @@ HANDLE_NO_CHAR_LITERAL:
 static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_StringLiteral, HANDLE_NO_STRING_LITERAL);
-  svep->kind = VE_StringLiteral;
-  svep->stringLiteral.value = strdup(t.stringLiteral);
+  EXPECT_TYPE(t, TK_StringLiteral, HANDLDK_NO_STRING_LITERAL);
+  svep->kind = VEK_StringLiteral;
+  svep->stringLiteral.value = strdup(t.string_literal);
   svep->span = t.span;
-  svep->diagnostic = DIAGNOSTIC(E_Ok, svep->span);
+  svep->diagnostic = DIAGNOSTIC(DK_Ok, svep->span);
   return;
 
-HANDLE_NO_STRING_LITERAL:
+HANDLDK_NO_STRING_LITERAL:
   INTERNAL_ERROR("called string literal parser where there was no "
                  "string literal");
   PANIC();
@@ -197,40 +197,40 @@ HANDLE_NO_STRING_LITERAL:
 
 static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp) {
   ZERO(gvep);
-  gvep->kind = VE_Group;
+  gvep->kind = VEK_Group;
 
   Token t;
   advanceToken(blp, &t);
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, T_ParenLeft, HANDLE_NO_LEFTPAREN);
+  EXPECT_TYPE(t, TK_ParenLeft, HANDLDK_NO_LEFTPAREN);
   gvep->groupExpr.value = malloc(sizeof(ValueExpr));
   parseValueExpr(gvep->groupExpr.value, blp);
 
   // Expect a rightparen
   advanceToken(blp, &t);
   gvep->span = SPAN(start, t.span.end);
-  EXPECT_TYPE(t, T_ParenRight, HANDLE_NO_RIGHTPAREN);
-  gvep->diagnostic = DIAGNOSTIC(E_Ok, gvep->span);
+  EXPECT_TYPE(t, TK_ParenRight, HANDLDK_NO_RIGHTPAREN);
+  gvep->diagnostic = DIAGNOSTIC(DK_Ok, gvep->span);
   return;
 
-HANDLE_NO_LEFTPAREN:
+HANDLDK_NO_LEFTPAREN:
   INTERNAL_ERROR("called group parser where there was no "
                  "group");
   PANIC();
 
-HANDLE_NO_RIGHTPAREN:
+HANDLDK_NO_RIGHTPAREN:
   resyncStmnt(blp);
-  gvep->diagnostic = DIAGNOSTIC(E_GroupExpectRightParen, gvep->span);
+  gvep->diagnostic = DIAGNOSTIC(DK_GroupExpectRightParen, gvep->span);
 }
 
 static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
   ZERO(bvep);
-  bvep->kind = VE_Block;
+  bvep->kind = VEK_Block;
 
   Token t;
   advanceToken(blp, &t);
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
+  EXPECT_TYPE(t, TK_BraceLeft, HANDLDK_NO_LEFTBRACE);
 
   // Create list of statements
   Vector statements;
@@ -244,7 +244,7 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
   while (true) {
     // Check for end paren
     advanceToken(blp, &t);
-    if (t.type == T_BraceRight) {
+    if (t.kind == TK_BraceRight) {
       bvep->blockExpr.trailing_semicolon = true;
       break;
     }
@@ -259,30 +259,30 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
     // If there's no semicolon then it MUST be followed by an right brace
     // This also allows a trailing semicolon
     advanceToken(blp, &t);
-    if (t.type != T_Semicolon) {
+    if (t.kind != TK_Semicolon) {
       bvep->blockExpr.trailing_semicolon = false;
       // If the next value isn't a right brace, then we throw an error
-      EXPECT_TYPE(t, T_BraceRight, HANDLE_NO_RIGHTBRACE);
+      EXPECT_TYPE(t, TK_BraceRight, HANDLDK_NO_RIGHTBRACE);
     }
   }
 
   bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
   bvep->blockExpr.statements = releaseVector(&statements);
   bvep->span = SPAN(start, t.span.end);
-  bvep->diagnostic = DIAGNOSTIC(E_Ok, bvep->span);
+  bvep->diagnostic = DIAGNOSTIC(DK_Ok, bvep->span);
   return;
 
-HANDLE_NO_RIGHTBRACE:
+HANDLDK_NO_RIGHTBRACE:
   bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
   bvep->blockExpr.statements = releaseVector(&statements);
-  bvep->diagnostic = DIAGNOSTIC(E_BlockExpectedSemicolon, t.span);
+  bvep->diagnostic = DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
   resyncStmnt(blp);
   advanceToken(blp, &t);
   setNextToken(blp, &t);
   bvep->span = SPAN(start, t.span.end);
   return;
 
-HANDLE_NO_LEFTBRACE:
+HANDLDK_NO_LEFTBRACE:
   INTERNAL_ERROR(
       "called a block expresion parser where there was no leftbrace");
   PANIC();
@@ -293,8 +293,8 @@ static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, T_If, HANDLE_NO_IF);
-  ivep->kind = VE_If;
+  EXPECT_TYPE(t, TK_If, HANDLDK_NO_IF);
+  ivep->kind = VEK_If;
 
   // parse condition
   ivep->ifExpr.condition = malloc(sizeof(ValueExpr));
@@ -306,7 +306,7 @@ static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
 
   // if the next value is else
   advanceToken(blp, &t);
-  if (t.type == T_Else) {
+  if (t.kind == TK_Else) {
     ivep->ifExpr.has_else = true;
     ivep->ifExpr.else_body = malloc(sizeof(ValueExpr));
     parseValueExpr(ivep->ifExpr.else_body, blp);
@@ -318,76 +318,76 @@ static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   }
   return;
 
-HANDLE_NO_IF:
+HANDLDK_NO_IF:
   INTERNAL_ERROR("called if expression parser where there was no "
                  "if expression");
   PANIC();
 }
 
 static void parsePassValueExpr(ValueExpr *pep, BufferedLexer *blp) {
-  pep->kind = VE_Pass;
+  pep->kind = VEK_Pass;
   Token t;
   advanceToken(blp, &t);
   pep->span = t.span;
-  EXPECT_TYPE(t, T_Pass, HANDLE_NO_PASS);
-  pep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  EXPECT_TYPE(t, TK_Pass, HANDLDK_NO_PASS);
+  pep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
   return;
 
-HANDLE_NO_PASS:
+HANDLDK_NO_PASS:
   INTERNAL_ERROR("called pass parser where there was no pass");
   PANIC();
 }
 
 static void parseBreakValueExpr(ValueExpr *bep, BufferedLexer *blp) {
-  bep->kind = VE_Break;
+  bep->kind = VEK_Break;
   Token t;
   advanceToken(blp, &t);
   bep->span = t.span;
-  EXPECT_TYPE(t, T_Break, HANDLE_NO_BREAK);
-  bep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  EXPECT_TYPE(t, TK_Break, HANDLDK_NO_BREAK);
+  bep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
   return;
 
-HANDLE_NO_BREAK:
+HANDLDK_NO_BREAK:
   INTERNAL_ERROR("called break parser where there was no break");
   PANIC();
 }
 
 static void parseContinueValueExpr(ValueExpr *cep, BufferedLexer *blp) {
-  cep->kind = VE_Continue;
+  cep->kind = VEK_Continue;
   Token t;
   advanceToken(blp, &t);
   cep->span = t.span;
-  EXPECT_TYPE(t, T_Continue, HANDLE_NO_CONTINUE);
-  cep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  EXPECT_TYPE(t, TK_Continue, HANDLDK_NO_CONTINUE);
+  cep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
   return;
 
-HANDLE_NO_CONTINUE:
+HANDLDK_NO_CONTINUE:
   INTERNAL_ERROR("called continue parser where there was no continue");
   PANIC();
 }
 
 static void parseReturnValueExpr(ValueExpr *rep, BufferedLexer *blp) {
-  rep->kind = VE_Return;
+  rep->kind = VEK_Return;
   Token t;
   advanceToken(blp, &t);
   rep->span = t.span;
-  EXPECT_TYPE(t, T_Return, HANDLE_NO_RETURN);
+  EXPECT_TYPE(t, TK_Return, HANDLDK_NO_RETURN);
   rep->returnExpr.value = malloc(sizeof(ValueExpr));
   parseValueExpr(rep->returnExpr.value, blp);
-  rep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  rep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
   return;
 
-HANDLE_NO_RETURN:
+HANDLDK_NO_RETURN:
   INTERNAL_ERROR("called return parser where there was no continue");
   PANIC();
 }
 
 static void parseWhileValueExpr(ValueExpr *wep, BufferedLexer *blp) {
-  wep->kind = VE_While;
+  wep->kind = VEK_While;
   Token t;
   advanceToken(blp, &t);
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, T_While, HANDLE_NO_WHILE);
+  EXPECT_TYPE(t, TK_While, HANDLDK_NO_WHILE);
 
   wep->whileExpr.condition = malloc(sizeof(ValueExpr));
   parseValueExpr(wep->whileExpr.condition, blp);
@@ -396,10 +396,10 @@ static void parseWhileValueExpr(ValueExpr *wep, BufferedLexer *blp) {
   parseValueExpr(wep->whileExpr.body, blp);
 
   wep->span = SPAN(start, wep->whileExpr.body->span.end);
-  wep->diagnostic = DIAGNOSTIC(E_Ok, wep->span);
+  wep->diagnostic = DIAGNOSTIC(DK_Ok, wep->span);
   return;
 
-HANDLE_NO_WHILE:
+HANDLDK_NO_WHILE:
   INTERNAL_ERROR("called continue parser where there was no continue");
   PANIC();
 }
@@ -414,28 +414,28 @@ static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
   parseValueExpr(mcep->pattern, blp);
   // Expect colon
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Colon, HANDLE_NO_COLON);
+  EXPECT_TYPE(t, TK_Colon, HANDLDK_NO_COLON);
   // Get Value
   mcep->value = malloc(sizeof(ValueExpr));
   parseValueExpr(mcep->value, blp);
   mcep->span = SPAN(mcep->pattern->span.start, mcep->value->span.end);
-  mcep->diagnostic = DIAGNOSTIC(E_Ok, mcep->span);
+  mcep->diagnostic = DIAGNOSTIC(DK_Ok, mcep->span);
   return;
 
-HANDLE_NO_COLON:
+HANDLDK_NO_COLON:
   mcep->span = mcep->pattern->span;
-  mcep->diagnostic = DIAGNOSTIC(E_MatchNoColon, t.span);
+  mcep->diagnostic = DIAGNOSTIC(DK_MatchNoColon, t.span);
   resyncStmnt(blp);
   return;
 }
 
 static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
   ZERO(mvep);
-  mvep->kind = VE_Match;
+  mvep->kind = VEK_Match;
   Token t;
   // Ensure match
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Match, HANDLE_NO_MATCH);
+  EXPECT_TYPE(t, TK_Match, HANDLDK_NO_MATCH);
 
   LnCol start = t.span.start;
 
@@ -446,14 +446,14 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
 
   // Expect beginning brace
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
+  EXPECT_TYPE(t, TK_BraceLeft, HANDLDK_NO_LEFTBRACE);
 
   Vector matchCases;
   createVector(&matchCases);
   while (true) {
     // Check if right brace
     advanceToken(blp, &t);
-    if (t.type == T_BraceRight) {
+    if (t.kind == TK_BraceRight) {
       break;
     }
     setNextToken(blp, &t);
@@ -465,9 +465,9 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
     // If there's no comma then it MUST be followed by an end brace
     // This also allows trailing commas
     advanceToken(blp, &t);
-    if (t.type != T_Comma) {
+    if (t.kind != TK_Comma) {
       // If the next value isn't an end brace, then we throw an error
-      EXPECT_TYPE(t, T_BraceRight, HANDLE_NO_RIGHTBRACE);
+      EXPECT_TYPE(t, TK_BraceRight, HANDLDK_NO_RIGHTBRACE);
       break;
     }
   }
@@ -477,24 +477,24 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
   mvep->matchExpr.cases = releaseVector(&matchCases);
 
   mvep->span = SPAN(start, t.span.end);
-  mvep->diagnostic = DIAGNOSTIC(E_Ok, mvep->span);
+  mvep->diagnostic = DIAGNOSTIC(DK_Ok, mvep->span);
 
   return;
 
-HANDLE_NO_MATCH:
+HANDLDK_NO_MATCH:
   INTERNAL_ERROR("called match parser where there was no match");
   PANIC();
 
-HANDLE_NO_RIGHTBRACE:
-  mvep->diagnostic = DIAGNOSTIC(E_MatchNoRightBrace, t.span);
+HANDLDK_NO_RIGHTBRACE:
+  mvep->diagnostic = DIAGNOSTIC(DK_MatchNoRightBrace, t.span);
   mvep->span = SPAN(start, t.span.end);
   mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
   mvep->matchExpr.cases = releaseVector(&matchCases);
   resyncStmnt(blp);
   return;
 
-HANDLE_NO_LEFTBRACE:
-  mvep->diagnostic = DIAGNOSTIC(E_MatchNoLeftbrace, t.span);
+HANDLDK_NO_LEFTBRACE:
+  mvep->diagnostic = DIAGNOSTIC(DK_MatchNoLeftbrace, t.span);
   mvep->span = SPAN(start, t.span.end);
   mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
   mvep->matchExpr.cases = releaseVector(&matchCases);
@@ -504,16 +504,16 @@ HANDLE_NO_LEFTBRACE:
 
 static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp) {
   ZERO(rvep);
-  rvep->kind = VE_Reference;
+  rvep->kind = VEK_Reference;
   Token t;
   advanceToken(blp, &t);
   rvep->span = t.span;
-  EXPECT_TYPE(t, T_Identifier, HANDLE_NO_IDENTIFIER);
+  EXPECT_TYPE(t, TK_Identifier, HANDLDK_NO_IDENTIFIER);
   rvep->reference.identifier = strdup(t.identifier);
-  rvep->diagnostic = DIAGNOSTIC(E_Ok, t.span);
+  rvep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
   return;
 
-HANDLE_NO_IDENTIFIER:
+HANDLDK_NO_IDENTIFIER:
   INTERNAL_ERROR("called reference parser where there was no reference");
   PANIC();
 }
@@ -532,74 +532,74 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
   // Decide which expression it is
-  switch (t.type) {
+  switch (t.kind) {
   // Literals
-  case T_IntLiteral: {
+  case TK_IntLiteral: {
     setNextToken(blp, &t);
     parseIntValueExpr(l1, blp);
     return;
   }
-  case T_FloatLiteral: {
+  case TK_FloatLiteral: {
     setNextToken(blp, &t);
     parseFloatValueExpr(l1, blp);
     return;
   }
-  case T_CharLiteral: {
+  case TK_CharLiteral: {
     setNextToken(blp, &t);
     parseCharValueExpr(l1, blp);
     return;
   }
-  case T_StringLiteral: {
+  case TK_StringLiteral: {
     setNextToken(blp, &t);
     parseStringValueExpr(l1, blp);
     return;
   }
-  case T_ParenLeft: {
+  case TK_ParenLeft: {
     setNextToken(blp, &t);
     parseGroupValueExpr(l1, blp);
     return;
   }
-  case T_BraceLeft: {
+  case TK_BraceLeft: {
     setNextToken(blp, &t);
     parseBlockValueExpr(l1, blp);
     return;
   }
-  case T_If: {
+  case TK_If: {
     setNextToken(blp, &t);
     parseIfValueExpr(l1, blp);
     return;
   }
-  case T_Break: {
+  case TK_Break: {
     setNextToken(blp, &t);
     parseBreakValueExpr(l1, blp);
     return;
   }
-  case T_Continue: {
+  case TK_Continue: {
     setNextToken(blp, &t);
     parseContinueValueExpr(l1, blp);
     return;
   }
-  case T_Return: {
+  case TK_Return: {
     setNextToken(blp, &t);
     parseReturnValueExpr(l1, blp);
     return;
   }
-  case T_Pass: {
+  case TK_Pass: {
     setNextToken(blp, &t);
     parsePassValueExpr(l1, blp);
     return;
   }
-  case T_While: {
+  case TK_While: {
     setNextToken(blp, &t);
     parseWhileValueExpr(l1, blp);
     return;
   }
-  case T_Match: {
+  case TK_Match: {
     setNextToken(blp, &t);
     parseMatchValueExpr(l1, blp);
     return;
   }
-  case T_Identifier: {
+  case TK_Identifier: {
     setNextToken(blp, &t);
     parseReferenceValueExpr(l1, blp);
   }
@@ -618,55 +618,55 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
   while (true) {
     Token t;
     advanceToken(blp, &t);
-    switch (t.type) {
-    case T_Ref: {
+    switch (t.kind) {
+    case TK_Ref: {
       ValueExpr v;
-      v.kind = VE_UnaryOp;
-      v.unaryOp.operator= EUO_Ref;
+      v.kind = VEK_UnaryOp;
+      v.unaryOp.operator= UOK_Ref;
       v.unaryOp.operand = malloc(sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
-      v.diagnostic = DIAGNOSTIC(E_Ok, v.span);
+      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
       currentTopLevel = v;
       break;
     }
-    case T_Deref: {
+    case TK_Deref: {
       ValueExpr v;
-      v.kind = VE_UnaryOp;
-      v.unaryOp.operator= EUO_Deref;
+      v.kind = VEK_UnaryOp;
+      v.unaryOp.operator= UOK_Deref;
       v.unaryOp.operand = malloc(sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
-      v.diagnostic = DIAGNOSTIC(E_Ok, v.span);
+      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
       currentTopLevel = v;
       break;
     }
-    case T_Dot: {
+    case TK_Dot: {
       ValueExpr v;
-      v.kind = VE_FieldAccess;
+      v.kind = VEK_FieldAccess;
       v.fieldAccess.value = malloc(sizeof(ValueExpr));
       *v.fieldAccess.value = currentTopLevel;
 
       // Now we get the next thing
       advanceToken(blp, &t);
       v.span = SPAN(start, t.span.end);
-      if (t.type != T_Identifier) {
+      if (t.kind != TK_Identifier) {
         // If we encounter an error, we bail out of this L2Term
         v.fieldAccess.field = NULL;
         setNextToken(blp, &t);
-        v.diagnostic = DIAGNOSTIC(E_FieldAccessExpectedIdentifier, v.span);
+        v.diagnostic = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, v.span);
         *l2 = v;
         return;
       }
       v.fieldAccess.field = strdup(t.identifier);
-      v.diagnostic = DIAGNOSTIC(E_Ok, v.span);
+      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
       currentTopLevel = v;
       break;
     }
-    case T_BracketLeft: {
+    case TK_BracketLeft: {
       ValueExpr v;
-      v.kind = VE_BinaryOp;
-      v.binaryOp.operator= EBO_ArrayAccess;
+      v.kind = VEK_BinaryOp;
+      v.binaryOp.operator= BOK_ArrayAccess;
       v.binaryOp.operand_1 = malloc(sizeof(ValueExpr));
       v.binaryOp.operand_2 = malloc(sizeof(ValueExpr));
       *v.binaryOp.operand_1 = currentTopLevel;
@@ -676,19 +676,19 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 
       // Calculate span and diagnostics
       v.span = SPAN(start, t.span.end);
-      if (t.type != T_BracketRight) {
+      if (t.kind != TK_BracketRight) {
         // If we miss the bracket we bail out of this subexpr, setting the
         // next token
-        v.diagnostic = DIAGNOSTIC(E_ArrayAccessExpectedBracket, v.span);
+        v.diagnostic = DIAGNOSTIC(DK_ArrayAccessExpectedBracket, v.span);
         setNextToken(blp, &t);
         *l2 = v;
         return;
       }
-      v.diagnostic = DIAGNOSTIC(E_Ok, v.span);
+      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
       currentTopLevel = v;
       break;
     }
-    case T_ParenLeft: {
+    case TK_ParenLeft: {
       ValueExpr v;
       Vector arguments;
       createVector(&arguments);
@@ -696,7 +696,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       while (true) {
         // Check for end paren
         advanceToken(blp, &t);
-        if (t.type == T_ParenRight) {
+        if (t.kind == TK_ParenRight) {
           break;
         }
         // If it wasn't an end paren, we push it back
@@ -709,12 +709,12 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
         // If there's no comma then it MUST be followed by an end paren
         // This also allows trailing commas
         advanceToken(blp, &t);
-        if (t.type != T_Comma) {
-          if (t.type == T_ParenRight) {
+        if (t.kind != TK_Comma) {
+          if (t.kind == TK_ParenRight) {
             break;
           } else {
             // If the next value isn't an end paren, then we throw an error
-            v.kind = VE_Call;
+            v.kind = VEK_Call;
             v.callExpr.function = malloc(sizeof(ValueExpr));
             *v.callExpr.function = currentTopLevel;
             v.callExpr.arguments_length = VEC_LEN(&arguments, ValueExpr);
@@ -722,7 +722,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 
             // Calculate span and diagnostics
             v.span = SPAN(start, t.span.end);
-            v.diagnostic = DIAGNOSTIC(E_FunctionCallExpectedParen, v.span);
+            v.diagnostic = DIAGNOSTIC(DK_FunctionCallExpectedParen, v.span);
             // Bail out of the subexpr
             setNextToken(blp, &t);
             *l2 = v;
@@ -731,7 +731,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
         }
       }
 
-      v.kind = VE_Call;
+      v.kind = VEK_Call;
       v.callExpr.function = malloc(sizeof(ValueExpr));
       *v.callExpr.function = currentTopLevel;
       v.callExpr.arguments_length = VEC_LEN(&arguments, ValueExpr);
@@ -739,7 +739,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 
       // Calculate span and diagnostics
       v.span = SPAN(start, t.span.end);
-      v.diagnostic = DIAGNOSTIC(E_Ok, l2->span);
+      v.diagnostic = DIAGNOSTIC(DK_Ok, l2->span);
       break;
     }
     default: {
@@ -755,21 +755,21 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 static void parseL3Term(ValueExpr *l3, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
-  switch (t.type) {
-  case T_Sub: {
-    l3->unaryOp.operator= EUO_Negate;
+  switch (t.kind) {
+  case TK_Sub: {
+    l3->unaryOp.operator= UOK_Negate;
     break;
   }
-  case T_Add: {
-    l3->unaryOp.operator= EUO_Posit;
+  case TK_Add: {
+    l3->unaryOp.operator= UOK_Posit;
     break;
   }
-  case T_BitNot: {
-    l3->unaryOp.operator= EUO_BitNot;
+  case TK_BitNot: {
+    l3->unaryOp.operator= UOK_BitNot;
     break;
   }
-  case T_Not: {
-    l3->unaryOp.operator= EUO_LogicalNot;
+  case TK_Not: {
+    l3->unaryOp.operator= UOK_LogicalNot;
     break;
   }
   default: {
@@ -781,11 +781,11 @@ static void parseL3Term(ValueExpr *l3, BufferedLexer *blp) {
   }
 
   // Now parse the rest of the expression
-  l3->kind = VE_UnaryOp;
+  l3->kind = VEK_UnaryOp;
   l3->unaryOp.operand = malloc(sizeof(ValueExpr));
   parseL3Term(l3->unaryOp.operand, blp);
   l3->span = SPAN(t.span.start, l3->unaryOp.operand->span.end);
-  l3->diagnostic = DIAGNOSTIC(E_Ok, l3->span);
+  l3->diagnostic = DIAGNOSTIC(DK_Ok, l3->span);
   return;
 }
 
@@ -795,17 +795,17 @@ static void parseL4Term(ValueExpr *l4, BufferedLexer *blp) {
 
   Token t;
   advanceToken(blp, &t);
-  switch (t.type) {
-  case T_Mul: {
-    l4->binaryOp.operator= EBO_Mul;
+  switch (t.kind) {
+  case TK_Mul: {
+    l4->binaryOp.operator= BOK_Mul;
     break;
   }
-  case T_Div: {
-    l4->binaryOp.operator= EBO_Div;
+  case TK_Div: {
+    l4->binaryOp.operator= BOK_Div;
     break;
   }
-  case T_Mod: {
-    l4->binaryOp.operator= EBO_Mod;
+  case TK_Mod: {
+    l4->binaryOp.operator= BOK_Mod;
     break;
   }
   default: {
@@ -816,14 +816,14 @@ static void parseL4Term(ValueExpr *l4, BufferedLexer *blp) {
   }
   }
 
-  l4->kind = VE_BinaryOp;
+  l4->kind = VEK_BinaryOp;
   l4->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
   *l4->binaryOp.operand_1 = v;
   l4->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
   parseL4Term(l4->binaryOp.operand_2, blp);
   l4->span = SPAN(l4->binaryOp.operand_1->span.start,
                   l4->binaryOp.operand_2->span.end);
-  l4->diagnostic = DIAGNOSTIC(E_Ok, l4->span);
+  l4->diagnostic = DIAGNOSTIC(DK_Ok, l4->span);
   return;
 }
 
@@ -833,13 +833,13 @@ static void parseL5Term(ValueExpr *l5, BufferedLexer *blp) {
 
   Token t;
   advanceToken(blp, &t);
-  switch (t.type) {
-  case T_Add: {
-    l5->binaryOp.operator= EBO_Add;
+  switch (t.kind) {
+  case TK_Add: {
+    l5->binaryOp.operator= BOK_Add;
     break;
   }
-  case T_Sub: {
-    l5->binaryOp.operator= EBO_Sub;
+  case TK_Sub: {
+    l5->binaryOp.operator= BOK_Sub;
     break;
   }
   default: {
@@ -850,14 +850,14 @@ static void parseL5Term(ValueExpr *l5, BufferedLexer *blp) {
   }
   }
 
-  l5->kind = VE_BinaryOp;
+  l5->kind = VEK_BinaryOp;
   l5->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
   *l5->binaryOp.operand_1 = v;
   l5->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
   parseL5Term(l5->binaryOp.operand_2, blp);
   l5->span = SPAN(l5->binaryOp.operand_1->span.start,
                   l5->binaryOp.operand_2->span.end);
-  l5->diagnostic = DIAGNOSTIC(E_Ok, l5->span);
+  l5->diagnostic = DIAGNOSTIC(DK_Ok, l5->span);
   return;
 }
 
@@ -867,25 +867,25 @@ static void parseL6Term(ValueExpr *l6, BufferedLexer *blp) {
 
   Token t;
   advanceToken(blp, &t);
-  switch (t.type) {
-  case T_ShiftLeft: {
-    l6->binaryOp.operator= EBO_BitShl;
+  switch (t.kind) {
+  case TK_ShiftLeft: {
+    l6->binaryOp.operator= BOK_BitShl;
     break;
   }
-  case T_ShiftRight: {
-    l6->binaryOp.operator= EBO_BitShr;
+  case TK_ShiftRight: {
+    l6->binaryOp.operator= BOK_BitShr;
     break;
   }
-  case T_BitAnd: {
-    l6->binaryOp.operator= EBO_BitAnd;
+  case TK_BitAnd: {
+    l6->binaryOp.operator= BOK_BitAnd;
     break;
   }
-  case T_BitOr: {
-    l6->binaryOp.operator= EBO_BitOr;
+  case TK_BitOr: {
+    l6->binaryOp.operator= BOK_BitOr;
     break;
   }
-  case T_BitXor: {
-    l6->binaryOp.operator= EBO_BitXor;
+  case TK_BitXor: {
+    l6->binaryOp.operator= BOK_BitXor;
     break;
   }
   default: {
@@ -896,14 +896,14 @@ static void parseL6Term(ValueExpr *l6, BufferedLexer *blp) {
   }
   }
 
-  l6->kind = VE_BinaryOp;
+  l6->kind = VEK_BinaryOp;
   l6->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
   *l6->binaryOp.operand_1 = v;
   l6->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
   parseL6Term(l6->binaryOp.operand_2, blp);
   l6->span = SPAN(l6->binaryOp.operand_1->span.start,
                   l6->binaryOp.operand_2->span.end);
-  l6->diagnostic = DIAGNOSTIC(E_Ok, l6->span);
+  l6->diagnostic = DIAGNOSTIC(DK_Ok, l6->span);
   return;
 }
 
@@ -913,29 +913,29 @@ static void parseL7Term(ValueExpr *l7, BufferedLexer *blp) {
 
   Token t;
   advanceToken(blp, &t);
-  switch (t.type) {
-  case T_CompLess: {
-    l7->binaryOp.operator= EBO_CompLess;
+  switch (t.kind) {
+  case TK_CompLess: {
+    l7->binaryOp.operator= BOK_CompLess;
     break;
   }
-  case T_CompGreater: {
-    l7->binaryOp.operator= EBO_CompGreater;
+  case TK_CompGreater: {
+    l7->binaryOp.operator= BOK_CompGreater;
     break;
   }
-  case T_CompLessEqual: {
-    l7->binaryOp.operator= EBO_CompLessEqual;
+  case TK_CompLessEqual: {
+    l7->binaryOp.operator= BOK_CompLessEqual;
     break;
   }
-  case T_CompGreaterEqual: {
-    l7->binaryOp.operator= EBO_CompGreaterEqual;
+  case TK_CompGreaterEqual: {
+    l7->binaryOp.operator= BOK_CompGreaterEqual;
     break;
   }
-  case T_Equal: {
-    l7->binaryOp.operator= EBO_CompEqual;
+  case TK_Equal: {
+    l7->binaryOp.operator= BOK_CompEqual;
     break;
   }
-  case T_NotEqual: {
-    l7->binaryOp.operator= EBO_CompNotEqual;
+  case TK_NotEqual: {
+    l7->binaryOp.operator= BOK_CompNotEqual;
     break;
   }
   default: {
@@ -946,14 +946,14 @@ static void parseL7Term(ValueExpr *l7, BufferedLexer *blp) {
   }
   }
 
-  l7->kind = VE_BinaryOp;
+  l7->kind = VEK_BinaryOp;
   l7->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
   *l7->binaryOp.operand_1 = v;
   l7->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
   parseL7Term(l7->binaryOp.operand_2, blp);
   l7->span = SPAN(l7->binaryOp.operand_1->span.start,
                   l7->binaryOp.operand_2->span.end);
-  l7->diagnostic = DIAGNOSTIC(E_Ok, l7->span);
+  l7->diagnostic = DIAGNOSTIC(DK_Ok, l7->span);
   return;
 }
 
@@ -963,13 +963,13 @@ static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
 
   Token t;
   advanceToken(blp, &t);
-  switch (t.type) {
-  case T_And: {
-    l8->binaryOp.operator= EBO_LogicalAnd;
+  switch (t.kind) {
+  case TK_And: {
+    l8->binaryOp.operator= BOK_LogicalAnd;
     break;
   }
-  case T_Or: {
-    l8->binaryOp.operator= EBO_LogicalOr;
+  case TK_Or: {
+    l8->binaryOp.operator= BOK_LogicalOr;
     break;
   }
   default: {
@@ -980,14 +980,14 @@ static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
   }
   }
 
-  l8->kind = VE_BinaryOp;
+  l8->kind = VEK_BinaryOp;
   l8->binaryOp.operand_1 = malloc(sizeof(ValueExpr));
   *l8->binaryOp.operand_1 = v;
   l8->binaryOp.operand_2 = malloc(sizeof(ValueExpr));
   parseL8Term(l8->binaryOp.operand_2, blp);
   l8->span = SPAN(l8->binaryOp.operand_1->span.start,
                   l8->binaryOp.operand_2->span.end);
-  l8->diagnostic = DIAGNOSTIC(E_Ok, l8->span);
+  l8->diagnostic = DIAGNOSTIC(DK_Ok, l8->span);
   return;
 }
 
@@ -1004,12 +1004,12 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
 
   advanceToken(blp, &t);
   LnCol start = t.span.start;
-  switch (t.type) {
-  case T_Identifier: {
+  switch (t.kind) {
+  case TK_Identifier: {
     tep->type.name = strdup(t.identifier);
     while (true) {
       advanceToken(blp, &t);
-      if (t.type == T_Ref) {
+      if (t.kind == TK_Ref) {
         tep->type.ptrCount++;
       } else {
         setNextToken(blp, &t);
@@ -1017,20 +1017,20 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
       }
     }
     tep->span = SPAN(start, t.span.end);
-    tep->diagnostic = DIAGNOSTIC(E_Ok, tep->span);
+    tep->diagnostic = DIAGNOSTIC(DK_Ok, tep->span);
     break;
   }
-  case T_Typeof: {
+  case TK_Typeof: {
     tep->typeofExpr.value = malloc(sizeof(ValueExpr));
     parseValueExpr(tep->typeofExpr.value, blp);
 
     tep->span = SPAN(start, tep->typeofExpr.value->span.end);
-    tep->diagnostic = DIAGNOSTIC(E_Ok, tep->span);
+    tep->diagnostic = DIAGNOSTIC(DK_Ok, tep->span);
     break;
   }
   default: {
     tep->span = t.span;
-    tep->diagnostic = DIAGNOSTIC(E_TypeExprUnexpectedToken, t.span);
+    tep->diagnostic = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
     resyncType(blp);
     break;
@@ -1051,7 +1051,7 @@ static void parseBinding(Binding *bp, BufferedLexer *blp) {
 
   // get identifier
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Identifier, HANDLE_NO_IDENTIFIER);
+  EXPECT_TYPE(t, TK_Identifier, HANDLDK_NO_IDENTIFIER);
   bp->name = strdup(t.identifier);
   return;
 
@@ -1059,10 +1059,10 @@ static void parseBinding(Binding *bp, BufferedLexer *blp) {
   // Set error, and give back the error causing thing
   // Generally, we use the t token to find the last parsed token
 
-HANDLE_NO_IDENTIFIER:
+HANDLDK_NO_IDENTIFIER:
   // If it's not an identifier token, we must resync
   bp->span = bp->type->span;
-  bp->diagnostic = DIAGNOSTIC(E_BindingExpectedIdentifier, t.span);
+  bp->diagnostic = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
   resyncStmnt(blp);
   return;
 }
@@ -1070,7 +1070,7 @@ HANDLE_NO_IDENTIFIER:
 static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
   // zero-initialize vdsp
   ZERO(vdsp);
-  vdsp->kind = S_VarDecl;
+  vdsp->kind = SK_VarDecl;
   // these variables will be reused
   Token t;
 
@@ -1078,7 +1078,7 @@ static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
   advanceToken(blp, &t);
   // The start of the variable declaration
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, T_Let, HANDLE_NO_LET);
+  EXPECT_TYPE(t, TK_Let, HANDLDK_NO_LET);
 
   // Get Binding
   vdsp->varDecl.binding = malloc(sizeof(Binding));
@@ -1086,21 +1086,21 @@ static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
 
   // Expect Equal Sign
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Assign, HANDLE_NO_ASSIGN);
+  EXPECT_TYPE(t, TK_Assign, HANDLDK_NO_ASSIGN);
 
   // Get Value;
   vdsp->varDecl.value = malloc(sizeof(ValueExpr));
   parseValueExpr(vdsp->varDecl.value, blp);
   return;
 
-HANDLE_NO_LET:
+HANDLDK_NO_LET:
   INTERNAL_ERROR("called variable declaration parser where there was no "
                  "variable declaration");
   PANIC();
 
-HANDLE_NO_ASSIGN:
+HANDLDK_NO_ASSIGN:
   vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(E_VarDeclStmntExpectedAssign, t.span);
+  vdsp->diagnostic = DIAGNOSTIC(DK_VarDeclStmntExpectedAssign, t.span);
   resyncStmnt(blp);
 }
 
@@ -1108,22 +1108,22 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   // zero-initialize fdsp
   ZERO(fdsp);
 
-  fdsp->kind = S_FnDecl;
+  fdsp->kind = SK_FnDecl;
 
   // these variables will be reused
   Token t;
   // Skip fn declaration
   advanceToken(blp, &t);
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, T_Function, HANDLE_NO_FN);
+  EXPECT_TYPE(t, TK_Function, HANDLDK_NO_FN);
 
   // get name
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Identifier, HANDLE_NO_IDENTIFIER);
+  EXPECT_TYPE(t, TK_Identifier, HANDLDK_NO_IDENTIFIER);
   fdsp->fnDecl.name = strdup(t.identifier);
 
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_ParenLeft, HANDLE_NO_LEFTPAREN);
+  EXPECT_TYPE(t, TK_ParenLeft, HANDLDK_NO_LEFTPAREN);
 
   Vector parameterDeclarations;
   createVector(&parameterDeclarations);
@@ -1132,7 +1132,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   while (true) {
     // Check for end paren
     advanceToken(blp, &t);
-    if (t.type == T_ParenRight) {
+    if (t.kind == TK_ParenRight) {
       break;
     }
     // If it wasn't an end paren, we push it back
@@ -1145,9 +1145,9 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
     // If there's no comma then it MUST be followed by an end paren
     // This also allows trailing commas
     advanceToken(blp, &t);
-    if (t.type != T_Comma) {
+    if (t.kind != TK_Comma) {
       // If the next value isn't an end paren, then we throw an error
-      EXPECT_TYPE(t, T_ParenRight, HANDLE_NO_RIGHTPAREN);
+      EXPECT_TYPE(t, TK_ParenRight, HANDLDK_NO_RIGHTPAREN);
       break;
     }
   }
@@ -1158,7 +1158,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
 
   // Colon return type delimiter
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Colon, HANDLE_NO_COLON);
+  EXPECT_TYPE(t, TK_Colon, HANDLDK_NO_COLON);
 
   // Return type
   fdsp->fnDecl.type = malloc(sizeof(TypeExpr));
@@ -1166,52 +1166,52 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
 
   // Equal sign expression delimiter
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Assign, HANDLE_NO_ASSIGN);
+  EXPECT_TYPE(t, TK_Assign, HANDLDK_NO_ASSIGN);
 
   fdsp->fnDecl.body = malloc(sizeof(ValueExpr));
   parseValueExpr(fdsp->fnDecl.body, blp);
   fdsp->span = SPAN(start, fdsp->fnDecl.body->span.end);
-  fdsp->diagnostic = DIAGNOSTIC(E_Ok, fdsp->span);
+  fdsp->diagnostic = DIAGNOSTIC(DK_Ok, fdsp->span);
   return;
 
   // Error handlers
-HANDLE_NO_FN:
+HANDLDK_NO_FN:
   INTERNAL_ERROR("called function declaration parser where there was no "
                  "function declaration");
   PANIC();
 
-HANDLE_NO_IDENTIFIER:
-  fdsp->diagnostic = DIAGNOSTIC(E_FnDeclStmntExpectedIdentifier, t.span);
+HANDLDK_NO_IDENTIFIER:
+  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = 0;
   fdsp->fnDecl.params = NULL;
   resyncStmnt(blp);
   return;
 
-HANDLE_NO_LEFTPAREN:
-  fdsp->diagnostic = DIAGNOSTIC(E_FnDeclStmntExpectedParen, t.span);
+HANDLDK_NO_LEFTPAREN:
+  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = 0;
   fdsp->fnDecl.params = NULL;
   resyncStmnt(blp);
   return;
 
-HANDLE_NO_RIGHTPAREN:
-  fdsp->diagnostic = DIAGNOSTIC(E_FnDeclStmntExpectedParen, t.span);
+HANDLDK_NO_RIGHTPAREN:
+  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
   fdsp->fnDecl.params = releaseVector(&parameterDeclarations);
   resyncStmnt(blp);
   return;
 
-HANDLE_NO_COLON:
-  fdsp->diagnostic = DIAGNOSTIC(E_FnDeclStmntExpectedColon, t.span);
+HANDLDK_NO_COLON:
+  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
 
-HANDLE_NO_ASSIGN:
-  fdsp->diagnostic = DIAGNOSTIC(E_FnDeclStmntExpectedAssign, t.span);
+HANDLDK_NO_ASSIGN:
+  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedAssign, t.span);
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
@@ -1219,15 +1219,15 @@ HANDLE_NO_ASSIGN:
 
 static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
   ZERO(sdsp);
-  sdsp->kind = S_StructDecl;
+  sdsp->kind = SK_StructDecl;
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Struct, HANDLE_NO_STRUCT);
+  EXPECT_TYPE(t, TK_Struct, HANDLDK_NO_STRUCT);
   LnCol start = t.span.start;
 
   // get name
   advanceToken(blp, &t);
-  if (t.type == T_Identifier) {
+  if (t.kind == TK_Identifier) {
     sdsp->structDecl.has_name = true;
     sdsp->structDecl.name = strdup(t.identifier);
     advanceToken(blp, &t);
@@ -1235,7 +1235,7 @@ static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
     sdsp->structDecl.has_name = false;
   }
 
-  EXPECT_TYPE(t, T_BraceLeft, HANDLE_NO_LEFTBRACE);
+  EXPECT_TYPE(t, TK_BraceLeft, HANDLDK_NO_LEFTBRACE);
 
   Vector bindings;
   createVector(&bindings);
@@ -1244,7 +1244,7 @@ static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
   while (true) {
     // Check for end brace
     advanceToken(blp, &t);
-    if (t.type == T_BraceRight) {
+    if (t.kind == TK_BraceRight) {
       break;
     }
     // If it wasn't an end brace, we push it back
@@ -1256,9 +1256,9 @@ static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
     // If there's no comma then it MUST be followed by an end brace
     // This also allows trailing commas
     advanceToken(blp, &t);
-    if (t.type != T_Comma) {
+    if (t.kind != TK_Comma) {
       // If the next value isn't an end paren, then we throw an error
-      EXPECT_TYPE(t, T_ParenRight, HANDLE_NO_RIGHTBRACE);
+      EXPECT_TYPE(t, TK_ParenRight, HANDLDK_NO_RIGHTBRACE);
       break;
     }
   }
@@ -1266,24 +1266,24 @@ static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
   sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
   sdsp->structDecl.members = releaseVector(&bindings);
   sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostic = DIAGNOSTIC(E_Ok, sdsp->span);
+  sdsp->diagnostic = DIAGNOSTIC(DK_Ok, sdsp->span);
   return;
 
-HANDLE_NO_LEFTBRACE:
+HANDLDK_NO_LEFTBRACE:
   sdsp->structDecl.members_length = 0;
   sdsp->structDecl.members = NULL;
   sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostic = DIAGNOSTIC(E_StructDeclStmntExpectedLeftBrace, sdsp->span);
+  sdsp->diagnostic = DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, sdsp->span);
 
-HANDLE_NO_RIGHTBRACE:
+HANDLDK_NO_RIGHTBRACE:
   sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
   sdsp->structDecl.members = releaseVector(&bindings);
   sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostic = DIAGNOSTIC(E_StructDeclStmntExpectedRightBrace, t.span);
+  sdsp->diagnostic = DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
   resyncStmnt(blp);
   return;
 
-HANDLE_NO_STRUCT:
+HANDLDK_NO_STRUCT:
   INTERNAL_ERROR("called struct declaration parser where there was no "
                  "struct declaration");
   PANIC();
@@ -1291,27 +1291,27 @@ HANDLE_NO_STRUCT:
 
 static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp) {
   ZERO(adsp);
-  adsp->kind = S_TypeAliasDecl;
+  adsp->kind = SK_TypeAliasDecl;
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Alias, HANDLE_NO_ALIAS);
+  EXPECT_TYPE(t, TK_Alias, HANDLDK_NO_ALIAS);
   LnCol start = t.span.start;
 
   adsp->aliasStmnt.type = malloc(sizeof(TypeExpr));
   parseTypeExpr(adsp->aliasStmnt.type, blp);
 
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, T_Identifier, HANDLE_NO_IDENTIFIER);
+  EXPECT_TYPE(t, TK_Identifier, HANDLDK_NO_IDENTIFIER);
   adsp->aliasStmnt.name = strdup(t.identifier);
   adsp->span = SPAN(start, t.span.end);
-  adsp->diagnostic = DIAGNOSTIC(E_Ok, adsp->span);
+  adsp->diagnostic = DIAGNOSTIC(DK_Ok, adsp->span);
 
-HANDLE_NO_IDENTIFIER:
+HANDLDK_NO_IDENTIFIER:
   adsp->aliasStmnt.name = NULL;
   adsp->span = SPAN(start, t.span.end);
-  adsp->diagnostic = DIAGNOSTIC(E_AliasDeclStmntExpectedIdentifier, t.span);
+  adsp->diagnostic = DIAGNOSTIC(DK_AliasDeclStmntExpectedIdentifier, t.span);
 
-HANDLE_NO_ALIAS:
+HANDLDK_NO_ALIAS:
   INTERNAL_ERROR("called alias declaration parser where there was no "
                  "alias declaration");
   PANIC();
@@ -1323,30 +1323,30 @@ static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
   advanceToken(blp, &t);
   setNextToken(blp, &t);
 
-  switch (t.type) {
-  case T_Function: {
+  switch (t.kind) {
+  case TK_Function: {
     parseFnDeclStmnt(sp, blp);
     return;
   }
-  case T_Let: {
+  case TK_Let: {
     parseVarDeclStmnt(sp, blp);
     return;
   }
-  case T_Struct: {
+  case TK_Struct: {
     parseStructDeclStmnt(sp, blp);
     return;
   }
-  case T_Alias: {
+  case TK_Alias: {
     parseAliasDeclStmnt(sp, blp);
     return;
   }
   default: {
     // Value Expr Statement
-    sp->kind = S_Expr;
+    sp->kind = SK_Expr;
     sp->exprStmnt.value = malloc(sizeof(ValueExpr));
     parseValueExpr(sp->exprStmnt.value, blp);
     sp->span = sp->exprStmnt.value->span;
-    sp->diagnostic = DIAGNOSTIC(E_Ok, sp->span);
+    sp->diagnostic = DIAGNOSTIC(DK_Ok, sp->span);
     return;
   }
   }
@@ -1360,7 +1360,7 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
   while (true) {
     // Check for EOF
     advanceToken(blp, &t);
-    if (t.type == T_None && t.error == E_EOF) {
+    if (t.kind == TK_None && t.error == DK_EOF) {
       break;
     }
     // If it wasn't an EOF, we push it back
@@ -1371,10 +1371,10 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
 
     // semicolon is required
     advanceToken(blp, &t);
-    if (t.type == T_None && t.error == E_EOF) {
+    if (t.kind == TK_None && t.error == DK_EOF) {
       // We've hit the end of the file
       break;
-    } else if (t.type == T_Semicolon) {
+    } else if (t.kind == TK_Semicolon) {
       // Do nothing
     } else {
       // Set next, and move on
@@ -1388,6 +1388,6 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
   tu->statements_length = VEC_LEN(&statements, Stmnt);
   tu->statements = releaseVector(&statements);
   tu->span = SPAN(LNCOL(0,0), end);
-  tu->diagnostic = DIAGNOSTIC(E_Ok, tu->span);
+  tu->diagnostic = DIAGNOSTIC(DK_Ok, tu->span);
   return;
 }

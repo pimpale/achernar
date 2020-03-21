@@ -11,8 +11,9 @@
 #include "vector.h"
 
 static char *newAstString(FILE *stream) {
-  Lexer *l = createLexerFile(malloc(sizeof(Lexer)), stream);
-  BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), l);
+  Lexer *lexer = createLexerFile(malloc(sizeof(Lexer)), stream);
+  Arena *token_arena = createArena(malloc(sizeof(Arena)));
+  BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), lexer, token_arena);
 
   TranslationUnit tu;
   parseTranslationUnit(&tu, blp);
@@ -20,8 +21,8 @@ static char *newAstString(FILE *stream) {
   char* str = printTranslationUnit(&tu);
 
   free(destroyBufferedLexer(blp));
-  free(destroyLexer(l));
-
+  free(destroyLexer(lexer));
+  free(destroyArena(token_arena));
   return str;
 }
 

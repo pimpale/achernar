@@ -9,107 +9,102 @@
 
 typedef enum {
   // This is not a token, and does not contain token data
-  T_None,
+  TK_None,
   // function, type, or variable
-  T_Identifier,
+  TK_Identifier,
   // Keywords
-  T_If,       // if
-  T_Else,     // else
-  T_While,    // while
-  T_For,      // for
-  T_With,     // with
-  T_Match,    // match
-  T_Break,    // break
-  T_Continue, // continue
-  T_Return,   // return
-  T_Pass,     // pass
-  T_Function, // fn
-  T_Let,      // let
-  T_Struct,   // struct
-  T_Alias,    // alias
-  T_Typeof,   // typeof
-  T_Sizeof,   // sizeof
-  T_Alignof,  // sizeof
+  TK_If,       // if
+  TK_Else,     // else
+  TK_While,    // while
+  TK_For,      // for
+  TK_With,     // with
+  TK_Match,    // match
+  TK_Break,    // break
+  TK_Continue, // continue
+  TK_Return,   // return
+  TK_Pass,     // pass
+  TK_Function, // fn
+  TK_Let,      // let
+  TK_Struct,   // struct
+  TK_Alias,    // alias
+  TK_Typeof,   // typeof
+  TK_Sizeof,   // sizeof
+  TK_Alignof,  // sizeof
   // Literals and constants
-  T_StringLiteral, // "string"
-  T_CharLiteral,   // 'a'
-  T_FloatLiteral,  // 0.7
-  T_IntLiteral,    // 7
+  TK_StringLiteral, // "string"
+  TK_CharLiteral,   // 'a'
+  TK_FloatLiteral,  // 0.7
+  TK_IntLiteral,    // 7
   // Math Operators
-  T_Add, // +
-  T_Sub, // -
-  T_Mul, // *
-  T_Div, // /
-  T_Mod, // %
+  TK_Add, // +
+  TK_Sub, // -
+  TK_Mul, // *
+  TK_Div, // /
+  TK_Mod, // %
   // Logical Operators
-  T_And, // &&
-  T_Or,  // ||
-  T_Not, // !
+  TK_And, // &&
+  TK_Or,  // ||
+  TK_Not, // !
   // Bitwise Operators
-  T_BitAnd,     // &
-  T_BitOr,      // |
-  T_BitXor,     // ^
-  T_BitNot,     // ~
-  T_ShiftLeft,  // <<
-  T_ShiftRight, // >>
+  TK_BitAnd,     // &
+  TK_BitOr,      // |
+  TK_BitXor,     // ^
+  TK_BitNot,     // ~
+  TK_ShiftLeft,  // <<
+  TK_ShiftRight, // >>
   // Comparison and Equality
-  T_Equal,            // ==
-  T_NotEqual,         // !=
-  T_CompLess,         // <
-  T_CompLessEqual,    // <=
-  T_CompGreater,      // >
-  T_CompGreaterEqual, // >=
+  TK_Equal,            // ==
+  TK_NotEqual,         // !=
+  TK_CompLess,         // <
+  TK_CompLessEqual,    // <=
+  TK_CompGreater,      // >
+  TK_CompGreaterEqual, // >=
   // Memory Manipulation Operators
-  T_Ref,   // $
-  T_Deref, // @
+  TK_Ref,   // $
+  TK_Deref, // @
   // Assignment
-  T_Assign, // =
+  TK_Assign, // =
   // Pipelines
-  T_Pipe, // ->
+  TK_Pipe, // ->
   // Other Miscellaneous Operator Things
-  T_ParenLeft,    // (
-  T_ParenRight,   // )
-  T_BracketLeft,  // [
-  T_BracketRight, // ]
-  T_BraceLeft,    // {
-  T_BraceRight,   // }
-  T_Dot,          // .
-  T_Comma,        // ,
-  T_Colon,        // :
-  T_Semicolon,    // ;
-  T_Underscore,   // _
+  TK_ParenLeft,    // (
+  TK_ParenRight,   // )
+  TK_BracketLeft,  // [
+  TK_BracketRight, // ]
+  TK_BraceLeft,    // {
+  TK_BraceRight,   // }
+  TK_Dot,          // .
+  TK_Comma,        // ,
+  TK_Colon,        // :
+  TK_Semicolon,    // ;
+  TK_Underscore,   // _
   // Macros
-  T_Macro,        // macro!
+  TK_Macro,        // macro!
   // Comments, and Attributes
-  T_Comment,   // #[ comment ]# and # comment
-  T_AttrLeft,  // [[
-  T_AttrRight, // ]]
-} TokenType;
+  TK_Comment,   // #[ comment ]# and # comment
+  TK_AttrLeft,  // [[
+  TK_AttrRight, // ]]
+} TokenKind;
 
 
 typedef struct Token_s {
-  TokenType type; // The type of this token
-  Span span; // position in the file
+  TokenKind kind; // The type of this token
   // This points to
-  // null terminated string in case of identifier, T_StringLiteral,
-  // T_Comment, T_Documentation, or T_Annotation uint64_t in case of
-  // T_IntLiteral double double in case of T_FloatLiteral Otherwise must
+  // null terminated string in case of identifier, TK_StringLiteral,
+  // TK_Comment, TK_Documentation, or TK_Annotation uint64_t in case of
+  // TK_IntLiteral double double in case of TK_FloatLiteral Otherwise must
   // be null
   union {
     char *identifier;
     char *macro;
     char *comment;
-    char *stringLiteral;
-    char *annotationLiteral;
-    uint64_t intLiteral;
-    double floatLiteral;
-    char charLiteral;
+    char *string_literal;
+    uint64_t integer_literal;
+    double float_literal;
+    char char_literal;
   };
-
-  DiagnosticType error;
+  Span span; // position in the file
+  DiagnosticKind error;
 } Token;
-
-void destroyToken(Token *token);
-void printToken(Token *token);
 
 #endif

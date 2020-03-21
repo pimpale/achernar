@@ -13,6 +13,7 @@ static JsonElem jsonLnCol(LnCol lncol, Arena *ja) {
 }
 
 static JsonElem jsonSpan(Span span, Arena *ja) {
+  return J_NULL;
   JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 2);
   ptrs[0] = JKV("start", jsonLnCol(span.start, ja));
   ptrs[1] = JKV("end", jsonLnCol(span.end, ja));
@@ -32,18 +33,18 @@ static JsonElem jsonBinding(Binding *bp, Arena *ja);
 
 static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
   switch (tep->kind) {
-  case TE_Type: {
+  case TEK_Type: {
     JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 5);
-    ptrs[0] = JKV("kind", J_STR("TE_Type"));
+    ptrs[0] = JKV("kind", J_STR("TEK_Type"));
     ptrs[1] = JKV("span", jsonSpan(tep->span, ja));
     ptrs[2] = JKV("diagnostic", jsonDiagnostic(tep->diagnostic, ja));
     ptrs[3] = JKV("name", J_STR(tep->type.name));
     ptrs[4] = JKV("ptrCount", J_INT(tep->type.ptrCount));
     return J_OBJ_DEF(ptrs, 5);
   }
-  case TE_Typeof: {
+  case TEK_Typeof: {
     JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 4);
-    ptrs[0] = JKV("kind", J_STR("TE_Typeof"));
+    ptrs[0] = JKV("kind", J_STR("TEK_Typeof"));
     ptrs[1] = JKV("span", jsonSpan(tep->span, ja));
     ptrs[2] = JKV("diagnostic", jsonDiagnostic(tep->diagnostic, ja));
     ptrs[3] = JKV("value", jsonValueExpr(tep->typeofExpr.value, ja));
@@ -78,38 +79,38 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
   // 1 reserved for span
   // 2 reserved for diagnostic
   switch (vep->kind) {
-  case VE_IntLiteral: {
+  case VEK_IntLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_IntLiteral"));
+    ptrs[0] = JKV("kind", J_STR("VEK_IntLiteral"));
     ptrs[3] = JKV("value", J_INT(vep->intLiteral.value));
     break;
   }
-  case VE_FloatLiteral: {
+  case VEK_FloatLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_FloatLiteral"));
+    ptrs[0] = JKV("kind", J_STR("VEK_FloatLiteral"));
     ptrs[3] = JKV("value", J_NUM(vep->floatLiteral.value));
     break;
   }
-  case VE_CharLiteral: {
+  case VEK_CharLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_CharLiteral"));
+    ptrs[0] = JKV("kind", J_STR("VEK_CharLiteral"));
     ptrs[3] = JKV("value", J_INT((uint64_t)vep->charLiteral.value));
     break;
   }
-  case VE_StringLiteral: {
+  case VEK_StringLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_StringLiteral"));
+    ptrs[0] = JKV("kind", J_STR("VEK_StringLiteral"));
     ptrs[3] = JKV("value", J_STR(vep->stringLiteral.value));
     break;
   }
-  case VE_ArrayLiteral: {
+  case VEK_ArrayLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * 4);
-    ptrs[0] = JKV("kind", J_STR("VE_ArrayLiteral"));
+    ptrs[0] = JKV("kind", J_STR("VEK_ArrayLiteral"));
     // Embed array
     size_t len = vep->arrayLiteral.elements_length;
     JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
@@ -119,97 +120,97 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[3] = JKV("elements", J_ARR_DEF(array, len));
     break;
   }
-  case VE_StructLiteral: {
+  case VEK_StructLiteral: {
     ptrs_len = 3;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_StructLiteral"));
+    ptrs[0] = JKV("kind", J_STR("VEK_StructLiteral"));
     // TODO
     break;
   }
-  case VE_BinaryOp: {
+  case VEK_BinaryOp: {
     ptrs_len = 6;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_BinaryOp"));
+    ptrs[0] = JKV("kind", J_STR("VEK_BinaryOp"));
     char *binOpStr;
     switch (vep->binaryOp.operator) {
-    case EBO_Add: {
-      binOpStr = "EBO_Add";
+    case BOK_Add: {
+      binOpStr = "BOK_Add";
       break;
     }
-    case EBO_Sub: {
-      binOpStr = "EBO_Sub";
+    case BOK_Sub: {
+      binOpStr = "BOK_Sub";
       break;
     }
-    case EBO_Mul: {
-      binOpStr = "EBO_Mul";
+    case BOK_Mul: {
+      binOpStr = "BOK_Mul";
       break;
     }
-    case EBO_Div: {
-      binOpStr = "EBO_Div";
+    case BOK_Div: {
+      binOpStr = "BOK_Div";
       break;
     }
-    case EBO_Mod: {
-      binOpStr = "EBO_Mod";
+    case BOK_Mod: {
+      binOpStr = "BOK_Mod";
       break;
     }
-    case EBO_BitAnd: {
-      binOpStr = "EBO_BitAnd";
+    case BOK_BitAnd: {
+      binOpStr = "BOK_BitAnd";
       break;
     }
-    case EBO_BitOr: {
-      binOpStr = "EBO_BitOr";
+    case BOK_BitOr: {
+      binOpStr = "BOK_BitOr";
       break;
     }
-    case EBO_BitXor: {
-      binOpStr = "EBO_BitXor";
+    case BOK_BitXor: {
+      binOpStr = "BOK_BitXor";
       break;
     }
-    case EBO_BitShl: {
-      binOpStr = "EBO_BitShl";
+    case BOK_BitShl: {
+      binOpStr = "BOK_BitShl";
       break;
     }
-    case EBO_BitShr: {
-      binOpStr = "EBO_BitShr";
+    case BOK_BitShr: {
+      binOpStr = "BOK_BitShr";
       break;
     }
-    case EBO_LogicalAnd: {
-      binOpStr = "EBO_LogicalAnd";
+    case BOK_LogicalAnd: {
+      binOpStr = "BOK_LogicalAnd";
       break;
     }
-    case EBO_LogicalOr: {
-      binOpStr = "EBO_LogicalOr";
+    case BOK_LogicalOr: {
+      binOpStr = "BOK_LogicalOr";
       break;
     }
-    case EBO_CompEqual: {
-      binOpStr = "EBO_CompEqual";
+    case BOK_CompEqual: {
+      binOpStr = "BOK_CompEqual";
       break;
     }
-    case EBO_CompNotEqual: {
-      binOpStr = "EBO_CompNotEqual";
+    case BOK_CompNotEqual: {
+      binOpStr = "BOK_CompNotEqual";
       break;
     }
-    case EBO_CompLess: {
-      binOpStr = "EBO_CompLess";
+    case BOK_CompLess: {
+      binOpStr = "BOK_CompLess";
       break;
     }
-    case EBO_CompLessEqual: {
-      binOpStr = "EBO_CompLessEqual";
+    case BOK_CompLessEqual: {
+      binOpStr = "BOK_CompLessEqual";
       break;
     }
-    case EBO_CompGreater: {
-      binOpStr = "EBO_CompGreater";
+    case BOK_CompGreater: {
+      binOpStr = "BOK_CompGreater";
       break;
     }
-    case EBO_CompGreaterEqual: {
-      binOpStr = "EBO_CompGreaterEqual";
+    case BOK_CompGreaterEqual: {
+      binOpStr = "BOK_CompGreaterEqual";
       break;
     }
-    case EBO_ArrayAccess: {
-      binOpStr = "EBO_ArrayAccess";
+    case BOK_ArrayAccess: {
+      binOpStr = "BOK_ArrayAccess";
       break;
     }
-    case EBO_Pipeline: {
-      binOpStr = "EBO_Pipeline";
+    case BOK_Pipeline: {
+      binOpStr = "BOK_Pipeline";
       break;
     }
     }
@@ -218,34 +219,34 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[5] = JKV("operand_2", jsonValueExpr(vep->binaryOp.operand_2, ja));
     break;
   }
-  case VE_UnaryOp: {
+  case VEK_UnaryOp: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_UnaryOp"));
+    ptrs[0] = JKV("kind", J_STR("VEK_UnaryOp"));
     char *unOpStr;
     switch (vep->unaryOp.operator) {
-    case EUO_Negate: {
-      unOpStr = "EUO_Negate";
+    case UOK_Negate: {
+      unOpStr = "UOK_Negate";
       break;
     }
-    case EUO_Posit: {
-      unOpStr = "EUO_Posit";
+    case UOK_Posit: {
+      unOpStr = "UOK_Posit";
       break;
     }
-    case EUO_LogicalNot: {
-      unOpStr = "EUO_LogicalNot";
+    case UOK_LogicalNot: {
+      unOpStr = "UOK_LogicalNot";
       break;
     }
-    case EUO_BitNot: {
-      unOpStr = "EUO_BitNot";
+    case UOK_BitNot: {
+      unOpStr = "UOK_BitNot";
       break;
     }
-    case EUO_Ref: {
-      unOpStr = "EUO_Ref";
+    case UOK_Ref: {
+      unOpStr = "UOK_Ref";
       break;
     }
-    case EUO_Deref: {
-      unOpStr = "EUO_Deref";
+    case UOK_Deref: {
+      unOpStr = "UOK_Deref";
       break;
     }
     }
@@ -253,10 +254,10 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[4] = JKV("operand", jsonValueExpr(vep->unaryOp.operand, ja));
     break;
   }
-  case VE_Call: {
+  case VEK_Call: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Call"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Call"));
     ptrs[3] = JKV("fn", jsonValueExpr(vep->callExpr.function, ja));
     // Embed array
     size_t len = vep->callExpr.arguments_length;
@@ -267,10 +268,10 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[4] = JKV("arguments", J_ARR_DEF(array, len));
     break;
   }
-  case VE_If: {
+  case VEK_If: {
     ptrs_len = 7;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_If"));
+    ptrs[0] = JKV("kind", J_STR("VEK_If"));
     ptrs[3] = JKV("condition", jsonValueExpr(vep->ifExpr.condition, ja));
     ptrs[4] = JKV("body", jsonValueExpr(vep->ifExpr.body, ja));
     ptrs[5] = JKV("has_else", J_BOOL(vep->ifExpr.has_else));
@@ -281,57 +282,57 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     }
     break;
   }
-  case VE_While: {
+  case VEK_While: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_While"));
+    ptrs[0] = JKV("kind", J_STR("VEK_While"));
     ptrs[3] = JKV("condition", jsonValueExpr(vep->ifExpr.condition, ja));
     ptrs[4] = JKV("body", jsonValueExpr(vep->ifExpr.body, ja));
     break;
   }
-  case VE_For: {
+  case VEK_For: {
     ptrs_len = 3;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_For"));
+    ptrs[0] = JKV("kind", J_STR("VEK_For"));
     // TODO
     break;
   }
-  case VE_With: {
+  case VEK_With: {
     ptrs_len = 3;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_With"));
+    ptrs[0] = JKV("kind", J_STR("VEK_With"));
     // TODO
     break;
   }
-  case VE_Pass: {
+  case VEK_Pass: {
     ptrs_len = 3;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Pass"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Pass"));
     break;
   }
-  case VE_Break: {
+  case VEK_Break: {
     ptrs_len = 3;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Break"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Break"));
     break;
   }
-  case VE_Continue: {
+  case VEK_Continue: {
     ptrs_len = 3;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Continue"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Continue"));
     break;
   }
-  case VE_Return: {
+  case VEK_Return: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Return"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Return"));
     ptrs[3] = JKV("value", jsonValueExpr(vep->returnExpr.value, ja));
     break;
   }
-  case VE_Match: {
+  case VEK_Match: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Match"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Match"));
     ptrs[3] = JKV("value", jsonValueExpr(vep->matchExpr.value, ja));
     // Embed array
     size_t len = vep->matchExpr.cases_length;
@@ -342,10 +343,10 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[4] = JKV("cases", J_ARR_DEF(array, len));
     break;
   }
-  case VE_Block: {
+  case VEK_Block: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Block"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Block"));
     // Embed array
     size_t len = vep->blockExpr.statements_length;
     JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
@@ -357,25 +358,25 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
         JKV("trailing_semicolon", J_BOOL(vep->blockExpr.trailing_semicolon));
     break;
   }
-  case VE_Group: {
+  case VEK_Group: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Group"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Group"));
     ptrs[3] = JKV("value", jsonValueExpr(vep->groupExpr.value, ja));
     break;
   }
-  case VE_FieldAccess: {
+  case VEK_FieldAccess: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_FieldAccess"));
+    ptrs[0] = JKV("kind", J_STR("VEK_FieldAccess"));
     ptrs[3] = JKV("value", jsonValueExpr(vep->fieldAccess.value, ja));
     ptrs[4] = JKV("field", J_STR(vep->fieldAccess.field));
     break;
   }
-  case VE_Reference: {
+  case VEK_Reference: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("VE_Reference"));
+    ptrs[0] = JKV("kind", J_STR("VEK_Reference"));
     ptrs[3] = JKV("identifier", J_STR(vep->reference.identifier));
     break;
   }
@@ -392,10 +393,10 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
   // 1 reserved for span
   // 2 reserved for diagnostic
   switch (sp->kind) {
-  case S_FnDecl: {
+  case SK_FnDecl: {
     ptrs_len = 7;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("S_FnDecl"));
+    ptrs[0] = JKV("kind", J_STR("SK_FnDecl"));
     ptrs[3] = JKV("name", J_STR(sp->fnDecl.name));
     // Embed array
     size_t len = sp->fnDecl.params_length;
@@ -408,18 +409,18 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs[6] = JKV("body", jsonValueExpr(sp->fnDecl.body, ja));
     break;
   }
-  case S_VarDecl: {
+  case SK_VarDecl: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("S_VarDecl"));
+    ptrs[0] = JKV("kind", J_STR("SK_VarDecl"));
     ptrs[3] = JKV("binding", jsonBinding(sp->varDecl.binding, ja));
     ptrs[4] = JKV("value", jsonValueExpr(sp->varDecl.value, ja));
     break;
   }
-  case S_StructDecl: {
+  case SK_StructDecl: {
     ptrs_len = 7;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("S_StructDecl"));
+    ptrs[0] = JKV("kind", J_STR("SK_StructDecl"));
     ptrs[3] = JKV("has_name", J_BOOL(sp->structDecl.has_name));
     if (sp->structDecl.has_name) {
       ptrs[4] = JKV("name", J_STR(sp->fnDecl.name));
@@ -436,18 +437,18 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs[6] = JKV("trailing_comma", J_BOOL(sp->structDecl.trailing_comma));
     break;
   }
-  case S_TypeAliasDecl: {
+  case SK_TypeAliasDecl: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("S_TypeAliasDecl"));
+    ptrs[0] = JKV("kind", J_STR("SK_TypeAliasDecl"));
     ptrs[3] = JKV("type", jsonTypeExpr(sp->aliasStmnt.type, ja));
     ptrs[4] = JKV("name", J_STR(sp->aliasStmnt.name));
     break;
   }
-  case S_Expr: {
+  case SK_Expr: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = JKV("kind", J_STR("S_Expr"));
+    ptrs[0] = JKV("kind", J_STR("SK_Expr"));
     ptrs[3] = JKV("value", jsonValueExpr(sp->exprStmnt.value, ja));
     break;
   }

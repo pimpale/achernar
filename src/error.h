@@ -8,69 +8,69 @@
 
 #include "lncol.h"
 
-typedef enum DiagnosticType_e {
+typedef enum {
   // no error
-  E_Ok,
+  DK_Ok,
   // unknown error
-  E_Unknown,
+  DK_Unknown,
   // Generic Lexing Errors
-  E_EOF,
-  E_UnrecognizedCharacter,
+  DK_EOF,
+  DK_UnrecognizedCharacter,
   // Integer Literals
-  E_IntLiteralUnrecognizedRadixCode,
-  E_IntLiteralDigitExceedsRadix,
-  E_IntLiteralOverflow,
+  DK_IntLiteralUnrecognizedRadixCode,
+  DK_IntLiteralDigitExceedsRadix,
+  DK_IntLiteralOverflow,
   // Float Literals
-  E_FloatLiteralDigitExceedsRadix,
-  E_FloatLiteralExceedsMaxPrecision,
+  DK_FloatLiteralDigitExceedsRadix,
+  DK_FloatLiteralExceedsMaxPrecision,
   // Character Literals
-  E_CharLiteralEmpty,
-  E_CharLiteralTooLong,
-  E_CharLiteralUnrecognizedEscapeCode,
+  DK_CharLiteralEmpty,
+  DK_CharLiteralTooLong,
+  DK_CharLiteralUnrecognizedEscapeCode,
   // String Literals
-  E_StringLiteralTooLong,
-  E_StringLiteralUnrecognizedEscapeCode,
+  DK_StringLiteralTooLong,
+  DK_StringLiteralUnrecognizedEscapeCode,
   // Parsing Errors
   // Binding
-  E_BindingExpectedType,
-  E_BindingExpectedIdentifier,
+  DK_BindingExpectedType,
+  DK_BindingExpectedIdentifier,
   // TypeExpr
-  E_TypeExprUnexpectedToken,
+  DK_TypeExprUnexpectedToken,
   // VarDeclStmnt
-  E_VarDeclStmntExpectedAssign,
-  E_VarDeclStmntExpectedValue,
+  DK_VarDeclStmntExpectedAssign,
+  DK_VarDeclStmntExpectedValue,
   // AliasDeclStmnt
-  E_AliasDeclStmntExpectedIdentifier,
+  DK_AliasDeclStmntExpectedIdentifier,
   // StructDeclStmnt
-  E_StructDeclStmntExpectedLeftBrace,
-  E_StructDeclStmntExpectedRightBrace,
+  DK_StructDeclStmntExpectedLeftBrace,
+  DK_StructDeclStmntExpectedRightBrace,
   // FnDeclStmnt
-  E_FnDeclStmntExpectedParen,
-  E_FnDeclStmntExpectedType,
-  E_FnDeclStmntExpectedIdentifier,
-  E_FnDeclStmntExpectedColon,
-  E_FnDeclStmntExpectedAssign,
-  E_FnDeclStmntExpectedBody,
+  DK_FnDeclStmntExpectedParen,
+  DK_FnDeclStmntExpectedType,
+  DK_FnDeclStmntExpectedIdentifier,
+  DK_FnDeclStmntExpectedColon,
+  DK_FnDeclStmntExpectedAssign,
+  DK_FnDeclStmntExpectedBody,
   // Groups
-  E_GroupExpectRightParen,
+  DK_GroupExpectRightParen,
   // Match
-  E_MatchNoColon,
-  E_MatchNoLeftbrace,
-  E_MatchNoRightBrace,
+  DK_MatchNoColon,
+  DK_MatchNoLeftbrace,
+  DK_MatchNoRightBrace,
   // Block
-  E_BlockExpectedSemicolon,
+  DK_BlockExpectedSemicolon,
   // Array Access
-  E_ArrayAccessExpectedBracket,
+  DK_ArrayAccessExpectedBracket,
   // Function Calls
-  E_FunctionCallExpectedParen,
+  DK_FunctionCallExpectedParen,
   // Generic Parsing errors
-  E_UnexpectedToken,
-  E_SubcomponentFailedToParse,
-  E_FieldAccessExpectedIdentifier,
-} DiagnosticType;
+  DK_UnexpectedToken,
+  DK_SubcomponentFailedToParse,
+  DK_FieldAccessExpectedIdentifier,
+} DiagnosticKind;
 
 typedef struct Diagnostic_s {
-  DiagnosticType type;
+  DiagnosticKind kind;
   Span span;
 } Diagnostic;
 

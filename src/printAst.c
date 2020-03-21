@@ -7,8 +7,8 @@
 
 static JsonElem jsonLnCol(LnCol lncol, Arena *ja) {
   JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 2);
-  ptrs[0] = JKV("ln", J_NUM(lncol.ln));
-  ptrs[1] = JKV("col", J_NUM(lncol.col));
+  ptrs[0] = JKV("ln", J_INT(lncol.ln));
+  ptrs[1] = JKV("col", J_INT(lncol.col));
   return J_OBJ_DEF(ptrs, 2);
 }
 
@@ -112,7 +112,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[0] = JKV("kind", J_STR("VE_ArrayLiteral"));
     // Embed array
     size_t len = vep->arrayLiteral.elements_length;
-    JsonElem *array = allocArena(ja, len);
+    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
     for (size_t i = 0; i < len; i++) {
       array[i] = jsonValueExpr(&vep->arrayLiteral.elements[i], ja);
     }
@@ -260,7 +260,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[3] = JKV("fn", jsonValueExpr(vep->callExpr.function, ja));
     // Embed array
     size_t len = vep->callExpr.arguments_length;
-    JsonElem *array = allocArena(ja, len);
+    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
     for (size_t i = 0; i < len; i++) {
       array[i] = jsonValueExpr(&vep->callExpr.arguments[i], ja);
     }
@@ -335,7 +335,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[3] = JKV("value", jsonValueExpr(vep->matchExpr.value, ja));
     // Embed array
     size_t len = vep->matchExpr.cases_length;
-    JsonElem *array = allocArena(ja, len);
+    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
     for (size_t i = 0; i < len; i++) {
       array[i] = jsonMatchCaseExpr(&vep->matchExpr.cases[i], ja);
     }
@@ -348,7 +348,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[0] = JKV("kind", J_STR("VE_Block"));
     // Embed array
     size_t len = vep->blockExpr.statements_length;
-    JsonElem *array = allocArena(ja, len);
+    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
     for (size_t i = 0; i < len; i++) {
       array[i] = jsonStmnt(&vep->blockExpr.statements[i], ja);
     }
@@ -382,6 +382,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
   }
   ptrs[1] = JKV("span", jsonSpan(vep->span, ja));
   ptrs[2] = JKV("diagnostic", jsonDiagnostic(vep->diagnostic, ja));
+  // create final json object
   return J_OBJ_DEF(ptrs, ptrs_len);
 }
 
@@ -398,7 +399,7 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs[3] = JKV("name", J_STR(sp->fnDecl.name));
     // Embed array
     size_t len = sp->fnDecl.params_length;
-    JsonElem *array = allocArena(ja, len);
+    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
     for (size_t i = 0; i < len; i++) {
       array[i] = jsonBinding(&sp->fnDecl.params[i], ja);
     }
@@ -420,14 +421,14 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = JKV("kind", J_STR("S_StructDecl"));
     ptrs[3] = JKV("has_name", J_BOOL(sp->structDecl.has_name));
-    if(sp->structDecl.has_name) {
+    if (sp->structDecl.has_name) {
       ptrs[4] = JKV("name", J_STR(sp->fnDecl.name));
     } else {
       ptrs[4] = JKV("name", J_NULL);
     }
     // Embed array
     size_t len = sp->structDecl.members_length;
-    JsonElem *array = allocArena(ja, len);
+    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
     for (size_t i = 0; i < len; i++) {
       array[i] = jsonBinding(&sp->structDecl.members[i], ja);
     }
@@ -453,7 +454,9 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
   }
   ptrs[1] = JKV("span", jsonSpan(sp->span, ja));
   ptrs[2] = JKV("diagnostic", jsonDiagnostic(sp->diagnostic, ja));
-  return J_OBJ_DEF(ptrs, ptrs_len);
+  // create final json object
+  JsonElem je = J_OBJ_DEF(ptrs, ptrs_len);
+  return je;
 }
 
 static JsonElem jsonTranslationUnit(TranslationUnit *tup, Arena *ja) {
@@ -464,9 +467,11 @@ static JsonElem jsonTranslationUnit(TranslationUnit *tup, Arena *ja) {
   ptrs[2] = JKV("diagnostic", jsonDiagnostic(tup->diagnostic, ja));
   // Embed array
   size_t len = tup->statements_length;
-  JsonElem *array = allocArena(ja, len);
+  JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
   for (size_t i = 0; i < len; i++) {
-    array[i] = jsonStmnt(&tup->statements[i], ja);
+    JsonElem je = jsonStmnt(&tup->statements[i], ja);
+    array[i] = je;
+    // TODO array[i] = jsonStmnt(&tup->statements[i], ja);
   }
   ptrs[3] = JKV("statements", J_ARR_DEF(array, len));
   return J_OBJ_DEF(ptrs, ptrs_len);

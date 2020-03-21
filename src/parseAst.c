@@ -1382,7 +1382,12 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
     }
   }
 
+   LnCol end = t.span.end;
+  // TODO errors relating to semicolons
+
   tu->statements_length = VEC_LEN(&statements, Stmnt);
   tu->statements = releaseVector(&statements);
+  tu->span = SPAN(LNCOL(0,0), end);
+  tu->diagnostic = DIAGNOSTIC(E_Ok, tu->span);
   return;
 }

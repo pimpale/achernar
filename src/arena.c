@@ -8,16 +8,16 @@ Arena *createArena(Arena* mem) {
   return createVector((Vector*)mem);
 }
 
-Arena *destroyArena(Arena* r) {
-  return destroyVector((Vector*) r);
+Arena *destroyArena(Arena* a) {
+  return destroyVector((Vector*) a);
 }
 
-void *allocArena(Arena* r, size_t size) {
-  return pushVector((Vector*)r, size);
+void *allocArena(Arena* a, size_t size) {
+  return pushVector((Vector*)a, size);
 }
 
-char *intern(const char* str, Arena* r) {
+char *intern(const char* str, Arena* a) {
   // Allocates enough memory for the string, then copies the string over
   // Finally returns pointer
-  return strcpy(allocArena(r, strlen(str)+1), str);
+  return strcpy(allocArena(a, strlen(str)+1), str);
 }

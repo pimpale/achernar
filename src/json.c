@@ -1,73 +1,74 @@
 #include "json.h"
-#include "vector.h"
 #include "arena.h"
+#include "vector.h"
 
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
 static void pushCharJson(Vector *vptr, char c) {
-  switch (c) {
-  case '\b': {
-    char *ptr = pushVector(vptr, sizeof(char) * 2);
-    ptr[0] = '\\';
-    ptr[1] = 'b';
-    break;
-  }
-  case '\f': {
-    char *ptr = pushVector(vptr, sizeof(char) * 2);
-    ptr[0] = '\\';
-    ptr[1] = 'f';
-    break;
-  }
-  case '\n': {
-    char *ptr = pushVector(vptr, sizeof(char) * 2);
-    ptr[0] = '\\';
-    ptr[1] = 'n';
-    break;
-  }
-  case '\r': {
-    char *ptr = pushVector(vptr, sizeof(char) * 2);
-    ptr[0] = '\\';
-    ptr[1] = 'r';
-    break;
-  }
-  case '\t': {
-    char *ptr = pushVector(vptr, sizeof(char) * 2);
-    ptr[0] = '\\';
-    ptr[1] = 't';
-    break;
-  }
-  case '\"': {
-    char *ptr = pushVector(vptr, sizeof(char) * 2);
-    ptr[0] = '\\';
-    ptr[1] = '\\';
-    break;
-  }
-  case '\\': {
-    char *ptr = pushVector(vptr, sizeof(char) * 2);
-    ptr[0] = '\\';
-    ptr[1] = '\\';
-    break;
-  }
-  default: {
-    *VEC_PUSH(vptr, char) = c;
-  }
-  }
+  *VEC_PUSH(vptr, char) = c;
 }
 
 // Checks for special characters
-static void pushStrJson(Vector *vptr, char *str) {
+static void escapePushStrJson(Vector *vptr, char *str) {
   size_t i = 0;
   while (str[i] != 0) {
-    pushCharJson(vptr, str[i]);
+    char c = str[i];
+    switch (c) {
+    case '\b': {
+      char *ptr = pushVector(vptr, sizeof(char) * 2);
+      ptr[0] = '\\';
+      ptr[1] = 'b';
+      break;
+    }
+    case '\f': {
+      char *ptr = pushVector(vptr, sizeof(char) * 2);
+      ptr[0] = '\\';
+      ptr[1] = 'f';
+      break;
+    }
+    case '\n': {
+      char *ptr = pushVector(vptr, sizeof(char) * 2);
+      ptr[0] = '\\';
+      ptr[1] = 'n';
+      break;
+    }
+    case '\r': {
+      char *ptr = pushVector(vptr, sizeof(char) * 2);
+      ptr[0] = '\\';
+      ptr[1] = 'r';
+      break;
+    }
+    case '\t': {
+      char *ptr = pushVector(vptr, sizeof(char) * 2);
+      ptr[0] = '\\';
+      ptr[1] = 't';
+      break;
+    }
+    case '\"': {
+      char *ptr = pushVector(vptr, sizeof(char) * 2);
+      ptr[0] = '\\';
+      ptr[1] = '\"';
+      break;
+    }
+    case '\\': {
+      char *ptr = pushVector(vptr, sizeof(char) * 2);
+      ptr[0] = '\\';
+      ptr[1] = '\\';
+      break;
+    }
+    default: {
+      *VEC_PUSH(vptr, char) = c;
+    }
+    }
     i++;
   }
 }
 
 // Does not check for special characters (optimised)
 // Pushes string Exlcuding null byte
-static void pushStrUncheckedJson(Vector *vptr, char *str) {
+static void pushStrJson(Vector *vptr, char *str) {
   // length of string in bytes
   size_t len = strlen(str) * sizeof(char);
   memcpy(pushVector(vptr, len), str, len);
@@ -76,12 +77,12 @@ static void pushStrUncheckedJson(Vector *vptr, char *str) {
 static void toStringJsonElemRec(JsonElem *j, Vector *data) {
   switch (j->kind) {
   case JE_null: {
-    pushStrUncheckedJson(data, "null");
+    pushStrJson(data, "null");
     break;
   }
   case JE_string: {
     pushCharJson(data, '\"');
-    pushStrJson(data, j->string);
+    escapePushStrJson(data, j->string);
     pushCharJson(data, '\"');
     break;
   }
@@ -93,14 +94,14 @@ static void toStringJsonElemRec(JsonElem *j, Vector *data) {
     // there are a max 20 digits in an integer
     char str[20];
     snprintf(str, 20, "%" PRIu64, j->integer);
-    pushStrUncheckedJson(data, str);
+    pushStrJson(data, str);
     break;
   }
   case JE_number: {
     // up to 328 digits in a float
     char str[350];
     snprintf(str, 350, "%f", j->number);
-    pushStrUncheckedJson(data, str);
+    pushStrJson(data, str);
     break;
   }
   case JE_array: {
@@ -120,7 +121,7 @@ static void toStringJsonElemRec(JsonElem *j, Vector *data) {
     for (size_t i = 0; i < j->object.length; i++) {
       JsonKV jkv = j->object.values[i];
       pushCharJson(data, '\"');
-      pushStrJson(data, jkv.key);
+      escapePushStrJson(data, jkv.key);
       pushStrJson(data, "\":");
       toStringJsonElemRec(&jkv.value, data);
       if (i + 1 != j->object.length) {
@@ -134,10 +135,11 @@ static void toStringJsonElemRec(JsonElem *j, Vector *data) {
   }
 }
 
-
 char *toStringJsonElem(JsonElem *j) {
   Vector data;
   createVector(&data);
   toStringJsonElemRec(j, &data);
+  // terminate string
+  pushCharJson(&data, '\0');
   return releaseVector(&data);
 }

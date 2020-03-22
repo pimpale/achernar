@@ -74,8 +74,10 @@ typedef struct Diagnostic_s {
   Span span;
 } Diagnostic;
 
+
 #define DIAGNOSTIC(type, span) ((Diagnostic) {type, span})
 
+char* strDiagnosticKind(DiagnosticKind dk);
 void logInternalError(uint32_t line, const char* func, const char* fmt, ...);
 
 #define UNUSED(x) (void)(x)

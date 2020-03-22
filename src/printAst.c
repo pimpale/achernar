@@ -21,8 +21,10 @@ static JsonElem jsonSpan(Span span, Arena *ja) {
 }
 
 static JsonElem jsonDiagnostic(Diagnostic diagnostic, Arena *ja) {
-  // TODO
-  return J_NULL;
+  JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 2);
+  ptrs[0] = JKV("kind", J_STR(strDiagnosticKind(diagnostic.kind)));
+  ptrs[1] = JKV("span", jsonSpan(diagnostic.span, ja));
+  return J_OBJ_DEF(ptrs, 2);
 }
 
 static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja);
@@ -74,8 +76,8 @@ static JsonElem jsonMatchCaseExpr(MatchCaseExpr *mcep, Arena *ja) {
 }
 
 static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
-  size_t ptrs_len;
-  JsonKV *ptrs;
+  size_t ptrs_len = 0;
+  JsonKV *ptrs = NULL;
   // 1 reserved for span
   // 2 reserved for diagnostic
   switch (vep->kind) {
@@ -214,9 +216,9 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
       break;
     }
     }
-    ptrs[3] = JKV("binOpKind", J_STR(binOpStr));
-    ptrs[4] = JKV("operand_1", jsonValueExpr(vep->binaryOp.operand_1, ja));
-    ptrs[5] = JKV("operand_2", jsonValueExpr(vep->binaryOp.operand_2, ja));
+    ptrs[3] = JKV("operator", J_STR(binOpStr));
+    ptrs[4] = JKV("left_operand", jsonValueExpr(vep->binaryOp.left_operand, ja));
+    ptrs[5] = JKV("right_operand", jsonValueExpr(vep->binaryOp.right_operand, ja));
     break;
   }
   case VEK_UnaryOp: {
@@ -250,7 +252,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
       break;
     }
     }
-    ptrs[3] = JKV("unOpKind", J_STR(unOpStr));
+    ptrs[3] = JKV("operator", J_STR(unOpStr));
     ptrs[4] = JKV("operand", jsonValueExpr(vep->unaryOp.operand, ja));
     break;
   }
@@ -355,7 +357,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     }
     ptrs[3] = JKV("statements", J_ARR_DEF(array, len));
     ptrs[4] =
-        JKV("trailing_semicolon", J_BOOL(vep->blockExpr.trailing_semicolon));
+        JKV("suppress_value", J_BOOL(vep->blockExpr.suppress_value));
     break;
   }
   case VEK_Group: {
@@ -418,7 +420,7 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     break;
   }
   case SK_StructDecl: {
-    ptrs_len = 7;
+    ptrs_len = 6;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = JKV("kind", J_STR("SK_StructDecl"));
     ptrs[3] = JKV("has_name", J_BOOL(sp->structDecl.has_name));
@@ -434,7 +436,6 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
       array[i] = jsonBinding(&sp->structDecl.members[i], ja);
     }
     ptrs[5] = JKV("members", J_ARR_DEF(array, len));
-    ptrs[6] = JKV("trailing_comma", J_BOOL(sp->structDecl.trailing_comma));
     break;
   }
   case SK_TypeAliasDecl: {

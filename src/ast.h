@@ -170,8 +170,8 @@ typedef struct ValueExpr_s {
     } unaryOp;
     struct {
       BinaryOpKind operator;
-      ValueExpr *operand_1;
-      ValueExpr *operand_2;
+      ValueExpr *left_operand;
+      ValueExpr *right_operand;
     } binaryOp;
     struct {
       ValueExpr *condition;
@@ -208,7 +208,7 @@ typedef struct ValueExpr_s {
     struct Block_s {
       Stmnt *statements;
       size_t statements_length;
-      bool trailing_semicolon;
+      bool suppress_value;
     } blockExpr;
   };
 } ValueExpr;
@@ -230,7 +230,6 @@ typedef struct Stmnt_s {
       char *name;
       Binding *members;
       size_t members_length;
-      bool trailing_comma;
     } structDecl;
     struct {
       Binding *binding;

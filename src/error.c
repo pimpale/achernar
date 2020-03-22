@@ -7,140 +7,164 @@
 
 #include "constants.h"
 
-// TODO Good Code, will save for later
-/* 
-DiagnosticLogger *createDiagnosticLogger(DiagnosticLogger *dl, FILE *file) {
-  dl->created = true;
-  dl->destroyed = false;
-  dl->messagePrinted = false;
-  dl->file = file;
-
-  fprintf(dl->file, "[");
-  return dl;
+char* strDiagnosticKind(DiagnosticKind dk) {
+  char *errmsg;
+  switch (dk) {
+  case DK_Ok: {
+    errmsg = "Ok";
+    break;
+  }
+  case DK_Unknown: {
+    errmsg = "Unknown";
+    break;
+  }
+  case DK_EOF: {
+    errmsg = "EOF";
+    break;
+  }
+  case DK_UnrecognizedCharacter: {
+    errmsg = "UnrecognizedCharacter";
+    break;
+  }
+  case DK_IntLiteralUnrecognizedRadixCode: {
+    errmsg = "IntLiteralUnrecognizedRadixCode";
+    break;
+  }
+  case DK_IntLiteralDigitExceedsRadix: {
+    errmsg = "IntLiteralDigitExceedsRadix";
+    break;
+  }
+  case DK_IntLiteralOverflow: {
+    errmsg = "IntLiteralOverflow";
+    break;
+  }
+  case DK_FloatLiteralDigitExceedsRadix: {
+    errmsg = "FloatLiteralDigitExceedsRadix";
+    break;
+  }
+  case DK_FloatLiteralExceedsMaxPrecision: {
+    errmsg = "FloatLiteralExceedsMaxPrecision";
+    break;
+  }
+  case DK_CharLiteralEmpty: {
+    errmsg = "CharLiteralEmpty";
+    break;
+  }
+  case DK_CharLiteralTooLong: {
+    errmsg = "CharLiteralTooLong";
+    break;
+  }
+  case DK_CharLiteralUnrecognizedEscapeCode: {
+    errmsg = "CharLiteralUnrecognizedEscapeCode";
+    break;
+  }
+  case DK_StringLiteralTooLong: {
+    errmsg = "StringLiteralTooLong";
+    break;
+  }
+  case DK_StringLiteralUnrecognizedEscapeCode: {
+    errmsg = "StringLiteralUnrecognizedEscapeCode";
+    break;
+  }
+  case DK_BindingExpectedType: {
+    errmsg = "BindingExpectedType";
+    break;
+  }
+  case DK_BindingExpectedIdentifier: {
+    errmsg = "BindingExpectedIdentifier";
+    break;
+  }
+  case DK_TypeExprUnexpectedToken: {
+    errmsg = "TypeExprUnexpectedToken";
+    break;
+  }
+  case DK_VarDeclStmntExpectedAssign: {
+    errmsg = "VarDeclStmntExpectedAssign";
+    break;
+  }
+  case DK_VarDeclStmntExpectedValue: {
+    errmsg = "VarDeclStmntExpectedValue";
+    break;
+  }
+  case DK_AliasDeclStmntExpectedIdentifier: {
+    errmsg = "AliasDeclStmntExpectedIdentifier";
+    break;
+  }
+  case DK_StructDeclStmntExpectedLeftBrace: {
+    errmsg = "StructDeclStmntExpectedLeftBrace";
+    break;
+  }
+  case DK_StructDeclStmntExpectedRightBrace: {
+    errmsg = "StructDeclStmntExpectedRightBrace";
+    break;
+  }
+  case DK_FnDeclStmntExpectedParen: {
+    errmsg = "FnDeclStmntExpectedParen";
+    break;
+  }
+  case DK_FnDeclStmntExpectedType: {
+    errmsg = "FnDeclStmntExpectedType";
+    break;
+  }
+  case DK_FnDeclStmntExpectedIdentifier: {
+    errmsg = "FnDeclStmntExpectedIdentifier";
+    break;
+  }
+  case DK_FnDeclStmntExpectedColon: {
+    errmsg = "FnDeclStmntExpectedColon";
+    break;
+  }
+  case DK_FnDeclStmntExpectedAssign: {
+    errmsg = "FnDeclStmntExpectedAssign";
+    break;
+  }
+  case DK_FnDeclStmntExpectedBody: {
+    errmsg = "FnDeclStmntExpectedBody";
+    break;
+  }
+  case DK_GroupExpectRightParen: {
+    errmsg = "GroupExpectRightParen";
+    break;
+  }
+  case DK_MatchNoColon: {
+    errmsg = "MatchNoColon";
+    break;
+  }
+  case DK_MatchNoLeftbrace: {
+    errmsg = "MatchNoLeftbrace";
+    break;
+  }
+  case DK_MatchNoRightBrace: {
+    errmsg = "MatchNoRightBrace";
+    break;
+  }
+  case DK_BlockExpectedSemicolon: {
+    errmsg = "BlockExpectedSemicolon";
+    break;
+  }
+  case DK_ArrayAccessExpectedBracket: {
+    errmsg = "ArrayAccessExpectedBracket";
+    break;
+  }
+  case DK_FunctionCallExpectedParen: {
+    errmsg = "FunctionCallExpectedParen";
+    break;
+  }
+  case DK_UnexpectedToken: {
+    errmsg = "UnexpectedToken";
+    break;
+  }
+  case DK_SubcomponentFailedToParse: {
+    errmsg = "SubcomponentFailedToParse";
+    break;
+  }
+  case DK_FieldAccessExpectedIdentifier: {
+    errmsg = "FieldAccessExpectedIdentifier";
+    break;
+  }
+  }
+  return errmsg;
 }
-
-DiagnosticLogger *destroyDiagnosticLogger(DiagnosticLogger *dl) {
-  fprintf(dl->file, "]");
-  dl->created = false;
-  dl->messagePrinted = false;
-  dl->destroyed = true;
-  dl->file = NULL;
-  return dl;
-}
-
-void logDiagnostic(DiagnosticLogger *dl, Diagnostic diagnostic) {
-
-  char *severity;
-  char *code;
-  char *message;
-
-  switch (diagnostic.type) {
-  case ErrorOk: {
-    severity = "error";
-    code = "E000";
-    message = "no error";
-    break;
-  }
-  case ErrorUnknown: {
-    severity = "error";
-    code = "E001";
-    message = "an unknown error has occured";
-    break;
-  }
-  case ErrorEOF: {
-    severity = "error";
-    code = "E002";
-    message = "unexpected end of file";
-    break;
-  }
-  case ErrorUnrecognizedCharacter: {
-    severity = "error";
-    code = "E003";
-    message = "unrecognized character";
-    break;
-  }
-  case ErrorIntLiteralUnrecognizedRadixCode: {
-    severity = "error";
-    code = "E004";
-    message = "radix code after 0 may only be `b` for 2, `o` for 8, `d` for "
-              "10, and `x` for 16";
-    break;
-  }
-  case ErrorIntLiteralDigitExceedsRadix: {
-    severity = "error";
-    code = "E005";
-    message = "the digit value exceeds the radix specified";
-    break;
-  }
-  case ErrorIntLiteralOverflow: {
-    severity = "error";
-    code = "E006";
-    message = "the integer literal specified overflows 64 bits";
-    break;
-  }
-  case ErrorFloatLiteralDigitExceedsRadix: {
-    severity = "error";
-    code = "E007";
-    message = "the digit value exceeds the radix specified";
-    break;
-  }
-  case ErrorFloatLiteralExceedsMaxPrecision: {
-    severity = "error";
-    code = "E008";
-    message = "the float literal overflows the max precision";
-    break;
-  }
-  case ErrorCharLiteralEmpty: {
-    severity = "error";
-    code = "E009";
-    message = "the character literal must contain one character";
-    break;
-  }
-  case ErrorCharLiteralUnrecognizedEscapeCode: {
-    severity = "error";
-    code = "E010";
-    message = "unrecognized escape code";
-    break;
-  }
-  case ErrorCharLiteralTooLong: {
-    severity = "error";
-    code = "E011";
-    message = "the character literal is longer than one character";
-    break;
-  }
-  case ErrorStringLiteralTooLong: {
-    severity = "error";
-    code = "E012";
-    message = "the string literal is too long";
-    break;
-  }
-  case ErrorStringLiteralUnrecognizedEscapeCode: {
-    severity = "error";
-    code = "E013";
-    message = "unrecognized escape code";
-    break;
-  }
-  case ErrorUnexpectedToken: {
-    severity = "error";
-    code = "E014";
-    message = "unexpected token";
-    break;
-  }
-  }
-
-  // Print separator
-  if (dl->messagePrinted) {
-    fprintf(dl->file, ",");
-  } else {
-    dl->messagePrinted = true;
-  }
-
-  fprintf(dl->file,
-          "{ \"severity\":\"%s\", \"code\":\"%s\", \"message\":\"%s\", "
-          "\"ln\":%" PRIu64 ", \"col\":%" PRIu64 "}",
-          severity, code, message, diagnostic.ln, diagnostic.col);
-}
-*/
 
 void logInternalError(uint32_t line, const char *func, const char *fmt, ...) {
   char macro_message_formatted[MAX_PRINT_LENGTH];

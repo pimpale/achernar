@@ -53,7 +53,7 @@ valueExpr = l8expr;
 l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
 l7expr = l6expr | (l6expr, ("<" | ">" | "<=" | ">=" | "==" | "!="), l7expr);
 l6expr = l5expr | (l5expr, ("<<" | ">>" | "&" | "|" | "^"), l6expr);
-l6expr = l4expr | (l4expr, ("+" | "-"), l5expr);
+l5expr = l4expr | (l4expr, ("+" | "-"), l5expr);
 l4expr = l3expr | (l3expr, ("*" | "/" | "%"), l4expr);
 l3expr = l2expr | (("+" | "-" | "~" | "!"), l3expr);
 l2expr = l1expr | (l2expr, ("$" | "@" | funcCall | arrayAccess | fieldAccess));
@@ -71,9 +71,4 @@ exprStmnt = valueExpr, ";"
 funcCall = "(", [ valueExpr ], { ",", valueExpr }, [ "," ], ")";
 arrayAccess = "[", valueExpr, "]";
 fieldAccess = ".", identifier;
-
-
-
-
-
 

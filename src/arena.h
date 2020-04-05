@@ -18,7 +18,7 @@ Arena *createArena(Arena* mem);
 /// GUARANTEES: memory held by the arena is deallocated
 Arena *destroyArena(Arena* ar);
 
-/// Allocates size bytes from arena la. This memory cannot be freed or reallocated
+/// Allocates size bytes from arena ar. This memory cannot be freed or reallocated
 /// REQUIRES: ar is a pointer to a valid arena
 /// GUARANTEES: return contains pointer to valid section of memory with len size
 /// GUARANTEES: if len is 0, no memory will be allocated

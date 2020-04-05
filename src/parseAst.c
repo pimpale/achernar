@@ -20,7 +20,7 @@
 
 #define EXPECT_NO_ERROR(thingPtr, onErrLabel)                                  \
   do {                                                                         \
-    if ((thingPtr)->diagnostic.kind != DK_Ok) {                                 \
+    if ((thingPtr)->diagnostic.kind != DK_Ok) {                                \
       goto onErrLabel;                                                         \
     }                                                                          \
   } while (false)
@@ -134,14 +134,14 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INTK_LITERAL);
+  EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INT_LITERAL);
   ivep->kind = VEK_IntLiteral;
   ivep->intLiteral.value = t.integer_literal;
   ivep->span = t.span;
   ivep->diagnostic = DIAGNOSTIC(DK_Ok, ivep->span);
   return;
 
-HANDLE_NO_INTK_LITERAL:
+HANDLE_NO_INT_LITERAL:
   INTERNAL_ERROR("called int literal parser where there was no "
                  "int literal");
   PANIC();
@@ -236,8 +236,6 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
   Vector statements;
   createVector(&statements);
 
-  Stmnt s;
-
   // Parse the elements
   while (true) {
     // Check for end paren
@@ -250,6 +248,7 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
     setNextToken(blp, &t);
 
     // Parse and push the statement
+    Stmnt s;
     parseStmnt(&s, blp);
     *VEC_PUSH(&statements, Stmnt) = s;
 
@@ -536,6 +535,10 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   case TK_IntLiteral: {
     setNextToken(blp, &t);
     parseIntValueExpr(l1, blp);
+
+    advanceToken(blp, &t);
+    setNextToken(blp, &t);
+
     return;
   }
   case TK_FloatLiteral: {
@@ -601,6 +604,20 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   case TK_Identifier: {
     setNextToken(blp, &t);
     parseReferenceValueExpr(l1, blp);
+    return;
+  }
+  case TK_None: {
+    // put the token error in the value expression.
+    ZERO(l1);
+    l1->kind = VEK_None;
+    l1->span = t.span;
+    l1->diagnostic = DIAGNOSTIC(t.error, t.span);
+    return;
+  }
+  default: {
+    logInternalError(__LINE__, __func__, "unimplemented: %d at %d, %d", t.kind,
+                     t.span.start.ln, t.span.start.col);
+    PANIC();
   }
   }
 }
@@ -1273,7 +1290,8 @@ HANDLE_NO_LEFTBRACE:
   sdsp->structDecl.members_length = 0;
   sdsp->structDecl.members = NULL;
   sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostic = DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, sdsp->span);
+  sdsp->diagnostic =
+      DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, sdsp->span);
   return;
 
 HANDLE_NO_RIGHTBRACE:
@@ -1385,12 +1403,12 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
     }
   }
 
-   LnCol end = t.span.end;
+  LnCol end = t.span.end;
   // TODO errors relating to semicolons
 
   tu->statements_length = VEC_LEN(&statements, Stmnt);
   tu->statements = releaseVector(&statements);
-  tu->span = SPAN(LNCOL(0,0), end);
+  tu->span = SPAN(LNCOL(0, 0), end);
   tu->diagnostic = DIAGNOSTIC(DK_Ok, tu->span);
   return;
 }

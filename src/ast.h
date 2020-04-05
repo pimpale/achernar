@@ -9,6 +9,7 @@
 #include "token.h"
 
 typedef enum {
+  SK_None,
   SK_FnDecl,
   SK_VarDecl,
   SK_StructDecl,
@@ -17,6 +18,7 @@ typedef enum {
 } StmntKind;
 
 typedef enum {
+  VEK_None,
   VEK_IntLiteral,
   VEK_FloatLiteral,
   VEK_CharLiteral,
@@ -42,6 +44,7 @@ typedef enum {
 } ValueExprKind;
 
 typedef enum {
+  TEK_None,
   TEK_Type,   // type
   TEK_Typeof, // typeof
 } TypeExprKind;

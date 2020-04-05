@@ -1,5 +1,5 @@
 fn main():int = {
-  let char x = "yay";
-  println(x);
+  println("hello world");
+  return(0);
 };
 

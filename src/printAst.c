@@ -35,6 +35,14 @@ static JsonElem jsonBinding(Binding *bp, Arena *ja);
 
 static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
   switch (tep->kind) {
+  case TEK_None: {
+    JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 4);
+    ptrs[0] = JKV("kind", J_STR("TEK_None"));
+    ptrs[1] = JKV("span", jsonSpan(tep->span, ja));
+    ptrs[2] = JKV("diagnostic", jsonDiagnostic(tep->diagnostic, ja));
+    ptrs[3] = JKV("value", jsonValueExpr(tep->typeofExpr.value, ja));
+    return J_OBJ_DEF(ptrs, 4);
+  }
   case TEK_Type: {
     JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 5);
     ptrs[0] = JKV("kind", J_STR("TEK_Type"));
@@ -57,7 +65,6 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
 
 static JsonElem jsonBinding(Binding *bp, Arena *ja) {
   JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 5);
-  ptrs[0] = JKV("kind", J_STR("binding"));
   ptrs[1] = JKV("span", jsonSpan(bp->span, ja));
   ptrs[2] = JKV("diagnostic", jsonDiagnostic(bp->diagnostic, ja));
   ptrs[3] = JKV("name", J_STR(bp->name));
@@ -81,6 +88,12 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
   // 1 reserved for span
   // 2 reserved for diagnostic
   switch (vep->kind) {
+  case VEK_None: {
+    ptrs_len = 3;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = JKV("kind", J_STR("VEK_None"));
+    break;
+  }
   case VEK_IntLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
@@ -217,8 +230,10 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     }
     }
     ptrs[3] = JKV("operator", J_STR(binOpStr));
-    ptrs[4] = JKV("left_operand", jsonValueExpr(vep->binaryOp.left_operand, ja));
-    ptrs[5] = JKV("right_operand", jsonValueExpr(vep->binaryOp.right_operand, ja));
+    ptrs[4] =
+        JKV("left_operand", jsonValueExpr(vep->binaryOp.left_operand, ja));
+    ptrs[5] =
+        JKV("right_operand", jsonValueExpr(vep->binaryOp.right_operand, ja));
     break;
   }
   case VEK_UnaryOp: {
@@ -356,8 +371,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
       array[i] = jsonStmnt(&vep->blockExpr.statements[i], ja);
     }
     ptrs[3] = JKV("statements", J_ARR_DEF(array, len));
-    ptrs[4] =
-        JKV("suppress_value", J_BOOL(vep->blockExpr.suppress_value));
+    ptrs[4] = JKV("suppress_value", J_BOOL(vep->blockExpr.suppress_value));
     break;
   }
   case VEK_Group: {
@@ -395,6 +409,12 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
   // 1 reserved for span
   // 2 reserved for diagnostic
   switch (sp->kind) {
+  case SK_None: {
+    ptrs_len = 3;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = JKV("kind", J_STR("SK_None"));
+    break;
+  }
   case SK_FnDecl: {
     ptrs_len = 7;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
@@ -464,6 +484,7 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
 static JsonElem jsonTranslationUnit(TranslationUnit *tup, Arena *ja) {
   size_t ptrs_len = 4;
   JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+
   ptrs[0] = JKV("kind", J_STR("TranslationUnit"));
   ptrs[1] = JKV("span", jsonSpan(tup->span, ja));
   ptrs[2] = JKV("diagnostic", jsonDiagnostic(tup->diagnostic, ja));

@@ -38,7 +38,8 @@ Vector *destroyVector(Vector *vector);
 ///             of vector
 void *releaseVector(Vector *vector);
 
-/// Gets a pointer to the loc'th byte of the vector's memory
+/// Gets a pointer to the loc'th byte of the vector's memory that is valid
+/// till the next operation performed on the memory
 /// REQUIRES: vector is a pointer to a valid Vector
 /// REQUIRES: loc < vector's length
 /// GUARANTEES: until the subsequent operation, return value will be a valid

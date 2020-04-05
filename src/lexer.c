@@ -362,7 +362,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
   size_t decimalPointIndex = 0;
 
   int32_t c;
-  while ((c = nextValueLexer(lexer)) != EOF) {
+  while ((c = peekValueLexer(lexer)) != EOF) {
     if (isalnum(c) || c == '.') {
       // If there's a decimal point we note the location
       // If this is the second time we've seen it, then it's probably
@@ -377,8 +377,11 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
         }
       }
       *VEC_PUSH(&data, char) = (char)c;
+      // consume digit
+      nextValueLexer(lexer);
     } else if (c == '_') {
-      // Do nothing
+      // silently consume underscore
+      nextValueLexer(lexer);
     } else {
       break;
     }

@@ -214,7 +214,7 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     // clang-format off
     *token = (Token) {
       .kind = TK_Comment,
-      .comment = intern(string, arena),
+      .comment = INTERN(string, arena),
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
     };
@@ -243,7 +243,7 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     // clang-format off
     *token = (Token) {
       .kind = TK_Comment,
-      .comment = intern(string,arena),
+      .comment = INTERN(string,arena),
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
     };
@@ -337,7 +337,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
   // clang-format off
   *token = (Token) {
       .kind = TK_StringLiteral,
-      .string_literal = intern(string, arena),
+      .string_literal = INTERN(string, arena),
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
     };
@@ -696,7 +696,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
   if (macro) {
     // It is an identifier, and we need to keep the string
     token->kind = TK_Macro;
-    token->macro = intern(string, arena);
+    token->macro = INTERN(string, arena);
     token->error = DK_Ok;
     goto CLEANUP;
   }
@@ -734,7 +734,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
   } else {
     // It is an identifier, and we need to keep the string
     token->kind = TK_Identifier;
-    token->identifier = intern(string, arena);
+    token->identifier = INTERN(string, arena);
     token->error = DK_Ok;
     goto CLEANUP;
   }

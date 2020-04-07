@@ -48,8 +48,8 @@ Vector *destroyVector(Vector *vector) {
   return vector;
 }
 
-void* releaseVector(Vector *vector) {
-  if(vector->length == 0) {
+void *releaseVector(Vector *vector) {
+  if (vector->length == 0) {
     destroyVector(vector);
     return NULL;
   } else {
@@ -95,7 +95,7 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
   return src;
 }
 
-void removeVector(Vector *vector, void* data, size_t loc, size_t len) {
+void removeVector(Vector *vector, void *data, size_t loc, size_t len) {
   if (len > vector->length - loc) {
     INTERNAL_ERROR("vector underflow");
     PANIC();

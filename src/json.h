@@ -42,14 +42,16 @@ typedef struct JsonKV_s {
 } JsonKV;
 
 
-#define JKV(k, v) ((JsonKV){.key=(k), .value=(v)})
-#define J_NULL ((JsonElem){.kind=JE_null})
-#define J_BOOL(x) ((JsonElem){.kind=JE_boolean, .boolean=(x)})
-#define J_INT(x) ((JsonElem){.kind=JE_integer, .integer=(x)})
-#define J_NUM(x) ((JsonElem){.kind=JE_number, .number=(x)})
-#define J_STR(x) ((JsonElem){.kind=JE_string, .string=(x)})
-#define J_ARR_DEF(ptr, len) ((JsonElem){.kind=JE_array, .array={.values=(ptr), .length=(len)}})
-#define J_OBJ_DEF(ptr, len) ((JsonElem){.kind=JE_object, .object={.values=(ptr), .length=(len)}})
+// Utility functions
+JsonKV KVJson(char* key, JsonElem value);
+JsonElem nullJson(void);
+JsonElem boolJson(bool x);
+JsonElem intJson(uint64_t x);
+JsonElem numJson(double x);
+JsonElem strJson(char* x);
+JsonElem arrDefJson(JsonElem* ptr, size_t len);
+JsonElem objDefJson(JsonKV* ptr, size_t len);
+
 
 char* toStringJsonElem(JsonElem* j);
 

@@ -12,8 +12,8 @@
 
 static char *newAstString(FILE *stream) {
   Lexer *lexer = createLexerFile(malloc(sizeof(Lexer)), stream);
-  Arena *token_arena = createArena(malloc(sizeof(Arena)));
-  BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), lexer, token_arena);
+  Arena *tokenArena = createArena(malloc(sizeof(Arena)));
+  BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), lexer, tokenArena);
 
   TranslationUnit tu;
   parseTranslationUnit(&tu, blp);
@@ -22,7 +22,7 @@ static char *newAstString(FILE *stream) {
 
   free(destroyBufferedLexer(blp));
   free(destroyLexer(lexer));
-  free(destroyArena(token_arena));
+  free(destroyArena(tokenArena));
   return str;
 }
 

@@ -58,6 +58,15 @@ void* releaseVector(Vector *vector) {
   return vector->data;
 }
 
+void *getVector(Vector *vector, size_t loc) {
+  if (loc > vector->length) {
+    INTERNAL_ERROR("out of bounds");
+    PANIC();
+  }
+  uint8_t *data = vector->data;
+  return data + loc;
+}
+
 void *pushVector(Vector *vector, size_t len) {
   return insertVector(vector, vector->length, len);
 }
@@ -101,15 +110,6 @@ void removeVector(Vector *vector, void* data, size_t loc, size_t len) {
 
   vector->length -= len;
   memmove(dest, src, vector->length - loc);
-}
-
-void *getVector(Vector *vector, size_t loc) {
-  if (loc > vector->length) {
-    INTERNAL_ERROR("out of bounds");
-    PANIC();
-  }
-  uint8_t *data = vector->data;
-  return data + loc;
 }
 
 size_t lengthVector(Vector *vector) { return vector->length; }

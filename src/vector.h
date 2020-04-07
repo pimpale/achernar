@@ -12,87 +12,89 @@ typedef struct vector_s {
 } Vector;
 
 /// Creates a vector (10 is default initial capacity)
-/// REQUIRES: mem is a pointer to a valid section of memory
+/// REQUIRES: `mem` is a pointer to a valid section of memory
 /// GUARANTEES: returns a pointer to a valid Vector
 Vector *createVector(Vector *mem);
 
 /// Creates a vector with capacity
-/// REQUIRES: mem is a pointer to a valid section of memory
-/// REQUIRES: initialCapacity > 0
+/// REQUIRES: `mem` is a pointer to a valid section of memory
+/// REQUIRES: `initialCapacity` is greater than 0
 /// GUARANTEES: returns a pointer to a valid Vector
-/// GUARANTEES: created vector will have >= initialCapacity bytes of storage
+/// GUARANTEES: returned vector will have a capacity >= initialCapacity
 Vector *createWithCapacityVector(Vector *mem, size_t initialCapacity);
 
-/// Frees vector's data
-/// REQUIRES: vector is a pointer to a valid Vector
-/// GUARANTEES: memory held by vector is deallocated
-/// GUARANTEES: vector is no longer valid
-Vector *destroyVector(Vector *vector);
+/// Frees `vec`'s data
+/// REQUIRES: `vec` is a pointer to a valid Vector
+/// GUARANTEES: memory held by `vec` is deallocated
+/// GUARANTEES: `vec` is no longer valid
+Vector *destroyVector(Vector *vec);
 
-/// Return the data held by vector, while destroying the vector
-/// REQUIRES: vector is a pointer to a valid Vector
-/// GUARANTEES: vector is no longer valid
-/// GUARANTEES: if length of vector is 0, will free mem + return null pointer
-/// GUARANTEES: return contains a pointer to a valid section of memory
-///             at least the length of the vector containing the contents 
-///             of vector
-void *releaseVector(Vector *vector);
+/// Return the data held by `vec`, and invalidates `vec`
+/// REQUIRES: `vec` is a pointer to a valid Vector
+/// GUARANTEES: `vec` is no longer valid
+/// GUARANTEES: if length of `vec` is 0, will return NULL pointer
+/// GUARANTEES: if length of `vec` is greater than 0, returns a pointer to a
+///             valid section of memory  at least the length of the `vec`
+///             containing the contents of `vec`'s data
+void *releaseVector(Vector *vec);
 
-/// Gets a pointer to the loc'th byte of the vector's memory that is valid
+/// Gets a pointer to the `loc`'th byte of the vector's memory that is valid
 /// till the next operation performed on the memory
-/// REQUIRES: vector is a pointer to a valid Vector
-/// REQUIRES: loc < vector's length
+/// REQUIRES: `vec` is a pointer to a valid Vector
+/// REQUIRES: `loc` < vector's length
 /// GUARANTEES: until the subsequent operation, return value will be a valid
-///             pointer to the loc'th byte of the vector's data
-void *getVector(Vector *vector, size_t loc);
+///             pointer to the `loc`'th byte of the vector's data
+void *getVector(Vector *vec, size_t loc);
 
-/// Inserts len bytes of memory
-/// REQUIRES: vector is a pointer to a a valid Vector
-/// REQUIRES: loc < vector's current length
-/// GUARANTEES: until the subsequent operation, return value will point to len
+/// Inserts `len` bytes of memory
+/// REQUIRES: `vec` is a pointer to a a valid Vector
+/// REQUIRES: `loc` < `vec`'s current length
+/// GUARANTEES: until the subsequent operation, return value will point to `len`
 ///             bytes of valid memory
-/// GUARANTEES: the value returned will a pointer to the loc'th byte of the
-///             vector's data
-/// GUARANTEES: the remainder of the vector will be moved forward len bytes
-void *insertVector(Vector *vector, size_t loc, size_t len);
+/// GUARANTEES: returns a pointer to the `loc`'th byte of `vec`'s data
+/// GUARANTEES: all data previously located at or after `loc` will be moved to
+///             the right by `len` bytes
+void *insertVector(Vector *vec, size_t loc, size_t len);
 
-/// Removes len bytes of memory
-/// If data is not NULL, the removed memory will be copied to data
-/// REQUIRES: data is NULL or a pointer to a segment of memory at least len bytes
-/// REQUIRES: vector is a pointer to a valid Vector
-/// REQUIRES: loc < vector's current length
-/// REQUIRES: len <= vector's current length - loc
-/// GUARANTEES: vector's length is decreased by len byte
-/// GUARANTEES: vector's byes from [loc, loc + len) will be removed
-/// GUARANTEES: the remainder of the vector will be moved backward len bytes
-/// GUARANTEES: len bytes at data will be overwritten with the removed data
-void removeVector(Vector *vector, void* data, size_t loc, size_t len);
+/// Removes `len` bytes of memory
+/// If `data` is not NULL, the removed memory will be copied to `data`
+/// REQUIRES: `data` is NULL or a pointer to a segment of memory at least `len` bytes
+/// REQUIRES: `vec` is a pointer to a valid Vector
+/// REQUIRES: `loc` < vector's current length
+/// REQUIRES: `len` <= `vec`'s current length - `loc`
+/// GUARANTEES: vector's length is decreased by `len` byte
+/// GUARANTEES: vector's byes from [loc, `loc` + len) will be removed
+/// GUARANTEES: the remainder of the vector will be moved backward `len` bytes
+/// GUARANTEES: `len` bytes at data will be overwritten with the removed data
+void removeVector(Vector *vec, void* data, size_t loc, size_t len);
 
-/// Appends len bytes of memory to the end of the vector
-/// REQUIRES: vector is a pointer to a valid vector
-/// GUARANTEES: until the subsequent operation, return value will point to len
+/// Appends `len` bytes of memory to the end of `vec`
+/// REQUIRES: `vec` is a pointer to a valid Vector
+/// GUARANTEES: until the subsequent operation, return value will point to `len`
 ///             bytes of valid memory
 /// GUARANTEES: return value will be located directly after the current last
-///             byte of the vector
-void *pushVector(Vector *vector, size_t len);
+///             byte of `vec`
+void *pushVector(Vector *vec, size_t len);
 
-/// Deletes len bytes of memory from the end of the vector
-/// If data is not NULL, the removed memory will be copied to data
-/// REQUIRES: vector is a pointer to a valid vector
-/// REQUIRES: len < vector's current length
-/// REQUIRES: data is either NULL, or a pointer to a segment of memory at least len bytes long
-/// GUARANTEES: the vector's length is decreased by len bytes
-void popVector(Vector *vector, void *data, size_t len);
+/// Deletes `len` bytes of memory from the end of `vec`
+/// If `data` is not NULL, the removed memory will be copied to `data`
+/// REQUIRES: `vec` is a pointer to a valid vector
+/// REQUIRES: `len` < vector's current length
+/// REQUIRES: data is either NULL, or a pointer to a segment of memory at least `len` bytes long
+/// GUARANTEES: the vector's length is decreased by `len` bytes
+/// GUARANTEES: if `data` is NULL, the bytes from the end of the array will be lost
+/// GUARANTEES: if `data` is not NULL, the the bytes from the 
+void popVector(Vector *vec, void *data, size_t len);
 
-/// Returns the length of the vector
-/// REQUIRES: vector is a pointer to a valid vector
+/// Returns the length of `vec`
+/// REQUIRES: `vec` is a pointer to a valid vector
 /// GUARANTEES: returns the current length of the vector in bytes
-size_t lengthVector(Vector *vector);
+size_t lengthVector(Vector *vec);
 
-/// Returns the capacity of the vector
-/// REQUIRES: vector is a pointer to a valid vector
-/// GUARANTEES: returns the current capacity of the vector in bytes
-size_t capacityVector(Vector *vector);
+/// Returns the capacity of `vec`
+/// REQUIRES: `vec` is a pointer to a valid vector
+/// GUARANTEES: returns the current capacity of `vec` in bytes
+size_t capacityVector(Vector *vec);
 
 // Macros to help work with vectors
 #define VEC_GET(vector, index, type)                                           \

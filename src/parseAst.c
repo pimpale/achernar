@@ -18,13 +18,6 @@
     }                                                                          \
   } while (false)
 
-#define EXPECT_NO_ERROR(thingPtr, onErrLabel)                                  \
-  do {                                                                         \
-    if ((thingPtr)->diagnostic.kind != DK_Ok) {                                \
-      goto onErrLabel;                                                         \
-    }                                                                          \
-  } while (false)
-
 // Call this method after token error detected to skip to the next valid state
 
 // Jump till after semicolon, taking into account parentheses, brackets,
@@ -138,7 +131,7 @@ static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   ivep->kind = VEK_IntLiteral;
   ivep->intLiteral.value = t.integer_literal;
   ivep->span = t.span;
-  ivep->diagnostic = DIAGNOSTIC(DK_Ok, ivep->span);
+  ivep->diagnostics_length  = 0;
   return;
 
 HANDLE_NO_INT_LITERAL:
@@ -154,7 +147,7 @@ static void parseFloatValueExpr(ValueExpr *fvep, BufferedLexer *blp) {
   fvep->kind = VEK_FloatLiteral;
   fvep->floatLiteral.value = t.float_literal;
   fvep->span = t.span;
-  fvep->diagnostic = DIAGNOSTIC(DK_Ok, fvep->span);
+  fvep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_FLOAT_LITERAL:
@@ -170,7 +163,7 @@ static void parseCharValueExpr(ValueExpr *cvep, BufferedLexer *blp) {
   cvep->kind = VEK_CharLiteral;
   cvep->charLiteral.value = t.char_literal;
   cvep->span = t.span;
-  cvep->diagnostic = DIAGNOSTIC(DK_Ok, cvep->span);
+  cvep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_CHAR_LITERAL:
@@ -186,7 +179,7 @@ static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp) {
   svep->kind = VEK_StringLiteral;
   svep->stringLiteral.value = strdup(t.string_literal);
   svep->span = t.span;
-  svep->diagnostic = DIAGNOSTIC(DK_Ok, svep->span);
+  svep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_STRING_LITERAL:
@@ -210,7 +203,7 @@ static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp) {
   advanceToken(blp, &t);
   gvep->span = SPAN(start, t.span.end);
   EXPECT_TYPE(t, TK_ParenRight, HANDLE_NO_RIGHTPAREN);
-  gvep->diagnostic = DIAGNOSTIC(DK_Ok, gvep->span);
+  gvep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_LEFTPAREN:
@@ -220,7 +213,9 @@ HANDLE_NO_LEFTPAREN:
 
 HANDLE_NO_RIGHTPAREN:
   resyncStmnt(blp);
-  gvep->diagnostic = DIAGNOSTIC(DK_GroupExpectRightParen, gvep->span);
+  gvep->diagnostics_length = 1;
+  gvep->diagnostics = malloc(sizeof(Diagnostic));
+  gvep->diagnostics[0] = DIAGNOSTIC(DK_GroupExpectRightParen, gvep->span);
 }
 
 static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
@@ -236,6 +231,10 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
   Vector statements;
   createVector(&statements);
 
+  // List of diagnostics
+  Vector diagnostics;
+  createVector(&diagnostics);
+
   // Parse the elements
   while (true) {
     // Check for end paren
@@ -248,9 +247,7 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
     setNextToken(blp, &t);
 
     // Parse and push the statement
-    Stmnt s;
-    parseStmnt(&s, blp);
-    *VEC_PUSH(&statements, Stmnt) = s;
+    parseStmnt(VEC_PUSH(&statements, Stmnt), blp);
 
     // Accept semicolon, if any
     // If there's no semicolon then it MUST be followed by an right brace
@@ -259,25 +256,21 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
     if (t.kind != TK_Semicolon) {
       bvep->blockExpr.suppress_value = false;
       // If the next value isn't a right brace, then we throw an error
-      EXPECT_TYPE(t, TK_BraceRight, HANDLE_NO_RIGHTBRACE);
-      break;
+      if(t.kind == TK_BraceRight) {
+        break;
+      } else {
+        // give them a missing semicolon error, but keep parsing
+        setNextToken(blp, &t);
+        *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
+      }
     }
   }
 
   bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
   bvep->blockExpr.statements = releaseVector(&statements);
   bvep->span = SPAN(start, t.span.end);
-  bvep->diagnostic = DIAGNOSTIC(DK_Ok, bvep->span);
-  return;
-
-HANDLE_NO_RIGHTBRACE:
-  bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
-  bvep->blockExpr.statements = releaseVector(&statements);
-  bvep->diagnostic = DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
-  resyncStmnt(blp);
-  advanceToken(blp, &t);
-  setNextToken(blp, &t);
-  bvep->span = SPAN(start, t.span.end);
+  bvep->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  bvep->diagnostics = releaseVector(&diagnostics);
   return;
 
 HANDLE_NO_LEFTBRACE:
@@ -328,7 +321,7 @@ static void parsePassValueExpr(ValueExpr *pep, BufferedLexer *blp) {
   advanceToken(blp, &t);
   pep->span = t.span;
   EXPECT_TYPE(t, TK_Pass, HANDLE_NO_PASS);
-  pep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
+  pep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_PASS:
@@ -342,7 +335,7 @@ static void parseBreakValueExpr(ValueExpr *bep, BufferedLexer *blp) {
   advanceToken(blp, &t);
   bep->span = t.span;
   EXPECT_TYPE(t, TK_Break, HANDLE_NO_BREAK);
-  bep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
+  bep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_BREAK:
@@ -356,7 +349,7 @@ static void parseContinueValueExpr(ValueExpr *cep, BufferedLexer *blp) {
   advanceToken(blp, &t);
   cep->span = t.span;
   EXPECT_TYPE(t, TK_Continue, HANDLE_NO_CONTINUE);
-  cep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
+  cep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_CONTINUE:
@@ -372,7 +365,7 @@ static void parseReturnValueExpr(ValueExpr *rep, BufferedLexer *blp) {
   EXPECT_TYPE(t, TK_Return, HANDLE_NO_RETURN);
   rep->returnExpr.value = malloc(sizeof(ValueExpr));
   parseValueExpr(rep->returnExpr.value, blp);
-  rep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
+  rep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_RETURN:
@@ -394,7 +387,7 @@ static void parseWhileValueExpr(ValueExpr *wep, BufferedLexer *blp) {
   parseValueExpr(wep->whileExpr.body, blp);
 
   wep->span = SPAN(start, wep->whileExpr.body->span.end);
-  wep->diagnostic = DIAGNOSTIC(DK_Ok, wep->span);
+  wep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_WHILE:
@@ -417,12 +410,14 @@ static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
   mcep->value = malloc(sizeof(ValueExpr));
   parseValueExpr(mcep->value, blp);
   mcep->span = SPAN(mcep->pattern->span.start, mcep->value->span.end);
-  mcep->diagnostic = DIAGNOSTIC(DK_Ok, mcep->span);
+  mcep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_COLON:
   mcep->span = mcep->pattern->span;
-  mcep->diagnostic = DIAGNOSTIC(DK_MatchNoColon, t.span);
+  mcep->diagnostics_length = 1;
+  mcep->diagnostics = malloc(sizeof(Diagnostic));
+  mcep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoColon, t.span);
   resyncStmnt(blp);
   return;
 }
@@ -475,7 +470,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
   mvep->matchExpr.cases = releaseVector(&matchCases);
 
   mvep->span = SPAN(start, t.span.end);
-  mvep->diagnostic = DIAGNOSTIC(DK_Ok, mvep->span);
+  mvep->diagnostics_length = 0;
 
   return;
 
@@ -484,7 +479,9 @@ HANDLE_NO_MATCH:
   PANIC();
 
 HANDLE_NO_RIGHTBRACE:
-  mvep->diagnostic = DIAGNOSTIC(DK_MatchNoRightBrace, t.span);
+  mvep->diagnostics_length = 1;
+  mvep->diagnostics = malloc(sizeof(Diagnostic));
+  mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoRightBrace, t.span);
   mvep->span = SPAN(start, t.span.end);
   mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
   mvep->matchExpr.cases = releaseVector(&matchCases);
@@ -492,7 +489,9 @@ HANDLE_NO_RIGHTBRACE:
   return;
 
 HANDLE_NO_LEFTBRACE:
-  mvep->diagnostic = DIAGNOSTIC(DK_MatchNoLeftbrace, t.span);
+  mvep->diagnostics_length = 1;
+  mvep->diagnostics = malloc(sizeof(Diagnostic));
+  mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoLeftbrace, t.span);
   mvep->span = SPAN(start, t.span.end);
   mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
   mvep->matchExpr.cases = releaseVector(&matchCases);
@@ -508,7 +507,7 @@ static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp) {
   rvep->span = t.span;
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
   rvep->reference.identifier = strdup(t.identifier);
-  rvep->diagnostic = DIAGNOSTIC(DK_Ok, t.span);
+  rvep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_IDENTIFIER:
@@ -611,7 +610,9 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
     ZERO(l1);
     l1->kind = VEK_None;
     l1->span = t.span;
-    l1->diagnostic = DIAGNOSTIC(t.error, t.span);
+    l1->diagnostics_length = 1;
+    l1->diagnostics = malloc(sizeof(Diagnostic));
+    l1->diagnostics[0] = DIAGNOSTIC(t.error, t.span);
     return;
   }
   default: {
@@ -642,7 +643,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       v.unaryOp.operand = malloc(sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
-      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
+      v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
     }
@@ -653,7 +654,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       v.unaryOp.operand = malloc(sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
-      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
+      v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
     }
@@ -670,12 +671,14 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
         // If we encounter an error, we bail out of this L2Term
         v.fieldAccess.field = NULL;
         setNextToken(blp, &t);
-        v.diagnostic = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, v.span);
+        v.diagnostics_length = 1;
+        v.diagnostics = malloc(sizeof(Diagnostic));
+        v.diagnostics[0] = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, v.span);
         *l2 = v;
         return;
       }
       v.fieldAccess.field = strdup(t.identifier);
-      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
+      v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
     }
@@ -695,12 +698,14 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       if (t.kind != TK_BracketRight) {
         // If we miss the bracket we bail out of this subexpr, setting the
         // next token
-        v.diagnostic = DIAGNOSTIC(DK_ArrayAccessExpectedBracket, v.span);
+        v.diagnostics_length = 1;
+        v.diagnostics = malloc(sizeof(Diagnostic));
+        v.diagnostics[0] = DIAGNOSTIC(DK_ArrayAccessExpectedBracket, v.span);
         setNextToken(blp, &t);
         *l2 = v;
         return;
       }
-      v.diagnostic = DIAGNOSTIC(DK_Ok, v.span);
+      v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
     }
@@ -738,7 +743,9 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 
             // Calculate span and diagnostics
             v.span = SPAN(start, t.span.end);
-            v.diagnostic = DIAGNOSTIC(DK_FunctionCallExpectedParen, v.span);
+            v.diagnostics_length = 1;
+            v.diagnostics = malloc(sizeof(Diagnostic));
+            v.diagnostics[0] = DIAGNOSTIC(DK_FunctionCallExpectedParen, v.span);
             // Bail out of the subexpr
             setNextToken(blp, &t);
             currentTopLevel = v;
@@ -755,7 +762,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
 
       // Calculate span and diagnostics
       v.span = SPAN(start, t.span.end);
-      v.diagnostic = DIAGNOSTIC(DK_Ok, l2->span);
+      v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
     }
@@ -802,7 +809,7 @@ static void parseL3Term(ValueExpr *l3, BufferedLexer *blp) {
   l3->unaryOp.operand = malloc(sizeof(ValueExpr));
   parseL3Term(l3->unaryOp.operand, blp);
   l3->span = SPAN(t.span.start, l3->unaryOp.operand->span.end);
-  l3->diagnostic = DIAGNOSTIC(DK_Ok, l3->span);
+  l3->diagnostics_length = 0;
   return;
 }
 
@@ -840,7 +847,7 @@ static void parseL4Term(ValueExpr *l4, BufferedLexer *blp) {
   parseL4Term(l4->binaryOp.right_operand, blp);
   l4->span = SPAN(l4->binaryOp.left_operand->span.start,
                   l4->binaryOp.right_operand->span.end);
-  l4->diagnostic = DIAGNOSTIC(DK_Ok, l4->span);
+  l4->diagnostics_length = 0;
   return;
 }
 
@@ -874,7 +881,7 @@ static void parseL5Term(ValueExpr *l5, BufferedLexer *blp) {
   parseL5Term(l5->binaryOp.right_operand, blp);
   l5->span = SPAN(l5->binaryOp.left_operand->span.start,
                   l5->binaryOp.right_operand->span.end);
-  l5->diagnostic = DIAGNOSTIC(DK_Ok, l5->span);
+  l5->diagnostics_length = 0;
   return;
 }
 
@@ -920,7 +927,7 @@ static void parseL6Term(ValueExpr *l6, BufferedLexer *blp) {
   parseL6Term(l6->binaryOp.right_operand, blp);
   l6->span = SPAN(l6->binaryOp.left_operand->span.start,
                   l6->binaryOp.right_operand->span.end);
-  l6->diagnostic = DIAGNOSTIC(DK_Ok, l6->span);
+  l6->diagnostics_length = 0;
   return;
 }
 
@@ -970,7 +977,7 @@ static void parseL7Term(ValueExpr *l7, BufferedLexer *blp) {
   parseL7Term(l7->binaryOp.right_operand, blp);
   l7->span = SPAN(l7->binaryOp.left_operand->span.start,
                   l7->binaryOp.right_operand->span.end);
-  l7->diagnostic = DIAGNOSTIC(DK_Ok, l7->span);
+  l7->diagnostics_length = 0;
   return;
 }
 
@@ -1004,7 +1011,7 @@ static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
   parseL8Term(l8->binaryOp.right_operand, blp);
   l8->span = SPAN(l8->binaryOp.left_operand->span.start,
                   l8->binaryOp.right_operand->span.end);
-  l8->diagnostic = DIAGNOSTIC(DK_Ok, l8->span);
+  l8->diagnostics_length = 0;
   return;
 }
 
@@ -1023,6 +1030,7 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
   LnCol start = t.span.start;
   switch (t.kind) {
   case TK_Identifier: {
+    tep->kind = TEK_Type;
     tep->type.name = strdup(t.identifier);
     while (true) {
       advanceToken(blp, &t);
@@ -1034,20 +1042,25 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
       }
     }
     tep->span = SPAN(start, t.span.end);
-    tep->diagnostic = DIAGNOSTIC(DK_Ok, tep->span);
+    tep->diagnostics_length = 0;
     break;
   }
   case TK_Typeof: {
+    tep->kind = TEK_Typeof;
+    tep->type.name = strdup(t.identifier);
     tep->typeofExpr.value = malloc(sizeof(ValueExpr));
     parseValueExpr(tep->typeofExpr.value, blp);
 
     tep->span = SPAN(start, tep->typeofExpr.value->span.end);
-    tep->diagnostic = DIAGNOSTIC(DK_Ok, tep->span);
+    tep->diagnostics_length = 0;
     break;
   }
   default: {
+    tep->kind = TEK_None;
     tep->span = t.span;
-    tep->diagnostic = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
+    tep->diagnostics_length = 1;
+    tep->diagnostics = malloc(sizeof(Diagnostic));
+    tep->diagnostics[0] = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
     resyncType(blp);
     break;
@@ -1062,14 +1075,29 @@ static void parseBinding(Binding *bp, BufferedLexer *blp) {
   // these variables will be reused
   Token t;
 
-  // Get type of variable
-  bp->type = malloc(sizeof(TypeExpr));
-  parseTypeExpr(bp->type, blp);
-
   // get identifier
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
+  Span identitySpan = t.span;
   bp->name = strdup(t.identifier);
+
+  // check if colon
+  advanceToken(blp, &t);
+  if(t.kind == TK_Colon) {
+    // Get type of variable
+    bp->type = malloc(sizeof(TypeExpr));
+    parseTypeExpr(bp->type, blp);
+  } else {
+    // push back whatever
+    setNextToken(blp, &t);
+    bp->type = malloc(sizeof(TypeExpr));
+    bp->type->kind = TEK_Omitted;
+    bp->type->span = identitySpan;
+    bp->type->diagnostics_length = 0;
+  }
+
+  bp->span = SPAN(identitySpan.start, bp->type->span.end);
+  bp->diagnostics_length = 0;
   return;
 
   // Error handling
@@ -1078,8 +1106,10 @@ static void parseBinding(Binding *bp, BufferedLexer *blp) {
 
 HANDLE_NO_IDENTIFIER:
   // If it's not an identifier token, we must resync
-  bp->span = bp->type->span;
-  bp->diagnostic = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
+  bp->span = t.span;
+  bp->diagnostics_length = 1;
+  bp->diagnostics = malloc(sizeof(Diagnostic));
+  bp->diagnostics[0] = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
   resyncStmnt(blp);
   return;
 }
@@ -1108,6 +1138,7 @@ static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
   // Get Value;
   vdsp->varDecl.value = malloc(sizeof(ValueExpr));
   parseValueExpr(vdsp->varDecl.value, blp);
+  vdsp->diagnostics_length = 0;
   return;
 
 HANDLE_NO_LET:
@@ -1117,7 +1148,9 @@ HANDLE_NO_LET:
 
 HANDLE_NO_ASSIGN:
   vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostic = DIAGNOSTIC(DK_VarDeclStmntExpectedAssign, t.span);
+  vdsp->diagnostics_length = 1;
+  vdsp->diagnostics = malloc(sizeof(Diagnostic));
+  vdsp->diagnostics[0] = DIAGNOSTIC(DK_VarDeclStmntExpectedAssign, t.span);
   resyncStmnt(blp);
 }
 
@@ -1188,7 +1221,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
   fdsp->fnDecl.body = malloc(sizeof(ValueExpr));
   parseValueExpr(fdsp->fnDecl.body, blp);
   fdsp->span = SPAN(start, fdsp->fnDecl.body->span.end);
-  fdsp->diagnostic = DIAGNOSTIC(DK_Ok, fdsp->span);
+  fdsp->diagnostics_length = 0;
   return;
 
   // Error handlers
@@ -1198,7 +1231,9 @@ HANDLE_NO_FN:
   PANIC();
 
 HANDLE_NO_IDENTIFIER:
-  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedIdentifier, t.span);
+  fdsp->diagnostics_length = 1;
+  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = 0;
   fdsp->fnDecl.params = NULL;
@@ -1206,7 +1241,9 @@ HANDLE_NO_IDENTIFIER:
   return;
 
 HANDLE_NO_LEFTPAREN:
-  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
+  fdsp->diagnostics_length = 1;
+  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = 0;
   fdsp->fnDecl.params = NULL;
@@ -1214,7 +1251,9 @@ HANDLE_NO_LEFTPAREN:
   return;
 
 HANDLE_NO_RIGHTPAREN:
-  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
+  fdsp->diagnostics_length = 1;
+  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
   fdsp->fnDecl.params = releaseVector(&parameterDeclarations);
@@ -1222,13 +1261,17 @@ HANDLE_NO_RIGHTPAREN:
   return;
 
 HANDLE_NO_COLON:
-  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
+  fdsp->diagnostics_length = 1;
+  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics[0]= DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
 
 HANDLE_NO_ASSIGN:
-  fdsp->diagnostic = DIAGNOSTIC(DK_FnDeclStmntExpectedAssign, t.span);
+  fdsp->diagnostics_length = 1;
+  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedAssign, t.span);
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
@@ -1283,14 +1326,16 @@ static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
   sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
   sdsp->structDecl.members = releaseVector(&bindings);
   sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostic = DIAGNOSTIC(DK_Ok, sdsp->span);
+  sdsp->diagnostics_length = 0;
   return;
 
 HANDLE_NO_LEFTBRACE:
   sdsp->structDecl.members_length = 0;
   sdsp->structDecl.members = NULL;
   sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostic =
+  sdsp->diagnostics_length = 1;
+  sdsp->diagnostics =malloc(sizeof(Diagnostic));
+  sdsp->diagnostics[0] =
       DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, sdsp->span);
   return;
 
@@ -1298,7 +1343,9 @@ HANDLE_NO_RIGHTBRACE:
   sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
   sdsp->structDecl.members = releaseVector(&bindings);
   sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostic = DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
+  sdsp->diagnostics_length = 1;
+  sdsp->diagnostics = malloc(sizeof(Diagnostic));
+  sdsp->diagnostics[0] = DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
   resyncStmnt(blp);
   return;
 
@@ -1323,13 +1370,15 @@ static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp) {
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
   adsp->aliasStmnt.name = strdup(t.identifier);
   adsp->span = SPAN(start, t.span.end);
-  adsp->diagnostic = DIAGNOSTIC(DK_Ok, adsp->span);
+  adsp->diagnostics_length = 0;
   return;
 
 HANDLE_NO_IDENTIFIER:
   adsp->aliasStmnt.name = NULL;
   adsp->span = SPAN(start, t.span.end);
-  adsp->diagnostic = DIAGNOSTIC(DK_AliasDeclStmntExpectedIdentifier, t.span);
+  adsp->diagnostics_length = 1;
+  adsp->diagnostics = malloc(sizeof(Diagnostic));
+  adsp->diagnostics[0] = DIAGNOSTIC(DK_AliasDeclStmntExpectedIdentifier, t.span);
   return;
 
 HANDLE_NO_ALIAS:
@@ -1367,7 +1416,7 @@ static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
     sp->exprStmnt.value = malloc(sizeof(ValueExpr));
     parseValueExpr(sp->exprStmnt.value, blp);
     sp->span = sp->exprStmnt.value->span;
-    sp->diagnostic = DIAGNOSTIC(DK_Ok, sp->span);
+    sp->diagnostics_length = 0;
     return;
   }
   }
@@ -1377,6 +1426,11 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
   Token t;
   Vector statements;
   createVector(&statements);
+
+
+  // List of diagnostics
+  Vector diagnostics;
+  createVector(&diagnostics);
 
   while (true) {
     // Check for EOF
@@ -1398,17 +1452,18 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
     } else if (t.kind == TK_Semicolon) {
       // Do nothing
     } else {
-      // Set next, and move on
+      // give them a missing semicolon error, but keep parsing
       setNextToken(blp, &t);
+      *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
     }
   }
 
   LnCol end = t.span.end;
-  // TODO errors relating to semicolons
 
   tu->statements_length = VEC_LEN(&statements, Stmnt);
   tu->statements = releaseVector(&statements);
   tu->span = SPAN(LNCOL(0, 0), end);
-  tu->diagnostic = DIAGNOSTIC(DK_Ok, tu->span);
+  tu->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  tu->diagnostics = releaseVector(&diagnostics);
   return;
 }

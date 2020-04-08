@@ -44,9 +44,10 @@ typedef enum {
 } ValueExprKind;
 
 typedef enum {
-  TEK_None,
-  TEK_Type,   // type
-  TEK_Typeof, // typeof
+  TEK_None,    // Error type
+  TEK_Omitted, // Omitted
+  TEK_Type,    // type
+  TEK_Typeof,  // typeof
 } TypeExprKind;
 
 typedef enum {
@@ -91,14 +92,16 @@ typedef struct Stmnt_s Stmnt;
 typedef struct Attr_s {
   // TODO what goes in here?
   Span span;
-  Diagnostic diagnostic;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
 } Attr;
 
 // Expressions and operations yielding a type
 typedef struct TypeExpr_s {
   TypeExprKind kind;
   Span span;
-  Diagnostic diagnostic;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
   union {
     struct {
       char *name;
@@ -112,7 +115,8 @@ typedef struct TypeExpr_s {
 
 typedef struct Binding_s {
   Span span;
-  Diagnostic diagnostic;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
   // Elements
   char *name;
   TypeExpr *type;
@@ -121,7 +125,8 @@ typedef struct Binding_s {
 // Expressions and operations yielding a match case
 typedef struct MatchCaseExpr_s {
   Span span;
-  Diagnostic diagnostic;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
   ValueExpr *pattern;
   ValueExpr *value;
 } MatchCaseExpr;
@@ -129,7 +134,8 @@ typedef struct MatchCaseExpr_s {
 // Expressions and operations yielding a struct entry case
 typedef struct StructEntryExpr_s {
   Span span;
-  Diagnostic diagnostic;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
   char *name;
   ValueExpr *value;
 } StructEntryExpr;
@@ -137,7 +143,8 @@ typedef struct StructEntryExpr_s {
 typedef struct ValueExpr_s {
   ValueExprKind kind;
   Span span;
-  Diagnostic diagnostic;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
   union {
     struct {
       uint64_t value;
@@ -219,7 +226,8 @@ typedef struct ValueExpr_s {
 typedef struct Stmnt_s {
   StmntKind kind;
   Span span;
-  Diagnostic diagnostic;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
   union {
     struct {
       char *name;
@@ -253,8 +261,9 @@ typedef struct Stmnt_s {
 } Stmnt;
 
 typedef struct TranslationUnit_s {
-  Span span;                  // span of the translation unit
-  Diagnostic diagnostic;      // any errors that occur during parsing
+  Span span;               // span of the translation unit
+  Diagnostic *diagnostics; // any errors that occur during parsing
+  size_t diagnostics_length;
   Stmnt *statements;          // The top level is just a series of statements
   uint64_t statements_length; // The number of statements
 } TranslationUnit;

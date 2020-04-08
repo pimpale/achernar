@@ -34,7 +34,7 @@ static JsonElem jsonMatchCaseExpr(MatchCaseExpr *mcep, Arena *ja);
 static JsonElem jsonBinding(Binding *bp, Arena *ja);
 
 static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
-  if(tep == NULL) {
+  if (tep == NULL) {
     return nullJson();
   }
 
@@ -47,6 +47,12 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
     ptrs_len = 3;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("TEK_None"));
+    break;
+  }
+  case TEK_Omitted: {
+    ptrs_len = 3;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = KVJson("kind", strJson("TEK_Omitted"));
     break;
   }
   case TEK_Type: {
@@ -71,32 +77,35 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
 }
 
 static JsonElem jsonBinding(Binding *bp, Arena *ja) {
-  if(bp == NULL) {
+  if (bp == NULL) {
     return nullJson();
   }
-  JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 5);
+  size_t ptrs_len = 5;
+  JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+  ptrs[0] = KVJson("kind", strJson("binding"));
   ptrs[1] = KVJson("span", jsonSpan(bp->span, ja));
   ptrs[2] = KVJson("diagnostic", jsonDiagnostic(bp->diagnostic, ja));
   ptrs[3] = KVJson("name", strJson(bp->name));
   ptrs[4] = KVJson("type", jsonTypeExpr(bp->type, ja));
-  return objDefJson(ptrs, 5);
+  return objDefJson(ptrs, ptrs_len);
 }
 
 static JsonElem jsonMatchCaseExpr(MatchCaseExpr *mcep, Arena *ja) {
-  if(mcep == NULL) {
+  if (mcep == NULL) {
     return nullJson();
   }
-  JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * 5);
+  size_t ptrs_len = 5;
+  JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
   ptrs[0] = KVJson("kind", strJson("matchCaseExpr"));
   ptrs[1] = KVJson("span", jsonSpan(mcep->span, ja));
   ptrs[2] = KVJson("diagnostic", jsonDiagnostic(mcep->diagnostic, ja));
   ptrs[3] = KVJson("pattern", jsonValueExpr(mcep->pattern, ja));
   ptrs[4] = KVJson("name", jsonValueExpr(mcep->value, ja));
-  return objDefJson(ptrs, 5);
+  return objDefJson(ptrs, ptrs_len);
 }
 
 static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
-  if(vep == NULL) {
+  if (vep == NULL) {
     return nullJson();
   }
   size_t ptrs_len = 0;
@@ -420,7 +429,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
 }
 
 JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
-  if(sp == NULL) {
+  if (sp == NULL) {
     return nullJson();
   }
   size_t ptrs_len;
@@ -501,7 +510,7 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
 }
 
 static JsonElem jsonTranslationUnit(TranslationUnit *tup, Arena *ja) {
-  if(tup == NULL) {
+  if (tup == NULL) {
     return nullJson();
   }
   size_t ptrs_len = 4;

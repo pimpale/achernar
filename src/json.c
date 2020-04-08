@@ -19,7 +19,7 @@ JsonElem boolJson(bool x) {
 }
 
 JsonElem intJson(uint64_t x) {
-  return (JsonElem){.kind=JE_boolean, .integer=(x)};
+  return (JsonElem){.kind=JE_integer, .integer=(x)};
 }
 
 JsonElem numJson(double x) {

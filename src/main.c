@@ -29,4 +29,5 @@ static char *newAstString(FILE *stream) {
 int main() {
   char *ast = newAstString(stdin);
   puts(ast);
+  free(ast);
 }

@@ -25,7 +25,7 @@ Arena *destroyArena(Arena* ar);
 /// Allocates `len` bytes from `ar`. This memory cannot be freed or reallocated
 /// REQUIRES: `ar` is a pointer to a valid Arena
 /// GUARANTEES: return contains pointer to valid section of memory `len` bytes long
-/// GUARANTEES: if `len` is 0, no memory will be allocated
+/// GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be returned
 void *allocArena(Arena* ar, size_t len);
 
 // Utility Macros

@@ -84,6 +84,10 @@ Arena *destroyArena(Arena *ar) {
 }
 
 void *allocArena(Arena *ar, size_t len) {
+  if(len == 0) {
+    return NULL;
+  }
+
   // get the last page in our list
   size_t numPages = VEC_LEN(&ar->pages, ArenaPage);
 

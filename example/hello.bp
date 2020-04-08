@@ -1,5 +1,10 @@
 fn main():int = {
   println("hello world");
+  println("hello world");
+  println("hello world")
+  println("hello world");
+  println("hello world");
+  println("hello world");
   return(0);
 };
 

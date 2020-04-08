@@ -27,6 +27,14 @@ static JsonElem jsonDiagnostic(Diagnostic diagnostic, Arena *ja) {
   return objDefJson(ptrs, 2);
 }
 
+static JsonElem jsonDiagnostics(Diagnostic* diagnostics, size_t diagnostics_length, Arena *ja) {
+  JsonElem *ptrs = allocArena(ja, sizeof(JsonElem) * diagnostics_length);
+  for(size_t i = 0; i < diagnostics_length; i++) {
+    ptrs[i] = jsonDiagnostic(diagnostics[i], ja);
+  }
+  return arrDefJson(ptrs, diagnostics_length);
+}
+
 static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja);
 static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja);
 static JsonElem jsonStmnt(Stmnt *sp, Arena *ja);
@@ -72,7 +80,7 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
   }
   }
   ptrs[1] = KVJson("span", jsonSpan(tep->span, ja));
-  ptrs[2] = KVJson("diagnostic", jsonDiagnostic(tep->diagnostic, ja));
+  ptrs[2] = KVJson("diagnostics", jsonDiagnostics(tep->diagnostics, tep->diagnostics_length, ja));
   return objDefJson(ptrs, ptrs_len);
 }
 
@@ -84,7 +92,7 @@ static JsonElem jsonBinding(Binding *bp, Arena *ja) {
   JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
   ptrs[0] = KVJson("kind", strJson("binding"));
   ptrs[1] = KVJson("span", jsonSpan(bp->span, ja));
-  ptrs[2] = KVJson("diagnostic", jsonDiagnostic(bp->diagnostic, ja));
+  ptrs[2] = KVJson("diagnostics", jsonDiagnostics(bp->diagnostics, bp->diagnostics_length, ja));
   ptrs[3] = KVJson("name", strJson(bp->name));
   ptrs[4] = KVJson("type", jsonTypeExpr(bp->type, ja));
   return objDefJson(ptrs, ptrs_len);
@@ -98,7 +106,7 @@ static JsonElem jsonMatchCaseExpr(MatchCaseExpr *mcep, Arena *ja) {
   JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
   ptrs[0] = KVJson("kind", strJson("matchCaseExpr"));
   ptrs[1] = KVJson("span", jsonSpan(mcep->span, ja));
-  ptrs[2] = KVJson("diagnostic", jsonDiagnostic(mcep->diagnostic, ja));
+  ptrs[2] = KVJson("diagnostics", jsonDiagnostics(mcep->diagnostics, mcep->diagnostics_length, ja));
   ptrs[3] = KVJson("pattern", jsonValueExpr(mcep->pattern, ja));
   ptrs[4] = KVJson("name", jsonValueExpr(mcep->value, ja));
   return objDefJson(ptrs, ptrs_len);
@@ -423,7 +431,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
   }
   }
   ptrs[1] = KVJson("span", jsonSpan(vep->span, ja));
-  ptrs[2] = KVJson("diagnostic", jsonDiagnostic(vep->diagnostic, ja));
+  ptrs[2] = KVJson("diagnostics", jsonDiagnostics(vep->diagnostics, vep->diagnostics_length, ja));
   // create final json object
   return objDefJson(ptrs, ptrs_len);
 }
@@ -503,7 +511,7 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
   }
   }
   ptrs[1] = KVJson("span", jsonSpan(sp->span, ja));
-  ptrs[2] = KVJson("diagnostic", jsonDiagnostic(sp->diagnostic, ja));
+  ptrs[2] = KVJson("diagnostics", jsonDiagnostics(sp->diagnostics, sp->diagnostics_length, ja));
   // create final json object
   JsonElem je = objDefJson(ptrs, ptrs_len);
   return je;
@@ -518,7 +526,7 @@ static JsonElem jsonTranslationUnit(TranslationUnit *tup, Arena *ja) {
 
   ptrs[0] = KVJson("kind", strJson("TranslationUnit"));
   ptrs[1] = KVJson("span", jsonSpan(tup->span, ja));
-  ptrs[2] = KVJson("diagnostic", jsonDiagnostic(tup->diagnostic, ja));
+  ptrs[2] = KVJson("diagnostics", jsonDiagnostics(tup->diagnostics, tup->diagnostics_length, ja));
   // Embed array
   size_t len = tup->statements_length;
   JsonElem *array = allocArena(ja, len * sizeof(JsonElem));

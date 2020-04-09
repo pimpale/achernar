@@ -531,9 +531,7 @@ static JsonElem jsonTranslationUnit(TranslationUnit *tup, Arena *ja) {
   size_t len = tup->statements_length;
   JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
   for (size_t i = 0; i < len; i++) {
-    JsonElem je = jsonStmnt(&tup->statements[i], ja);
-    array[i] = je;
-    // TODO array[i] = jsonStmnt(&tup->statements[i], ja);
+    array[i] = jsonStmnt(&tup->statements[i], ja);
   }
   ptrs[3] = KVJson("statements", arrDefJson(array, len));
   return objDefJson(ptrs, ptrs_len);

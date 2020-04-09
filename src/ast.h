@@ -89,8 +89,8 @@ typedef struct MatchCaseExpr_s MatchCaseExpr;
 typedef struct Binding_s Binding;
 typedef struct Stmnt_s Stmnt;
 
+// Attributes that may be attached to statements or certain expressions
 typedef struct Attr_s {
-  // TODO what goes in here?
   Span span;
   Diagnostic *diagnostics;
   size_t diagnostics_length;

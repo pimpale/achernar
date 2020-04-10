@@ -78,7 +78,7 @@ typedef enum {
 typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
-  TEK_Path,        // Path (primitive or aliased)
+  TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Typeof,      // typeof
   TEK_Struct,      // struct
   TEK_UnaryOp,     // $ or @
@@ -122,8 +122,8 @@ typedef struct TypeExpr_s {
   size_t diagnostics_length;
   union {
     struct {
-      Path *name;
-    } pathExpr;
+      Path *path;
+    } referenceExpr;
     struct {
       ValueExpr *value;
     } typeofExpr;
@@ -204,7 +204,7 @@ typedef struct ValueExpr_s {
       char *field;
     } fieldAccess;
     struct {
-      Path *value;
+      Path *path;
     } reference;
     struct {
       ValueExprUnaryOpKind operator;

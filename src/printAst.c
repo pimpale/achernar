@@ -41,6 +41,20 @@ static JsonElem jsonStmnt(Stmnt *sp, Arena *ja);
 static JsonElem jsonMatchCaseExpr(MatchCaseExpr *mcep, Arena *ja);
 static JsonElem jsonBinding(Binding *bp, Arena *ja);
 
+static JsonElem jsonPath(Path* pp, Arena *ja) {
+  size_t ptrs_len = 4;
+  JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+  ptrs[0] = KVJson("kind", strJson("path"));
+  ptrs[1] = KVJson("span", jsonSpan(pp->span, ja));
+  ptrs[2] = KVJson("diagnostics", jsonDiagnostics(pp->diagnostics, pp->diagnostics_length, ja));
+  JsonElem *path_ptrs = allocArena(ja, sizeof(JsonElem) * pp->pathSegments_length);
+  for(size_t i = 0; i < pp->pathSegments_length; i++) {
+    path_ptrs[i] = strJson(INTERN(pp->pathSegments[i], ja));
+  }
+  ptrs[3] = KVJson("path_segments", arrDefJson(path_ptrs, pp->pathSegments_length));
+  return objDefJson(ptrs, ptrs_len);
+}
+
 static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
   if (tep == NULL) {
     return nullJson();
@@ -63,12 +77,11 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("TEK_Omitted"));
     break;
   }
-  case TEK_Type: {
-    ptrs_len = 5;
+  case TEK_Reference: {
+    ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = KVJson("kind", strJson("TEK_Type"));
-    ptrs[3] = KVJson("name", strJson(tep->type.name));
-    ptrs[4] = KVJson("ptrCount", intJson(tep->type.ptrCount));
+    ptrs[0] = KVJson("kind", strJson("TEK_Reference"));
+    ptrs[3] = KVJson("path", jsonPath(tep->referenceExpr.path, ja));
     break;
   }
   case TEK_Typeof: {
@@ -76,6 +89,45 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("TEK_Typeof"));
     ptrs[3] = KVJson("value", jsonValueExpr(tep->typeofExpr.value, ja));
+    break;
+  }
+  case TEK_Struct: {
+    ptrs_len = 4;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = KVJson("kind", strJson("TEK_StructExpr"));
+    // Embed array
+    size_t len = tep->structExpr.members_length;
+    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
+    for (size_t i = 0; i < len; i++) {
+      array[i] = jsonBinding(&tep->structExpr.members[i], ja);
+    }
+    ptrs[3] = KVJson("members", arrDefJson(array, len));
+  }
+  case TEK_UnaryOp: {
+    ptrs_len = 5;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = KVJson("kind", strJson("TEK_UnaryOp"));
+    char *unOpStr;
+    switch (tep->unaryOp.operator) {
+    case TEUOK_Ref: {
+      unOpStr = "TEUOK_Ref";
+      break;
+    }
+    case TEUOK_Deref: {
+      unOpStr = "TEUOK_Deref";
+      break;
+    }
+    }
+    ptrs[3] = KVJson("operator", strJson(unOpStr));
+    ptrs[4] = KVJson("operand", jsonTypeExpr(tep->unaryOp.operand, ja));
+    break;
+  }
+  case TEK_FieldAccess: {
+    ptrs_len = 5;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = KVJson("kind", strJson("TEK_FieldAccess"));
+    ptrs[3] = KVJson("value", jsonTypeExpr(tep->fieldAccess.value, ja));
+    ptrs[4] = KVJson("field", strJson(INTERN(tep->fieldAccess.field, ja)));
     break;
   }
   }
@@ -93,7 +145,7 @@ static JsonElem jsonBinding(Binding *bp, Arena *ja) {
   ptrs[0] = KVJson("kind", strJson("binding"));
   ptrs[1] = KVJson("span", jsonSpan(bp->span, ja));
   ptrs[2] = KVJson("diagnostics", jsonDiagnostics(bp->diagnostics, bp->diagnostics_length, ja));
-  ptrs[3] = KVJson("name", strJson(bp->name));
+  ptrs[3] = KVJson("name", strJson(INTERN(bp->name, ja)));
   ptrs[4] = KVJson("type", jsonTypeExpr(bp->type, ja));
   return objDefJson(ptrs, ptrs_len);
 }
@@ -159,7 +211,7 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("VEK_StringLiteral"));
-    ptrs[3] = KVJson("value", strJson(vep->stringLiteral.value));
+    ptrs[3] = KVJson("value", strJson(INTERN(vep->stringLiteral.value, ja)));
     break;
   }
   case VEK_ArrayLiteral: {
@@ -188,84 +240,84 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("VEK_BinaryOp"));
     char *binOpStr;
     switch (vep->binaryOp.operator) {
-    case BOK_Add: {
-      binOpStr = "BOK_Add";
+    case VEBOK_Add: {
+      binOpStr = "VEBOK_Add";
       break;
     }
-    case BOK_Sub: {
-      binOpStr = "BOK_Sub";
+    case VEBOK_Sub: {
+      binOpStr = "VEBOK_Sub";
       break;
     }
-    case BOK_Mul: {
-      binOpStr = "BOK_Mul";
+    case VEBOK_Mul: {
+      binOpStr = "VEBOK_Mul";
       break;
     }
-    case BOK_Div: {
-      binOpStr = "BOK_Div";
+    case VEBOK_Div: {
+      binOpStr = "VEBOK_Div";
       break;
     }
-    case BOK_Mod: {
-      binOpStr = "BOK_Mod";
+    case VEBOK_Mod: {
+      binOpStr = "VEBOK_Mod";
       break;
     }
-    case BOK_BitAnd: {
-      binOpStr = "BOK_BitAnd";
+    case VEBOK_BitAnd: {
+      binOpStr = "VEBOK_BitAnd";
       break;
     }
-    case BOK_BitOr: {
-      binOpStr = "BOK_BitOr";
+    case VEBOK_BitOr: {
+      binOpStr = "VEBOK_BitOr";
       break;
     }
-    case BOK_BitXor: {
-      binOpStr = "BOK_BitXor";
+    case VEBOK_BitXor: {
+      binOpStr = "VEBOK_BitXor";
       break;
     }
-    case BOK_BitShl: {
-      binOpStr = "BOK_BitShl";
+    case VEBOK_BitShl: {
+      binOpStr = "VEBOK_BitShl";
       break;
     }
-    case BOK_BitShr: {
-      binOpStr = "BOK_BitShr";
+    case VEBOK_BitShr: {
+      binOpStr = "VEBOK_BitShr";
       break;
     }
-    case BOK_LogicalAnd: {
-      binOpStr = "BOK_LogicalAnd";
+    case VEBOK_LogicalAnd: {
+      binOpStr = "VEBOK_LogicalAnd";
       break;
     }
-    case BOK_LogicalOr: {
-      binOpStr = "BOK_LogicalOr";
+    case VEBOK_LogicalOr: {
+      binOpStr = "VEBOK_LogicalOr";
       break;
     }
-    case BOK_CompEqual: {
-      binOpStr = "BOK_CompEqual";
+    case VEBOK_CompEqual: {
+      binOpStr = "VEBOK_CompEqual";
       break;
     }
-    case BOK_CompNotEqual: {
-      binOpStr = "BOK_CompNotEqual";
+    case VEBOK_CompNotEqual: {
+      binOpStr = "VEBOK_CompNotEqual";
       break;
     }
-    case BOK_CompLess: {
-      binOpStr = "BOK_CompLess";
+    case VEBOK_CompLess: {
+      binOpStr = "VEBOK_CompLess";
       break;
     }
-    case BOK_CompLessEqual: {
-      binOpStr = "BOK_CompLessEqual";
+    case VEBOK_CompLessEqual: {
+      binOpStr = "VEBOK_CompLessEqual";
       break;
     }
-    case BOK_CompGreater: {
-      binOpStr = "BOK_CompGreater";
+    case VEBOK_CompGreater: {
+      binOpStr = "VEBOK_CompGreater";
       break;
     }
-    case BOK_CompGreaterEqual: {
-      binOpStr = "BOK_CompGreaterEqual";
+    case VEBOK_CompGreaterEqual: {
+      binOpStr = "VEBOK_CompGreaterEqual";
       break;
     }
-    case BOK_ArrayAccess: {
-      binOpStr = "BOK_ArrayAccess";
+    case VEBOK_ArrayAccess: {
+      binOpStr = "VEBOK_ArrayAccess";
       break;
     }
-    case BOK_Pipeline: {
-      binOpStr = "BOK_Pipeline";
+    case VEBOK_Pipeline: {
+      binOpStr = "VEBOK_Pipeline";
       break;
     }
     }
@@ -282,28 +334,28 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("VEK_UnaryOp"));
     char *unOpStr;
     switch (vep->unaryOp.operator) {
-    case UOK_Negate: {
-      unOpStr = "UOK_Negate";
+    case VEUOK_Negate: {
+      unOpStr = "VEUOK_Negate";
       break;
     }
-    case UOK_Posit: {
-      unOpStr = "UOK_Posit";
+    case VEUOK_Posit: {
+      unOpStr = "VEUOK_Posit";
       break;
     }
-    case UOK_LogicalNot: {
-      unOpStr = "UOK_LogicalNot";
+    case VEUOK_LogicalNot: {
+      unOpStr = "VEUOK_LogicalNot";
       break;
     }
-    case UOK_BitNot: {
-      unOpStr = "UOK_BitNot";
+    case VEUOK_BitNot: {
+      unOpStr = "VEUOK_BitNot";
       break;
     }
-    case UOK_Ref: {
-      unOpStr = "UOK_Ref";
+    case VEUOK_Ref: {
+      unOpStr = "VEUOK_Ref";
       break;
     }
-    case UOK_Deref: {
-      unOpStr = "UOK_Deref";
+    case VEUOK_Deref: {
+      unOpStr = "VEUOK_Deref";
       break;
     }
     }
@@ -426,14 +478,14 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("VEK_FieldAccess"));
     ptrs[3] = KVJson("value", jsonValueExpr(vep->fieldAccess.value, ja));
-    ptrs[4] = KVJson("field", strJson(vep->fieldAccess.field));
+    ptrs[4] = KVJson("field", strJson(INTERN(vep->fieldAccess.field, ja)));
     break;
   }
   case VEK_Reference: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("VEK_Reference"));
-    ptrs[3] = KVJson("identifier", strJson(vep->reference.identifier));
+    ptrs[3] = KVJson("path", jsonPath(vep->reference.path, ja));
     break;
   }
   }
@@ -462,7 +514,7 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs_len = 7;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("SK_FnDecl"));
-    ptrs[3] = KVJson("name", strJson(sp->fnDecl.name));
+    ptrs[3] = KVJson("name", strJson(INTERN(sp->fnDecl.name, ja)));
     // Embed array
     size_t len = sp->fnDecl.params_length;
     JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
@@ -487,7 +539,7 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("SK_TypeAliasDecl"));
     ptrs[3] = KVJson("type", jsonTypeExpr(sp->aliasStmnt.type, ja));
-    ptrs[4] = KVJson("name", strJson(sp->aliasStmnt.name));
+    ptrs[4] = KVJson("name", strJson(INTERN(sp->aliasStmnt.name, ja)));
     break;
   }
   case SK_Expr: {

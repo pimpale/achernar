@@ -551,9 +551,9 @@ HANDLE_NO_LEFTBRACE:
 static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp) {
   ZERO(rvep);
   rvep->kind = VEK_Reference;
-  rvep->reference.value = malloc(sizeof(Path));
-  parsePath(rvep->reference.value, blp);
-  rvep->span = rvep->reference.value->span;
+  rvep->reference.path = malloc(sizeof(Path));
+  parsePath(rvep->reference.path, blp);
+  rvep->span = rvep->reference.path->span;
   rvep->diagnostics_length = 0;
   return;
 }
@@ -1134,11 +1134,11 @@ HANDLE_NO_STRUCT:
 
 static void parseReferenceTypeExpr(TypeExpr *rtep, BufferedLexer *blp) {
   ZERO(rtep);
-  rtep->kind = TEK_Path;
-  rtep->pathExpr.name = malloc(sizeof(Path));
-  parsePath(rtep->pathExpr.name, blp);
+  rtep->kind = TEK_Reference;
+  rtep->referenceExpr.path = malloc(sizeof(Path));
+  parsePath(rtep->referenceExpr.path, blp);
   rtep->diagnostics_length = 0;
-  rtep->span = rtep->pathExpr.name->span;
+  rtep->span = rtep->referenceExpr.path->span;
 }
 
 static void parseTypeofTypeExpr(TypeExpr *tte, BufferedLexer *blp) {
@@ -1520,10 +1520,6 @@ static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
   }
   case TK_Let: {
     parseVarDeclStmnt(sp, blp);
-    return;
-  }
-  case TK_Struct: {
-    parseStructDeclStmnt(sp, blp);
     return;
   }
   case TK_Alias: {

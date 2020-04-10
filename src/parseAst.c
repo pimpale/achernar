@@ -145,6 +145,8 @@ static void parsePath(Path *pp, BufferedLexer *blp) {
 
 HANDLE_NO_IDENTIFIER:
   setNextToken(blp, &t);
+  pp->pathSegments_length = VEC_LEN(&pathSegments, char *);
+  pp->pathSegments = releaseVector(&pathSegments);
   pp->diagnostics_length = 1;
   pp->diagnostics = malloc(sizeof(Diagnostic));
   pp->diagnostics[0] = DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
@@ -305,6 +307,9 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
       bvep->blockExpr.suppress_value = false;
       // If the next value isn't a right brace, then we throw an error
       if (t.kind == TK_BraceRight) {
+        break;
+      } else if (t.kind == TK_None && t.error == DK_EOF) {
+        *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_EOF, t.span);
         break;
       } else {
         // give them a missing semicolon error, but keep parsing
@@ -577,10 +582,11 @@ static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp) {
   case TK_IntLiteral: {
     setNextToken(blp, &t);
     parseIntValueExpr(l1, blp);
-
-    advanceToken(blp, &t);
+    return;
+  }
+  case TK_BoolLiteral: {
     setNextToken(blp, &t);
-
+    parseBoolValueExpr(l1, blp);
     return;
   }
   case TK_FloatLiteral: {
@@ -1082,6 +1088,8 @@ static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp) {
     advanceToken(blp, &t);
     if (t.kind == TK_BraceRight) {
       break;
+    } else if (t.kind == TK_None && t.error == DK_EOF) {
+      goto HANDLE_NO_RIGHTBRACE;
     }
     // If it wasn't an end brace, we push it back
     setNextToken(blp, &t);
@@ -1242,7 +1250,8 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
         setNextToken(blp, &t);
         te.diagnostics_length = 1;
         te.diagnostics = malloc(sizeof(Diagnostic));
-        te.diagnostics[0] = DIAGNOSTIC(DK_TypeFieldAccessExpectedIdentifier, te.span);
+        te.diagnostics[0] =
+            DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier, te.span);
         *l2 = te;
         return;
       }

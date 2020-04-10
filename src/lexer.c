@@ -317,6 +317,13 @@ static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
         *token = (Token){.kind = TK_None,
                          .span = SPAN(start, lexer->position),
                          .error = DK_StringLiteralUnrecognizedEscapeCode};
+
+        // keep going till we hit an end double quote
+        while ((c = nextValueLexer(lexer)) != EOF) {
+          if (c == '\"') {
+            break;
+          }
+        }
         destroyVector(&data);
         return;
       }
@@ -606,6 +613,13 @@ static void lexCharLiteral(Lexer *lexer, Token *token, Arena *arena) {
         *token = (Token){.kind = TK_None,
                          .span = SPAN(start, lexer->position),
                          .error = DK_CharLiteralUnrecognizedEscapeCode};
+
+        // keep going till we hit an end single quote
+        while ((c = nextValueLexer(lexer)) != EOF) {
+          if (c == '\'') {
+            break;
+          }
+        }
         destroyVector(&data);
         return;
       }
@@ -702,10 +716,10 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
   }
 
   // boolean literals
-  if(!strcmp(string, "true")) {
+  if (!strcmp(string, "true")) {
     token->kind = TK_BoolLiteral;
     token->bool_literal = true;
-  } else if(!strcmp(string, "false")) {
+  } else if (!strcmp(string, "false")) {
     token->kind = TK_BoolLiteral;
     token->bool_literal = false;
     // keywords

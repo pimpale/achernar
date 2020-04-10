@@ -15,6 +15,11 @@ static char *newAstString(FILE *stream) {
   Arena *tokenArena = createArena(malloc(sizeof(Arena)));
   BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), lexer, tokenArena);
 
+//  Token t;
+//  while(true) {
+//    lexNextToken(lexer, &t, tokenArena);
+//  }
+
   TranslationUnit tu;
   parseTranslationUnit(&tu, blp);
 

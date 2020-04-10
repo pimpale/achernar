@@ -7,7 +7,7 @@
 
 #include "constants.h"
 
-char* strDiagnosticKind(DiagnosticKind dk) {
+char *strDiagnosticKind(DiagnosticKind dk) {
   char *errmsg;
   switch (dk) {
   case DK_Ok: {
@@ -66,6 +66,10 @@ char* strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "StringLiteralUnrecognizedEscapeCode";
     break;
   }
+  case DK_PathExpectedIdentifier: {
+    errmsg = "PathExpectedIdentifier";
+    break;
+  }
   case DK_BindingExpectedType: {
     errmsg = "BindingExpectedType";
     break;
@@ -76,6 +80,10 @@ char* strDiagnosticKind(DiagnosticKind dk) {
   }
   case DK_TypeExprUnexpectedToken: {
     errmsg = "TypeExprUnexpectedToken";
+    break;
+  }
+  case DK_TypeExprFieldAccessExpectedIdentifier: {
+    errmsg = "TypeExprFieldAccessExpectedIdentifier";
     break;
   }
   case DK_VarDeclStmntExpectedAssign: {
@@ -172,6 +180,7 @@ void logInternalError(uint32_t line, const char *func, const char *fmt, ...) {
   va_start(args, fmt);
   vsnprintf(macro_message_formatted, MAX_PRINT_LENGTH, fmt, args);
   va_end(args);
-  fprintf(stderr, APPNAME ": internal error @ %s:%d: %s\n", func, line, macro_message_formatted);
+  fprintf(stderr, APPNAME ": internal error @ %s:%d: %s\n", func, line,
+          macro_message_formatted);
   fprintf(stderr, APPNAME ": report bugs at " APP_REPORT_BUG_LINK "\n");
 }

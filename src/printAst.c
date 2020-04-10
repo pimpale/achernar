@@ -134,6 +134,13 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     ptrs[3] = KVJson("value", intJson(vep->intLiteral.value));
     break;
   }
+  case VEK_BoolLiteral: {
+    ptrs_len = 4;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = KVJson("kind", strJson("VEK_BoolLiteral"));
+    ptrs[3] = KVJson("value", boolJson(vep->boolLiteral.value));
+    break;
+  }
   case VEK_FloatLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
@@ -473,25 +480,6 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("SK_VarDecl"));
     ptrs[3] = KVJson("binding", jsonBinding(sp->varDecl.binding, ja));
     ptrs[4] = KVJson("value", jsonValueExpr(sp->varDecl.value, ja));
-    break;
-  }
-  case SK_StructDecl: {
-    ptrs_len = 6;
-    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = KVJson("kind", strJson("SK_StructDecl"));
-    ptrs[3] = KVJson("has_name", boolJson(sp->structDecl.has_name));
-    if (sp->structDecl.has_name) {
-      ptrs[4] = KVJson("name", strJson(sp->fnDecl.name));
-    } else {
-      ptrs[4] = KVJson("name", nullJson());
-    }
-    // Embed array
-    size_t len = sp->structDecl.members_length;
-    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
-    for (size_t i = 0; i < len; i++) {
-      array[i] = jsonBinding(&sp->structDecl.members[i], ja);
-    }
-    ptrs[5] = KVJson("members", arrDefJson(array, len));
     break;
   }
   case SK_TypeAliasDecl: {

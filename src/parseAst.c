@@ -26,7 +26,6 @@ static void resyncStmnt(BufferedLexer *blp) {
   int64_t parenDepth = 0;
   int64_t braceDepth = 0;
   int64_t bracketDepth = 0;
-  int64_t attrDepth = 0;
 
   while (true) {
     Token t;
@@ -65,21 +64,9 @@ static void resyncStmnt(BufferedLexer *blp) {
       }
       break;
     }
-    case TK_AttrLeft: {
-      attrDepth++;
-      break;
-    }
-    case TK_AttrRight: {
-      attrDepth--;
-      if (attrDepth < 0) {
-        return;
-      }
-      break;
-    }
     case TK_Semicolon: // Fallthrough
     case TK_Comma: {
-      if (braceDepth <= 0 && bracketDepth <= 0 && parenDepth <= 0 &&
-          attrDepth <= 0) {
+      if (braceDepth <= 0 && bracketDepth <= 0 && parenDepth <= 0) {
         // put the comma or semicolon back on the stack to parse
         setNextToken(blp, &t);
         return;
@@ -119,22 +106,84 @@ static void resyncType(BufferedLexer *blp) {
   }
 }
 
-// Note that all errors resynch at the statement level
+// Note that all errors resync at the statement level
 static void parseStmnt(Stmnt *sp, BufferedLexer *blp);
 static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
 static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
+static void parseBinding(Binding *bp, BufferedLexer *blp);
+
+static void parsePath(Path *pp, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_STARTING_IDENTIFIER);
+  LnCol start = t.span.start;
+
+  Vector pathSegments;
+  createVector(&pathSegments);
+
+  *VEC_PUSH(&pathSegments, char*) = strdup(t.identifier);
+
+  while(true) {
+    advanceToken(blp, &t);
+    if(t.kind == TK_ScopeResolution) {
+      advanceToken(blp, &t);
+      EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
+      *VEC_PUSH(&pathSegments, char*) = strdup(t.identifier);
+    } else {
+      // we've reached the end of the path
+      setNextToken(blp, &t);
+      break;
+    }
+  }
+
+  pp->pathSegments_length = VEC_LEN(&pathSegments, char*);
+  pp->pathSegments = releaseVector(&pathSegments);
+  pp->diagnostics_length = 0;
+  pp->diagnostics = NULL;
+  pp->span = SPAN(start, t.span.end);
+  return;
+
+  HANDLE_NO_IDENTIFIER:
+  setNextToken(blp, &t);
+  pp->diagnostics_length = 1;
+  pp->diagnostics = malloc(sizeof(Diagnostic));
+  pp->diagnostics[0] = DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
+  pp->span = SPAN(start, t.span.end);
+  return;
+
+  HANDLE_NO_STARTING_IDENTIFIER:
+  INTERNAL_ERROR("called path parser where there was no path");
+  PANIC();
+}
+
 
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INT_LITERAL);
   ivep->kind = VEK_IntLiteral;
-  ivep->intLiteral.value = t.integer_literal;
+  ivep->intLiteral.value = t.int_literal;
   ivep->span = t.span;
   ivep->diagnostics_length  = 0;
   return;
 
 HANDLE_NO_INT_LITERAL:
+  INTERNAL_ERROR("called int literal parser where there was no "
+                 "int literal");
+  PANIC();
+}
+
+static void parseBoolValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, TK_BoolLiteral, HANDLE_NO_BOOL_LITERAL);
+  bvep->kind = VEK_BoolLiteral;
+  bvep->boolLiteral.value = t.bool_literal;
+  bvep->span = t.span;
+  bvep->diagnostics_length  = 0;
+  return;
+
+HANDLE_NO_BOOL_LITERAL:
   INTERNAL_ERROR("called int literal parser where there was no "
                  "int literal");
   PANIC();
@@ -658,7 +707,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       currentTopLevel = v;
       break;
     }
-    case TK_Dot: {
+    case TK_FieldAccess: {
       ValueExpr v;
       v.kind = VEK_FieldAccess;
       v.fieldAccess.value = malloc(sizeof(ValueExpr));
@@ -1020,30 +1069,123 @@ static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp) {
   parseL8Term(vep, blp);
 }
 
-static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
-  // zero-initialize tep
-  ZERO(tep);
+static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp) {
+  ZERO(ste);
+  ste->kind = TEK_Struct;
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, TK_Struct, HANDLE_NO_STRUCT);
+  LnCol start = t.span.start;
+
+  EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
+
+  Vector bindings;
+  createVector(&bindings);
+
+  // Parse the parameters (Comma Separated list of bindings)
+  while (true) {
+    // Check for end brace
+    advanceToken(blp, &t);
+    if (t.kind == TK_BraceRight) {
+      break;
+    }
+    // If it wasn't an end brace, we push it back
+    setNextToken(blp, &t);
+
+    // Parse and push the parameter
+    parseBinding(VEC_PUSH(&bindings, Binding), blp);
+    // Accept comma, if any
+    // If there's no comma then it MUST be followed by an end brace
+    // This also allows trailing commas
+    advanceToken(blp, &t);
+    if (t.kind != TK_Comma) {
+      // If the next value isn't an end paren, then we throw an error
+      EXPECT_TYPE(t, TK_ParenRight, HANDLE_NO_RIGHTBRACE);
+      break;
+    }
+  }
+
+  ste->structExpr.members_length = VEC_LEN(&bindings, Binding);
+  ste->structExpr.members = releaseVector(&bindings);
+  ste->span = SPAN(start, t.span.end);
+  ste->diagnostics_length = 0;
+  return;
+
+HANDLE_NO_LEFTBRACE:
+  ste->structExpr.members_length = 0;
+  ste->structExpr.members = NULL;
+  ste->span = SPAN(start, t.span.end);
+  ste->diagnostics_length = 1;
+  ste->diagnostics =malloc(sizeof(Diagnostic));
+  ste->diagnostics[0] =
+      DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, ste->span);
+  return;
+
+HANDLE_NO_RIGHTBRACE:
+  ste->structExpr.members_length = VEC_LEN(&bindings, Binding);
+  ste->structExpr.members = releaseVector(&bindings);
+  ste->span = SPAN(start, t.span.end);
+  ste->diagnostics_length = 1;
+  ste->diagnostics = malloc(sizeof(Diagnostic));
+  ste->diagnostics[0] = DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
+  resyncStmnt(blp);
+  return;
+
+HANDLE_NO_STRUCT:
+  INTERNAL_ERROR("called struct declaration parser where there was no "
+                 "struct declaration");
+  PANIC();
+}
+
+static void parseReferenceTypeExpr(TypeExpr *rtep, BufferedLexer *blp) {
+  ZERO(rtep);
+  rtep->kind = TEK_Reference;
+  rtep->referenceExpr.name = malloc(sizeof(Path));
+  parsePath(rtep->referenceExpr.name, blp);
+
+  LnCol start = rtep->referenceExpr.name->span.start;
+  LnCol end = rtep->referenceExpr.name->span.end;
 
   Token t;
 
+  uint64_t ptrCount = 0;
+  while(true) {
+    advanceToken(blp, &t);
+    if(t.kind == TEK_Reference) {
+      end = t.span.end;
+      ptrCount++;
+    } else {
+      setNextToken(blp, &t);
+      break;
+    }
+  }
+
+  rtep->referenceExpr.ptrCount = ptrCount;
+  rtep->diagnostics_length = 0;
+  rtep->span = SPAN(start, end);
+}
+
+static void parseTypeofTypeExpr(TypeExpr* tte, BufferedLexer *blp) {
+  // zero-initialize ttep
+  ZERO(tte);
+
+  Token t;
+  advanceToken(
+
+}
+
+static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
+  Token t;
+
   advanceToken(blp, &t);
-  LnCol start = t.span.start;
   switch (t.kind) {
   case TK_Identifier: {
-    tep->kind = TEK_Type;
-    tep->type.name = strdup(t.identifier);
-    while (true) {
-      advanceToken(blp, &t);
-      if (t.kind == TK_Ref) {
-        tep->type.ptrCount++;
-      } else {
-        setNextToken(blp, &t);
-        break;
-      }
-    }
-    tep->span = SPAN(start, t.span.end);
-    tep->diagnostics_length = 0;
-    break;
+      parseReferenceTypeExpr(tep, blp);
+      return;
+  }
+  case TK_Struct: {
+    parseStructTypeExpr(tep, blp);
+    return;
   }
   case TK_Typeof: {
     tep->kind = TEK_Typeof;
@@ -1063,7 +1205,7 @@ static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
     tep->diagnostics[0] = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
     resyncType(blp);
-    break;
+    return;;
   }
   }
 }
@@ -1275,84 +1417,6 @@ HANDLE_NO_ASSIGN:
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
-}
-
-static void parseStructDeclStmnt(Stmnt *sdsp, BufferedLexer *blp) {
-  ZERO(sdsp);
-  sdsp->kind = SK_StructDecl;
-  Token t;
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, TK_Struct, HANDLE_NO_STRUCT);
-  LnCol start = t.span.start;
-
-  // get name
-  advanceToken(blp, &t);
-  if (t.kind == TK_Identifier) {
-    sdsp->structDecl.has_name = true;
-    sdsp->structDecl.name = strdup(t.identifier);
-    advanceToken(blp, &t);
-  } else {
-    sdsp->structDecl.has_name = false;
-  }
-
-  EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
-
-  Vector bindings;
-  createVector(&bindings);
-
-  // Parse the parameters (Comma Separated list of bindings)
-  while (true) {
-    // Check for end brace
-    advanceToken(blp, &t);
-    if (t.kind == TK_BraceRight) {
-      break;
-    }
-    // If it wasn't an end brace, we push it back
-    setNextToken(blp, &t);
-
-    // Parse and push the parameter
-    parseBinding(VEC_PUSH(&bindings, Binding), blp);
-    // Accept comma, if any
-    // If there's no comma then it MUST be followed by an end brace
-    // This also allows trailing commas
-    advanceToken(blp, &t);
-    if (t.kind != TK_Comma) {
-      // If the next value isn't an end paren, then we throw an error
-      EXPECT_TYPE(t, TK_ParenRight, HANDLE_NO_RIGHTBRACE);
-      break;
-    }
-  }
-
-  sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
-  sdsp->structDecl.members = releaseVector(&bindings);
-  sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostics_length = 0;
-  return;
-
-HANDLE_NO_LEFTBRACE:
-  sdsp->structDecl.members_length = 0;
-  sdsp->structDecl.members = NULL;
-  sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostics_length = 1;
-  sdsp->diagnostics =malloc(sizeof(Diagnostic));
-  sdsp->diagnostics[0] =
-      DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, sdsp->span);
-  return;
-
-HANDLE_NO_RIGHTBRACE:
-  sdsp->structDecl.members_length = VEC_LEN(&bindings, Binding);
-  sdsp->structDecl.members = releaseVector(&bindings);
-  sdsp->span = SPAN(start, t.span.end);
-  sdsp->diagnostics_length = 1;
-  sdsp->diagnostics = malloc(sizeof(Diagnostic));
-  sdsp->diagnostics[0] = DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
-  resyncStmnt(blp);
-  return;
-
-HANDLE_NO_STRUCT:
-  INTERNAL_ERROR("called struct declaration parser where there was no "
-                 "struct declaration");
-  PANIC();
 }
 
 static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp) {

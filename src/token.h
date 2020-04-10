@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "lncol.h"
 #include "error.h"
+#include "lncol.h"
 
 typedef enum {
   // This is not a token, and does not contain token data
@@ -29,12 +29,13 @@ typedef enum {
   TK_Alias,    // alias
   TK_Typeof,   // typeof
   TK_Sizeof,   // sizeof
-  TK_Alignof,  // sizeof
+  TK_Alignof,  // alignof
   // Literals and constants
-  TK_StringLiteral, // "string"
-  TK_CharLiteral,   // 'a'
-  TK_FloatLiteral,  // 0.7
-  TK_IntLiteral,    // 7
+  TK_BoolLiteral,    // true | false
+  TK_StringLiteral,  // "string"
+  TK_CharLiteral,    // 'a'
+  TK_FloatLiteral,   // 0.7
+  TK_IntLiteral,     // 7
   // Math Operators
   TK_Add, // +
   TK_Sub, // -
@@ -66,6 +67,8 @@ typedef enum {
   TK_Assign, // =
   // Pipelines
   TK_Pipe, // ->
+  // Scope resolution
+  TK_ScopeResolution, // ::
   // Other Miscellaneous Operator Things
   TK_ParenLeft,    // (
   TK_ParenRight,   // )
@@ -73,19 +76,17 @@ typedef enum {
   TK_BracketRight, // ]
   TK_BraceLeft,    // {
   TK_BraceRight,   // }
-  TK_Dot,          // .
+  TK_FieldAccess,  // .
   TK_Comma,        // ,
   TK_Colon,        // :
   TK_Semicolon,    // ;
   TK_Underscore,   // _
   // Macros
-  TK_Macro,        // macro!
+  TK_Macro, // macro!
   // Comments, and Attributes
-  TK_Comment,   // #[ comment ]# and # comment
-  TK_AttrLeft,  // [[
-  TK_AttrRight, // ]]
+  TK_Comment,    // #{ comment }# and # comment
+  TK_Annotation, // 
 } TokenKind;
-
 
 typedef struct Token_s {
   TokenKind kind; // The type of this token
@@ -99,9 +100,10 @@ typedef struct Token_s {
     char *macro;
     char *comment;
     char *string_literal;
-    uint64_t integer_literal;
+    uint64_t int_literal;
     double float_literal;
     char char_literal;
+    bool bool_literal;
   };
   Span span; // position in the file
   DiagnosticKind error;

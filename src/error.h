@@ -31,6 +31,8 @@ typedef enum {
   DK_StringLiteralTooLong,
   DK_StringLiteralUnrecognizedEscapeCode,
   // Parsing Errors
+  // Path
+  DK_PathExpectedIdentifier,
   // Binding
   DK_BindingExpectedType,
   DK_BindingExpectedIdentifier,

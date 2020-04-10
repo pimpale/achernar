@@ -462,7 +462,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
       *token  = (Token) {
         .kind = TK_IntLiteral,
         .span = SPAN(start, lexer->position),
-        .integer_literal = integer_value,
+        .int_literal = integer_value,
         .error = DK_Ok
       };
       // clang-format on
@@ -701,7 +701,15 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
     goto CLEANUP;
   }
 
-  if (!strcmp(string, "if")) {
+  // boolean literals
+  if(!strcmp(string, "true")) {
+    token->kind = TK_BoolLiteral;
+    token->bool_literal = true;
+  } else if(!strcmp(string, "false")) {
+    token->kind = TK_BoolLiteral;
+    token->bool_literal = false;
+    // keywords
+  } else if (!strcmp(string, "if")) {
     token->kind = TK_If;
   } else if (!strcmp(string, "else")) {
     token->kind = TK_Else;
@@ -748,20 +756,20 @@ CLEANUP:
 
 /* clang-format off */
 
-#define RESULT_TOKEN( tokenType, errorType)                                     \
+#define RESULT_TOKEN( tokenType, errorType)                                    \
   *token = (Token){                                                            \
       .kind = tokenType,                                                       \
       .span = SPAN(start, lexer->position),                                    \
       .error = errorType                                                       \
   };                                                                           \
 
-#define RETURN_RESULT_TOKEN( tokenType)                                         \
-  RESULT_TOKEN( tokenType, DK_Ok)                                                \
+#define RETURN_RESULT_TOKEN( tokenType)                                        \
+  RESULT_TOKEN(tokenType, DK_Ok)                                               \
   return;
 
-#define NEXT_AND_RETURN_RESULT_TOKEN( tokenType)                                \
+#define NEXT_AND_RETURN_RESULT_TOKEN(tokenType)                                \
   nextValueLexer(lexer);                                                       \
-  RETURN_RESULT_TOKEN( tokenType)
+  RETURN_RESULT_TOKEN(tokenType)
 /* clang-format on */
 
 void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
@@ -872,23 +880,20 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
         RETURN_RESULT_TOKEN(TK_Sub)
       }
     }
-    case '[': {
+    case ':': {
       nextValueLexer(lexer);
       int32_t n = peekValueLexer(lexer);
-      if (n == '[') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AttrLeft)
+      if (n == ':') {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_ScopeResolution)
       } else {
-        RETURN_RESULT_TOKEN(TK_BracketLeft)
+        RETURN_RESULT_TOKEN(TK_Colon)
       }
     }
+    case '[': {
+      NEXT_AND_RETURN_RESULT_TOKEN(TK_BracketLeft)
+    }
     case ']': {
-      nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
-      if (n == ']') {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AttrRight)
-      } else {
-        RETURN_RESULT_TOKEN(TK_BracketRight)
-      }
+      NEXT_AND_RETURN_RESULT_TOKEN(TK_BracketRight)
     }
     case '*': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Mul)
@@ -918,13 +923,10 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_BraceRight)
     }
     case '.': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Dot)
+      NEXT_AND_RETURN_RESULT_TOKEN(TK_FieldAccess)
     }
     case ',': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Comma)
-    }
-    case ':': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Colon)
     }
     case ';': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Semicolon)

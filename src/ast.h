@@ -12,7 +12,6 @@ typedef enum {
   SK_None,
   SK_FnDecl,
   SK_VarDecl,
-  SK_StructDecl,
   SK_TypeAliasDecl,
   SK_Expr,
 } StmntKind;
@@ -20,6 +19,7 @@ typedef enum {
 typedef enum {
   VEK_None,
   VEK_IntLiteral,
+  VEK_BoolLiteral,
   VEK_FloatLiteral,
   VEK_CharLiteral,
   VEK_StringLiteral,
@@ -44,10 +44,11 @@ typedef enum {
 } ValueExprKind;
 
 typedef enum {
-  TEK_None,    // Error type
-  TEK_Omitted, // Omitted
-  TEK_Type,    // type
-  TEK_Typeof,  // typeof
+  TEK_None,      // Error type
+  TEK_Reference, // Reference
+  TEK_Struct,    // struct
+  TEK_Omitted,   // Omitted
+  TEK_Typeof,    // typeof
 } TypeExprKind;
 
 typedef enum {
@@ -87,6 +88,7 @@ typedef struct ValueExpr_s ValueExpr;
 typedef struct StructEntryExpr_s StructEntryExpr;
 typedef struct MatchCaseExpr_s MatchCaseExpr;
 typedef struct Binding_s Binding;
+typedef struct Path_s Path;
 typedef struct Stmnt_s Stmnt;
 
 // Attributes that may be attached to statements or certain expressions
@@ -96,6 +98,14 @@ typedef struct Attr_s {
   size_t diagnostics_length;
 } Attr;
 
+typedef struct Path_s {
+  Span span;
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
+  char **pathSegments;
+  size_t pathSegments_length;
+} Path;
+
 // Expressions and operations yielding a type
 typedef struct TypeExpr_s {
   TypeExprKind kind;
@@ -104,9 +114,17 @@ typedef struct TypeExpr_s {
   size_t diagnostics_length;
   union {
     struct {
-      char *name;
+      Path *name;
       uint64_t ptrCount;
-    } type;
+    } referenceExpr;
+    struct {
+      Binding *members;
+      size_t members_length;
+    } structExpr;
+    struct {
+      Binding *members;
+      size_t members_length;
+    } enumExpr;
     struct {
       ValueExpr *value;
     } typeofExpr;
@@ -150,6 +168,9 @@ typedef struct ValueExpr_s {
       uint64_t value;
     } intLiteral;
     struct {
+      bool value;
+    } boolLiteral;
+    struct {
       double value;
     } floatLiteral;
     struct {
@@ -172,7 +193,7 @@ typedef struct ValueExpr_s {
       char *field;
     } fieldAccess;
     struct {
-      char *identifier;
+      Path *value;
     } reference;
     struct {
       UnaryOpKind operator;
@@ -236,12 +257,6 @@ typedef struct Stmnt_s {
       TypeExpr *type;
       ValueExpr *body;
     } fnDecl;
-    struct {
-      bool has_name;
-      char *name;
-      Binding *members;
-      size_t members_length;
-    } structDecl;
     struct {
       Binding *binding;
       ValueExpr *value;

@@ -44,44 +44,52 @@ typedef enum {
 } ValueExprKind;
 
 typedef enum {
-  TEK_None,      // Error type
-  TEK_Reference, // Reference
-  TEK_Struct,    // struct
-  TEK_Omitted,   // Omitted
-  TEK_Typeof,    // typeof
+  VEBOK_Add,              // +
+  VEBOK_Sub,              // -
+  VEBOK_Mul,              // *
+  VEBOK_Div,              // /
+  VEBOK_Mod,              // %
+  VEBOK_BitAnd,           // &
+  VEBOK_BitOr,            // |
+  VEBOK_BitXor,           // ^
+  VEBOK_BitShl,           // <<
+  VEBOK_BitShr,           // >>
+  VEBOK_LogicalAnd,       // &&
+  VEBOK_LogicalOr,        // ||
+  VEBOK_CompEqual,        // ==
+  VEBOK_CompNotEqual,     // !=
+  VEBOK_CompLess,         // <
+  VEBOK_CompLessEqual,    // <=
+  VEBOK_CompGreater,      // >
+  VEBOK_CompGreaterEqual, // >=
+  VEBOK_ArrayAccess,      // []
+  VEBOK_Pipeline,         // ->
+} ValueExprBinaryOpKind;
+
+typedef enum {
+  VEUOK_Negate,     // -
+  VEUOK_Posit,      // +
+  VEUOK_LogicalNot, // !
+  VEUOK_BitNot,     // ~
+  VEUOK_Ref,        // $
+  VEUOK_Deref       // @
+} ValueExprUnaryOpKind;
+
+typedef enum {
+  TEK_None,        // Error type
+  TEK_Omitted,     // Omitted
+  TEK_Path,        // Path (primitive or aliased)
+  TEK_Typeof,      // typeof
+  TEK_Struct,      // struct
+  TEK_UnaryOp,     // $ or @
+  TEK_FieldAccess, // .
 } TypeExprKind;
 
 typedef enum {
-  BOK_Add,              // +
-  BOK_Sub,              // -
-  BOK_Mul,              // *
-  BOK_Div,              // /
-  BOK_Mod,              // %
-  BOK_BitAnd,           // &
-  BOK_BitOr,            // |
-  BOK_BitXor,           // ^
-  BOK_BitShl,           // <<
-  BOK_BitShr,           // >>
-  BOK_LogicalAnd,       // &&
-  BOK_LogicalOr,        // ||
-  BOK_CompEqual,        // ==
-  BOK_CompNotEqual,     // !=
-  BOK_CompLess,         // <
-  BOK_CompLessEqual,    // <=
-  BOK_CompGreater,      // >
-  BOK_CompGreaterEqual, // >=
-  BOK_ArrayAccess,      // []
-  BOK_Pipeline,         // ->
-} BinaryOpKind;
-
-typedef enum {
-  UOK_Negate,     // -
-  UOK_Posit,      // +
-  UOK_LogicalNot, // !
-  UOK_BitNot,     // ~
-  UOK_Ref,        // $
-  UOK_Deref       // @
-} UnaryOpKind;
+  // operators
+  TEUOK_Ref, // $
+  TEUOK_Deref, // @
+} TypeExprUnaryOpKind;
 
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
@@ -115,19 +123,22 @@ typedef struct TypeExpr_s {
   union {
     struct {
       Path *name;
-      uint64_t ptrCount;
-    } referenceExpr;
+    } pathExpr;
+    struct {
+      ValueExpr *value;
+    } typeofExpr;
     struct {
       Binding *members;
       size_t members_length;
     } structExpr;
     struct {
-      Binding *members;
-      size_t members_length;
-    } enumExpr;
+      TypeExprUnaryOpKind operator;
+      struct TypeExpr_s* operand;
+    } unaryOp;
     struct {
-      ValueExpr *value;
-    } typeofExpr;
+      struct TypeExpr_s* value;
+      char* field;
+    } fieldAccess;
   };
 } TypeExpr;
 
@@ -196,11 +207,11 @@ typedef struct ValueExpr_s {
       Path *value;
     } reference;
     struct {
-      UnaryOpKind operator;
+      ValueExprUnaryOpKind operator;
       ValueExpr *operand;
     } unaryOp;
     struct {
-      BinaryOpKind operator;
+      ValueExprBinaryOpKind operator;
       ValueExpr *left_operand;
       ValueExpr *right_operand;
     } binaryOp;

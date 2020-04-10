@@ -38,6 +38,7 @@ typedef enum {
   DK_BindingExpectedIdentifier,
   // TypeExpr
   DK_TypeExprUnexpectedToken,
+  DK_TypeFieldAccessExpectedIdentifier,
   // VarDeclStmnt
   DK_VarDeclStmntExpectedAssign,
   DK_VarDeclStmntExpectedValue,

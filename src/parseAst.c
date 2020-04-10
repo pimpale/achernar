@@ -121,14 +121,14 @@ static void parsePath(Path *pp, BufferedLexer *blp) {
   Vector pathSegments;
   createVector(&pathSegments);
 
-  *VEC_PUSH(&pathSegments, char*) = strdup(t.identifier);
+  *VEC_PUSH(&pathSegments, char *) = strdup(t.identifier);
 
-  while(true) {
+  while (true) {
     advanceToken(blp, &t);
-    if(t.kind == TK_ScopeResolution) {
+    if (t.kind == TK_ScopeResolution) {
       advanceToken(blp, &t);
       EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-      *VEC_PUSH(&pathSegments, char*) = strdup(t.identifier);
+      *VEC_PUSH(&pathSegments, char *) = strdup(t.identifier);
     } else {
       // we've reached the end of the path
       setNextToken(blp, &t);
@@ -136,14 +136,14 @@ static void parsePath(Path *pp, BufferedLexer *blp) {
     }
   }
 
-  pp->pathSegments_length = VEC_LEN(&pathSegments, char*);
+  pp->pathSegments_length = VEC_LEN(&pathSegments, char *);
   pp->pathSegments = releaseVector(&pathSegments);
   pp->diagnostics_length = 0;
   pp->diagnostics = NULL;
   pp->span = SPAN(start, t.span.end);
   return;
 
-  HANDLE_NO_IDENTIFIER:
+HANDLE_NO_IDENTIFIER:
   setNextToken(blp, &t);
   pp->diagnostics_length = 1;
   pp->diagnostics = malloc(sizeof(Diagnostic));
@@ -151,11 +151,10 @@ static void parsePath(Path *pp, BufferedLexer *blp) {
   pp->span = SPAN(start, t.span.end);
   return;
 
-  HANDLE_NO_STARTING_IDENTIFIER:
+HANDLE_NO_STARTING_IDENTIFIER:
   INTERNAL_ERROR("called path parser where there was no path");
   PANIC();
 }
-
 
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   Token t;
@@ -164,7 +163,7 @@ static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   ivep->kind = VEK_IntLiteral;
   ivep->intLiteral.value = t.int_literal;
   ivep->span = t.span;
-  ivep->diagnostics_length  = 0;
+  ivep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_INT_LITERAL:
@@ -180,7 +179,7 @@ static void parseBoolValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
   bvep->kind = VEK_BoolLiteral;
   bvep->boolLiteral.value = t.bool_literal;
   bvep->span = t.span;
-  bvep->diagnostics_length  = 0;
+  bvep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_BOOL_LITERAL:
@@ -305,12 +304,13 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
     if (t.kind != TK_Semicolon) {
       bvep->blockExpr.suppress_value = false;
       // If the next value isn't a right brace, then we throw an error
-      if(t.kind == TK_BraceRight) {
+      if (t.kind == TK_BraceRight) {
         break;
       } else {
         // give them a missing semicolon error, but keep parsing
         setNextToken(blp, &t);
-        *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
+        *VEC_PUSH(&diagnostics, Diagnostic) =
+            DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
       }
     }
   }
@@ -551,30 +551,24 @@ HANDLE_NO_LEFTBRACE:
 static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp) {
   ZERO(rvep);
   rvep->kind = VEK_Reference;
-  Token t;
-  advanceToken(blp, &t);
-  rvep->span = t.span;
-  EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-  rvep->reference.identifier = strdup(t.identifier);
+  rvep->reference.value = malloc(sizeof(Path));
+  parsePath(rvep->reference.value, blp);
+  rvep->span = rvep->reference.value->span;
   rvep->diagnostics_length = 0;
   return;
-
-HANDLE_NO_IDENTIFIER:
-  INTERNAL_ERROR("called reference parser where there was no reference");
-  PANIC();
 }
 
-// Level0Term (literals of any kind)
-// Level1Term parentheses, braces
-// Level2Term () [] $ @ . -> (suffixes)
-// Level3Term - + ~ ! (prefixes)
-// Level4Term * / % (multiplication and division)
-// Level5Term + - (addition and subtraction)
-// Level6Term << >> & | ^ (bitwise operators)
-// Level7Term < <= > >= == != (comparators)
-// Level8Term && || (Boolean Operators)
+// Level0ValueExpr (literals of any kind)
+// Level1ValueExpr parentheses, braces
+// Level2ValueExpr () [] $ @ . -> (suffixes)
+// Level3ValueExpr - + ~ ! (prefixes)
+// Level4ValueExpr * / % (multiplication and division)
+// Level5ValueExpr + - (addition and subtraction)
+// Level6ValueExpr << >> & | ^ (bitwise operators)
+// Level7ValueExpr < <= > >= == != (comparators)
+// Level8ValueExpr && || (Boolean Operators)
 
-static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
+static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
   // Decide which expression it is
@@ -672,13 +666,13 @@ static void parseL1Term(ValueExpr *l1, BufferedLexer *blp) {
   }
 }
 
-static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
+static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
 
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
   ValueExpr currentTopLevel;
-  parseL1Term(&currentTopLevel, blp);
+  parseL1ValueExpr(&currentTopLevel, blp);
   LnCol start = currentTopLevel.span.start;
 
   while (true) {
@@ -688,7 +682,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
     case TK_Ref: {
       ValueExpr v;
       v.kind = VEK_UnaryOp;
-      v.unaryOp.operator= UOK_Ref;
+      v.unaryOp.operator= VEUOK_Ref;
       v.unaryOp.operand = malloc(sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
@@ -699,7 +693,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
     case TK_Deref: {
       ValueExpr v;
       v.kind = VEK_UnaryOp;
-      v.unaryOp.operator= UOK_Deref;
+      v.unaryOp.operator= VEUOK_Deref;
       v.unaryOp.operand = malloc(sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
@@ -717,7 +711,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
       advanceToken(blp, &t);
       v.span = SPAN(start, t.span.end);
       if (t.kind != TK_Identifier) {
-        // If we encounter an error, we bail out of this L2Term
+        // If we encounter an error, we bail out of this L2ValueExpr
         v.fieldAccess.field = NULL;
         setNextToken(blp, &t);
         v.diagnostics_length = 1;
@@ -734,7 +728,7 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
     case TK_BracketLeft: {
       ValueExpr v;
       v.kind = VEK_BinaryOp;
-      v.binaryOp.operator= BOK_ArrayAccess;
+      v.binaryOp.operator= VEBOK_ArrayAccess;
       v.binaryOp.left_operand = malloc(sizeof(ValueExpr));
       v.binaryOp.right_operand = malloc(sizeof(ValueExpr));
       *v.binaryOp.left_operand = currentTopLevel;
@@ -825,30 +819,30 @@ static void parseL2Term(ValueExpr *l2, BufferedLexer *blp) {
   }
 }
 
-static void parseL3Term(ValueExpr *l3, BufferedLexer *blp) {
+static void parseL3ValueExpr(ValueExpr *l3, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_Sub: {
-    l3->unaryOp.operator= UOK_Negate;
+    l3->unaryOp.operator= VEUOK_Negate;
     break;
   }
   case TK_Add: {
-    l3->unaryOp.operator= UOK_Posit;
+    l3->unaryOp.operator= VEUOK_Posit;
     break;
   }
   case TK_BitNot: {
-    l3->unaryOp.operator= UOK_BitNot;
+    l3->unaryOp.operator= VEUOK_BitNot;
     break;
   }
   case TK_Not: {
-    l3->unaryOp.operator= UOK_LogicalNot;
+    l3->unaryOp.operator= VEUOK_LogicalNot;
     break;
   }
   default: {
     // there is no level 3 expression
     setNextToken(blp, &t);
-    parseL2Term(l3, blp);
+    parseL2ValueExpr(l3, blp);
     return;
   }
   }
@@ -856,29 +850,29 @@ static void parseL3Term(ValueExpr *l3, BufferedLexer *blp) {
   // Now parse the rest of the expression
   l3->kind = VEK_UnaryOp;
   l3->unaryOp.operand = malloc(sizeof(ValueExpr));
-  parseL3Term(l3->unaryOp.operand, blp);
+  parseL3ValueExpr(l3->unaryOp.operand, blp);
   l3->span = SPAN(t.span.start, l3->unaryOp.operand->span.end);
   l3->diagnostics_length = 0;
   return;
 }
 
-static void parseL4Term(ValueExpr *l4, BufferedLexer *blp) {
+static void parseL4ValueExpr(ValueExpr *l4, BufferedLexer *blp) {
   ValueExpr v;
-  parseL3Term(&v, blp);
+  parseL3ValueExpr(&v, blp);
 
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_Mul: {
-    l4->binaryOp.operator= BOK_Mul;
+    l4->binaryOp.operator= VEBOK_Mul;
     break;
   }
   case TK_Div: {
-    l4->binaryOp.operator= BOK_Div;
+    l4->binaryOp.operator= VEBOK_Div;
     break;
   }
   case TK_Mod: {
-    l4->binaryOp.operator= BOK_Mod;
+    l4->binaryOp.operator= VEBOK_Mod;
     break;
   }
   default: {
@@ -893,26 +887,26 @@ static void parseL4Term(ValueExpr *l4, BufferedLexer *blp) {
   l4->binaryOp.left_operand = malloc(sizeof(ValueExpr));
   *l4->binaryOp.left_operand = v;
   l4->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL4Term(l4->binaryOp.right_operand, blp);
+  parseL4ValueExpr(l4->binaryOp.right_operand, blp);
   l4->span = SPAN(l4->binaryOp.left_operand->span.start,
                   l4->binaryOp.right_operand->span.end);
   l4->diagnostics_length = 0;
   return;
 }
 
-static void parseL5Term(ValueExpr *l5, BufferedLexer *blp) {
+static void parseL5ValueExpr(ValueExpr *l5, BufferedLexer *blp) {
   ValueExpr v;
-  parseL4Term(&v, blp);
+  parseL4ValueExpr(&v, blp);
 
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_Add: {
-    l5->binaryOp.operator= BOK_Add;
+    l5->binaryOp.operator= VEBOK_Add;
     break;
   }
   case TK_Sub: {
-    l5->binaryOp.operator= BOK_Sub;
+    l5->binaryOp.operator= VEBOK_Sub;
     break;
   }
   default: {
@@ -927,38 +921,38 @@ static void parseL5Term(ValueExpr *l5, BufferedLexer *blp) {
   l5->binaryOp.left_operand = malloc(sizeof(ValueExpr));
   *l5->binaryOp.left_operand = v;
   l5->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL5Term(l5->binaryOp.right_operand, blp);
+  parseL5ValueExpr(l5->binaryOp.right_operand, blp);
   l5->span = SPAN(l5->binaryOp.left_operand->span.start,
                   l5->binaryOp.right_operand->span.end);
   l5->diagnostics_length = 0;
   return;
 }
 
-static void parseL6Term(ValueExpr *l6, BufferedLexer *blp) {
+static void parseL6ValueExpr(ValueExpr *l6, BufferedLexer *blp) {
   ValueExpr v;
-  parseL5Term(&v, blp);
+  parseL5ValueExpr(&v, blp);
 
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_ShiftLeft: {
-    l6->binaryOp.operator= BOK_BitShl;
+    l6->binaryOp.operator= VEBOK_BitShl;
     break;
   }
   case TK_ShiftRight: {
-    l6->binaryOp.operator= BOK_BitShr;
+    l6->binaryOp.operator= VEBOK_BitShr;
     break;
   }
   case TK_BitAnd: {
-    l6->binaryOp.operator= BOK_BitAnd;
+    l6->binaryOp.operator= VEBOK_BitAnd;
     break;
   }
   case TK_BitOr: {
-    l6->binaryOp.operator= BOK_BitOr;
+    l6->binaryOp.operator= VEBOK_BitOr;
     break;
   }
   case TK_BitXor: {
-    l6->binaryOp.operator= BOK_BitXor;
+    l6->binaryOp.operator= VEBOK_BitXor;
     break;
   }
   default: {
@@ -973,42 +967,42 @@ static void parseL6Term(ValueExpr *l6, BufferedLexer *blp) {
   l6->binaryOp.left_operand = malloc(sizeof(ValueExpr));
   *l6->binaryOp.left_operand = v;
   l6->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL6Term(l6->binaryOp.right_operand, blp);
+  parseL6ValueExpr(l6->binaryOp.right_operand, blp);
   l6->span = SPAN(l6->binaryOp.left_operand->span.start,
                   l6->binaryOp.right_operand->span.end);
   l6->diagnostics_length = 0;
   return;
 }
 
-static void parseL7Term(ValueExpr *l7, BufferedLexer *blp) {
+static void parseL7ValueExpr(ValueExpr *l7, BufferedLexer *blp) {
   ValueExpr v;
-  parseL6Term(&v, blp);
+  parseL6ValueExpr(&v, blp);
 
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_CompLess: {
-    l7->binaryOp.operator= BOK_CompLess;
+    l7->binaryOp.operator= VEBOK_CompLess;
     break;
   }
   case TK_CompGreater: {
-    l7->binaryOp.operator= BOK_CompGreater;
+    l7->binaryOp.operator= VEBOK_CompGreater;
     break;
   }
   case TK_CompLessEqual: {
-    l7->binaryOp.operator= BOK_CompLessEqual;
+    l7->binaryOp.operator= VEBOK_CompLessEqual;
     break;
   }
   case TK_CompGreaterEqual: {
-    l7->binaryOp.operator= BOK_CompGreaterEqual;
+    l7->binaryOp.operator= VEBOK_CompGreaterEqual;
     break;
   }
   case TK_Equal: {
-    l7->binaryOp.operator= BOK_CompEqual;
+    l7->binaryOp.operator= VEBOK_CompEqual;
     break;
   }
   case TK_NotEqual: {
-    l7->binaryOp.operator= BOK_CompNotEqual;
+    l7->binaryOp.operator= VEBOK_CompNotEqual;
     break;
   }
   default: {
@@ -1023,26 +1017,26 @@ static void parseL7Term(ValueExpr *l7, BufferedLexer *blp) {
   l7->binaryOp.left_operand = malloc(sizeof(ValueExpr));
   *l7->binaryOp.left_operand = v;
   l7->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL7Term(l7->binaryOp.right_operand, blp);
+  parseL7ValueExpr(l7->binaryOp.right_operand, blp);
   l7->span = SPAN(l7->binaryOp.left_operand->span.start,
                   l7->binaryOp.right_operand->span.end);
   l7->diagnostics_length = 0;
   return;
 }
 
-static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
+static void parseL8ValueExpr(ValueExpr *l8, BufferedLexer *blp) {
   ValueExpr v;
-  parseL7Term(&v, blp);
+  parseL7ValueExpr(&v, blp);
 
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_And: {
-    l8->binaryOp.operator= BOK_LogicalAnd;
+    l8->binaryOp.operator= VEBOK_LogicalAnd;
     break;
   }
   case TK_Or: {
-    l8->binaryOp.operator= BOK_LogicalOr;
+    l8->binaryOp.operator= VEBOK_LogicalOr;
     break;
   }
   default: {
@@ -1057,7 +1051,7 @@ static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
   l8->binaryOp.left_operand = malloc(sizeof(ValueExpr));
   *l8->binaryOp.left_operand = v;
   l8->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL8Term(l8->binaryOp.right_operand, blp);
+  parseL8ValueExpr(l8->binaryOp.right_operand, blp);
   l8->span = SPAN(l8->binaryOp.left_operand->span.start,
                   l8->binaryOp.right_operand->span.end);
   l8->diagnostics_length = 0;
@@ -1066,7 +1060,7 @@ static void parseL8Term(ValueExpr *l8, BufferedLexer *blp) {
 
 // shim method
 static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp) {
-  parseL8Term(vep, blp);
+  parseL8ValueExpr(vep, blp);
 }
 
 static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp) {
@@ -1116,7 +1110,7 @@ HANDLE_NO_LEFTBRACE:
   ste->structExpr.members = NULL;
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 1;
-  ste->diagnostics =malloc(sizeof(Diagnostic));
+  ste->diagnostics = malloc(sizeof(Diagnostic));
   ste->diagnostics[0] =
       DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, ste->span);
   return;
@@ -1127,87 +1121,148 @@ HANDLE_NO_RIGHTBRACE:
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 1;
   ste->diagnostics = malloc(sizeof(Diagnostic));
-  ste->diagnostics[0] = DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
+  ste->diagnostics[0] =
+      DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
   resyncStmnt(blp);
   return;
 
 HANDLE_NO_STRUCT:
-  INTERNAL_ERROR("called struct declaration parser where there was no "
+  INTERNAL_ERROR("called struct type expression parser where there was no "
                  "struct declaration");
   PANIC();
 }
 
 static void parseReferenceTypeExpr(TypeExpr *rtep, BufferedLexer *blp) {
   ZERO(rtep);
-  rtep->kind = TEK_Reference;
-  rtep->referenceExpr.name = malloc(sizeof(Path));
-  parsePath(rtep->referenceExpr.name, blp);
-
-  LnCol start = rtep->referenceExpr.name->span.start;
-  LnCol end = rtep->referenceExpr.name->span.end;
-
-  Token t;
-
-  uint64_t ptrCount = 0;
-  while(true) {
-    advanceToken(blp, &t);
-    if(t.kind == TEK_Reference) {
-      end = t.span.end;
-      ptrCount++;
-    } else {
-      setNextToken(blp, &t);
-      break;
-    }
-  }
-
-  rtep->referenceExpr.ptrCount = ptrCount;
+  rtep->kind = TEK_Path;
+  rtep->pathExpr.name = malloc(sizeof(Path));
+  parsePath(rtep->pathExpr.name, blp);
   rtep->diagnostics_length = 0;
-  rtep->span = SPAN(start, end);
+  rtep->span = rtep->pathExpr.name->span;
 }
 
-static void parseTypeofTypeExpr(TypeExpr* tte, BufferedLexer *blp) {
+static void parseTypeofTypeExpr(TypeExpr *tte, BufferedLexer *blp) {
   // zero-initialize ttep
   ZERO(tte);
+  tte->kind = TEK_Typeof;
 
   Token t;
-  advanceToken(
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, TK_Typeof, HANDLE_NO_TYPEOF);
+  tte->typeofExpr.value = malloc(sizeof(ValueExpr));
+  parseValueExpr(tte->typeofExpr.value, blp);
+  tte->diagnostics_length = 0;
+  tte->span = SPAN(t.span.start, tte->typeofExpr.value->span.end);
+  return;
 
+HANDLE_NO_TYPEOF:
+  INTERNAL_ERROR("called typeof type expression parser where there was no "
+                 "typeof");
+  PANIC();
 }
 
-static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
+static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp) {
   Token t;
-
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_Identifier: {
-      parseReferenceTypeExpr(tep, blp);
-      return;
+    setNextToken(blp, &t);
+    parseReferenceTypeExpr(l1, blp);
+    return;
   }
   case TK_Struct: {
-    parseStructTypeExpr(tep, blp);
+    setNextToken(blp, &t);
+    parseStructTypeExpr(l1, blp);
     return;
   }
   case TK_Typeof: {
-    tep->kind = TEK_Typeof;
-    tep->type.name = strdup(t.identifier);
-    tep->typeofExpr.value = malloc(sizeof(ValueExpr));
-    parseValueExpr(tep->typeofExpr.value, blp);
-
-    tep->span = SPAN(start, tep->typeofExpr.value->span.end);
-    tep->diagnostics_length = 0;
-    break;
+    setNextToken(blp, &t);
+    parseTypeofTypeExpr(l1, blp);
+    return;
   }
   default: {
-    tep->kind = TEK_None;
-    tep->span = t.span;
-    tep->diagnostics_length = 1;
-    tep->diagnostics = malloc(sizeof(Diagnostic));
-    tep->diagnostics[0] = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
+    l1->kind = TEK_None;
+    l1->span = t.span;
+    l1->diagnostics_length = 1;
+    l1->diagnostics = malloc(sizeof(Diagnostic));
+    l1->diagnostics[0] = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
     resyncType(blp);
-    return;;
+    return;
   }
   }
+}
+
+static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
+  // Because it's postfix, we must take a somewhat unorthodox approach here
+  // We Parse the level one expr and then use a while loop to process the rest
+  // of the stuff
+  TypeExpr currentTopLevel;
+  parseL1TypeExpr(&currentTopLevel, blp);
+  LnCol start = currentTopLevel.span.start;
+
+  while (true) {
+    Token t;
+    advanceToken(blp, &t);
+    switch (t.kind) {
+    case TK_Ref: {
+      TypeExpr te;
+      te.kind = TEK_UnaryOp;
+      te.unaryOp.operator= TEUOK_Ref;
+      te.unaryOp.operand = malloc(sizeof(TypeExpr));
+      *te.unaryOp.operand = currentTopLevel;
+      te.span = SPAN(start, t.span.end);
+      te.diagnostics_length = 0;
+      currentTopLevel = te;
+      break;
+    }
+    case TK_Deref: {
+      TypeExpr te;
+      te.kind = TEK_UnaryOp;
+      te.unaryOp.operator= TEUOK_Deref;
+      te.unaryOp.operand = malloc(sizeof(TypeExpr));
+      *te.unaryOp.operand = currentTopLevel;
+      te.span = SPAN(start, t.span.end);
+      te.diagnostics_length = 0;
+      currentTopLevel = te;
+      break;
+    }
+    case TK_FieldAccess: {
+      TypeExpr te;
+      te.kind = TEK_FieldAccess;
+      te.fieldAccess.value = malloc(sizeof(TypeExpr));
+      *te.fieldAccess.value = currentTopLevel;
+
+      // Now we get the next thing
+      advanceToken(blp, &t);
+      te.span = SPAN(start, t.span.end);
+      if (t.kind != TK_Identifier) {
+        // If we encounter an error, we bail out of this L2ValueExpr
+        te.fieldAccess.field = NULL;
+        setNextToken(blp, &t);
+        te.diagnostics_length = 1;
+        te.diagnostics = malloc(sizeof(Diagnostic));
+        te.diagnostics[0] = DIAGNOSTIC(DK_TypeFieldAccessExpectedIdentifier, te.span);
+        *l2 = te;
+        return;
+      }
+      te.fieldAccess.field = strdup(t.identifier);
+      te.diagnostics_length = 0;
+      currentTopLevel = te;
+      break;
+    }
+    default: {
+      // there are no more level 2 expressions
+      setNextToken(blp, &t);
+      *l2 = currentTopLevel;
+      return;
+    }
+    }
+  }
+}
+
+static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
+  parseL2TypeExpr(tep, blp);
 }
 
 static void parseBinding(Binding *bp, BufferedLexer *blp) {
@@ -1225,7 +1280,7 @@ static void parseBinding(Binding *bp, BufferedLexer *blp) {
 
   // check if colon
   advanceToken(blp, &t);
-  if(t.kind == TK_Colon) {
+  if (t.kind == TK_Colon) {
     // Get type of variable
     bp->type = malloc(sizeof(TypeExpr));
     parseTypeExpr(bp->type, blp);
@@ -1405,7 +1460,7 @@ HANDLE_NO_RIGHTPAREN:
 HANDLE_NO_COLON:
   fdsp->diagnostics_length = 1;
   fdsp->diagnostics = malloc(sizeof(Diagnostic));
-  fdsp->diagnostics[0]= DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
+  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp);
   return;
@@ -1442,7 +1497,8 @@ HANDLE_NO_IDENTIFIER:
   adsp->span = SPAN(start, t.span.end);
   adsp->diagnostics_length = 1;
   adsp->diagnostics = malloc(sizeof(Diagnostic));
-  adsp->diagnostics[0] = DIAGNOSTIC(DK_AliasDeclStmntExpectedIdentifier, t.span);
+  adsp->diagnostics[0] =
+      DIAGNOSTIC(DK_AliasDeclStmntExpectedIdentifier, t.span);
   return;
 
 HANDLE_NO_ALIAS:
@@ -1491,7 +1547,6 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
   Vector statements;
   createVector(&statements);
 
-
   // List of diagnostics
   Vector diagnostics;
   createVector(&diagnostics);
@@ -1518,7 +1573,8 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
     } else {
       // give them a missing semicolon error, but keep parsing
       setNextToken(blp, &t);
-      *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
+      *VEC_PUSH(&diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
     }
   }
 

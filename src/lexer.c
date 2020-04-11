@@ -208,18 +208,16 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     VEC_POP(&data, NULL, char);
     // Push null byte
     *VEC_PUSH(&data, char) = '\0';
-    char *string = releaseVector(&data);
 
     // Return data
     // clang-format off
     *token = (Token) {
       .kind = TK_Comment,
-      .comment = INTERN(string, arena),
+      .comment = manageMemArena(arena, releaseVector(&data)),
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
     };
     // clang-format on
-    free(string);
     return;
   }
   default: {
@@ -237,13 +235,13 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     }
     *VEC_PUSH(&data, char) = '\0';
 
-    char *string = releaseVector(&data);
+    char *string = manageMemArena(arena, releaseVector(&data));
 
     // Return data
     // clang-format off
     *token = (Token) {
       .kind = TK_Comment,
-      .comment = INTERN(string,arena),
+      .comment = string,
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
     };
@@ -324,6 +322,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
             break;
           }
         }
+        // once we've hit the end, we release the data
         destroyVector(&data);
         return;
       }
@@ -338,18 +337,17 @@ static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
 
-  char *string = releaseVector(&data);
+  char *string = manageMemArena(arena, releaseVector(&data));
 
   // Return data
   // clang-format off
   *token = (Token) {
       .kind = TK_StringLiteral,
-      .string_literal = INTERN(string, arena),
+      .string_literal = string,
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
     };
   // clang-format on
-  free(string);
   return;
 }
 
@@ -705,14 +703,13 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
   // Note that string length does not incude the trailing null byte
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-  char *string = releaseVector(&data);
+  char *string = manageMemArena(arena, releaseVector(&data));
 
   if (macro) {
     // It is an identifier, and we need to keep the string
     token->kind = TK_Macro;
-    token->macro = INTERN(string, arena);
+    token->macro = string;
     token->error = DK_Ok;
-    goto CLEANUP;
   }
 
   // boolean literals
@@ -756,15 +753,12 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
   } else {
     // It is an identifier, and we need to keep the string
     token->kind = TK_Identifier;
-    token->identifier = INTERN(string, arena);
+    token->identifier = string;
     token->error = DK_Ok;
-    goto CLEANUP;
   }
   // If it wasn't an identifier
   token->error = DK_Ok;
 
-CLEANUP:
-  free(string);
   return;
 }
 

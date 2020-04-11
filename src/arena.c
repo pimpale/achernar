@@ -5,7 +5,7 @@
 #include "error.h"
 #include "vector.h"
 
-#define DEFAULT_PAGE_SIZE 1024
+#define DEFAULT_PAGE_SIZE 4096
 
 typedef struct ArenaPage_s {
   void *data;      // pointer to page
@@ -16,10 +16,14 @@ typedef struct ArenaPage_s {
 /// Initializes a new empty arena page with the given size
 /// REQUIRES: `mem` is a pointer to at least sizeof(ArenaPage) bytes of
 ///            valid memory
+/// REQUIRES: `alignment` is a power of two
+/// REQUIRES: `capacity` is a multiple of `alignment`
 /// GUARANTEES: `mem` has been initialized to a valid ArenaPage
 /// GUARANTEES: the ArenaPage has a capacity of at least `capacity`
 /// GUARANTEES: returns `mem`
-static ArenaPage *createArenaPage(ArenaPage *mem, size_t capacity);
+/// GUARANTEES: the ArenaPage's memory will be a multiple of `alignment`
+static ArenaPage *createArenaPage(ArenaPage *mem, size_t capacity,
+                                  size_t alignment);
 
 /// Releases all memory associated with this arena page
 /// REQUIRES: `app` is  pointer to a valid ArenaPage
@@ -44,8 +48,8 @@ static bool canFitArenaPage(ArenaPage *app, size_t len);
 ///             from `app`
 static void *allocArenaPage(ArenaPage *app, size_t len);
 
-ArenaPage *createArenaPage(ArenaPage *mem, size_t capacity) {
-  mem->data = malloc(capacity);
+ArenaPage *createArenaPage(ArenaPage *mem, size_t capacity, size_t alignment) {
+  mem->data = aligned_alloc(alignment, capacity);
   mem->capacity = capacity;
   mem->length = 0;
   return mem;
@@ -69,12 +73,25 @@ void *allocArenaPage(ArenaPage *app, size_t len) {
   return dest;
 }
 
+// returns `value` rounded up to the nearest multiple of `multiple`
+// REQUIRES: multiple is a power of two
+// GUARANTEES: return value is a multiple of `roundTo` and >= value
+static inline size_t roundTo(size_t value, size_t roundTo) {
+  return (value + (roundTo - 1)) & ~(roundTo - 1);
+}
+
 Arena *createArena(Arena *mem) {
   // initialize vector
   createVector(&mem->pages);
-  // Push page
-  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE);
-  mem->current_index = 0;
+  // Push pages
+  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 1);
+  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 2);
+  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 4);
+  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 8);
+  mem->current_1_index = 0;
+  mem->current_2_index = 1;
+  mem->current_4_index = 2;
+  mem->current_8_index = 3;
   return mem;
 }
 
@@ -86,48 +103,70 @@ Arena *destroyArena(Arena *ar) {
   return ar;
 }
 
-void* allocAlignedArena(Arena* ar, size_t len, size_t alignment) {
+void *allocAlignedArena(Arena *ar, size_t len, size_t alignment) {
   if (len == 0) {
     return NULL;
   }
 
-  // get the last page in our list
-  size_t numPages = VEC_LEN(&ar->pages, ArenaPage);
-
-  ArenaPage *a;
-  if (numPages == 0) {
-    // allocate new ArenaPage with max(len, DEFAULT_PAGE_SIZE) size
-    a = VEC_PUSH(&ar->pages, ArenaPage);
-    size_t pageCapacity = DEFAULT_PAGE_SIZE > len ? DEFAULT_PAGE_SIZE : len;
-    createArenaPage(a, pageCapacity);
-  } else {
-    // get the last vector element
-    size_t lastIndex = numPages - 1;
-    a = VEC_GET(&ar->pages, lastIndex, ArenaPage);
-    if (!canFitArenaPage(a, len)) {
-      a = VEC_PUSH(&ar->pages, ArenaPage);
-      size_t pageCapacity = DEFAULT_PAGE_SIZE > len ? DEFAULT_PAGE_SIZE : len;
-      createArenaPage(a, pageCapacity);
-    }
+  // if len is larger than the default page size, we create a page specially
+  // allocated without using the currently active page
+  if (len >= DEFAULT_PAGE_SIZE) {
+    ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
+    createArenaPage(newPage, len, alignment);
+    return allocArenaPage(newPage, len);
   }
+
+  size_t *index_ptr;
+  switch (alignment) {
+  case 1: {
+    index_ptr = &ar->current_1_index;
+    break;
+  }
+  case 2: {
+    index_ptr = &ar->current_2_index;
+    break;
+  }
+  case 4: {
+    index_ptr = &ar->current_4_index;
+    break;
+  }
+  case 8: {
+    index_ptr = &ar->current_8_index;
+    break;
+  }
+  default: {
+    INTERNAL_ERROR("alignment is not one of 1, 2, 4, or 8");
+    PANIC();
+  }
+  }
+
+  ArenaPage *a = VEC_GET(&ar->pages, *index_ptr, ArenaPage);
+
+  if (!canFitArenaPage(a, len)) {
+    a = VEC_PUSH(&ar->pages, ArenaPage);
+    size_t pageCapacity = DEFAULT_PAGE_SIZE;
+    createArenaPage(a, pageCapacity, alignment);
+    *index_ptr = VEC_LEN(&ar->pages, ArenaPage);
+  }
+
   return allocArenaPage(a, len);
 }
 
 void *allocArena(Arena *ar, size_t len) {
-  size_t alignment = 0;
-  if(len > 8) {
-    alignment = 8;
-  } else if(len > 2) {
-    alignment = 4;
+  if (len > 4) {
+    return allocAlignedArena(ar, roundTo(len, 8), 8);
+  } else if (len > 2) {
+    return allocAlignedArena(ar, roundTo(len, 4), 4);
   } else {
-    alignment = 0;
+    return allocAlignedArena(ar, len, 1);
   }
 }
 
-void manageMemArena(Arena *ar, void *ptr, size_t len) {
+void* manageMemArena(Arena *ar, void *ptr) {
   *VEC_PUSH(&ar->pages, ArenaPage) = (ArenaPage){
-      .capacity = len,
-      .length = len,
+      .capacity = 0,
+      .length = 0,
       .data = ptr,
   };
+  return ptr;
 }

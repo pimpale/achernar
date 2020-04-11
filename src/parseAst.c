@@ -22,7 +22,8 @@
 
 // Jump till after semicolon, taking into account parentheses, brackets,
 // attributes, and braces It will ignore subexprs, but can halt at the end
-static void resyncStmnt(BufferedLexer *blp) {
+static void resyncStmnt(BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   int64_t parenDepth = 0;
   int64_t braceDepth = 0;
   int64_t bracketDepth = 0;
@@ -89,7 +90,8 @@ static void resyncStmnt(BufferedLexer *blp) {
 // Jumps till we hit identifier or assign sign then backtracks one
 // Not aware of parens, braces, brackets or attributes
 // This is because all types are linear in nature in BPlus
-static void resyncType(BufferedLexer *blp) {
+static void resyncType(BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   while (true) {
     Token t;
     advanceToken(blp, &t);
@@ -107,12 +109,12 @@ static void resyncType(BufferedLexer *blp) {
 }
 
 // Note that all errors resync at the statement level
-static void parseStmnt(Stmnt *sp, BufferedLexer *blp);
-static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp);
-static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp);
-static void parseBinding(Binding *bp, BufferedLexer *blp);
+static void parseStmnt(Stmnt *sp, BufferedLexer *blp, Arena *ar);
+static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp, Arena *ar);
+static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp, Arena *ar);
+static void parseBinding(Binding *bp, BufferedLexer *blp, Arena *ar);
 
-static void parsePath(Path *pp, BufferedLexer *blp) {
+static void parsePath(Path *pp, BufferedLexer *blp, Arena *ar) {
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_STARTING_IDENTIFIER);
@@ -137,7 +139,7 @@ static void parsePath(Path *pp, BufferedLexer *blp) {
   }
 
   pp->pathSegments_length = VEC_LEN(&pathSegments, char *);
-  pp->pathSegments = releaseVector(&pathSegments);
+  pp->pathSegments = manageMemArena(ar, releaseVector(&pathSegments));
   pp->diagnostics_length = 0;
   pp->diagnostics = NULL;
   pp->span = SPAN(start, t.span.end);
@@ -146,9 +148,9 @@ static void parsePath(Path *pp, BufferedLexer *blp) {
 HANDLE_NO_IDENTIFIER:
   setNextToken(blp, &t);
   pp->pathSegments_length = VEC_LEN(&pathSegments, char *);
-  pp->pathSegments = releaseVector(&pathSegments);
+  pp->pathSegments = manageMemArena(ar, releaseVector(&pathSegments));
   pp->diagnostics_length = 1;
-  pp->diagnostics = malloc(sizeof(Diagnostic));
+  pp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   pp->diagnostics[0] = DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
   pp->span = SPAN(start, t.span.end);
   return;
@@ -158,7 +160,8 @@ HANDLE_NO_STARTING_IDENTIFIER:
   PANIC();
 }
 
-static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
+static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INT_LITERAL);
@@ -174,7 +177,8 @@ HANDLE_NO_INT_LITERAL:
   PANIC();
 }
 
-static void parseBoolValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
+static void parseBoolValueExpr(ValueExpr *bvep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_BoolLiteral, HANDLE_NO_BOOL_LITERAL);
@@ -190,7 +194,8 @@ HANDLE_NO_BOOL_LITERAL:
   PANIC();
 }
 
-static void parseFloatValueExpr(ValueExpr *fvep, BufferedLexer *blp) {
+static void parseFloatValueExpr(ValueExpr *fvep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_FloatLiteral, HANDLE_NO_FLOAT_LITERAL);
@@ -206,7 +211,8 @@ HANDLE_NO_FLOAT_LITERAL:
   PANIC();
 }
 
-static void parseCharValueExpr(ValueExpr *cvep, BufferedLexer *blp) {
+static void parseCharValueExpr(ValueExpr *cvep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_CharLiteral, HANDLE_NO_CHAR_LITERAL);
@@ -222,7 +228,8 @@ HANDLE_NO_CHAR_LITERAL:
   PANIC();
 }
 
-static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp) {
+static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_StringLiteral, HANDLE_NO_STRING_LITERAL);
@@ -238,7 +245,7 @@ HANDLE_NO_STRING_LITERAL:
   PANIC();
 }
 
-static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp) {
+static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp, Arena *ar) {
   ZERO(gvep);
   gvep->kind = VEK_Group;
 
@@ -246,8 +253,8 @@ static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp) {
   advanceToken(blp, &t);
   LnCol start = t.span.start;
   EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
-  gvep->groupExpr.value = malloc(sizeof(ValueExpr));
-  parseValueExpr(gvep->groupExpr.value, blp);
+  gvep->groupExpr.value = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(gvep->groupExpr.value, blp, ar);
 
   // Expect a rightparen
   advanceToken(blp, &t);
@@ -262,13 +269,13 @@ HANDLE_NO_LEFTPAREN:
   PANIC();
 
 HANDLE_NO_RIGHTPAREN:
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   gvep->diagnostics_length = 1;
-  gvep->diagnostics = malloc(sizeof(Diagnostic));
+  gvep->diagnostics = allocArena(ar, sizeof(Diagnostic));
   gvep->diagnostics[0] = DIAGNOSTIC(DK_GroupExpectRightParen, gvep->span);
 }
 
-static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
+static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp, Arena *ar) {
   ZERO(bvep);
   bvep->kind = VEK_Block;
 
@@ -297,7 +304,7 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
     setNextToken(blp, &t);
 
     // Parse and push the statement
-    parseStmnt(VEC_PUSH(&statements, Stmnt), blp);
+    parseStmnt(VEC_PUSH(&statements, Stmnt), blp, ar);
 
     // Accept semicolon, if any
     // If there's no semicolon then it MUST be followed by an right brace
@@ -321,10 +328,10 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp) {
   }
 
   bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
-  bvep->blockExpr.statements = releaseVector(&statements);
+  bvep->blockExpr.statements = manageMemArena(ar, releaseVector(&statements));
   bvep->span = SPAN(start, t.span.end);
   bvep->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
-  bvep->diagnostics = releaseVector(&diagnostics);
+  bvep->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
   return;
 
 HANDLE_NO_LEFTBRACE:
@@ -333,7 +340,7 @@ HANDLE_NO_LEFTBRACE:
   PANIC();
 }
 
-static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
+static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp, Arena *ar) {
   ZERO(ivep);
   Token t;
   advanceToken(blp, &t);
@@ -342,19 +349,19 @@ static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp) {
   ivep->kind = VEK_If;
 
   // parse condition
-  ivep->ifExpr.condition = malloc(sizeof(ValueExpr));
-  parseValueExpr(ivep->ifExpr.condition, blp);
+  ivep->ifExpr.condition = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(ivep->ifExpr.condition, blp, ar);
 
   // parse body
-  ivep->ifExpr.body = malloc(sizeof(ValueExpr));
-  parseValueExpr(ivep->ifExpr.body, blp);
+  ivep->ifExpr.body = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(ivep->ifExpr.body, blp, ar);
 
   // if the next value is else
   advanceToken(blp, &t);
   if (t.kind == TK_Else) {
     ivep->ifExpr.has_else = true;
-    ivep->ifExpr.else_body = malloc(sizeof(ValueExpr));
-    parseValueExpr(ivep->ifExpr.else_body, blp);
+    ivep->ifExpr.else_body = allocArena(ar, sizeof(ValueExpr));
+    parseValueExpr(ivep->ifExpr.else_body, blp, ar);
     ivep->span = SPAN(start, ivep->ifExpr.else_body->span.end);
   } else {
     // back up
@@ -369,7 +376,8 @@ HANDLE_NO_IF:
   PANIC();
 }
 
-static void parsePassValueExpr(ValueExpr *pep, BufferedLexer *blp) {
+static void parsePassValueExpr(ValueExpr *pep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   pep->kind = VEK_Pass;
   Token t;
   advanceToken(blp, &t);
@@ -383,7 +391,8 @@ HANDLE_NO_PASS:
   PANIC();
 }
 
-static void parseBreakValueExpr(ValueExpr *bep, BufferedLexer *blp) {
+static void parseBreakValueExpr(ValueExpr *bep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   bep->kind = VEK_Break;
   Token t;
   advanceToken(blp, &t);
@@ -397,7 +406,8 @@ HANDLE_NO_BREAK:
   PANIC();
 }
 
-static void parseContinueValueExpr(ValueExpr *cep, BufferedLexer *blp) {
+static void parseContinueValueExpr(ValueExpr *cep, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
   cep->kind = VEK_Continue;
   Token t;
   advanceToken(blp, &t);
@@ -411,14 +421,14 @@ HANDLE_NO_CONTINUE:
   PANIC();
 }
 
-static void parseReturnValueExpr(ValueExpr *rep, BufferedLexer *blp) {
+static void parseReturnValueExpr(ValueExpr *rep, BufferedLexer *blp, Arena *ar) {
   rep->kind = VEK_Return;
   Token t;
   advanceToken(blp, &t);
   rep->span = t.span;
   EXPECT_TYPE(t, TK_Return, HANDLE_NO_RETURN);
-  rep->returnExpr.value = malloc(sizeof(ValueExpr));
-  parseValueExpr(rep->returnExpr.value, blp);
+  rep->returnExpr.value = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(rep->returnExpr.value, blp, ar);
   rep->diagnostics_length = 0;
   return;
 
@@ -427,18 +437,18 @@ HANDLE_NO_RETURN:
   PANIC();
 }
 
-static void parseWhileValueExpr(ValueExpr *wep, BufferedLexer *blp) {
+static void parseWhileValueExpr(ValueExpr *wep, BufferedLexer *blp, Arena *ar) {
   wep->kind = VEK_While;
   Token t;
   advanceToken(blp, &t);
   LnCol start = t.span.start;
   EXPECT_TYPE(t, TK_While, HANDLE_NO_WHILE);
 
-  wep->whileExpr.condition = malloc(sizeof(ValueExpr));
-  parseValueExpr(wep->whileExpr.condition, blp);
+  wep->whileExpr.condition = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(wep->whileExpr.condition, blp, ar);
 
-  wep->whileExpr.body = malloc(sizeof(ValueExpr));
-  parseValueExpr(wep->whileExpr.body, blp);
+  wep->whileExpr.body = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(wep->whileExpr.body, blp, ar);
 
   wep->span = SPAN(start, wep->whileExpr.body->span.end);
   wep->diagnostics_length = 0;
@@ -450,19 +460,19 @@ HANDLE_NO_WHILE:
 }
 
 // Pattern : Expr,
-static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
+static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp, Arena *ar) {
   ZERO(mcep);
 
   Token t;
   // Get pattern
-  mcep->pattern = malloc(sizeof(ValueExpr));
-  parseValueExpr(mcep->pattern, blp);
+  mcep->pattern = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(mcep->pattern, blp, ar);
   // Expect colon
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Colon, HANDLE_NO_COLON);
   // Get Value
-  mcep->value = malloc(sizeof(ValueExpr));
-  parseValueExpr(mcep->value, blp);
+  mcep->value = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(mcep->value, blp, ar);
   mcep->span = SPAN(mcep->pattern->span.start, mcep->value->span.end);
   mcep->diagnostics_length = 0;
   return;
@@ -470,13 +480,13 @@ static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp) {
 HANDLE_NO_COLON:
   mcep->span = mcep->pattern->span;
   mcep->diagnostics_length = 1;
-  mcep->diagnostics = malloc(sizeof(Diagnostic));
+  mcep->diagnostics = allocArena(ar, sizeof(Diagnostic));
   mcep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoColon, t.span);
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   return;
 }
 
-static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
+static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp, Arena *ar) {
   ZERO(mvep);
   mvep->kind = VEK_Match;
   Token t;
@@ -487,8 +497,8 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
   LnCol start = t.span.start;
 
   // Get expression to match against
-  mvep->matchExpr.value = malloc(sizeof(ValueExpr));
-  parseValueExpr(mvep->matchExpr.value, blp);
+  mvep->matchExpr.value = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(mvep->matchExpr.value, blp, ar);
   // now we must parse the block containing the cases
 
   // Expect beginning brace
@@ -506,7 +516,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
     setNextToken(blp, &t);
 
     // Parse the match case expr
-    parseMatchCaseExpr(VEC_PUSH(&matchCases, MatchCaseExpr), blp);
+    parseMatchCaseExpr(VEC_PUSH(&matchCases, MatchCaseExpr), blp, ar);
 
     // Accept comma, if any
     // If there's no comma then it MUST be followed by an end brace
@@ -521,7 +531,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp) {
 
   // Get interior cases
   mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
-  mvep->matchExpr.cases = releaseVector(&matchCases);
+  mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
 
   mvep->span = SPAN(start, t.span.end);
   mvep->diagnostics_length = 0;
@@ -534,30 +544,30 @@ HANDLE_NO_MATCH:
 
 HANDLE_NO_RIGHTBRACE:
   mvep->diagnostics_length = 1;
-  mvep->diagnostics = malloc(sizeof(Diagnostic));
+  mvep->diagnostics = allocArena(ar, sizeof(Diagnostic));
   mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoRightBrace, t.span);
   mvep->span = SPAN(start, t.span.end);
   mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
-  mvep->matchExpr.cases = releaseVector(&matchCases);
-  resyncStmnt(blp);
+  mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
+  resyncStmnt(blp, ar);
   return;
 
 HANDLE_NO_LEFTBRACE:
   mvep->diagnostics_length = 1;
-  mvep->diagnostics = malloc(sizeof(Diagnostic));
+  mvep->diagnostics = allocArena(ar, sizeof(Diagnostic));
   mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoLeftbrace, t.span);
   mvep->span = SPAN(start, t.span.end);
   mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
-  mvep->matchExpr.cases = releaseVector(&matchCases);
-  resyncStmnt(blp);
+  mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
+  resyncStmnt(blp, ar);
   return;
 }
 
-static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp) {
+static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp, Arena *ar) {
   ZERO(rvep);
   rvep->kind = VEK_Reference;
-  rvep->reference.path = malloc(sizeof(Path));
-  parsePath(rvep->reference.path, blp);
+  rvep->reference.path = allocArena(ar, sizeof(Path));
+  parsePath(rvep->reference.path, blp, ar);
   rvep->span = rvep->reference.path->span;
   rvep->diagnostics_length = 0;
   return;
@@ -573,7 +583,7 @@ static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp) {
 // Level7ValueExpr < <= > >= == != (comparators)
 // Level8ValueExpr && || (Boolean Operators)
 
-static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp) {
+static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp, Arena *ar) {
   Token t;
   advanceToken(blp, &t);
   // Decide which expression it is
@@ -581,77 +591,77 @@ static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp) {
   // Literals
   case TK_IntLiteral: {
     setNextToken(blp, &t);
-    parseIntValueExpr(l1, blp);
+    parseIntValueExpr(l1, blp, ar);
     return;
   }
   case TK_BoolLiteral: {
     setNextToken(blp, &t);
-    parseBoolValueExpr(l1, blp);
+    parseBoolValueExpr(l1, blp, ar);
     return;
   }
   case TK_FloatLiteral: {
     setNextToken(blp, &t);
-    parseFloatValueExpr(l1, blp);
+    parseFloatValueExpr(l1, blp, ar);
     return;
   }
   case TK_CharLiteral: {
     setNextToken(blp, &t);
-    parseCharValueExpr(l1, blp);
+    parseCharValueExpr(l1, blp, ar);
     return;
   }
   case TK_StringLiteral: {
     setNextToken(blp, &t);
-    parseStringValueExpr(l1, blp);
+    parseStringValueExpr(l1, blp, ar);
     return;
   }
   case TK_ParenLeft: {
     setNextToken(blp, &t);
-    parseGroupValueExpr(l1, blp);
+    parseGroupValueExpr(l1, blp, ar);
     return;
   }
   case TK_BraceLeft: {
     setNextToken(blp, &t);
-    parseBlockValueExpr(l1, blp);
+    parseBlockValueExpr(l1, blp, ar);
     return;
   }
   case TK_If: {
     setNextToken(blp, &t);
-    parseIfValueExpr(l1, blp);
+    parseIfValueExpr(l1, blp, ar);
     return;
   }
   case TK_Break: {
     setNextToken(blp, &t);
-    parseBreakValueExpr(l1, blp);
+    parseBreakValueExpr(l1, blp, ar);
     return;
   }
   case TK_Continue: {
     setNextToken(blp, &t);
-    parseContinueValueExpr(l1, blp);
+    parseContinueValueExpr(l1, blp, ar);
     return;
   }
   case TK_Return: {
     setNextToken(blp, &t);
-    parseReturnValueExpr(l1, blp);
+    parseReturnValueExpr(l1, blp, ar);
     return;
   }
   case TK_Pass: {
     setNextToken(blp, &t);
-    parsePassValueExpr(l1, blp);
+    parsePassValueExpr(l1, blp, ar);
     return;
   }
   case TK_While: {
     setNextToken(blp, &t);
-    parseWhileValueExpr(l1, blp);
+    parseWhileValueExpr(l1, blp, ar);
     return;
   }
   case TK_Match: {
     setNextToken(blp, &t);
-    parseMatchValueExpr(l1, blp);
+    parseMatchValueExpr(l1, blp, ar);
     return;
   }
   case TK_Identifier: {
     setNextToken(blp, &t);
-    parseReferenceValueExpr(l1, blp);
+    parseReferenceValueExpr(l1, blp, ar);
     return;
   }
   case TK_None: {
@@ -660,7 +670,7 @@ static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp) {
     l1->kind = VEK_None;
     l1->span = t.span;
     l1->diagnostics_length = 1;
-    l1->diagnostics = malloc(sizeof(Diagnostic));
+    l1->diagnostics = allocArena(ar, sizeof(Diagnostic));
     l1->diagnostics[0] = DIAGNOSTIC(t.error, t.span);
     return;
   }
@@ -672,13 +682,13 @@ static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp) {
   }
 }
 
-static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
+static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp, Arena *ar) {
 
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
   ValueExpr currentTopLevel;
-  parseL1ValueExpr(&currentTopLevel, blp);
+  parseL1ValueExpr(&currentTopLevel, blp, ar);
   LnCol start = currentTopLevel.span.start;
 
   while (true) {
@@ -689,7 +699,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
       ValueExpr v;
       v.kind = VEK_UnaryOp;
       v.unaryOp.operator= VEUOK_Ref;
-      v.unaryOp.operand = malloc(sizeof(ValueExpr));
+      v.unaryOp.operand = allocArena(ar, sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
       v.diagnostics_length = 0;
@@ -700,7 +710,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
       ValueExpr v;
       v.kind = VEK_UnaryOp;
       v.unaryOp.operator= VEUOK_Deref;
-      v.unaryOp.operand = malloc(sizeof(ValueExpr));
+      v.unaryOp.operand = allocArena(ar, sizeof(ValueExpr));
       *v.unaryOp.operand = currentTopLevel;
       v.span = SPAN(start, t.span.end);
       v.diagnostics_length = 0;
@@ -710,7 +720,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
     case TK_FieldAccess: {
       ValueExpr v;
       v.kind = VEK_FieldAccess;
-      v.fieldAccess.value = malloc(sizeof(ValueExpr));
+      v.fieldAccess.value = allocArena(ar, sizeof(ValueExpr));
       *v.fieldAccess.value = currentTopLevel;
 
       // Now we get the next thing
@@ -721,7 +731,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
         v.fieldAccess.field = NULL;
         setNextToken(blp, &t);
         v.diagnostics_length = 1;
-        v.diagnostics = malloc(sizeof(Diagnostic));
+        v.diagnostics = allocArena(ar, sizeof(Diagnostic));
         v.diagnostics[0] = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, v.span);
         *l2 = v;
         return;
@@ -735,10 +745,10 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
       ValueExpr v;
       v.kind = VEK_BinaryOp;
       v.binaryOp.operator= VEBOK_ArrayAccess;
-      v.binaryOp.left_operand = malloc(sizeof(ValueExpr));
-      v.binaryOp.right_operand = malloc(sizeof(ValueExpr));
+      v.binaryOp.left_operand = allocArena(ar, sizeof(ValueExpr));
+      v.binaryOp.right_operand = allocArena(ar, sizeof(ValueExpr));
       *v.binaryOp.left_operand = currentTopLevel;
-      parseValueExpr(v.binaryOp.right_operand, blp);
+      parseValueExpr(v.binaryOp.right_operand, blp, ar);
       // expect closing bracket
       advanceToken(blp, &t);
 
@@ -748,7 +758,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
         // If we miss the bracket we bail out of this subexpr, setting the
         // next token
         v.diagnostics_length = 1;
-        v.diagnostics = malloc(sizeof(Diagnostic));
+        v.diagnostics = allocArena(ar, sizeof(Diagnostic));
         v.diagnostics[0] = DIAGNOSTIC(DK_ArrayAccessExpectedBracket, v.span);
         setNextToken(blp, &t);
         *l2 = v;
@@ -773,7 +783,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
         setNextToken(blp, &t);
 
         // Parse and push the argument
-        parseValueExpr(VEC_PUSH(&arguments, ValueExpr), blp);
+        parseValueExpr(VEC_PUSH(&arguments, ValueExpr), blp, ar);
 
         // Accept comma, if any
         // If there's no comma then it MUST be followed by an end paren
@@ -785,15 +795,15 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
           } else {
             // If the next value isn't an end paren, then we throw an error
             v.kind = VEK_Call;
-            v.callExpr.function = malloc(sizeof(ValueExpr));
+            v.callExpr.function = allocArena(ar, sizeof(ValueExpr));
             *v.callExpr.function = currentTopLevel;
             v.callExpr.arguments_length = VEC_LEN(&arguments, ValueExpr);
-            v.callExpr.arguments = releaseVector(&arguments);
+            v.callExpr.arguments = manageMemArena(ar, releaseVector(&arguments));
 
             // Calculate span and diagnostics
             v.span = SPAN(start, t.span.end);
             v.diagnostics_length = 1;
-            v.diagnostics = malloc(sizeof(Diagnostic));
+            v.diagnostics = allocArena(ar, sizeof(Diagnostic));
             v.diagnostics[0] = DIAGNOSTIC(DK_FunctionCallExpectedParen, v.span);
             // Bail out of the subexpr
             setNextToken(blp, &t);
@@ -804,10 +814,10 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
       }
 
       v.kind = VEK_Call;
-      v.callExpr.function = malloc(sizeof(ValueExpr));
+      v.callExpr.function = allocArena(ar, sizeof(ValueExpr));
       *v.callExpr.function = currentTopLevel;
       v.callExpr.arguments_length = VEC_LEN(&arguments, ValueExpr);
-      v.callExpr.arguments = releaseVector(&arguments);
+      v.callExpr.arguments = manageMemArena(ar, releaseVector(&arguments));
 
       // Calculate span and diagnostics
       v.span = SPAN(start, t.span.end);
@@ -825,7 +835,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp) {
   }
 }
 
-static void parseL3ValueExpr(ValueExpr *l3, BufferedLexer *blp) {
+static void parseL3ValueExpr(ValueExpr *l3, BufferedLexer *blp, Arena *ar) {
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
@@ -848,23 +858,23 @@ static void parseL3ValueExpr(ValueExpr *l3, BufferedLexer *blp) {
   default: {
     // there is no level 3 expression
     setNextToken(blp, &t);
-    parseL2ValueExpr(l3, blp);
+    parseL2ValueExpr(l3, blp, ar);
     return;
   }
   }
 
   // Now parse the rest of the expression
   l3->kind = VEK_UnaryOp;
-  l3->unaryOp.operand = malloc(sizeof(ValueExpr));
-  parseL3ValueExpr(l3->unaryOp.operand, blp);
+  l3->unaryOp.operand = allocArena(ar, sizeof(ValueExpr));
+  parseL3ValueExpr(l3->unaryOp.operand, blp, ar);
   l3->span = SPAN(t.span.start, l3->unaryOp.operand->span.end);
   l3->diagnostics_length = 0;
   return;
 }
 
-static void parseL4ValueExpr(ValueExpr *l4, BufferedLexer *blp) {
+static void parseL4ValueExpr(ValueExpr *l4, BufferedLexer *blp, Arena *ar) {
   ValueExpr v;
-  parseL3ValueExpr(&v, blp);
+  parseL3ValueExpr(&v, blp, ar);
 
   Token t;
   advanceToken(blp, &t);
@@ -890,19 +900,19 @@ static void parseL4ValueExpr(ValueExpr *l4, BufferedLexer *blp) {
   }
 
   l4->kind = VEK_BinaryOp;
-  l4->binaryOp.left_operand = malloc(sizeof(ValueExpr));
+  l4->binaryOp.left_operand = allocArena(ar, sizeof(ValueExpr));
   *l4->binaryOp.left_operand = v;
-  l4->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL4ValueExpr(l4->binaryOp.right_operand, blp);
+  l4->binaryOp.right_operand = allocArena(ar, sizeof(ValueExpr));
+  parseL4ValueExpr(l4->binaryOp.right_operand, blp, ar);
   l4->span = SPAN(l4->binaryOp.left_operand->span.start,
                   l4->binaryOp.right_operand->span.end);
   l4->diagnostics_length = 0;
   return;
 }
 
-static void parseL5ValueExpr(ValueExpr *l5, BufferedLexer *blp) {
+static void parseL5ValueExpr(ValueExpr *l5, BufferedLexer *blp, Arena *ar) {
   ValueExpr v;
-  parseL4ValueExpr(&v, blp);
+  parseL4ValueExpr(&v, blp, ar);
 
   Token t;
   advanceToken(blp, &t);
@@ -924,19 +934,19 @@ static void parseL5ValueExpr(ValueExpr *l5, BufferedLexer *blp) {
   }
 
   l5->kind = VEK_BinaryOp;
-  l5->binaryOp.left_operand = malloc(sizeof(ValueExpr));
+  l5->binaryOp.left_operand = allocArena(ar, sizeof(ValueExpr));
   *l5->binaryOp.left_operand = v;
-  l5->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL5ValueExpr(l5->binaryOp.right_operand, blp);
+  l5->binaryOp.right_operand = allocArena(ar, sizeof(ValueExpr));
+  parseL5ValueExpr(l5->binaryOp.right_operand, blp, ar);
   l5->span = SPAN(l5->binaryOp.left_operand->span.start,
                   l5->binaryOp.right_operand->span.end);
   l5->diagnostics_length = 0;
   return;
 }
 
-static void parseL6ValueExpr(ValueExpr *l6, BufferedLexer *blp) {
+static void parseL6ValueExpr(ValueExpr *l6, BufferedLexer *blp, Arena *ar) {
   ValueExpr v;
-  parseL5ValueExpr(&v, blp);
+  parseL5ValueExpr(&v, blp, ar);
 
   Token t;
   advanceToken(blp, &t);
@@ -970,19 +980,19 @@ static void parseL6ValueExpr(ValueExpr *l6, BufferedLexer *blp) {
   }
 
   l6->kind = VEK_BinaryOp;
-  l6->binaryOp.left_operand = malloc(sizeof(ValueExpr));
+  l6->binaryOp.left_operand = allocArena(ar, sizeof(ValueExpr));
   *l6->binaryOp.left_operand = v;
-  l6->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL6ValueExpr(l6->binaryOp.right_operand, blp);
+  l6->binaryOp.right_operand = allocArena(ar, sizeof(ValueExpr));
+  parseL6ValueExpr(l6->binaryOp.right_operand, blp, ar);
   l6->span = SPAN(l6->binaryOp.left_operand->span.start,
                   l6->binaryOp.right_operand->span.end);
   l6->diagnostics_length = 0;
   return;
 }
 
-static void parseL7ValueExpr(ValueExpr *l7, BufferedLexer *blp) {
+static void parseL7ValueExpr(ValueExpr *l7, BufferedLexer *blp, Arena *ar) {
   ValueExpr v;
-  parseL6ValueExpr(&v, blp);
+  parseL6ValueExpr(&v, blp, ar);
 
   Token t;
   advanceToken(blp, &t);
@@ -1020,19 +1030,19 @@ static void parseL7ValueExpr(ValueExpr *l7, BufferedLexer *blp) {
   }
 
   l7->kind = VEK_BinaryOp;
-  l7->binaryOp.left_operand = malloc(sizeof(ValueExpr));
+  l7->binaryOp.left_operand = allocArena(ar, sizeof(ValueExpr));
   *l7->binaryOp.left_operand = v;
-  l7->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL7ValueExpr(l7->binaryOp.right_operand, blp);
+  l7->binaryOp.right_operand = allocArena(ar, sizeof(ValueExpr));
+  parseL7ValueExpr(l7->binaryOp.right_operand, blp, ar);
   l7->span = SPAN(l7->binaryOp.left_operand->span.start,
                   l7->binaryOp.right_operand->span.end);
   l7->diagnostics_length = 0;
   return;
 }
 
-static void parseL8ValueExpr(ValueExpr *l8, BufferedLexer *blp) {
+static void parseL8ValueExpr(ValueExpr *l8, BufferedLexer *blp, Arena *ar) {
   ValueExpr v;
-  parseL7ValueExpr(&v, blp);
+  parseL7ValueExpr(&v, blp, ar);
 
   Token t;
   advanceToken(blp, &t);
@@ -1054,10 +1064,10 @@ static void parseL8ValueExpr(ValueExpr *l8, BufferedLexer *blp) {
   }
 
   l8->kind = VEK_BinaryOp;
-  l8->binaryOp.left_operand = malloc(sizeof(ValueExpr));
+  l8->binaryOp.left_operand = allocArena(ar, sizeof(ValueExpr));
   *l8->binaryOp.left_operand = v;
-  l8->binaryOp.right_operand = malloc(sizeof(ValueExpr));
-  parseL8ValueExpr(l8->binaryOp.right_operand, blp);
+  l8->binaryOp.right_operand = allocArena(ar, sizeof(ValueExpr));
+  parseL8ValueExpr(l8->binaryOp.right_operand, blp, ar);
   l8->span = SPAN(l8->binaryOp.left_operand->span.start,
                   l8->binaryOp.right_operand->span.end);
   l8->diagnostics_length = 0;
@@ -1065,11 +1075,11 @@ static void parseL8ValueExpr(ValueExpr *l8, BufferedLexer *blp) {
 }
 
 // shim method
-static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp) {
-  parseL8ValueExpr(vep, blp);
+static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp, Arena *ar) {
+  parseL8ValueExpr(vep, blp, ar);
 }
 
-static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp) {
+static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp, Arena *ar) {
   ZERO(ste);
   ste->kind = TEK_Struct;
   Token t;
@@ -1095,7 +1105,7 @@ static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp) {
     setNextToken(blp, &t);
 
     // Parse and push the parameter
-    parseBinding(VEC_PUSH(&bindings, Binding), blp);
+    parseBinding(VEC_PUSH(&bindings, Binding), blp, ar);
     // Accept comma, if any
     // If there's no comma then it MUST be followed by an end brace
     // This also allows trailing commas
@@ -1108,7 +1118,7 @@ static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp) {
   }
 
   ste->structExpr.members_length = VEC_LEN(&bindings, Binding);
-  ste->structExpr.members = releaseVector(&bindings);
+  ste->structExpr.members = manageMemArena(ar, releaseVector(&bindings));
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 0;
   return;
@@ -1118,20 +1128,20 @@ HANDLE_NO_LEFTBRACE:
   ste->structExpr.members = NULL;
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 1;
-  ste->diagnostics = malloc(sizeof(Diagnostic));
+  ste->diagnostics = allocArena(ar, sizeof(Diagnostic));
   ste->diagnostics[0] =
       DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, ste->span);
   return;
 
 HANDLE_NO_RIGHTBRACE:
   ste->structExpr.members_length = VEC_LEN(&bindings, Binding);
-  ste->structExpr.members = releaseVector(&bindings);
+  ste->structExpr.members = manageMemArena(ar, releaseVector(&bindings));
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 1;
-  ste->diagnostics = malloc(sizeof(Diagnostic));
+  ste->diagnostics = allocArena(ar, sizeof(Diagnostic));
   ste->diagnostics[0] =
       DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   return;
 
 HANDLE_NO_STRUCT:
@@ -1140,16 +1150,16 @@ HANDLE_NO_STRUCT:
   PANIC();
 }
 
-static void parseReferenceTypeExpr(TypeExpr *rtep, BufferedLexer *blp) {
+static void parseReferenceTypeExpr(TypeExpr *rtep, BufferedLexer *blp, Arena *ar) {
   ZERO(rtep);
   rtep->kind = TEK_Reference;
-  rtep->referenceExpr.path = malloc(sizeof(Path));
-  parsePath(rtep->referenceExpr.path, blp);
+  rtep->referenceExpr.path = allocArena(ar, sizeof(Path));
+  parsePath(rtep->referenceExpr.path, blp, ar);
   rtep->diagnostics_length = 0;
   rtep->span = rtep->referenceExpr.path->span;
 }
 
-static void parseTypeofTypeExpr(TypeExpr *tte, BufferedLexer *blp) {
+static void parseTypeofTypeExpr(TypeExpr *tte, BufferedLexer *blp, Arena *ar) {
   // zero-initialize ttep
   ZERO(tte);
   tte->kind = TEK_Typeof;
@@ -1157,8 +1167,8 @@ static void parseTypeofTypeExpr(TypeExpr *tte, BufferedLexer *blp) {
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Typeof, HANDLE_NO_TYPEOF);
-  tte->typeofExpr.value = malloc(sizeof(ValueExpr));
-  parseValueExpr(tte->typeofExpr.value, blp);
+  tte->typeofExpr.value = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(tte->typeofExpr.value, blp, ar);
   tte->diagnostics_length = 0;
   tte->span = SPAN(t.span.start, tte->typeofExpr.value->span.end);
   return;
@@ -1169,44 +1179,44 @@ HANDLE_NO_TYPEOF:
   PANIC();
 }
 
-static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp) {
+static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp, Arena *ar) {
   Token t;
   advanceToken(blp, &t);
   switch (t.kind) {
   case TK_Identifier: {
     setNextToken(blp, &t);
-    parseReferenceTypeExpr(l1, blp);
+    parseReferenceTypeExpr(l1, blp, ar);
     return;
   }
   case TK_Struct: {
     setNextToken(blp, &t);
-    parseStructTypeExpr(l1, blp);
+    parseStructTypeExpr(l1, blp, ar);
     return;
   }
   case TK_Typeof: {
     setNextToken(blp, &t);
-    parseTypeofTypeExpr(l1, blp);
+    parseTypeofTypeExpr(l1, blp, ar);
     return;
   }
   default: {
     l1->kind = TEK_None;
     l1->span = t.span;
     l1->diagnostics_length = 1;
-    l1->diagnostics = malloc(sizeof(Diagnostic));
+    l1->diagnostics = allocArena(ar, sizeof(Diagnostic));
     l1->diagnostics[0] = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
-    resyncType(blp);
+    resyncType(blp, ar);
     return;
   }
   }
 }
 
-static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
+static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp, Arena *ar) {
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
   TypeExpr currentTopLevel;
-  parseL1TypeExpr(&currentTopLevel, blp);
+  parseL1TypeExpr(&currentTopLevel, blp, ar);
   LnCol start = currentTopLevel.span.start;
 
   while (true) {
@@ -1217,7 +1227,7 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
       TypeExpr te;
       te.kind = TEK_UnaryOp;
       te.unaryOp.operator= TEUOK_Ref;
-      te.unaryOp.operand = malloc(sizeof(TypeExpr));
+      te.unaryOp.operand = allocArena(ar, sizeof(TypeExpr));
       *te.unaryOp.operand = currentTopLevel;
       te.span = SPAN(start, t.span.end);
       te.diagnostics_length = 0;
@@ -1228,7 +1238,7 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
       TypeExpr te;
       te.kind = TEK_UnaryOp;
       te.unaryOp.operator= TEUOK_Deref;
-      te.unaryOp.operand = malloc(sizeof(TypeExpr));
+      te.unaryOp.operand = allocArena(ar, sizeof(TypeExpr));
       *te.unaryOp.operand = currentTopLevel;
       te.span = SPAN(start, t.span.end);
       te.diagnostics_length = 0;
@@ -1238,7 +1248,7 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
     case TK_FieldAccess: {
       TypeExpr te;
       te.kind = TEK_FieldAccess;
-      te.fieldAccess.value = malloc(sizeof(TypeExpr));
+      te.fieldAccess.value = allocArena(ar, sizeof(TypeExpr));
       *te.fieldAccess.value = currentTopLevel;
 
       // Now we get the next thing
@@ -1249,7 +1259,7 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
         te.fieldAccess.field = NULL;
         setNextToken(blp, &t);
         te.diagnostics_length = 1;
-        te.diagnostics = malloc(sizeof(Diagnostic));
+        te.diagnostics = allocArena(ar, sizeof(Diagnostic));
         te.diagnostics[0] =
             DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier, te.span);
         *l2 = te;
@@ -1270,11 +1280,11 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp) {
   }
 }
 
-static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp) {
-  parseL2TypeExpr(tep, blp);
+static void parseTypeExpr(TypeExpr *tep, BufferedLexer *blp, Arena *ar) {
+  parseL2TypeExpr(tep, blp, ar);
 }
 
-static void parseBinding(Binding *bp, BufferedLexer *blp) {
+static void parseBinding(Binding *bp, BufferedLexer *blp, Arena *ar) {
   // zero-initialize bp
   ZERO(bp);
 
@@ -1291,12 +1301,12 @@ static void parseBinding(Binding *bp, BufferedLexer *blp) {
   advanceToken(blp, &t);
   if (t.kind == TK_Colon) {
     // Get type of variable
-    bp->type = malloc(sizeof(TypeExpr));
-    parseTypeExpr(bp->type, blp);
+    bp->type = allocArena(ar, sizeof(TypeExpr));
+    parseTypeExpr(bp->type, blp, ar);
   } else {
     // push back whatever
     setNextToken(blp, &t);
-    bp->type = malloc(sizeof(TypeExpr));
+    bp->type = allocArena(ar, sizeof(TypeExpr));
     bp->type->kind = TEK_Omitted;
     bp->type->span = identitySpan;
     bp->type->diagnostics_length = 0;
@@ -1314,13 +1324,13 @@ HANDLE_NO_IDENTIFIER:
   // If it's not an identifier token, we must resync
   bp->span = t.span;
   bp->diagnostics_length = 1;
-  bp->diagnostics = malloc(sizeof(Diagnostic));
+  bp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   bp->diagnostics[0] = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   return;
 }
 
-static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
+static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp, Arena *ar) {
   // zero-initialize vdsp
   ZERO(vdsp);
   vdsp->kind = SK_VarDecl;
@@ -1334,16 +1344,16 @@ static void parseVarDeclStmnt(Stmnt *vdsp, BufferedLexer *blp) {
   EXPECT_TYPE(t, TK_Let, HANDLE_NO_LET);
 
   // Get Binding
-  vdsp->varDecl.binding = malloc(sizeof(Binding));
-  parseBinding(vdsp->varDecl.binding, blp);
+  vdsp->varDecl.binding = allocArena(ar, sizeof(Binding));
+  parseBinding(vdsp->varDecl.binding, blp, ar);
 
   // Expect Equal Sign
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Assign, HANDLE_NO_ASSIGN);
 
   // Get Value;
-  vdsp->varDecl.value = malloc(sizeof(ValueExpr));
-  parseValueExpr(vdsp->varDecl.value, blp);
+  vdsp->varDecl.value = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(vdsp->varDecl.value, blp, ar);
   vdsp->diagnostics_length = 0;
   return;
 
@@ -1355,12 +1365,12 @@ HANDLE_NO_LET:
 HANDLE_NO_ASSIGN:
   vdsp->span = SPAN(start, t.span.end);
   vdsp->diagnostics_length = 1;
-  vdsp->diagnostics = malloc(sizeof(Diagnostic));
+  vdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   vdsp->diagnostics[0] = DIAGNOSTIC(DK_VarDeclStmntExpectedAssign, t.span);
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
 }
 
-static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
+static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp, Arena *ar) {
   // zero-initialize fdsp
   ZERO(fdsp);
 
@@ -1395,7 +1405,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
     setNextToken(blp, &t);
 
     // Parse and push the parameter
-    parseBinding(VEC_PUSH(&parameterDeclarations, Binding), blp);
+    parseBinding(VEC_PUSH(&parameterDeclarations, Binding), blp, ar);
 
     // Accept comma, if any
     // If there's no comma then it MUST be followed by an end paren
@@ -1410,22 +1420,22 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp) {
 
   // Copy arguments in
   fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->fnDecl.params = releaseVector(&parameterDeclarations);
+  fdsp->fnDecl.params = manageMemArena(ar, releaseVector(&parameterDeclarations));
 
   // Colon return type delimiter
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Colon, HANDLE_NO_COLON);
 
   // Return type
-  fdsp->fnDecl.type = malloc(sizeof(TypeExpr));
-  parseTypeExpr(fdsp->fnDecl.type, blp);
+  fdsp->fnDecl.type = allocArena(ar, sizeof(TypeExpr));
+  parseTypeExpr(fdsp->fnDecl.type, blp, ar);
 
   // Equal sign expression delimiter
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Assign, HANDLE_NO_ASSIGN);
 
-  fdsp->fnDecl.body = malloc(sizeof(ValueExpr));
-  parseValueExpr(fdsp->fnDecl.body, blp);
+  fdsp->fnDecl.body = allocArena(ar, sizeof(ValueExpr));
+  parseValueExpr(fdsp->fnDecl.body, blp, ar);
   fdsp->span = SPAN(start, fdsp->fnDecl.body->span.end);
   fdsp->diagnostics_length = 0;
   return;
@@ -1438,52 +1448,52 @@ HANDLE_NO_FN:
 
 HANDLE_NO_IDENTIFIER:
   fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedIdentifier, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = 0;
   fdsp->fnDecl.params = NULL;
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   return;
 
 HANDLE_NO_LEFTPAREN:
   fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = 0;
   fdsp->fnDecl.params = NULL;
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   return;
 
 HANDLE_NO_RIGHTPAREN:
   fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->fnDecl.params = releaseVector(&parameterDeclarations);
-  resyncStmnt(blp);
+  fdsp->fnDecl.params = manageMemArena(ar, releaseVector(&parameterDeclarations));
+  resyncStmnt(blp, ar);
   return;
 
 HANDLE_NO_COLON:
   fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
   fdsp->span = SPAN(start, t.span.end);
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   return;
 
 HANDLE_NO_ASSIGN:
   fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = malloc(sizeof(Diagnostic));
+  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedAssign, t.span);
   fdsp->span = SPAN(start, t.span.end);
-  resyncStmnt(blp);
+  resyncStmnt(blp, ar);
   return;
 }
 
-static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp) {
+static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp, Arena *ar) {
   ZERO(adsp);
   adsp->kind = SK_TypeAliasDecl;
   Token t;
@@ -1491,8 +1501,8 @@ static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp) {
   EXPECT_TYPE(t, TK_Alias, HANDLE_NO_ALIAS);
   LnCol start = t.span.start;
 
-  adsp->aliasStmnt.type = malloc(sizeof(TypeExpr));
-  parseTypeExpr(adsp->aliasStmnt.type, blp);
+  adsp->aliasStmnt.type = allocArena(ar, sizeof(TypeExpr));
+  parseTypeExpr(adsp->aliasStmnt.type, blp, ar);
 
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
@@ -1505,7 +1515,7 @@ HANDLE_NO_IDENTIFIER:
   adsp->aliasStmnt.name = NULL;
   adsp->span = SPAN(start, t.span.end);
   adsp->diagnostics_length = 1;
-  adsp->diagnostics = malloc(sizeof(Diagnostic));
+  adsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
   adsp->diagnostics[0] =
       DIAGNOSTIC(DK_AliasDeclStmntExpectedIdentifier, t.span);
   return;
@@ -1516,7 +1526,7 @@ HANDLE_NO_ALIAS:
   PANIC();
 }
 
-static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
+static void parseStmnt(Stmnt *sp, BufferedLexer *blp, Arena *ar) {
   Token t;
   // peek next token
   advanceToken(blp, &t);
@@ -1524,22 +1534,22 @@ static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
 
   switch (t.kind) {
   case TK_Function: {
-    parseFnDeclStmnt(sp, blp);
+    parseFnDeclStmnt(sp, blp, ar);
     return;
   }
   case TK_Let: {
-    parseVarDeclStmnt(sp, blp);
+    parseVarDeclStmnt(sp, blp, ar);
     return;
   }
   case TK_Alias: {
-    parseAliasDeclStmnt(sp, blp);
+    parseAliasDeclStmnt(sp, blp, ar);
     return;
   }
   default: {
     // Value Expr Statement
     sp->kind = SK_Expr;
-    sp->exprStmnt.value = malloc(sizeof(ValueExpr));
-    parseValueExpr(sp->exprStmnt.value, blp);
+    sp->exprStmnt.value = allocArena(ar, sizeof(ValueExpr));
+    parseValueExpr(sp->exprStmnt.value, blp, ar);
     sp->span = sp->exprStmnt.value->span;
     sp->diagnostics_length = 0;
     return;
@@ -1547,7 +1557,7 @@ static void parseStmnt(Stmnt *sp, BufferedLexer *blp) {
   }
 }
 
-void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
+void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp, Arena *ar) {
   Token t;
   Vector statements;
   createVector(&statements);
@@ -1566,7 +1576,7 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
     setNextToken(blp, &t);
 
     // Parse and push the statement
-    parseStmnt(VEC_PUSH(&statements, Stmnt), blp);
+    parseStmnt(VEC_PUSH(&statements, Stmnt), blp, ar);
 
     // semicolon is required
     advanceToken(blp, &t);
@@ -1586,9 +1596,9 @@ void parseTranslationUnit(TranslationUnit *tu, BufferedLexer *blp) {
   LnCol end = t.span.end;
 
   tu->statements_length = VEC_LEN(&statements, Stmnt);
-  tu->statements = releaseVector(&statements);
+  tu->statements = manageMemArena(ar, releaseVector(&statements));
   tu->span = SPAN(LNCOL(0, 0), end);
   tu->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
-  tu->diagnostics = releaseVector(&diagnostics);
+  tu->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
   return;
 }

@@ -3,6 +3,6 @@
 
 #include "ast.h"
 
-void parseTranslationUnit(TranslationUnit *tup, BufferedLexer *blp);
+void parseTranslationUnit(TranslationUnit *tup, BufferedLexer *blp, Arena* ar);
 
 #endif

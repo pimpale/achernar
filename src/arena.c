@@ -72,6 +72,9 @@ void *allocArenaPage(ArenaPage *app, size_t len) {
 Arena *createArena(Arena *mem) {
   // initialize vector
   createVector(&mem->pages);
+  // Push page
+  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE);
+  mem->current_index = 0;
   return mem;
 }
 
@@ -83,8 +86,8 @@ Arena *destroyArena(Arena *ar) {
   return ar;
 }
 
-void *allocArena(Arena *ar, size_t len) {
-  if(len == 0) {
+void* allocAlignedArena(Arena* ar, size_t len, size_t alignment) {
+  if (len == 0) {
     return NULL;
   }
 
@@ -99,7 +102,7 @@ void *allocArena(Arena *ar, size_t len) {
     createArenaPage(a, pageCapacity);
   } else {
     // get the last vector element
-    size_t lastIndex = numPages -1;
+    size_t lastIndex = numPages - 1;
     a = VEC_GET(&ar->pages, lastIndex, ArenaPage);
     if (!canFitArenaPage(a, len)) {
       a = VEC_PUSH(&ar->pages, ArenaPage);
@@ -107,6 +110,24 @@ void *allocArena(Arena *ar, size_t len) {
       createArenaPage(a, pageCapacity);
     }
   }
-
   return allocArenaPage(a, len);
+}
+
+void *allocArena(Arena *ar, size_t len) {
+  size_t alignment = 0;
+  if(len > 8) {
+    alignment = 8;
+  } else if(len > 2) {
+    alignment = 4;
+  } else {
+    alignment = 0;
+  }
+}
+
+void manageMemArena(Arena *ar, void *ptr, size_t len) {
+  *VEC_PUSH(&ar->pages, ArenaPage) = (ArenaPage){
+      .capacity = len,
+      .length = len,
+      .data = ptr,
+  };
 }

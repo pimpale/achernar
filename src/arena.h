@@ -7,6 +7,7 @@
 #include "string.h"
 
 typedef struct Arena_s {
+  int current_index;
   Vector pages;
 } Arena;
 
@@ -17,8 +18,8 @@ typedef struct Arena_s {
 Arena *createArena(Arena* mem);
 
 /// Destroys the arena and frees all memory associated with it
-/// REQUIRES: `ar` is a pointer to a valid arena
-/// GUARANTEES: `ar` is no longer a valid arena
+/// REQUIRES: `ar` is a pointer to a valid Arena
+/// GUARANTEES: `ar` is no longer a valid Arena
 /// GUARANTEES: all memory held by `ar` is deallocated
 Arena *destroyArena(Arena* ar);
 
@@ -26,7 +27,32 @@ Arena *destroyArena(Arena* ar);
 /// REQUIRES: `ar` is a pointer to a valid Arena
 /// GUARANTEES: return contains pointer to valid section of memory `len` bytes long
 /// GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be returned
+/// GUARANTEES: if len is 8 or greater, the pointer returned is 8-byte aligned
+/// GUARANTEES: if len is 4 or greater, the pointer returned is 4-byte aligned
+/// GUARANTEES: if len is 2 or greater, the pointer returned is 4-byte aligned
 void *allocArena(Arena* ar, size_t len);
+
+/// Allocates `len` bytes from `ar`, aligned to the specified allocation
+/// REQUIRES: `ar` is a pointer to a valid Arena
+/// REQUIRES: `alignment` is one of 0, 2, 4, or 8
+/// GUARANTEES: return contains pointer to valid section of memory `len` bytes long
+/// GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be returned
+/// GUARANTEES: the returned pointer will be aligned to `alignment`
+void *allocAlignedArena(Arena* ar, size_t len, size_t alignment);
+
+
+/// Hands control of `len` bytes of malloc'd memory at `ptr` to Arena `ar`.
+/// This allows the memory to be deallocated when the arena is deallocated
+/// REQUIRES: `ar` is a pointer to a valid Arena
+/// REQUIRES: `ptr` is a valid ptr that was allocated using malloc
+/// REQUIRES: `ptr` has not been freed yet
+/// REQUIRES: `ptr` points to the beginning of the allocated area
+/// REQUIRES: `len` is the number of bytes following ptr to manage
+/// REQUIRES: `ptr` will not be deallocated or reallocated
+/// GUARANTEES: `ptr` will still be a valid pointer to the data
+/// GUARANTEES: All contents of `ptr` will be held constant
+/// GUARANTEES: `ptr` will be freed when `ar` is `destroyArena` is called
+void manageMemArena(Arena* ar, void* ptr, size_t len);
 
 // Utility Macros
 
@@ -34,6 +60,6 @@ void *allocArena(Arena* ar, size_t len);
 /// REQUIRES: `ar` is a pointer to a valid Arena
 /// REQUIRES: `str` is a pointer to a valid null terminated string
 /// GUARANTEES: returns a pointer to a duplicated string allocated within the vector
-#define INTERN(str, ar) strcpy(allocArena(ar, strlen(str)+1), str)
+#define INTERN(str, ar) strcpy(allocAlignedArena(ar, aligned strlen(str)+1), str, 0)
 
 #endif

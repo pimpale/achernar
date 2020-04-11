@@ -5,7 +5,7 @@
 #include "error.h"
 #include "vector.h"
 
-#define DEFAULT_PAGE_SIZE 4096
+#define DEFAULT_PAGE_SIZE 4095
 
 typedef struct ArenaPage_s {
   void *data;      // pointer to page
@@ -146,7 +146,7 @@ void *allocAlignedArena(Arena *ar, size_t len, size_t alignment) {
     a = VEC_PUSH(&ar->pages, ArenaPage);
     size_t pageCapacity = DEFAULT_PAGE_SIZE;
     createArenaPage(a, pageCapacity, alignment);
-    *index_ptr = VEC_LEN(&ar->pages, ArenaPage);
+    *index_ptr = VEC_LEN(&ar->pages, ArenaPage) - 1;
   }
 
   return allocArenaPage(a, len);

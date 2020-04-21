@@ -11,14 +11,12 @@
 #include "vector.h"
 
 static char *newAstString(FILE *stream) {
-  Lexer *lexer = createLexerFile(malloc(sizeof(Lexer)), stream);
   Arena *mem = createArena(malloc(sizeof(Arena)));
+
+  Lexer *lexer = createLexerFile(malloc(sizeof(Lexer)), stream);
+
   BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), lexer, mem);
 
-//  Token t;
-//  while(true) {
-//    lexNextToken(lexer, &t, tokenArena);
-//  }
 
   TranslationUnit tu;
   parseTranslationUnit(&tu, blp, mem);

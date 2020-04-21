@@ -13,7 +13,7 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 LDFLAGS :=
 
 CC := clang
-CFLAGS ?= $(INC_FLAGS) -std=gnu11 -MMD -MP -O0 -g3 -Wall -Weverything -pedantic -Wno-padded -Wno-switch-enum -Wno-format-nonliteral
+CFLAGS ?= $(INC_FLAGS) -std=c11 -MMD -MP -O0 -g3 -Wall -Weverything -pedantic -Wno-padded -Wno-switch-enum -Wno-format-nonliteral
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)

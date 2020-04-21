@@ -123,14 +123,14 @@ static void parsePath(Path *pp, BufferedLexer *blp, Arena *ar) {
   Vector pathSegments;
   createVector(&pathSegments);
 
-  *VEC_PUSH(&pathSegments, char *) = strdup(t.identifier);
+  *VEC_PUSH(&pathSegments, char *) = INTERN(t.identifier, ar);
 
   while (true) {
     advanceToken(blp, &t);
     if (t.kind == TK_ScopeResolution) {
       advanceToken(blp, &t);
       EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-      *VEC_PUSH(&pathSegments, char *) = strdup(t.identifier);
+      *VEC_PUSH(&pathSegments, char *) = INTERN(t.identifier, ar);
     } else {
       // we've reached the end of the path
       setNextToken(blp, &t);
@@ -234,7 +234,7 @@ static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp, Arena *ar)
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_StringLiteral, HANDLE_NO_STRING_LITERAL);
   svep->kind = VEK_StringLiteral;
-  svep->stringLiteral.value = strdup(t.string_literal);
+  svep->stringLiteral.value = INTERN(t.string_literal, ar);
   svep->span = t.span;
   svep->diagnostics_length = 0;
   return;
@@ -736,7 +736,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp, Arena *ar) {
         *l2 = v;
         return;
       }
-      v.fieldAccess.field = strdup(t.identifier);
+      v.fieldAccess.field = INTERN(t.identifier, ar);
       v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
@@ -1265,7 +1265,7 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp, Arena *ar) {
         *l2 = te;
         return;
       }
-      te.fieldAccess.field = strdup(t.identifier);
+      te.fieldAccess.field = INTERN(t.identifier, ar);
       te.diagnostics_length = 0;
       currentTopLevel = te;
       break;
@@ -1295,7 +1295,7 @@ static void parseBinding(Binding *bp, BufferedLexer *blp, Arena *ar) {
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
   Span identitySpan = t.span;
-  bp->name = strdup(t.identifier);
+  bp->name = INTERN(t.identifier, ar);
 
   // check if colon
   advanceToken(blp, &t);
@@ -1386,7 +1386,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp, Arena *ar) {
   // get name
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-  fdsp->fnDecl.name = strdup(t.identifier);
+  fdsp->fnDecl.name = INTERN(t.identifier, ar);
 
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
@@ -1506,7 +1506,7 @@ static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp, Arena *ar) {
 
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-  adsp->aliasStmnt.name = strdup(t.identifier);
+  adsp->aliasStmnt.name = INTERN(t.identifier, ar);
   adsp->span = SPAN(start, t.span.end);
   adsp->diagnostics_length = 0;
   return;

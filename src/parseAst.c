@@ -194,7 +194,8 @@ HANDLE_NO_BOOL_LITERAL:
   PANIC();
 }
 
-static void parseFloatValueExpr(ValueExpr *fvep, BufferedLexer *blp, Arena *ar) {
+static void parseFloatValueExpr(ValueExpr *fvep, BufferedLexer *blp,
+                                Arena *ar) {
   UNUSED(ar);
   Token t;
   advanceToken(blp, &t);
@@ -228,7 +229,8 @@ HANDLE_NO_CHAR_LITERAL:
   PANIC();
 }
 
-static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp, Arena *ar) {
+static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp,
+                                 Arena *ar) {
   UNUSED(ar);
   Token t;
   advanceToken(blp, &t);
@@ -245,7 +247,8 @@ HANDLE_NO_STRING_LITERAL:
   PANIC();
 }
 
-static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp, Arena *ar) {
+static void parseGroupValueExpr(ValueExpr *gvep, BufferedLexer *blp,
+                                Arena *ar) {
   ZERO(gvep);
   gvep->kind = VEK_Group;
 
@@ -275,7 +278,8 @@ HANDLE_NO_RIGHTPAREN:
   gvep->diagnostics[0] = DIAGNOSTIC(DK_GroupExpectRightParen, gvep->span);
 }
 
-static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp, Arena *ar) {
+static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp,
+                                Arena *ar) {
   ZERO(bvep);
   bvep->kind = VEK_Block;
 
@@ -406,7 +410,8 @@ HANDLE_NO_BREAK:
   PANIC();
 }
 
-static void parseContinueValueExpr(ValueExpr *cep, BufferedLexer *blp, Arena *ar) {
+static void parseContinueValueExpr(ValueExpr *cep, BufferedLexer *blp,
+                                   Arena *ar) {
   UNUSED(ar);
   cep->kind = VEK_Continue;
   Token t;
@@ -421,7 +426,8 @@ HANDLE_NO_CONTINUE:
   PANIC();
 }
 
-static void parseReturnValueExpr(ValueExpr *rep, BufferedLexer *blp, Arena *ar) {
+static void parseReturnValueExpr(ValueExpr *rep, BufferedLexer *blp,
+                                 Arena *ar) {
   rep->kind = VEK_Return;
   Token t;
   advanceToken(blp, &t);
@@ -460,7 +466,8 @@ HANDLE_NO_WHILE:
 }
 
 // Pattern : Expr,
-static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep, BufferedLexer *blp, Arena *ar) {
+static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep, BufferedLexer *blp,
+                               Arena *ar) {
   ZERO(mcep);
 
   Token t;
@@ -486,7 +493,8 @@ HANDLE_NO_COLON:
   return;
 }
 
-static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp, Arena *ar) {
+static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp,
+                                Arena *ar) {
   ZERO(mvep);
   mvep->kind = VEK_Match;
   Token t;
@@ -563,7 +571,8 @@ HANDLE_NO_LEFTBRACE:
   return;
 }
 
-static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp, Arena *ar) {
+static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp,
+                                    Arena *ar) {
   ZERO(rvep);
   rvep->kind = VEK_Reference;
   rvep->reference.path = allocArena(ar, sizeof(Path));
@@ -798,7 +807,8 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp, Arena *ar) {
             v.callExpr.function = allocArena(ar, sizeof(ValueExpr));
             *v.callExpr.function = currentTopLevel;
             v.callExpr.arguments_length = VEC_LEN(&arguments, ValueExpr);
-            v.callExpr.arguments = manageMemArena(ar, releaseVector(&arguments));
+            v.callExpr.arguments =
+                manageMemArena(ar, releaseVector(&arguments));
 
             // Calculate span and diagnostics
             v.span = SPAN(start, t.span.end);
@@ -1074,19 +1084,87 @@ static void parseL8ValueExpr(ValueExpr *l8, BufferedLexer *blp, Arena *ar) {
   return;
 }
 
-// shim method
-static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp, Arena *ar) {
-  parseL8ValueExpr(vep, blp, ar);
+static void parseL9ValueExpr(ValueExpr *l9, BufferedLexer* blp, Arena *ar) {
+  ValueExpr v;
+  parseL8ValueExpr(&v, blp, ar);
+
+  Token t;
+  advanceToken(blp, &t);
+  switch (t.kind) {
+  case TK_Assign: {
+    l9->binaryOp.operator= VEBOK_Assign;
+    break;
+  }
+  case TK_AssignAdd: {
+    l9->binaryOp.operator= VEBOK_AssignAdd;
+    break;
+  }
+  case TK_AssignSub: {
+    l9->binaryOp.operator= VEBOK_AssignSub;
+    break;
+  }
+  case TK_AssignMul: {
+    l9->binaryOp.operator= VEBOK_AssignMul;
+    break;
+  }
+  case TK_AssignDiv: {
+    l9->binaryOp.operator= VEBOK_AssignDiv;
+    break;
+  }
+  default: {
+    // There is no level 8 expr
+    setNextToken(blp, &t);
+    *l9 = v;
+    return;
+  }
+  }
+
+  l9->kind = VEK_BinaryOp;
+  l9->binaryOp.left_operand = allocArena(ar, sizeof(ValueExpr));
+  *l9->binaryOp.left_operand = v;
+  l9->binaryOp.right_operand = allocArena(ar, sizeof(ValueExpr));
+  parseL8ValueExpr(l9->binaryOp.right_operand, blp, ar);
+  l9->span = SPAN(l9->binaryOp.left_operand->span.start,
+                  l9->binaryOp.right_operand->span.end);
+  l9->diagnostics_length = 0;
+  return;
 }
 
+// shim method
+static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp, Arena *ar) {
+  parseL9ValueExpr(vep, blp, ar);
+}
 
 static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp, Arena *ar) {
   ZERO(ste);
   ste->kind = TEK_Struct;
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, TK_Struct, HANDLE_NO_STRUCT);
+  switch (t.kind) {
+  case TK_Struct: {
+    ste->structExpr.kind = TESK_Struct;
+    break;
+  }
+  case TK_Pack: {
+    ste->structExpr.kind = TESK_Pack;
+    break;
+  }
+  case TK_Union: {
+    ste->structExpr.kind = TESK_Union;
+    break;
+  }
+  case TK_Enum: {
+    ste->structExpr.kind = TESK_Union;
+    break;
+  }
+  default: {
+    goto HANDLE_NO_STRUCT;
+  }
+  }
+
   LnCol start = t.span.start;
+
+  advanceToken(blp, &t);
 
   EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
@@ -1151,7 +1229,8 @@ HANDLE_NO_STRUCT:
   PANIC();
 }
 
-static void parseReferenceTypeExpr(TypeExpr *rtep, BufferedLexer *blp, Arena *ar) {
+static void parseReferenceTypeExpr(TypeExpr *rtep, BufferedLexer *blp,
+                                   Arena *ar) {
   ZERO(rtep);
   rtep->kind = TEK_Reference;
   rtep->referenceExpr.path = allocArena(ar, sizeof(Path));
@@ -1421,7 +1500,8 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp, Arena *ar) {
 
   // Copy arguments in
   fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->fnDecl.params = manageMemArena(ar, releaseVector(&parameterDeclarations));
+  fdsp->fnDecl.params =
+      manageMemArena(ar, releaseVector(&parameterDeclarations));
 
   // Colon return type delimiter
   advanceToken(blp, &t);
@@ -1473,7 +1553,8 @@ HANDLE_NO_RIGHTPAREN:
   fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->fnDecl.params = manageMemArena(ar, releaseVector(&parameterDeclarations));
+  fdsp->fnDecl.params =
+      manageMemArena(ar, releaseVector(&parameterDeclarations));
   resyncStmnt(blp, ar);
   return;
 

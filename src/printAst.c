@@ -535,12 +535,12 @@ JsonElem jsonStmnt(Stmnt *sp, Arena *ja) {
     ptrs[4] = KVJson("value", jsonValueExpr(sp->varDecl.value, ja));
     break;
   }
-  case SK_TypeAliasDecl: {
+  case SK_TypeAliasStmnt: {
     ptrs_len = 5;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("SK_TypeAliasDecl"));
-    ptrs[3] = KVJson("type", jsonTypeExpr(sp->aliasStmnt.type, ja));
-    ptrs[4] = KVJson("name", strJson(INTERN(sp->aliasStmnt.name, ja)));
+    ptrs[3] = KVJson("type", jsonTypeExpr(sp->typeAliasStmnt.type, ja));
+    ptrs[4] = KVJson("name", strJson(INTERN(sp->typeAliasStmnt.name, ja)));
     break;
   }
   case SK_Expr: {

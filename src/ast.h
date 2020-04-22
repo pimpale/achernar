@@ -12,7 +12,7 @@ typedef enum {
   SK_None,
   SK_FnDecl,
   SK_VarDecl,
-  SK_TypeAliasDecl,
+  SK_TypeAliasStmnt,
   SK_Expr,
 } StmntKind;
 
@@ -49,9 +49,6 @@ typedef enum {
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Typeof,      // typeof
   TEK_Struct,      // struct
-  TEK_Pack,        // pack
-  TEK_Enum,        // enum
-  TEK_Union,       // union
   TEK_UnaryOp,     // $ or @
   TEK_FieldAccess, // .
 } TypeExprKind;
@@ -93,6 +90,12 @@ typedef struct TypeExpr_s {
     struct {
       Binding *members;
       size_t members_length;
+      enum TypeExprStructKind_e {
+        TESK_Struct,
+        TESK_Pack,
+        TESK_Union,
+        TESK_Enum,
+      } kind;
     } structExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
@@ -195,6 +198,7 @@ typedef struct ValueExpr_s {
         VEBOK_CompGreaterEqual, // >=
         VEBOK_ArrayAccess,      // []
         VEBOK_Pipeline,         // ->
+        VEBOK_Assign,           // =
       }
       operator;
       ValueExpr *left_operand;
@@ -263,10 +267,6 @@ typedef struct Stmnt_s {
       Binding *binding;
       ValueExpr *value;
     } varDecl;
-    struct {
-      ValueExpr *lvalue;
-      ValueExpr *rvalue;
-    } assignStmnt;
     struct {
       TypeExpr *type;
       char *name;

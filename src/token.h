@@ -67,7 +67,14 @@ typedef enum {
   TK_Ref,   // $
   TK_Deref, // @
   // Assignment
-  TK_Assign, // =
+  TK_Assign,       // =
+  TK_AssignAdd,    // +=
+  TK_AssignSub,    // -=
+  TK_AssignMul,    // *=
+  TK_AssignDiv,    // /=
+  TK_AssignMod,    // %=
+  TK_AssignBitAnd, // &=
+  TK_AssignBitOr,  // |=
   // Pipelines
   TK_Pipe, // ->
   // Scope resolution

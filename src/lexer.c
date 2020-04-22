@@ -211,12 +211,12 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
 
     // Return data
     // clang-format off
-    *token = (Token) {
-      .kind = TK_Comment,
-      .comment = manageMemArena(arena, releaseVector(&data)),
-      .span = SPAN(start, lexer->position),
-      .error = DK_Ok
-    };
+                *token = (Token) {
+                  .kind = TK_Comment,
+                    .comment = manageMemArena(arena, releaseVector(&data)),
+                    .span = SPAN(start, lexer->position),
+                    .error = DK_Ok
+                };
     // clang-format on
     return;
   }
@@ -239,12 +239,12 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
 
     // Return data
     // clang-format off
-    *token = (Token) {
-      .kind = TK_Comment,
-      .comment = string,
-      .span = SPAN(start, lexer->position),
-      .error = DK_Ok
-    };
+               *token = (Token) {
+                 .kind = TK_Comment,
+                   .comment = string,
+                   .span = SPAN(start, lexer->position),
+                   .error = DK_Ok
+               };
     // clang-format on
     free(string);
     return;
@@ -342,11 +342,11 @@ static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
   // Return data
   // clang-format off
   *token = (Token) {
-      .kind = TK_StringLiteral,
+    .kind = TK_StringLiteral,
       .string_literal = string,
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
-    };
+  };
   // clang-format on
   return;
 }
@@ -430,12 +430,12 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
       }
       default: {
         // clang-format off
-        *token = (Token) {
-          .kind = TK_None,
-          .span = SPAN(start, lexer->position),
-          .error = DK_IntLiteralUnrecognizedRadixCode
+                   *token = (Token) {
+                     .kind = TK_None,
+                       .span = SPAN(start, lexer->position),
+                       .error = DK_IntLiteralUnrecognizedRadixCode
 
-        };
+                   };
         // clang-format on
         goto CLEANUP;
       }
@@ -455,7 +455,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     if (ret != DK_Ok) {
       // clang-format off
       *token = (Token) {
-          .kind = TK_None,
+        .kind = TK_None,
           .span = SPAN(start, lexer->position),
           .error = ret
       };
@@ -466,9 +466,9 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
       // clang-format off
       *token  = (Token) {
         .kind = TK_IntLiteral,
-        .span = SPAN(start, lexer->position),
-        .int_literal = integer_value,
-        .error = DK_Ok
+          .span = SPAN(start, lexer->position),
+          .int_literal = integer_value,
+          .error = DK_Ok
       };
       // clang-format on
       goto CLEANUP;
@@ -501,7 +501,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     } else {
       // clang-format off
       *token = (Token) {
-          .kind = TK_None,
+        .kind = TK_None,
           .span = SPAN(start, lexer->position),
           .error = initial_err
       };
@@ -524,7 +524,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
       } else {
         // clang-format off
         *token = (Token) {
-            .kind = TK_None,
+          .kind = TK_None,
             .span = SPAN(start, lexer->position),
             .error = final_err
         };
@@ -537,9 +537,9 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     // clang-format off
     *token = (Token) {
       .kind = TK_FloatLiteral,
-      .float_literal = result,
-      .span = SPAN(start, lexer->position),
-      .error = DK_Ok
+        .float_literal = result,
+        .span = SPAN(start, lexer->position),
+        .error = DK_Ok
     };
     // clang-format on
     goto CLEANUP;
@@ -637,11 +637,11 @@ static void lexCharLiteral(Lexer *lexer, Token *token, Arena *arena) {
   switch (length) {
   case 0: {
     // clang-format off
-    *token = (Token) {
-      .kind = TK_None,
-      .span = SPAN(start, lexer->position),
-      .error = DK_CharLiteralEmpty
-    };
+              *token = (Token) {
+                .kind = TK_None,
+                  .span = SPAN(start, lexer->position),
+                  .error = DK_CharLiteralEmpty
+              };
     // clang-format on
     goto CLEANUP;
   }
@@ -649,22 +649,22 @@ static void lexCharLiteral(Lexer *lexer, Token *token, Arena *arena) {
     // We return the first character in the vector
 
     // clang-format off
-    *token = (Token) {
-      .kind = TK_CharLiteral,
-      .char_literal = string[0],
-      .span = SPAN(start, lexer->position),
-      .error = DK_Ok
-    };
+              *token = (Token) {
+                .kind = TK_CharLiteral,
+                  .char_literal = string[0],
+                  .span = SPAN(start, lexer->position),
+                  .error = DK_Ok
+              };
     // clang-format on
     goto CLEANUP;
   }
   default: {
     // clang-format off
-    *token = (Token) {
-      .kind = TK_None,
-      .span = SPAN(start, lexer->position),
-      .error = DK_CharLiteralTooLong
-    };
+               *token = (Token) {
+                 .kind = TK_None,
+                   .span = SPAN(start, lexer->position),
+                   .error = DK_CharLiteralTooLong
+               };
     // clang-format on
     goto CLEANUP;
   }
@@ -772,9 +772,9 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
 
 #define RESULT_TOKEN( tokenType, errorType)                                    \
   *token = (Token){                                                            \
-      .kind = tokenType,                                                       \
-      .span = SPAN(start, lexer->position),                                    \
-      .error = errorType                                                       \
+    .kind = tokenType,                                                         \
+    .span = SPAN(start, lexer->position),                                      \
+    .error = errorType                                                         \
   };                                                                           \
 
 #define RETURN_RESULT_TOKEN( tokenType)                                        \
@@ -822,85 +822,151 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
     }
     case '&': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
       // && or &
-      if (n == '&') {
+      switch (peekValueLexer(lexer)) {
+      case '&': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_And)
-      } else {
+      }
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignBitAnd)
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_BitAnd)
+      }
       }
     }
     case '|': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
-      // || or |
-      if (n == '|') {
+      switch (peekValueLexer(lexer)) {
+      case '|': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_Or)
-      } else {
+      }
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignBitOr)
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_BitOr)
+      }
       }
     }
     case '!': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
       // ! or !=
-      if (n == '=') {
+      switch (peekValueLexer(lexer)) {
+      case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_NotEqual)
-      } else {
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_Not)
+      }
       }
     }
     case '=': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
       // = or ==
-      if (n == '=') {
+      switch (peekValueLexer(lexer)) {
+      case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_Equal)
-      } else {
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_Assign)
+      }
       }
     }
     case '<': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
-      if (n == '<') {
+      switch (peekValueLexer(lexer)) {
+      case '<': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_ShiftLeft)
-      } else if (n == '=') {
+      }
+      case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_CompLessEqual)
-      } else {
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_CompLess)
+      }
       }
     }
     case '>': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
-      if (n == '>') {
+      switch (peekValueLexer(lexer)) {
+      case '>': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_ShiftRight)
-      } else if (n == '=') {
+      }
+      case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_CompGreaterEqual)
-      } else {
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_CompGreater)
+      }
       }
     }
     case '+': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Add)
+      nextValueLexer(lexer);
+      switch (peekValueLexer(lexer)) {
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignAdd)
+      }
+      default: {
+        RETURN_RESULT_TOKEN(TK_Add)
+      }
+      }
     }
     case '-': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
-      if (n == '>') {
+      switch (peekValueLexer(lexer)) {
+      case '>': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_Pipe)
-      } else {
+      }
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignSub)
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_Sub)
+      }
+      }
+    }
+    case '*': {
+      nextValueLexer(lexer);
+      switch (peekValueLexer(lexer)) {
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignMul)
+      }
+      default:
+        RETURN_RESULT_TOKEN(TK_Mul)
+      }
+    }
+    case '/': {
+      nextValueLexer(lexer);
+      switch (peekValueLexer(lexer)) {
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignDiv)
+      }
+      default: {
+        RETURN_RESULT_TOKEN(TK_Div)
+      }
+      }
+    }
+    case '%': {
+      nextValueLexer(lexer);
+      switch (peekValueLexer(lexer)) {
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignMod)
+      }
+      default: {
+        RETURN_RESULT_TOKEN(TK_Mod)
+      }
       }
     }
     case ':': {
       nextValueLexer(lexer);
-      int32_t n = peekValueLexer(lexer);
-      if (n == ':') {
+      switch (peekValueLexer(lexer)) {
+      case ':': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_ScopeResolution)
-      } else {
+      }
+      default: {
         RETURN_RESULT_TOKEN(TK_Colon)
+      }
       }
     }
     case '[': {
@@ -908,15 +974,6 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
     }
     case ']': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_BracketRight)
-    }
-    case '*': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Mul)
-    }
-    case '/': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Div)
-    }
-    case '%': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Mod)
     }
     case '$': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Ref)

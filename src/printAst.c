@@ -102,6 +102,7 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
       array[i] = jsonBinding(&tep->structExpr.members[i], ja);
     }
     ptrs[3] = KVJson("members", arrDefJson(array, len));
+    break;
   }
   case TEK_UnaryOp: {
     ptrs_len = 5;

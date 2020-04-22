@@ -13,29 +13,32 @@ typedef enum {
   // function, type, or variable
   TK_Identifier,
   // Keywords
-  TK_If,       // if
-  TK_Else,     // else
-  TK_While,    // while
-  TK_For,      // for
-  TK_With,     // with
-  TK_Match,    // match
-  TK_Break,    // break
-  TK_Continue, // continue
-  TK_Return,   // return
-  TK_Pass,     // pass
-  TK_Function, // fn
-  TK_Let,      // let
-  TK_Struct,   // struct
-  TK_Alias,    // alias
-  TK_Typeof,   // typeof
-  TK_Sizeof,   // sizeof
-  TK_Alignof,  // alignof
+  TK_If,        // if
+  TK_Else,      // else
+  TK_While,     // while
+  TK_For,       // for
+  TK_With,      // with
+  TK_Match,     // match
+  TK_Break,     // break
+  TK_Continue,  // continue
+  TK_Return,    // return
+  TK_Pass,      // pass
+  TK_Function,  // fn
+  TK_Let,       // let
+  TK_Struct,    // struct
+  TK_Pack,      // pack
+  TK_Union,     // union
+  TK_Enum,      // enum
+  TK_TypeAlias, // type
+  TK_Typeof,    // typeof
+  TK_Sizeof,    // sizeof
+  TK_Alignof,   // alignof
   // Literals and constants
-  TK_BoolLiteral,    // true | false
-  TK_StringLiteral,  // "string"
-  TK_CharLiteral,    // 'a'
-  TK_FloatLiteral,   // 0.7
-  TK_IntLiteral,     // 7
+  TK_BoolLiteral,   // true | false
+  TK_StringLiteral, // "string"
+  TK_CharLiteral,   // 'a'
+  TK_FloatLiteral,  // 0.7
+  TK_IntLiteral,    // 7
   // Math Operators
   TK_Add, // +
   TK_Sub, // -
@@ -85,7 +88,7 @@ typedef enum {
   TK_Macro, // macro!
   // Comments, and Attributes
   TK_Comment,    // #{ comment }# and # comment
-  TK_Annotation, // 
+  TK_Annotation, //
 } TokenKind;
 
 typedef struct Token_s {

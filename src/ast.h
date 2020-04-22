@@ -44,57 +44,20 @@ typedef enum {
 } ValueExprKind;
 
 typedef enum {
-  VEBOK_Add,              // +
-  VEBOK_Sub,              // -
-  VEBOK_Mul,              // *
-  VEBOK_Div,              // /
-  VEBOK_Mod,              // %
-  VEBOK_BitAnd,           // &
-  VEBOK_BitOr,            // |
-  VEBOK_BitXor,           // ^
-  VEBOK_BitShl,           // <<
-  VEBOK_BitShr,           // >>
-  VEBOK_LogicalAnd,       // &&
-  VEBOK_LogicalOr,        // ||
-  VEBOK_CompEqual,        // ==
-  VEBOK_CompNotEqual,     // !=
-  VEBOK_CompLess,         // <
-  VEBOK_CompLessEqual,    // <=
-  VEBOK_CompGreater,      // >
-  VEBOK_CompGreaterEqual, // >=
-  VEBOK_ArrayAccess,      // []
-  VEBOK_Pipeline,         // ->
-} ValueExprBinaryOpKind;
-
-typedef enum {
-  VEUOK_Negate,     // -
-  VEUOK_Posit,      // +
-  VEUOK_LogicalNot, // !
-  VEUOK_BitNot,     // ~
-  VEUOK_Ref,        // $
-  VEUOK_Deref       // @
-} ValueExprUnaryOpKind;
-
-typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Typeof,      // typeof
   TEK_Struct,      // struct
+  TEK_Pack,        // pack
+  TEK_Enum,        // enum
+  TEK_Union,       // union
   TEK_UnaryOp,     // $ or @
   TEK_FieldAccess, // .
 } TypeExprKind;
 
-typedef enum {
-  // operators
-  TEUOK_Ref, // $
-  TEUOK_Deref, // @
-} TypeExprUnaryOpKind;
-
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
-typedef struct StructEntryExpr_s StructEntryExpr;
-typedef struct MatchCaseExpr_s MatchCaseExpr;
 typedef struct Binding_s Binding;
 typedef struct Path_s Path;
 typedef struct Stmnt_s Stmnt;
@@ -132,12 +95,16 @@ typedef struct TypeExpr_s {
       size_t members_length;
     } structExpr;
     struct {
-      TypeExprUnaryOpKind operator;
-      struct TypeExpr_s* operand;
+      enum TypeExprUnaryOpKind_e {
+        TEUOK_Ref,   // $
+        TEUOK_Deref, // @
+      }
+      operator;
+      struct TypeExpr_s *operand;
     } unaryOp;
     struct {
-      struct TypeExpr_s* value;
-      char* field;
+      struct TypeExpr_s *value;
+      char *field;
     } fieldAccess;
   };
 } TypeExpr;
@@ -150,24 +117,6 @@ typedef struct Binding_s {
   char *name;
   TypeExpr *type;
 } Binding;
-
-// Expressions and operations yielding a match case
-typedef struct MatchCaseExpr_s {
-  Span span;
-  Diagnostic *diagnostics;
-  size_t diagnostics_length;
-  ValueExpr *pattern;
-  ValueExpr *value;
-} MatchCaseExpr;
-
-// Expressions and operations yielding a struct entry case
-typedef struct StructEntryExpr_s {
-  Span span;
-  Diagnostic *diagnostics;
-  size_t diagnostics_length;
-  char *name;
-  ValueExpr *value;
-} StructEntryExpr;
 
 typedef struct ValueExpr_s {
   ValueExprKind kind;
@@ -196,7 +145,13 @@ typedef struct ValueExpr_s {
       size_t elements_length;
     } arrayLiteral;
     struct {
-      StructEntryExpr *entries;
+      struct {
+        Span span;
+        Diagnostic *diagnostics;
+        size_t diagnostics_length;
+        char *name;
+        ValueExpr *value;
+      }* entries;
       size_t entries_length;
     } structLiteral;
     struct {
@@ -207,11 +162,41 @@ typedef struct ValueExpr_s {
       Path *path;
     } reference;
     struct {
-      ValueExprUnaryOpKind operator;
+      enum ValueExprUnaryOpKind_e {
+        VEUOK_Negate,     // -
+        VEUOK_Posit,      // +
+        VEUOK_LogicalNot, // !
+        VEUOK_BitNot,     // ~
+        VEUOK_Ref,        // $
+        VEUOK_Deref       // @
+      }
+      operator;
       ValueExpr *operand;
     } unaryOp;
     struct {
-      ValueExprBinaryOpKind operator;
+      enum ValueExprBinaryOpKind_e {
+        VEBOK_Add,              // +
+        VEBOK_Sub,              // -
+        VEBOK_Mul,              // *
+        VEBOK_Div,              // /
+        VEBOK_Mod,              // %
+        VEBOK_BitAnd,           // &
+        VEBOK_BitOr,            // |
+        VEBOK_BitXor,           // ^
+        VEBOK_BitShl,           // <<
+        VEBOK_BitShr,           // >>
+        VEBOK_LogicalAnd,       // &&
+        VEBOK_LogicalOr,        // ||
+        VEBOK_CompEqual,        // ==
+        VEBOK_CompNotEqual,     // !=
+        VEBOK_CompLess,         // <
+        VEBOK_CompLessEqual,    // <=
+        VEBOK_CompGreater,      // >
+        VEBOK_CompGreaterEqual, // >=
+        VEBOK_ArrayAccess,      // []
+        VEBOK_Pipeline,         // ->
+      }
+      operator;
       ValueExpr *left_operand;
       ValueExpr *right_operand;
     } binaryOp;
@@ -241,7 +226,13 @@ typedef struct ValueExpr_s {
     } returnExpr;
     struct Match_s {
       ValueExpr *value;
-      MatchCaseExpr *cases;
+      struct MatchCaseExpr_s {
+        Span span;
+        Diagnostic *diagnostics;
+        size_t diagnostics_length;
+        ValueExpr *pattern;
+        ValueExpr *value;
+      } * cases;
       size_t cases_length;
     } matchExpr;
     struct Group_s {
@@ -279,7 +270,7 @@ typedef struct Stmnt_s {
     struct {
       TypeExpr *type;
       char *name;
-    } aliasStmnt;
+    } typeAliasStmnt;
     struct {
       ValueExpr *value;
     } exprStmnt;

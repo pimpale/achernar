@@ -742,8 +742,14 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
     token->kind = TK_Let;
   } else if (!strcmp(string, "struct")) {
     token->kind = TK_Struct;
-  } else if (!strcmp(string, "alias")) {
-    token->kind = TK_Alias;
+  } else if (!strcmp(string, "pack")) {
+    token->kind = TK_Pack;
+  } else if (!strcmp(string, "enum")) {
+    token->kind = TK_Enum;
+  } else if (!strcmp(string, "union")) {
+    token->kind = TK_Union;
+  } else if (!strcmp(string, "type")) {
+    token->kind = TK_TypeAlias;
   } else if (!strcmp(string, "sizeof")) {
     token->kind = TK_Sizeof;
   } else if (!strcmp(string, "typeof")) {

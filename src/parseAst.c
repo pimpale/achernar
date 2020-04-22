@@ -460,7 +460,7 @@ HANDLE_NO_WHILE:
 }
 
 // Pattern : Expr,
-static void parseMatchCaseExpr(MatchCaseExpr *mcep, BufferedLexer *blp, Arena *ar) {
+static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep, BufferedLexer *blp, Arena *ar) {
   ZERO(mcep);
 
   Token t;
@@ -516,7 +516,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp, Arena *ar) 
     setNextToken(blp, &t);
 
     // Parse the match case expr
-    parseMatchCaseExpr(VEC_PUSH(&matchCases, MatchCaseExpr), blp, ar);
+    parseMatchCaseExpr(VEC_PUSH(&matchCases, struct MatchCaseExpr_s), blp, ar);
 
     // Accept comma, if any
     // If there's no comma then it MUST be followed by an end brace
@@ -530,7 +530,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp, Arena *ar) 
   }
 
   // Get interior cases
-  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, struct MatchCaseExpr_s);
   mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
 
   mvep->span = SPAN(start, t.span.end);
@@ -547,7 +547,7 @@ HANDLE_NO_RIGHTBRACE:
   mvep->diagnostics = allocArena(ar, sizeof(Diagnostic));
   mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoRightBrace, t.span);
   mvep->span = SPAN(start, t.span.end);
-  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, struct MatchCaseExpr_s);
   mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
   resyncStmnt(blp, ar);
   return;
@@ -557,7 +557,7 @@ HANDLE_NO_LEFTBRACE:
   mvep->diagnostics = allocArena(ar, sizeof(Diagnostic));
   mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoLeftbrace, t.span);
   mvep->span = SPAN(start, t.span.end);
-  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, MatchCaseExpr);
+  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, struct MatchCaseExpr_s);
   mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
   resyncStmnt(blp, ar);
   return;
@@ -1079,6 +1079,7 @@ static void parseValueExpr(ValueExpr *vep, BufferedLexer *blp, Arena *ar) {
   parseL8ValueExpr(vep, blp, ar);
 }
 
+
 static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp, Arena *ar) {
   ZERO(ste);
   ste->kind = TEK_Struct;
@@ -1493,26 +1494,26 @@ HANDLE_NO_ASSIGN:
   return;
 }
 
-static void parseAliasDeclStmnt(Stmnt *adsp, BufferedLexer *blp, Arena *ar) {
+static void parseTypeAliasStmnt(Stmnt *adsp, BufferedLexer *blp, Arena *ar) {
   ZERO(adsp);
   adsp->kind = SK_TypeAliasDecl;
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, TK_Alias, HANDLE_NO_ALIAS);
+  EXPECT_TYPE(t, TK_TypeAlias, HANDLE_NO_ALIAS);
   LnCol start = t.span.start;
 
-  adsp->aliasStmnt.type = allocArena(ar, sizeof(TypeExpr));
-  parseTypeExpr(adsp->aliasStmnt.type, blp, ar);
+  adsp->typeAliasStmnt.type = allocArena(ar, sizeof(TypeExpr));
+  parseTypeExpr(adsp->typeAliasStmnt.type, blp, ar);
 
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-  adsp->aliasStmnt.name = INTERN(t.identifier, ar);
+  adsp->typeAliasStmnt.name = INTERN(t.identifier, ar);
   adsp->span = SPAN(start, t.span.end);
   adsp->diagnostics_length = 0;
   return;
 
 HANDLE_NO_IDENTIFIER:
-  adsp->aliasStmnt.name = NULL;
+  adsp->typeAliasStmnt.name = NULL;
   adsp->span = SPAN(start, t.span.end);
   adsp->diagnostics_length = 1;
   adsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
@@ -1541,8 +1542,8 @@ static void parseStmnt(Stmnt *sp, BufferedLexer *blp, Arena *ar) {
     parseVarDeclStmnt(sp, blp, ar);
     return;
   }
-  case TK_Alias: {
-    parseAliasDeclStmnt(sp, blp, ar);
+  case TK_TypeAlias: {
+    parseTypeAliasStmnt(sp, blp, ar);
     return;
   }
   default: {

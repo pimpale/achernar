@@ -38,7 +38,7 @@ static JsonElem jsonDiagnostics(Diagnostic* diagnostics, size_t diagnostics_leng
 static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja);
 static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja);
 static JsonElem jsonStmnt(Stmnt *sp, Arena *ja);
-static JsonElem jsonMatchCaseExpr(MatchCaseExpr *mcep, Arena *ja);
+static JsonElem jsonMatchCaseExpr(struct MatchCaseExpr_s *mcep, Arena *ja);
 static JsonElem jsonBinding(Binding *bp, Arena *ja);
 
 static JsonElem jsonPath(Path* pp, Arena *ja) {
@@ -151,13 +151,13 @@ static JsonElem jsonBinding(Binding *bp, Arena *ja) {
   return objDefJson(ptrs, ptrs_len);
 }
 
-static JsonElem jsonMatchCaseExpr(MatchCaseExpr *mcep, Arena *ja) {
+static JsonElem jsonMatchCaseExpr(struct MatchCaseExpr_s *mcep, Arena *ja) {
   if (mcep == NULL) {
     return nullJson();
   }
   size_t ptrs_len = 5;
   JsonKV *ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-  ptrs[0] = KVJson("kind", strJson("matchCaseExpr"));
+  ptrs[0] = KVJson("kind", strJson("MatchCaseExpr"));
   ptrs[1] = KVJson("span", jsonSpan(mcep->span, ja));
   ptrs[2] = KVJson("diagnostics", jsonDiagnostics(mcep->diagnostics, mcep->diagnostics_length, ja));
   ptrs[3] = KVJson("pattern", jsonValueExpr(mcep->pattern, ja));
@@ -319,6 +319,38 @@ static JsonElem jsonValueExpr(ValueExpr *vep, Arena *ja) {
     }
     case VEBOK_Pipeline: {
       binOpStr = "VEBOK_Pipeline";
+      break;
+    }
+    case VEBOK_Assign: {
+      binOpStr = "VEBOK_Assign";
+      break;
+    }
+    case VEBOK_AssignAdd: {
+      binOpStr = "VEBOK_AssignAdd";
+      break;
+    }
+    case VEBOK_AssignSub: {
+      binOpStr = "VEBOK_AssignSub";
+      break;
+    }
+    case VEBOK_AssignMul: {
+      binOpStr = "VEBOK_AssignMul";
+      break;
+    }
+    case VEBOK_AssignDiv: {
+      binOpStr = "VEBOK_AssignDiv";
+      break;
+    }
+    case VEBOK_AssignMod: {
+      binOpStr = "VEBOK_AssignMod";
+      break;
+    }
+    case VEBOK_AssignBitAnd: {
+      binOpStr = "VEBOK_AssignBitAnd";
+      break;
+    }
+    case VEBOK_AssignBitOr: {
+      binOpStr = "VEBOK_AssignBitOr";
       break;
     }
     }

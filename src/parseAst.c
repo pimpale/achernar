@@ -591,6 +591,7 @@ static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp,
 // Level6ValueExpr << >> & | ^ (bitwise operators)
 // Level7ValueExpr < <= > >= == != (comparators)
 // Level8ValueExpr && || (Boolean Operators)
+// Level9ValueExpr = += -= *= /= %= &= |=  (Assignment)
 
 static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp, Arena *ar) {
   Token t;
@@ -1111,6 +1112,18 @@ static void parseL9ValueExpr(ValueExpr *l9, BufferedLexer* blp, Arena *ar) {
     l9->binaryOp.operator= VEBOK_AssignDiv;
     break;
   }
+  case TK_AssignMod: {
+    l9->binaryOp.operator= VEBOK_AssignMod;
+    break;
+  }
+  case TK_AssignBitAnd: {
+    l9->binaryOp.operator= VEBOK_AssignBitAnd;
+    break;
+  }
+  case TK_AssignBitOr: {
+    l9->binaryOp.operator= VEBOK_AssignBitOr;
+    break;
+  }
   default: {
     // There is no level 8 expr
     setNextToken(blp, &t);
@@ -1577,7 +1590,7 @@ HANDLE_NO_ASSIGN:
 
 static void parseTypeAliasStmnt(Stmnt *adsp, BufferedLexer *blp, Arena *ar) {
   ZERO(adsp);
-  adsp->kind = SK_TypeAliasDecl;
+  adsp->kind = SK_TypeAliasStmnt;
   Token t;
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_TypeAlias, HANDLE_NO_ALIAS);

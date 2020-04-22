@@ -154,7 +154,7 @@ typedef struct ValueExpr_s {
         size_t diagnostics_length;
         char *name;
         ValueExpr *value;
-      }* entries;
+      } * entries;
       size_t entries_length;
     } structLiteral;
     struct {
@@ -199,6 +199,13 @@ typedef struct ValueExpr_s {
         VEBOK_ArrayAccess,      // []
         VEBOK_Pipeline,         // ->
         VEBOK_Assign,           // =
+        VEBOK_AssignAdd,        // +=
+        VEBOK_AssignSub,        // -=
+        VEBOK_AssignMul,        // *=
+        VEBOK_AssignDiv,        // /=
+        VEBOK_AssignMod,        // &=
+        VEBOK_AssignBitAnd,     // &=
+        VEBOK_AssignBitOr,      // |=
       }
       operator;
       ValueExpr *left_operand;

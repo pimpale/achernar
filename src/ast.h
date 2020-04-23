@@ -46,9 +46,11 @@ typedef enum {
 typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
+  TEK_Void,        // void type
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Typeof,      // typeof
   TEK_Struct,      // struct
+  TEK_Tuple,       // tuple
   TEK_UnaryOp,     // $ or @
   TEK_FieldAccess, // .
 } TypeExprKind;
@@ -88,14 +90,20 @@ typedef struct TypeExpr_s {
       ValueExpr *value;
     } typeofExpr;
     struct {
-      Binding *members;
+      TypeExpr *members;
       size_t members_length;
+      bool trailing_comma;
+    } tupleExpr;
+    struct {
       enum TypeExprStructKind_e {
         TESK_Struct,
         TESK_Pack,
         TESK_Union,
         TESK_Enum,
       } kind;
+      Binding *members;
+      size_t members_length;
+      bool trailing_comma;
     } structExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
@@ -245,6 +253,7 @@ typedef struct ValueExpr_s {
         ValueExpr *value;
       } * cases;
       size_t cases_length;
+      bool trailing_comma;
     } matchExpr;
     struct Group_s {
       ValueExpr *value;

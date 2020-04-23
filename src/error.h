@@ -45,23 +45,30 @@ typedef enum {
   // AliasDeclStmnt
   DK_AliasDeclStmntExpectedIdentifier,
   // StructDeclStmnt
-  DK_StructDeclStmntExpectedLeftBrace,
-  DK_StructDeclStmntExpectedRightBrace,
+  DK_StructExpectedLeftBrace,
+  DK_StructExpectedRightBrace,
+  DK_StructExpectedComma,
+  // Tuple
+  DK_TupleExpectedRightParen,
+  DK_TupleExpectedComma,
   // FnDeclStmnt
-  DK_FnDeclStmntExpectedParen,
-  DK_FnDeclStmntExpectedType,
-  DK_FnDeclStmntExpectedIdentifier,
-  DK_FnDeclStmntExpectedColon,
-  DK_FnDeclStmntExpectedAssign,
-  DK_FnDeclStmntExpectedBody,
+  DK_FnExpectedParen,
+  DK_FnExpectedType,
+  DK_FnExpectedIdentifier,
+  DK_FnExpectedColon,
+  DK_FnExpectedAssign,
+  DK_FnExpectedBody,
   // Groups
   DK_GroupExpectRightParen,
+  // MatchCase
+  DK_MatchCaseNoColon,
   // Match
-  DK_MatchNoColon,
-  DK_MatchNoLeftbrace,
+  DK_MatchNoLeftBrace,
   DK_MatchNoRightBrace,
+  DK_MatchNoComma,
   // Block
   DK_BlockExpectedSemicolon,
+  DK_BlockExpectedRightBrace,
   // Array Access
   DK_ArrayAccessExpectedBracket,
   // Function Calls

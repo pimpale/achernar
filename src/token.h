@@ -30,6 +30,7 @@ typedef enum {
   TK_Union,     // union
   TK_Enum,      // enum
   TK_TypeAlias, // type
+  TK_Void,      // type
   TK_Typeof,    // typeof
   TK_Sizeof,    // sizeof
   TK_Alignof,   // alignof

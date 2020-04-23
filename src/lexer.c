@@ -750,6 +750,8 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
     token->kind = TK_Union;
   } else if (!strcmp(string, "type")) {
     token->kind = TK_TypeAlias;
+  } else if (!strcmp(string, "void")) {
+    token->kind = TK_Void;
   } else if (!strcmp(string, "sizeof")) {
     token->kind = TK_Sizeof;
   } else if (!strcmp(string, "typeof")) {

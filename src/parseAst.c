@@ -11,14 +11,48 @@
 #include "token.h"
 #include "vector.h"
 
+// convoluted macros to save repetitive tasks
+
+#define PARSE_DELIMITED_LIST(                                                  \
+    members_vec_ptr, diagnostics_vec_ptr, member_parse_function, member_kind,  \
+    trailing_spacer_ptr, spacer_token_kind, delimiting_token_kind,             \
+    missing_spacer_error, missing_delimiter_error, end_lncol, blp, ar)         \
+  while (true) {                                                               \
+    Token PARSE_DELIMITED_LIST_token;                                          \
+    advanceToken(blp, &PARSE_DELIMITED_LIST_token);                            \
+    if (PARSE_DELIMITED_LIST_token.kind == delimiting_token_kind) {            \
+      *trailing_spacer_ptr = true;                                             \
+      end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
+      break;                                                                   \
+    } else if (PARSE_DELIMITED_LIST_token.kind == TK_None &&                   \
+               PARSE_DELIMITED_LIST_token.error == DK_EOF) {                   \
+      *VEC_PUSH(diagnostics_vec_ptr, Diagnostic) = DIAGNOSTIC(                 \
+          missing_delimiter_error, PARSE_DELIMITED_LIST_token.span);           \
+      end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
+      break;                                                                   \
+    }                                                                          \
+    /* if there wasn't an end delimiter, push the last token back */           \
+    setNextToken(blp, &PARSE_DELIMITED_LIST_token);                            \
+    member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), blp, ar);    \
+    /* accept spacer, if any. If no comma it must be followed by delimiter.    \
+     * Allows trailing spacers */                                              \
+    advanceToken(blp, &PARSE_DELIMITED_LIST_token);                            \
+    if (PARSE_DELIMITED_LIST_token.kind == delimiting_token_kind) {            \
+      *trailing_spacer_ptr = false;                                            \
+      end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
+      break;                                                                   \
+    } else if (PARSE_DELIMITED_LIST_token.kind != spacer_token_kind) {         \
+      *VEC_PUSH(diagnostics_vec_ptr, Diagnostic) =                             \
+          DIAGNOSTIC(missing_spacer_error, PARSE_DELIMITED_LIST_token.span);   \
+    }                                                                          \
+  }
+
 #define EXPECT_TYPE(token, tokenType, onErrLabel)                              \
   do {                                                                         \
     if ((token).kind != (tokenType)) {                                         \
       goto onErrLabel;                                                         \
     }                                                                          \
   } while (false)
-
-// Call this method after token error detected to skip to the next valid state
 
 // Jump till after semicolon, taking into account parentheses, brackets,
 // attributes, and braces It will ignore subexprs, but can halt at the end
@@ -79,27 +113,6 @@ static void resyncStmnt(BufferedLexer *blp, Arena *ar) {
         return;
       }
       break;
-    }
-    default: {
-      break;
-    }
-    }
-  }
-}
-
-// Jumps till we hit identifier or assign sign then backtracks one
-// Not aware of parens, braces, brackets or attributes
-// This is because all types are linear in nature in BPlus
-static void resyncType(BufferedLexer *blp, Arena *ar) {
-  UNUSED(ar);
-  while (true) {
-    Token t;
-    advanceToken(blp, &t);
-    switch (t.kind) {
-    case TK_Assign:
-    case TK_Identifier: {
-      setNextToken(blp, &t);
-      return;
     }
     default: {
       break;
@@ -296,44 +309,27 @@ static void parseBlockValueExpr(ValueExpr *bvep, BufferedLexer *blp,
   Vector diagnostics;
   createVector(&diagnostics);
 
-  // Parse the elements
-  while (true) {
-    // Check for end paren
-    advanceToken(blp, &t);
-    if (t.kind == TK_BraceRight) {
-      bvep->blockExpr.suppress_value = true;
-      break;
-    }
-    // If it wasn't an end brace, we push it back
-    setNextToken(blp, &t);
+  LnCol end;
 
-    // Parse and push the statement
-    parseStmnt(VEC_PUSH(&statements, Stmnt), blp, ar);
-
-    // Accept semicolon, if any
-    // If there's no semicolon then it MUST be followed by an right brace
-    // This also allows a trailing semicolon
-    advanceToken(blp, &t);
-    if (t.kind != TK_Semicolon) {
-      bvep->blockExpr.suppress_value = false;
-      // If the next value isn't a right brace, then we throw an error
-      if (t.kind == TK_BraceRight) {
-        break;
-      } else if (t.kind == TK_None && t.error == DK_EOF) {
-        *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_EOF, t.span);
-        break;
-      } else {
-        // give them a missing semicolon error, but keep parsing
-        setNextToken(blp, &t);
-        *VEC_PUSH(&diagnostics, Diagnostic) =
-            DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
-      }
-    }
-  }
+  PARSE_DELIMITED_LIST(
+      &statements,                     // members_vec_ptr
+      &diagnostics,                    // diagnostics_vec_ptr
+      parseStmnt,                      // member_parse_function
+      Stmnt,                           // member_kind
+      &bvep->blockExpr.suppress_value, // trailing_spacer_ptr (will set to true
+                                       // if last element is semicolon
+      TK_Semicolon,  // spacer_token_kind (semicolon in block value expr)
+      TK_BraceRight, // delimiting_token_kind
+      DK_BlockExpectedSemicolon,  // missing_spacer_error
+      DK_BlockExpectedRightBrace, // missing_delimiter_error
+      end,                        // end_lncol
+      blp,                        // blp
+      ar                          // ar
+  )
 
   bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
   bvep->blockExpr.statements = manageMemArena(ar, releaseVector(&statements));
-  bvep->span = SPAN(start, t.span.end);
+  bvep->span = SPAN(start, end);
   bvep->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
   bvep->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
   return;
@@ -488,7 +484,7 @@ HANDLE_NO_COLON:
   mcep->span = mcep->pattern->span;
   mcep->diagnostics_length = 1;
   mcep->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  mcep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoColon, t.span);
+  mcep->diagnostics[0] = DIAGNOSTIC(DK_MatchCaseNoColon, t.span);
   resyncStmnt(blp, ar);
   return;
 }
@@ -513,60 +509,50 @@ static void parseMatchValueExpr(ValueExpr *mvep, BufferedLexer *blp,
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
-  Vector matchCases;
-  createVector(&matchCases);
-  while (true) {
-    // Check if right brace
-    advanceToken(blp, &t);
-    if (t.kind == TK_BraceRight) {
-      break;
-    }
-    setNextToken(blp, &t);
+  Vector cases;
+  createVector(&cases);
 
-    // Parse the match case expr
-    parseMatchCaseExpr(VEC_PUSH(&matchCases, struct MatchCaseExpr_s), blp, ar);
+  Vector diagnostics;
+  createVector(&diagnostics);
 
-    // Accept comma, if any
-    // If there's no comma then it MUST be followed by an end brace
-    // This also allows trailing commas
-    advanceToken(blp, &t);
-    if (t.kind != TK_Comma) {
-      // If the next value isn't an end brace, then we throw an error
-      EXPECT_TYPE(t, TK_BraceRight, HANDLE_NO_RIGHTBRACE);
-      break;
-    }
-  }
+  LnCol end;
+
+  PARSE_DELIMITED_LIST(
+      &cases,                          // members_vec_ptr
+      &diagnostics,                    // diagnostics_vec_ptr
+      parseMatchCaseExpr,              // member_parse_function
+      struct MatchCaseExpr_s,          // member_kind
+      &mvep->matchExpr.trailing_comma, // trailing_spacer_ptr (will set to true
+                                       // if last element is semicolon
+      TK_Comma,             // spacer_token_kind (semicolon in block value expr)
+      TK_BraceRight,        // delimiting_token_kind
+      DK_MatchNoComma,      // missing_spacer_error
+      DK_MatchNoRightBrace, // missing_delimiter_error
+      end,                  // end_lncol
+      blp,                  // blp
+      ar                    // ar
+  )
 
   // Get interior cases
-  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, struct MatchCaseExpr_s);
-  mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
+  mvep->matchExpr.cases_length = VEC_LEN(&cases, struct MatchCaseExpr_s);
+  mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&cases));
 
-  mvep->span = SPAN(start, t.span.end);
-  mvep->diagnostics_length = 0;
-
+  mvep->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  mvep->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
+  mvep->span = SPAN(start, end);
   return;
 
 HANDLE_NO_MATCH:
   INTERNAL_ERROR("called match parser where there was no match");
   PANIC();
 
-HANDLE_NO_RIGHTBRACE:
-  mvep->diagnostics_length = 1;
-  mvep->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoRightBrace, t.span);
-  mvep->span = SPAN(start, t.span.end);
-  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, struct MatchCaseExpr_s);
-  mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
-  resyncStmnt(blp, ar);
-  return;
-
 HANDLE_NO_LEFTBRACE:
   mvep->diagnostics_length = 1;
   mvep->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoLeftbrace, t.span);
+  mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoLeftBrace, t.span);
   mvep->span = SPAN(start, t.span.end);
-  mvep->matchExpr.cases_length = VEC_LEN(&matchCases, struct MatchCaseExpr_s);
-  mvep->matchExpr.cases = manageMemArena(ar, releaseVector(&matchCases));
+  mvep->matchExpr.cases_length = 0;
+  mvep->matchExpr.cases = NULL;
   resyncStmnt(blp, ar);
   return;
 }
@@ -1085,7 +1071,7 @@ static void parseL8ValueExpr(ValueExpr *l8, BufferedLexer *blp, Arena *ar) {
   return;
 }
 
-static void parseL9ValueExpr(ValueExpr *l9, BufferedLexer* blp, Arena *ar) {
+static void parseL9ValueExpr(ValueExpr *l9, BufferedLexer *blp, Arena *ar) {
   ValueExpr v;
   parseL8ValueExpr(&v, blp, ar);
 
@@ -1181,38 +1167,35 @@ static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp, Arena *ar) {
 
   EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
-  Vector bindings;
-  createVector(&bindings);
+  Vector members;
+  createVector(&members);
 
-  // Parse the parameters (Comma Separated list of bindings)
-  while (true) {
-    // Check for end brace
-    advanceToken(blp, &t);
-    if (t.kind == TK_BraceRight) {
-      break;
-    } else if (t.kind == TK_None && t.error == DK_EOF) {
-      goto HANDLE_NO_RIGHTBRACE;
-    }
-    // If it wasn't an end brace, we push it back
-    setNextToken(blp, &t);
+  Vector diagnostics;
+  createVector(&diagnostics);
 
-    // Parse and push the parameter
-    parseBinding(VEC_PUSH(&bindings, Binding), blp, ar);
-    // Accept comma, if any
-    // If there's no comma then it MUST be followed by an end brace
-    // This also allows trailing commas
-    advanceToken(blp, &t);
-    if (t.kind != TK_Comma) {
-      // If the next value isn't an end paren, then we throw an error
-      EXPECT_TYPE(t, TK_ParenRight, HANDLE_NO_RIGHTBRACE);
-      break;
-    }
-  }
+  LnCol end;
 
-  ste->structExpr.members_length = VEC_LEN(&bindings, Binding);
-  ste->structExpr.members = manageMemArena(ar, releaseVector(&bindings));
-  ste->span = SPAN(start, t.span.end);
-  ste->diagnostics_length = 0;
+  PARSE_DELIMITED_LIST(
+      &members,                        // members_vec_ptr
+      &diagnostics,                    // diagnostics_vec_ptr
+      parseTypeExpr,                   // member_parse_function
+      TypeExpr,                        // member_kind
+      &ste->structExpr.trailing_comma, // trailing_spacer_ptr (will set to true
+                                       // if last element is semicolon)
+      TK_Comma,      // spacer_token_kind (semicolon in block value expr)
+      TK_BraceRight, // delimiting_token_kind
+      DK_StructExpectedComma,      // missing_spacer_error
+      DK_StructExpectedRightBrace, // missing_delimiter_error
+      end,                         // end_lncol
+      blp,                         // blp
+      ar                           // ar
+  )
+
+  ste->structExpr.members_length = VEC_LEN(&members, Binding);
+  ste->structExpr.members = manageMemArena(ar, releaseVector(&members));
+  ste->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  ste->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
+  ste->span = SPAN(start, end);
   return;
 
 HANDLE_NO_LEFTBRACE:
@@ -1221,19 +1204,7 @@ HANDLE_NO_LEFTBRACE:
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 1;
   ste->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  ste->diagnostics[0] =
-      DIAGNOSTIC(DK_StructDeclStmntExpectedLeftBrace, ste->span);
-  return;
-
-HANDLE_NO_RIGHTBRACE:
-  ste->structExpr.members_length = VEC_LEN(&bindings, Binding);
-  ste->structExpr.members = manageMemArena(ar, releaseVector(&bindings));
-  ste->span = SPAN(start, t.span.end);
-  ste->diagnostics_length = 1;
-  ste->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  ste->diagnostics[0] =
-      DIAGNOSTIC(DK_StructDeclStmntExpectedRightBrace, t.span);
-  resyncStmnt(blp, ar);
+  ste->diagnostics[0] = DIAGNOSTIC(DK_StructExpectedLeftBrace, ste->span);
   return;
 
 HANDLE_NO_STRUCT:
@@ -1272,6 +1243,51 @@ HANDLE_NO_TYPEOF:
   PANIC();
 }
 
+static void parseTupleTypeExpr(TypeExpr *tte, BufferedLexer *blp, Arena *ar) {
+  ZERO(tte);
+  tte->kind = TEK_Tuple;
+
+  Token t;
+  advanceToken(blp, &t);
+  LnCol start = t.span.start;
+  EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
+
+  Vector members;
+  createVector(&members);
+
+  Vector diagnostics;
+  createVector(&diagnostics);
+
+  LnCol end;
+
+  PARSE_DELIMITED_LIST(
+      &members,                       // members_vec_ptr
+      &diagnostics,                   // diagnostics_vec_ptr
+      parseTypeExpr,                  // member_parse_function
+      TypeExpr,                       // member_kind
+      &tte->tupleExpr.trailing_comma, // trailing_spacer_ptr (will set to true
+                                      // if last element is semicolon
+      TK_Comma,             // spacer_token_kind (semicolon in block value expr)
+      TK_ParenRight,        // delimiting_token_kind
+      DK_TupleExpectedComma,      // missing_spacer_error
+      DK_TupleExpectedRightParen, // missing_delimiter_error
+      end,                  // end_lncol
+      blp,                  // blp
+      ar                    // ar
+  )
+  tte->tupleExpr.members_length = VEC_LEN(&members, Binding);
+  tte->tupleExpr.members = manageMemArena(ar, releaseVector(&members));
+  tte->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  tte->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
+  tte->span = SPAN(start, end);
+  return;
+
+HANDLE_NO_LEFTPAREN:
+  INTERNAL_ERROR("called tuple type expression parser where there was no "
+                 "tuple");
+  PANIC();
+}
+
 static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp, Arena *ar) {
   Token t;
   advanceToken(blp, &t);
@@ -1291,6 +1307,11 @@ static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp, Arena *ar) {
     parseTypeofTypeExpr(l1, blp, ar);
     return;
   }
+  case TK_ParenLeft: {
+    setNextToken(blp, &t);
+    parseTupleTypeExpr(l1, blp, ar);
+    return;
+  }
   default: {
     l1->kind = TEK_None;
     l1->span = t.span;
@@ -1298,7 +1319,7 @@ static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp, Arena *ar) {
     l1->diagnostics = allocArena(ar, sizeof(Diagnostic));
     l1->diagnostics[0] = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
-    resyncType(blp, ar);
+    resyncStmnt(blp, ar);
     return;
   }
   }
@@ -1484,8 +1505,11 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp, Arena *ar) {
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
 
-  Vector parameterDeclarations;
-  createVector(&parameterDeclarations);
+  Vector bindings;
+  createVector(&bindings);
+
+  Vector diagnostics;
+  createVector(&diagnostics);
 
   // Parse the parameters (Comma Seperated list of bindings)
   while (true) {

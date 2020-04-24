@@ -98,20 +98,36 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "AliasDeclStmntExpectedIdentifier";
     break;
   }
-  case DK_StructDeclStmntExpectedLeftBrace: {
-    errmsg = "StructDeclStmntExpectedLeftBrace";
+  case DK_StructExpectedLeftBrace: {
+    errmsg = "StructExpectedLeftBrace";
     break;
   }
-  case DK_StructDeclStmntExpectedRightBrace: {
-    errmsg = "StructDeclStmntExpectedRightBrace";
+  case DK_StructExpectedRightBrace: {
+    errmsg = "StructExpectedRightBrace";
     break;
   }
-  case DK_FnDeclStmntExpectedParen: {
-    errmsg = "FnDeclStmntExpectedParen";
+  case DK_StructExpectedComma: {
+    errmsg = "StructExpectedComma";
     break;
   }
-  case DK_FnDeclStmntExpectedType: {
-    errmsg = "FnDeclStmntExpectedType";
+  case DK_TupleExpectedRightParen: {
+    errmsg = "TupleExpectedRightParen";
+    break;
+  }
+  case DK_TupleExpectedComma: {
+    errmsg = "TupleExpectedComma";
+    break;
+  }
+  case DK_FnDeclStmntExpectedRightParen: {
+    errmsg = "FnDeclStmntExpectedRightParen";
+    break;
+  }
+  case DK_FnDeclStmntExpectedLeftParen: {
+    errmsg = "FnDeclStmntExpectedLeftParen";
+    break;
+  }
+  case DK_FnDeclStmntExpectedComma: {
+    errmsg = "FnDeclStmntExpectedComma";
     break;
   }
   case DK_FnDeclStmntExpectedIdentifier: {
@@ -130,24 +146,48 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "FnDeclStmntExpectedBody";
     break;
   }
+  case DK_FnTypeExprExpectedLeftParen: {
+    errmsg = "FnTypeExprExpectedLeftParen";
+    break;
+  }
+  case DK_FnTypeExprExpectedRightParen: {
+    errmsg = "FnTypeExprExpectedRightParen";
+    break;
+  }
+  case DK_FnTypeExprExpectedComma: {
+    errmsg = "FnTypeExprExpectedComma";
+    break;
+  }
+  case DK_FnTypeExprExpectedColon: {
+    errmsg = "FnTypeExprExpectedColon";
+    break;
+  }
   case DK_GroupExpectRightParen: {
     errmsg = "GroupExpectRightParen";
     break;
   }
-  case DK_MatchNoColon: {
-    errmsg = "MatchNoColon";
+  case DK_MatchCaseNoColon: {
+    errmsg = "MatchCaseNoColon";
     break;
   }
-  case DK_MatchNoLeftbrace: {
-    errmsg = "MatchNoLeftbrace";
+  case DK_MatchNoLeftBrace: {
+    errmsg = "MatchNoLeftBrace";
     break;
   }
   case DK_MatchNoRightBrace: {
     errmsg = "MatchNoRightBrace";
     break;
   }
+  case DK_MatchNoComma: {
+    errmsg = "MatchNoComma";
+    break;
+  }
   case DK_BlockExpectedSemicolon: {
     errmsg = "BlockExpectedSemicolon";
+    break;
+  }
+  case DK_BlockExpectedRightBrace: {
+    errmsg = "BlockExpectedRightBrace";
     break;
   }
   case DK_ArrayAccessExpectedBracket: {

@@ -568,9 +568,8 @@ static void parseReferenceValueExpr(ValueExpr *rvep, BufferedLexer *blp,
   return;
 }
 
-// Level0ValueExpr (literals of any kind)
-// Level1ValueExpr parentheses, braces
-// Level2ValueExpr () [] $ @ . -> (suffixes)
+// Level1ValueExpr parentheses, braces, literals
+// Level2ValueExpr () [] $ @ . -> (postfixes)
 // Level3ValueExpr - + ~ ! (prefixes)
 // Level4ValueExpr * / % (multiplication and division)
 // Level5ValueExpr + - (addition and subtraction)
@@ -1267,13 +1266,13 @@ static void parseTupleTypeExpr(TypeExpr *tte, BufferedLexer *blp, Arena *ar) {
       TypeExpr,                       // member_kind
       &tte->tupleExpr.trailing_comma, // trailing_spacer_ptr (will set to true
                                       // if last element is semicolon
-      TK_Comma,             // spacer_token_kind (semicolon in block value expr)
-      TK_ParenRight,        // delimiting_token_kind
+      TK_Comma,      // spacer_token_kind (semicolon in block value expr)
+      TK_ParenRight, // delimiting_token_kind
       DK_TupleExpectedComma,      // missing_spacer_error
       DK_TupleExpectedRightParen, // missing_delimiter_error
-      end,                  // end_lncol
-      blp,                  // blp
-      ar                    // ar
+      end,                        // end_lncol
+      blp,                        // blp
+      ar                          // ar
   )
   tte->tupleExpr.members_length = VEC_LEN(&members, Binding);
   tte->tupleExpr.members = manageMemArena(ar, releaseVector(&members));
@@ -1286,6 +1285,91 @@ HANDLE_NO_LEFTPAREN:
   INTERNAL_ERROR("called tuple type expression parser where there was no "
                  "tuple");
   PANIC();
+}
+
+static void parseVoidTypeExpr(TypeExpr *vte, BufferedLexer *blp, Arena *ar) {
+  UNUSED(ar);
+  Token t;
+  advanceToken(blp, &t);
+  EXPECT_TYPE(t, TK_Void, HANDLE_NO_VOID);
+  vte->kind = TEK_Void;
+  vte->span = t.span;
+  vte->diagnostics_length = 0;
+  return;
+
+HANDLE_NO_VOID:
+  INTERNAL_ERROR("called void type expression parser where there was no "
+                 "void");
+  PANIC();
+}
+
+static void parseFnTypeExpr(TypeExpr *fte, BufferedLexer *blp, Arena *ar) {
+  ZERO(fte);
+  Token t;
+  advanceToken(blp, &t);
+
+  if (t.kind != TK_Function) {
+    INTERNAL_ERROR("called function type expression parser where there was no "
+                   "function");
+    PANIC();
+  }
+
+  LnCol start = t.span.start;
+  LnCol end = t.span.end;
+
+  // create diagnostics
+  Vector diagnostics;
+  createVector(&diagnostics);
+
+  // check for leftparen
+  advanceToken(blp, &t);
+  if (t.kind != TK_ParenLeft) {
+    *VEC_PUSH(&diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_FnTypeExprExpectedLeftParen, t.span);
+    end = t.span.end;
+    goto CLEANUP_DIAGNOSTICS;
+  }
+
+  // create members list
+  Vector parameters;
+  createVector(&parameters);
+
+  PARSE_DELIMITED_LIST(
+      &parameters,   // members_vec_ptr
+      &diagnostics,  // diagnostics_vec_ptr
+      parseTypeExpr, // member_parse_function
+      TypeExpr,      // member_kind
+      &fte->fnExpr
+           .parameters_trailing_comma, // trailing_spacer_ptr (will set to true
+                                       // if last element is semicolon
+      TK_Comma,      // spacer_token_kind (semicolon in block value expr)
+      TK_ParenRight, // delimiting_token_kind
+      DK_FnTypeExprExpectedComma,      // missing_spacer_error
+      DK_FnTypeExprExpectedRightParen, // missing_delimiter_error
+      end,                             // end_lncol
+      blp,                             // blp
+      ar                               // ar
+  )
+
+  advanceToken(blp, &t);
+  if (t.kind != TK_Colon) {
+    *VEC_PUSH(&diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_FnTypeExprExpectedColon, t.span);
+    end = t.span.end;
+    goto CLEANUP_PARAMETERS;
+  }
+
+  fte->fnExpr.result = allocArena(ar, sizeof(TypeExpr));
+  parseTypeExpr(fte->fnExpr.result, blp, ar);
+
+CLEANUP_PARAMETERS:
+  fte->fnExpr.parameters_length = VEC_LEN(&parameters, TypeExpr);
+  fte->fnExpr.parameters = manageMemArena(ar, releaseVector(&parameters));
+
+CLEANUP_DIAGNOSTICS:
+  fte->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  fte->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
+  fte->span = SPAN(start, end);
 }
 
 static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp, Arena *ar) {
@@ -1311,6 +1395,16 @@ static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp, Arena *ar) {
     setNextToken(blp, &t);
     parseTupleTypeExpr(l1, blp, ar);
     return;
+  }
+  case TK_Void: {
+    setNextToken(blp, &t);
+    parseVoidTypeExpr(l1, blp, ar);
+    break;
+  }
+  case TK_Function: {
+    setNextToken(blp, &t);
+    parseFnTypeExpr(l1, blp, ar);
+    break;
   }
   default: {
     l1->kind = TEK_None;
@@ -1505,40 +1599,33 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp, Arena *ar) {
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
 
-  Vector bindings;
-  createVector(&bindings);
+  Vector parameters;
+  createVector(&parameters);
 
   Vector diagnostics;
   createVector(&diagnostics);
 
-  // Parse the parameters (Comma Seperated list of bindings)
-  while (true) {
-    // Check for end paren
-    advanceToken(blp, &t);
-    if (t.kind == TK_ParenRight) {
-      break;
-    }
-    // If it wasn't an end paren, we push it back
-    setNextToken(blp, &t);
+  LnCol end;
 
-    // Parse and push the parameter
-    parseBinding(VEC_PUSH(&parameterDeclarations, Binding), blp, ar);
-
-    // Accept comma, if any
-    // If there's no comma then it MUST be followed by an end paren
-    // This also allows trailing commas
-    advanceToken(blp, &t);
-    if (t.kind != TK_Comma) {
-      // If the next value isn't an end paren, then we throw an error
-      EXPECT_TYPE(t, TK_ParenRight, HANDLE_NO_RIGHTPAREN);
-      break;
-    }
-  }
+  PARSE_DELIMITED_LIST(
+      &parameters,                         // members_vec_ptr
+      &diagnostics,                        // diagnostics_vec_ptr
+      parseBinding,                        // member_parse_function
+      Binding,                             // member_kind
+      &fdsp->fnDecl.params_trailing_comma, // trailing_spacer_ptr (will set to
+                                           // true if last element is semicolon
+      TK_Comma,      // spacer_token_kind (semicolon in block value expr)
+      TK_ParenRight, // delimiting_token_kind
+      DK_FnDeclStmntExpectedComma,      // missing_spacer_error
+      DK_FnDeclStmntExpectedRightParen, // missing_delimiter_error
+      end,                              // end_lncol
+      blp,                              // blp
+      ar                                // ar
+  )
 
   // Copy arguments in
-  fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->fnDecl.params =
-      manageMemArena(ar, releaseVector(&parameterDeclarations));
+  fdsp->fnDecl.params_length = VEC_LEN(&parameters, Binding);
+  fdsp->fnDecl.params = manageMemArena(ar, releaseVector(&parameters));
 
   // Colon return type delimiter
   advanceToken(blp, &t);
@@ -1555,7 +1642,8 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp, Arena *ar) {
   fdsp->fnDecl.body = allocArena(ar, sizeof(ValueExpr));
   parseValueExpr(fdsp->fnDecl.body, blp, ar);
   fdsp->span = SPAN(start, fdsp->fnDecl.body->span.end);
-  fdsp->diagnostics_length = 0;
+  fdsp->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  fdsp->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
   return;
 
   // Error handlers
@@ -1577,36 +1665,27 @@ HANDLE_NO_IDENTIFIER:
 HANDLE_NO_LEFTPAREN:
   fdsp->diagnostics_length = 1;
   fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
+  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedLeftParen, t.span);
   fdsp->span = SPAN(start, t.span.end);
   fdsp->fnDecl.params_length = 0;
   fdsp->fnDecl.params = NULL;
   resyncStmnt(blp, ar);
   return;
 
-HANDLE_NO_RIGHTPAREN:
-  fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedParen, t.span);
-  fdsp->span = SPAN(start, t.span.end);
-  fdsp->fnDecl.params_length = VEC_LEN(&parameterDeclarations, Binding);
-  fdsp->fnDecl.params =
-      manageMemArena(ar, releaseVector(&parameterDeclarations));
-  resyncStmnt(blp, ar);
-  return;
-
 HANDLE_NO_COLON:
-  fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
+  *VEC_PUSH(&diagnostics, Diagnostic) =
+      DIAGNOSTIC(DK_FnDeclStmntExpectedColon, t.span);
+  fdsp->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  fdsp->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp, ar);
   return;
 
 HANDLE_NO_ASSIGN:
-  fdsp->diagnostics_length = 1;
-  fdsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  fdsp->diagnostics[0] = DIAGNOSTIC(DK_FnDeclStmntExpectedAssign, t.span);
+  *VEC_PUSH(&diagnostics, Diagnostic) =
+      DIAGNOSTIC(DK_FnDeclStmntExpectedAssign, t.span);
+  fdsp->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  fdsp->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
   fdsp->span = SPAN(start, t.span.end);
   resyncStmnt(blp, ar);
   return;

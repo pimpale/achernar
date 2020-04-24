@@ -77,6 +77,12 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("TEK_Omitted"));
     break;
   }
+  case TEK_Void: {
+    ptrs_len = 3;
+    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
+    ptrs[0] = KVJson("kind", strJson("TEK_Void"));
+    break;
+  }
   case TEK_Reference: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
@@ -92,7 +98,7 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
     break;
   }
   case TEK_Struct: {
-    ptrs_len = 4;
+    ptrs_len = 6;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
     ptrs[0] = KVJson("kind", strJson("TEK_StructExpr"));
     // Embed array
@@ -102,6 +108,12 @@ static JsonElem jsonTypeExpr(TypeExpr *tep, Arena *ja) {
       array[i] = jsonBinding(&tep->structExpr.members[i], ja);
     }
     ptrs[3] = KVJson("members", arrDefJson(array, len));
+    ptrs[4] = KVJson("trailing_comma", boolJson(tep->structExpr.trailing_comma));
+
+    char* structKind;
+    switch //TODO figure out structs
+
+    ptrs[6] = KVJson("struct_kind", strJson(structKind));
     break;
   }
   case TEK_UnaryOp: {

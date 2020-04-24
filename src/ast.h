@@ -51,6 +51,7 @@ typedef enum {
   TEK_Typeof,      // typeof
   TEK_Struct,      // struct
   TEK_Tuple,       // tuple
+  TEK_Fn,          // function pointer
   TEK_UnaryOp,     // $ or @
   TEK_FieldAccess, // .
 } TypeExprKind;
@@ -105,6 +106,12 @@ typedef struct TypeExpr_s {
       size_t members_length;
       bool trailing_comma;
     } structExpr;
+    struct {
+      TypeExpr* parameters;
+      size_t parameters_length;
+      bool parameters_trailing_comma;
+      TypeExpr* result;
+    } fnExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
         TEUOK_Ref,   // $
@@ -276,6 +283,7 @@ typedef struct Stmnt_s {
       char *name;
       Binding *params;
       size_t params_length;
+      bool params_trailing_comma;
       TypeExpr *type;
       ValueExpr *body;
     } fnDecl;

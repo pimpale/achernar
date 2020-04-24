@@ -52,12 +52,18 @@ typedef enum {
   DK_TupleExpectedRightParen,
   DK_TupleExpectedComma,
   // FnDeclStmnt
-  DK_FnExpectedParen,
-  DK_FnExpectedType,
-  DK_FnExpectedIdentifier,
-  DK_FnExpectedColon,
-  DK_FnExpectedAssign,
-  DK_FnExpectedBody,
+  DK_FnDeclStmntExpectedRightParen,
+  DK_FnDeclStmntExpectedLeftParen,
+  DK_FnDeclStmntExpectedComma,
+  DK_FnDeclStmntExpectedIdentifier,
+  DK_FnDeclStmntExpectedColon,
+  DK_FnDeclStmntExpectedAssign,
+  DK_FnDeclStmntExpectedBody,
+  // FnTypeExpr
+  DK_FnTypeExprExpectedLeftParen,
+  DK_FnTypeExprExpectedRightParen,
+  DK_FnTypeExprExpectedComma,
+  DK_FnTypeExprExpectedColon,
   // Groups
   DK_GroupExpectRightParen,
   // MatchCase

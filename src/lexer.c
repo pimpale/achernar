@@ -210,14 +210,10 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     *VEC_PUSH(&data, char) = '\0';
 
     // Return data
-    // clang-format off
-                *token = (Token) {
-                  .kind = TK_Comment,
-                    .comment = manageMemArena(arena, releaseVector(&data)),
-                    .span = SPAN(start, lexer->position),
-                    .error = DK_Ok
-                };
-    // clang-format on
+    *token = (Token){.kind = TK_Comment,
+                     .comment = manageMemArena(arena, releaseVector(&data)),
+                     .span = SPAN(start, lexer->position),
+                     .error = DK_Ok};
     return;
   }
   default: {
@@ -238,14 +234,10 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     char *string = manageMemArena(arena, releaseVector(&data));
 
     // Return data
-    // clang-format off
-               *token = (Token) {
-                 .kind = TK_Comment,
-                   .comment = string,
-                   .span = SPAN(start, lexer->position),
-                   .error = DK_Ok
-               };
-    // clang-format on
+    *token = (Token){.kind = TK_Comment,
+                     .comment = string,
+                     .span = SPAN(start, lexer->position),
+                     .error = DK_Ok};
     free(string);
     return;
   }
@@ -934,8 +926,9 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignMul)
       }
-      default:
+      default: {
         RETURN_RESULT_TOKEN(TK_Mul)
+      }
       }
     }
     case '/': {

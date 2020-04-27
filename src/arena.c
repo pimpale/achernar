@@ -153,6 +153,8 @@ void *allocAlignedArena(Arena *ar, size_t len, size_t alignment) {
 }
 
 void *allocArena(Arena *ar, size_t len) {
+  return manageMemArena(ar, malloc(len));
+
   if (len > 4) {
     return allocAlignedArena(ar, roundTo(len, 8), 8);
   } else if (len > 2) {
@@ -169,4 +171,12 @@ void* manageMemArena(Arena *ar, void *ptr) {
       .data = ptr,
   };
   return ptr;
+}
+
+char* internArena(char* str, Arena *ar) {
+  if(str == NULL) {
+    return NULL;
+  } else {
+    return strcpy(allocAlignedArena(ar, strlen(str)+1, 1), str);
+  }
 }

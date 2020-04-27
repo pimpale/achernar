@@ -3,7 +3,7 @@ type Stmnt = struct {
     fnDecl: struct {
       name:(char$, usize),
       params:(Binding$, usize),
-      type:TypeExpr$,
+      kind:TypeExpr$,
       body:ValueExpr$,
     },
     varDecl: struct {
@@ -16,7 +16,7 @@ type Stmnt = struct {
     },
     aliasStmnt: struct {
       name:(char$, usize),
-      type:Type$,
+      kind:Type$,
     },
     exprStmnt: struct {
       value:ValueExpr$,

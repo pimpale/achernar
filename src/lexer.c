@@ -12,7 +12,7 @@
 #include "vector.h"
 
 Lexer *createLexerFile(Lexer *lexer, FILE *file) {
-  lexer->position = LNCOL(0, 0);
+  lexer->position = LNCOL(1, 1);
 
   // Files
   lexer->file = file;
@@ -22,7 +22,7 @@ Lexer *createLexerFile(Lexer *lexer, FILE *file) {
 }
 
 Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len) {
-  lexer->position = LNCOL(0, 0);
+  lexer->position = LNCOL(1, 1);
 
   // Copy memory
   lexer->backing = LBK_LexerBackingMemory;
@@ -59,7 +59,7 @@ static int32_t nextValueLexer(Lexer *lexer) {
       lexer->memory.loc++;
       if (nextValue == '\n') {
         lexer->position.ln += 1;
-        lexer->position.col = 0;
+        lexer->position.col = 1;
       } else {
         lexer->position.col += 1;
       }
@@ -71,7 +71,7 @@ static int32_t nextValueLexer(Lexer *lexer) {
     if (nextValue != EOF) {
       if (nextValue == '\n') {
         lexer->position.ln += 1;
-        lexer->position.col = 0;
+        lexer->position.col = 1;
       } else {
         lexer->position.col += 1;
       }

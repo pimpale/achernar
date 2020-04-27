@@ -22,7 +22,6 @@ typedef enum {
   TK_Break,     // break
   TK_Continue,  // continue
   TK_Return,    // return
-  TK_Pass,      // pass
   TK_Function,  // fn
   TK_Let,       // let
   TK_Struct,    // struct

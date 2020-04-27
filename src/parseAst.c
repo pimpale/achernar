@@ -11,7 +11,7 @@
 #include "token.h"
 #include "vector.h"
 
-// convoluted macros to save repetitive tasks
+// convoluted function to save repetitive tasks
 
 #define PARSE_DELIMITED_LIST(                                                  \
     members_vec_ptr, diagnostics_vec_ptr, member_parse_function, member_kind,  \
@@ -130,47 +130,55 @@ static void parseBinding(Binding *bp, BufferedLexer *blp, Arena *ar);
 static void parsePath(Path *pp, BufferedLexer *blp, Arena *ar) {
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_STARTING_IDENTIFIER);
+  if(t.kind != TK_Identifier) {
+    INTERNAL_ERROR("called path parser where there was no path");
+    PANIC();
+  }
+
+  // start and finish
   LnCol start = t.span.start;
+  LnCol end;
+
+  // diagnostics (temp ok value)
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
 
   Vector pathSegments;
   createVector(&pathSegments);
 
-  *VEC_PUSH(&pathSegments, char *) = INTERN(t.identifier, ar);
+  *VEC_PUSH(&pathSegments, char *) = internArena(t.identifier, ar);
 
   while (true) {
     advanceToken(blp, &t);
     if (t.kind == TK_ScopeResolution) {
       advanceToken(blp, &t);
-      EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-      *VEC_PUSH(&pathSegments, char *) = INTERN(t.identifier, ar);
+      if(t.kind != TK_Identifier) {
+        diagnostic =  DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
+        end = t.span.end;
+        goto CLEANUP;
+      }
+      *VEC_PUSH(&pathSegments, char *) = internArena(t.identifier, ar);
     } else {
       // we've reached the end of the path
       setNextToken(blp, &t);
+      end = t.span.end;
       break;
     }
   }
 
+CLEANUP:
   pp->pathSegments_length = VEC_LEN(&pathSegments, char *);
   pp->pathSegments = manageMemArena(ar, releaseVector(&pathSegments));
-  pp->diagnostics_length = 0;
-  pp->diagnostics = NULL;
-  pp->span = SPAN(start, t.span.end);
-  return;
 
-HANDLE_NO_IDENTIFIER:
-  setNextToken(blp, &t);
-  pp->pathSegments_length = VEC_LEN(&pathSegments, char *);
-  pp->pathSegments = manageMemArena(ar, releaseVector(&pathSegments));
-  pp->diagnostics_length = 1;
-  pp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  pp->diagnostics[0] = DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
-  pp->span = SPAN(start, t.span.end);
-  return;
-
-HANDLE_NO_STARTING_IDENTIFIER:
-  INTERNAL_ERROR("called path parser where there was no path");
-  PANIC();
+  if(diagnostic.kind != DK_Ok) {
+    pp->diagnostics_length = 1;
+    pp->diagnostics = allocArena(ar, sizeof(Diagnostic));
+    pp->diagnostics[0] = diagnostic;
+  } else {
+    pp->diagnostics_length = 0;
+    pp->diagnostics = NULL;
+  }
+  pp->span = SPAN(start, end);
 }
 
 static void parseIntValueExpr(ValueExpr *ivep, BufferedLexer *blp, Arena *ar) {
@@ -249,7 +257,7 @@ static void parseStringValueExpr(ValueExpr *svep, BufferedLexer *blp,
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_StringLiteral, HANDLE_NO_STRING_LITERAL);
   svep->kind = VEK_StringLiteral;
-  svep->stringLiteral.value = INTERN(t.string_literal, ar);
+  svep->stringLiteral.value = internArena(t.string_literal, ar);
   svep->span = t.span;
   svep->diagnostics_length = 0;
   return;
@@ -373,21 +381,6 @@ static void parseIfValueExpr(ValueExpr *ivep, BufferedLexer *blp, Arena *ar) {
 HANDLE_NO_IF:
   INTERNAL_ERROR("called if expression parser where there was no "
                  "if expression");
-  PANIC();
-}
-
-static void parsePassValueExpr(ValueExpr *pep, BufferedLexer *blp, Arena *ar) {
-  UNUSED(ar);
-  pep->kind = VEK_Pass;
-  Token t;
-  advanceToken(blp, &t);
-  pep->span = t.span;
-  EXPECT_TYPE(t, TK_Pass, HANDLE_NO_PASS);
-  pep->diagnostics_length = 0;
-  return;
-
-HANDLE_NO_PASS:
-  INTERNAL_ERROR("called pass parser where there was no pass");
   PANIC();
 }
 
@@ -639,11 +632,6 @@ static void parseL1ValueExpr(ValueExpr *l1, BufferedLexer *blp, Arena *ar) {
     parseReturnValueExpr(l1, blp, ar);
     return;
   }
-  case TK_Pass: {
-    setNextToken(blp, &t);
-    parsePassValueExpr(l1, blp, ar);
-    return;
-  }
   case TK_While: {
     setNextToken(blp, &t);
     parseWhileValueExpr(l1, blp, ar);
@@ -731,7 +719,7 @@ static void parseL2ValueExpr(ValueExpr *l2, BufferedLexer *blp, Arena *ar) {
         *l2 = v;
         return;
       }
-      v.fieldAccess.field = INTERN(t.identifier, ar);
+      v.fieldAccess.field = internArena(t.identifier, ar);
       v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
@@ -1177,8 +1165,8 @@ static void parseStructTypeExpr(TypeExpr *ste, BufferedLexer *blp, Arena *ar) {
   PARSE_DELIMITED_LIST(
       &members,                        // members_vec_ptr
       &diagnostics,                    // diagnostics_vec_ptr
-      parseTypeExpr,                   // member_parse_function
-      TypeExpr,                        // member_kind
+      parseBinding,                   // member_parse_function
+      Binding,                        // member_kind
       &ste->structExpr.trailing_comma, // trailing_spacer_ptr (will set to true
                                        // if last element is semicolon)
       TK_Comma,      // spacer_token_kind (semicolon in block value expr)
@@ -1381,6 +1369,9 @@ static void parseL1TypeExpr(TypeExpr *l1, BufferedLexer *blp, Arena *ar) {
     parseReferenceTypeExpr(l1, blp, ar);
     return;
   }
+  case TK_Enum:
+  case TK_Pack:
+  case TK_Union:
   case TK_Struct: {
     setNextToken(blp, &t);
     parseStructTypeExpr(l1, blp, ar);
@@ -1473,7 +1464,7 @@ static void parseL2TypeExpr(TypeExpr *l2, BufferedLexer *blp, Arena *ar) {
         *l2 = te;
         return;
       }
-      te.fieldAccess.field = INTERN(t.identifier, ar);
+      te.fieldAccess.field = internArena(t.identifier, ar);
       te.diagnostics_length = 0;
       currentTopLevel = te;
       break;
@@ -1503,7 +1494,7 @@ static void parseBinding(Binding *bp, BufferedLexer *blp, Arena *ar) {
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
   Span identitySpan = t.span;
-  bp->name = INTERN(t.identifier, ar);
+  bp->name = internArena(t.identifier, ar);
 
   // check if colon
   advanceToken(blp, &t);
@@ -1530,6 +1521,7 @@ static void parseBinding(Binding *bp, BufferedLexer *blp, Arena *ar) {
 
 HANDLE_NO_IDENTIFIER:
   // If it's not an identifier token, we must resync
+  bp->name = NULL;
   bp->span = t.span;
   bp->diagnostics_length = 1;
   bp->diagnostics = allocArena(ar, sizeof(Diagnostic));
@@ -1594,7 +1586,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, BufferedLexer *blp, Arena *ar) {
   // get name
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-  fdsp->fnDecl.name = INTERN(t.identifier, ar);
+  fdsp->fnDecl.name = internArena(t.identifier, ar);
 
   advanceToken(blp, &t);
   EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
@@ -1696,32 +1688,50 @@ static void parseTypeAliasStmnt(Stmnt *adsp, BufferedLexer *blp, Arena *ar) {
   adsp->kind = SK_TypeAliasStmnt;
   Token t;
   advanceToken(blp, &t);
-  EXPECT_TYPE(t, TK_TypeAlias, HANDLE_NO_ALIAS);
+
+  if(t.kind != TK_TypeAlias) {
+    INTERNAL_ERROR("called type alias declaration parser where there was no "
+        "type alias declaration");
+    PANIC();
+  }
+
   LnCol start = t.span.start;
+
+  LnCol end;
+
+  advanceToken(blp, &t);
+
+  if(t.kind != TK_Identifier) {
+    adsp->typeAliasStmnt.name = NULL;
+    adsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
+    adsp->diagnostics[0] =
+      DIAGNOSTIC(DK_TypeAliasExpectedIdentifier, t.span);
+    adsp->diagnostics_length = 1;
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
+  adsp->typeAliasStmnt.name = internArena(t.identifier, ar);
+
+  // Now get equals sign
+  advanceToken(blp, &t);
+  if(t.kind != TK_Assign) {
+    adsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
+    adsp->diagnostics[0] =
+      DIAGNOSTIC(DK_TypeAliasExpectedAssign, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
 
   adsp->typeAliasStmnt.type = allocArena(ar, sizeof(TypeExpr));
   parseTypeExpr(adsp->typeAliasStmnt.type, blp, ar);
-
-  advanceToken(blp, &t);
-  EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
-  adsp->typeAliasStmnt.name = INTERN(t.identifier, ar);
-  adsp->span = SPAN(start, t.span.end);
+  end = adsp->typeAliasStmnt.type->span.end;
   adsp->diagnostics_length = 0;
-  return;
+  adsp->diagnostics = NULL;
 
-HANDLE_NO_IDENTIFIER:
-  adsp->typeAliasStmnt.name = NULL;
-  adsp->span = SPAN(start, t.span.end);
-  adsp->diagnostics_length = 1;
-  adsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  adsp->diagnostics[0] =
-      DIAGNOSTIC(DK_AliasDeclStmntExpectedIdentifier, t.span);
+CLEANUP:
+  adsp->span = SPAN(start, end);
   return;
-
-HANDLE_NO_ALIAS:
-  INTERNAL_ERROR("called alias declaration parser where there was no "
-                 "alias declaration");
-  PANIC();
 }
 
 static void parseStmnt(Stmnt *sp, BufferedLexer *blp, Arena *ar) {

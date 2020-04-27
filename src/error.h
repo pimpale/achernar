@@ -42,8 +42,9 @@ typedef enum {
   // VarDeclStmnt
   DK_VarDeclStmntExpectedAssign,
   DK_VarDeclStmntExpectedValue,
-  // AliasDeclStmnt
-  DK_AliasDeclStmntExpectedIdentifier,
+  // TypeAlias
+  DK_TypeAliasExpectedIdentifier,
+  DK_TypeAliasExpectedAssign,
   // StructDeclStmnt
   DK_StructExpectedLeftBrace,
   DK_StructExpectedRightBrace,

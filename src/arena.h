@@ -56,12 +56,11 @@ void *allocAlignedArena(Arena* ar, size_t len, size_t alignment);
 /// GUARANTEES: returns `ptr`
 void* manageMemArena(Arena* ar, void* ptr);
 
-// Utility Macros
-
 // Duplicates the string using memory allocated from `ar`
 /// REQUIRES: `ar` is a pointer to a valid Arena
-/// REQUIRES: `str` is a pointer to a valid null terminated string
-/// GUARANTEES: returns a pointer to a duplicated string allocated within the vector
-#define INTERN(str, ar) strcpy(allocAlignedArena(ar, strlen(str)+1, 1), str)
+/// REQUIRES: `str` is a pointer to a valid null terminated string or NULL
+/// GUARANTEES: if `str` is NULL, will return NULL
+/// GUARANTEES: returns a pointer to a duplicated string allocated within `ar`
+char* internArena(char* str, Arena *ar);
 
 #endif

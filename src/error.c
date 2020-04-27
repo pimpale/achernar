@@ -94,8 +94,12 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "VarDeclStmntExpectedValue";
     break;
   }
-  case DK_AliasDeclStmntExpectedIdentifier: {
-    errmsg = "AliasDeclStmntExpectedIdentifier";
+  case DK_TypeAliasExpectedIdentifier: {
+    errmsg = "TypeAliasExpectedIdentifier";
+    break;
+  }
+  case DK_TypeAliasExpectedAssign: {
+    errmsg = "TypeAliasExpectedAssign";
     break;
   }
   case DK_StructExpectedLeftBrace: {

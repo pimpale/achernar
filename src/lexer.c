@@ -489,7 +489,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     DiagnosticKind initial_err =
         parseInteger(&initial_integer, initialPortion, initialPortionLen, 10);
     if (initial_err == DK_Ok) {
-      result += initial_integer;
+      result += (double) initial_integer;
     } else {
       // clang-format off
       *token = (Token) {
@@ -508,7 +508,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
       if (final_err == DK_Ok) {
         // don't want to include math.h, so we'll repeatedly divide by 10
         // this is probably dumb
-        double decimalResult = final_integer;
+        double decimalResult = (double) final_integer;
         for (size_t i = 0; i < finalPortionLen; i++) {
           decimalResult /= 10;
         }

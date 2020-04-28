@@ -59,20 +59,26 @@ typedef enum {
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
 typedef struct Binding_s Binding;
-typedef struct Path_s Path;
 typedef struct Stmnt_s Stmnt;
 
-// Attributes that may be attached to statements or certain expressions
-typedef struct Attr_s {
+typedef struct Comment_s {
   Span span;
   Diagnostic *diagnostics;
   size_t diagnostics_length;
-} Attr;
+  bool outer;
+  char *data;
+} Comment;
 
 typedef struct Path_s {
   Span span;
+  // diagnostics
   Diagnostic *diagnostics;
   size_t diagnostics_length;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
+
   char **pathSegments;
   size_t pathSegments_length;
 } Path;
@@ -81,8 +87,15 @@ typedef struct Path_s {
 typedef struct TypeExpr_s {
   TypeExprKind kind;
   Span span;
+
+  // diagnostics
   Diagnostic *diagnostics;
   size_t diagnostics_length;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
+
   union {
     struct {
       Path *path;
@@ -107,10 +120,10 @@ typedef struct TypeExpr_s {
       bool trailing_comma;
     } structExpr;
     struct {
-      TypeExpr* parameters;
+      TypeExpr *parameters;
       size_t parameters_length;
       bool parameters_trailing_comma;
-      TypeExpr* result;
+      TypeExpr *result;
     } fnExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
@@ -131,6 +144,11 @@ typedef struct Binding_s {
   Span span;
   Diagnostic *diagnostics;
   size_t diagnostics_length;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
+
   // Elements
   char *name;
   TypeExpr *type;
@@ -139,8 +157,15 @@ typedef struct Binding_s {
 typedef struct ValueExpr_s {
   ValueExprKind kind;
   Span span;
+
+  // diagnostics
   Diagnostic *diagnostics;
   size_t diagnostics_length;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
+
   union {
     struct {
       uint64_t value;
@@ -167,6 +192,11 @@ typedef struct ValueExpr_s {
         Span span;
         Diagnostic *diagnostics;
         size_t diagnostics_length;
+
+        // comments
+        Comment *comments;
+        size_t comments_length;
+
         char *name;
         ValueExpr *value;
       } * entries;
@@ -256,6 +286,11 @@ typedef struct ValueExpr_s {
         Span span;
         Diagnostic *diagnostics;
         size_t diagnostics_length;
+
+        // comments
+        Comment *comments;
+        size_t comments_length;
+
         ValueExpr *pattern;
         ValueExpr *value;
       } * cases;
@@ -276,8 +311,14 @@ typedef struct ValueExpr_s {
 typedef struct Stmnt_s {
   StmntKind kind;
   Span span;
+  // diagnostics
   Diagnostic *diagnostics;
   size_t diagnostics_length;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
+
   union {
     struct {
       char *name;
@@ -300,13 +341,5 @@ typedef struct Stmnt_s {
     } exprStmnt;
   };
 } Stmnt;
-
-typedef struct TranslationUnit_s {
-  Span span;               // span of the translation unit
-  Diagnostic *diagnostics; // any errors that occur during parsing
-  size_t diagnostics_length;
-  Stmnt *statements;          // The top level is just a series of statements
-  uint64_t statements_length; // The number of statements
-} TranslationUnit;
 
 #endif

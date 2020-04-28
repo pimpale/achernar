@@ -165,8 +165,8 @@ static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
 }
 
 // Call this function right before the first hash
-// Returns control at the first noncomment (or nonannotate) area
-// Lexes comments, annotations, and docstrings
+// Returns control at the first noncomment area
+// Lexes comments
 static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
   LnCol start = lexer->position;
 
@@ -489,7 +489,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     DiagnosticKind initial_err =
         parseInteger(&initial_integer, initialPortion, initialPortionLen, 10);
     if (initial_err == DK_Ok) {
-      result += (double) initial_integer;
+      result += (double)initial_integer;
     } else {
       // clang-format off
       *token = (Token) {
@@ -508,7 +508,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
       if (final_err == DK_Ok) {
         // don't want to include math.h, so we'll repeatedly divide by 10
         // this is probably dumb
-        double decimalResult = (double) final_integer;
+        double decimalResult = (double)final_integer;
         for (size_t i = 0; i < finalPortionLen; i++) {
           decimalResult /= 10;
         }
@@ -526,14 +526,10 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     }
 
     // Return data
-    // clang-format off
-    *token = (Token) {
-      .kind = TK_FloatLiteral,
-        .float_literal = result,
-        .span = SPAN(start, lexer->position),
-        .error = DK_Ok
-    };
-    // clang-format on
+    *token = (Token){.kind = TK_FloatLiteral,
+                     .float_literal = result,
+                     .span = SPAN(start, lexer->position),
+                     .error = DK_Ok};
     goto CLEANUP;
   }
 
@@ -628,36 +624,24 @@ static void lexCharLiteral(Lexer *lexer, Token *token, Arena *arena) {
 
   switch (length) {
   case 0: {
-    // clang-format off
-              *token = (Token) {
-                .kind = TK_None,
-                  .span = SPAN(start, lexer->position),
-                  .error = DK_CharLiteralEmpty
-              };
-    // clang-format on
+    *token = (Token){.kind = TK_None,
+                     .span = SPAN(start, lexer->position),
+                     .error = DK_CharLiteralEmpty};
     goto CLEANUP;
   }
   case 1: {
     // We return the first character in the vector
 
-    // clang-format off
-              *token = (Token) {
-                .kind = TK_CharLiteral,
-                  .char_literal = string[0],
-                  .span = SPAN(start, lexer->position),
-                  .error = DK_Ok
-              };
-    // clang-format on
+    *token = (Token){.kind = TK_CharLiteral,
+                     .char_literal = string[0],
+                     .span = SPAN(start, lexer->position),
+                     .error = DK_Ok};
     goto CLEANUP;
   }
   default: {
-    // clang-format off
-               *token = (Token) {
-                 .kind = TK_None,
-                   .span = SPAN(start, lexer->position),
-                   .error = DK_CharLiteralTooLong
-               };
-    // clang-format on
+    *token = (Token){.kind = TK_None,
+                     .span = SPAN(start, lexer->position),
+                     .error = DK_CharLiteralTooLong};
     goto CLEANUP;
   }
   }

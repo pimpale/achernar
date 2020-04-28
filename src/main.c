@@ -17,7 +17,6 @@ static char *newAstString(FILE *stream) {
 
   BufferedLexer *blp = createBufferedLexer(malloc(sizeof(BufferedLexer)), lexer, mem);
 
-
   TranslationUnit tu;
   parseTranslationUnit(&tu, blp, mem);
 

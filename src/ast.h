@@ -65,7 +65,7 @@ typedef struct Comment_s {
   Span span;
   Diagnostic *diagnostics;
   size_t diagnostics_length;
-  bool outer;
+  bool inner;
   char *data;
 } Comment;
 
@@ -129,6 +129,7 @@ typedef struct TypeExpr_s {
       enum TypeExprUnaryOpKind_e {
         TEUOK_Ref,   // $
         TEUOK_Deref, // @
+        TEUOK_Gen,   // ...
       }
       operator;
       struct TypeExpr_s *operand;

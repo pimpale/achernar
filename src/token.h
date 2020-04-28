@@ -63,9 +63,10 @@ typedef enum {
   TK_CompLessEqual,    // <=
   TK_CompGreater,      // >
   TK_CompGreaterEqual, // >=
-  // Memory Manipulation Operators
-  TK_Ref,   // $
-  TK_Deref, // @
+  // Type Modifiers
+  TK_Ref,     // $
+  TK_Deref,   // @
+  TK_Stream,  // ..
   // Assignment
   TK_Assign,       // =
   TK_AssignAdd,    // +=
@@ -94,8 +95,7 @@ typedef enum {
   // Macros
   TK_Macro, // macro!
   // Comments, and Attributes
-  TK_Comment,    // #{ comment }# and # comment
-  TK_Annotation, //
+  TK_Comment,    // #[ comment ]# and # comment
 } TokenKind;
 
 typedef struct Token_s {
@@ -108,7 +108,10 @@ typedef struct Token_s {
   union {
     char *identifier;
     char *macro;
-    char *comment;
+    struct {
+      char *comment;
+      bool inner;
+    } comment;
     char *string_literal;
     uint64_t int_literal;
     double float_literal;

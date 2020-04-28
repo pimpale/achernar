@@ -100,38 +100,6 @@ static int32_t peekValueLexer(Lexer *lexer) {
   }
 }
 
-// Buffered Lexer
-
-BufferedLexer *createBufferedLexer(BufferedLexer *blp, Lexer *lp,
-                                   Arena *arena) {
-  blp->has_next = false;
-  blp->lexer = lp;
-  blp->arena = arena;
-  return blp;
-}
-
-BufferedLexer *destroyBufferedLexer(BufferedLexer *bl) { return bl; }
-
-// If has an ungotten token, return that. Else return next in line, and cache it
-void advanceToken(BufferedLexer *blp, Token *t) {
-  if (blp->has_next) {
-    *t = blp->next;
-    blp->has_next = false;
-  } else {
-    lexNextToken(blp->lexer, t, blp->arena);
-  }
-}
-
-// If token exists in line
-void setNextToken(BufferedLexer *bl, Token *t) {
-  if (!bl->has_next) {
-    bl->has_next = true;
-    bl->next = *t;
-  } else {
-    INTERNAL_ERROR("already set next token");
-    PANIC();
-  }
-}
 
 // Parses integer with radix
 static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
@@ -178,6 +146,12 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
 
   c = peekValueLexer(lexer);
 
+  // if there's an exclamation mark right after, it is marked as inner
+  bool inner = c == '!';
+  if (inner) {
+    c = nextValueLexer(lexer);
+  }
+
   // Now we determine the type of comment as well as gather the comment data
   switch (c) {
   case '[': {
@@ -210,10 +184,15 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     *VEC_PUSH(&data, char) = '\0';
 
     // Return data
-    *token = (Token){.kind = TK_Comment,
-                     .comment = manageMemArena(arena, releaseVector(&data)),
-                     .span = SPAN(start, lexer->position),
-                     .error = DK_Ok};
+    *token =
+        (Token){.kind = TK_Comment,
+                .comment =
+                    {
+                        .inner = inner,
+                        .comment = manageMemArena(arena, releaseVector(&data)),
+                    },
+                .span = SPAN(start, lexer->position),
+                .error = DK_Ok};
     return;
   }
   default: {
@@ -231,14 +210,16 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
     }
     *VEC_PUSH(&data, char) = '\0';
 
-    char *string = manageMemArena(arena, releaseVector(&data));
-
     // Return data
-    *token = (Token){.kind = TK_Comment,
-                     .comment = string,
-                     .span = SPAN(start, lexer->position),
-                     .error = DK_Ok};
-    free(string);
+    *token =
+        (Token){.kind = TK_Comment,
+                .comment =
+                    {
+                        .inner = inner,
+                        .comment = manageMemArena(arena, releaseVector(&data)),
+                    },
+                .span = SPAN(start, lexer->position),
+                .error = DK_Ok};
     return;
   }
   }
@@ -948,6 +929,17 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
       }
       }
     }
+    case '.': {
+      nextValueLexer(lexer);
+      switch (peekValueLexer(lexer)) {
+      case '.': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_Stream)
+      }
+      default: {
+        RETURN_RESULT_TOKEN(TK_FieldAccess)
+      }
+      }
+    }
     case '[': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_BracketLeft)
     }
@@ -971,9 +963,6 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
     }
     case '}': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_BraceRight)
-    }
-    case '.': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_FieldAccess)
     }
     case ',': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Comma)

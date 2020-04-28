@@ -3,6 +3,13 @@
 
 #include "ast.h"
 
-void parseTranslationUnit(TranslationUnit *tup, BufferedLexer *blp, Arena* ar);
+typedef struct Parser_s {
+  Lexer lexer;
+  bool has_next_token;
+  Token next_token;
+} Parser;
+
+void parseStatement(Parser *blp, Stmnt s, Arena* ar);
+void parseTranslationUnit(TranslationUnit *tup, 
 
 #endif

@@ -54,6 +54,38 @@
     }                                                                          \
   } while (false)
 
+
+// Buffered Lexer
+
+BufferedLexer *createBufferedLexer(BufferedLexer *blp, Lexer *lp,
+                                   Arena *arena) {
+  blp->has_next = false;
+  blp->lexer = lp;
+  blp->arena = arena;
+  return blp;
+}
+
+// If has an ungotten token, return that. Else return next in line, and cache it
+void advanceToken(BufferedLexer *blp, Token *t) {
+  if (blp->has_next) {
+    *t = blp->next;
+    blp->has_next = false;
+  } else {
+    lexNextToken(blp->lexer, t, blp->arena);
+  }
+}
+
+// If token exists in line
+void setNextToken(BufferedLexer *bl, Token *t) {
+  if (!bl->has_next) {
+    bl->has_next = true;
+    bl->next = *t;
+  } else {
+    INTERNAL_ERROR("already set next token");
+    PANIC();
+  }
+}
+
 // Jump till after semicolon, taking into account parentheses, brackets,
 // attributes, and braces It will ignore subexprs, but can halt at the end
 static void resyncStmnt(BufferedLexer *blp, Arena *ar) {

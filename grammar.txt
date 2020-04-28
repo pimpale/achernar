@@ -50,6 +50,7 @@ binding = type, identifier
 structLiteral = "struct", identifier, "{", [ binding ], { ",", binding }, [ "," ], "}";
 
 valueExpr = l8expr;
+l9expr = l8expr | (l8expr, ("=" | "+="), l9expr);
 l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
 l7expr = l6expr | (l6expr, ("<" | ">" | "<=" | ">=" | "==" | "!="), l7expr);
 l6expr = l5expr | (l5expr, ("<<" | ">>" | "&" | "|" | "^"), l6expr);

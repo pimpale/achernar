@@ -11,18 +11,18 @@
 #include "error.h"
 #include "vector.h"
 
-Lexer *createLexerFile(Lexer *lexer, FILE *file) {
+void createLexerFile(Lexer *lexer, FILE *file, Arena *ar) {
   lexer->position = LNCOL(1, 1);
+  lexer->ar = ar;
 
   // Files
   lexer->file = file;
   lexer->backing = LBK_LexerBackingFile;
-
-  return lexer;
 }
 
-Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len) {
+void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Arena *ar) {
   lexer->position = LNCOL(1, 1);
+  lexer->ar = ar;
 
   // Copy memory
   lexer->backing = LBK_LexerBackingMemory;
@@ -30,11 +30,9 @@ Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len) {
   lexer->memory.loc = 0;
   lexer->memory.ptr = malloc(len);
   memcpy(lexer->memory.ptr, ptr, len);
-
-  return lexer;
 }
 
-Lexer *destroyLexer(Lexer *lexer) {
+Arena *releaseLexer(Lexer *lexer) {
   switch (lexer->backing) {
   case LBK_LexerBackingMemory: {
     free(lexer->memory.ptr);
@@ -44,7 +42,7 @@ Lexer *destroyLexer(Lexer *lexer) {
     break;
   }
   }
-  return lexer;
+  return lexer->ar;
 }
 
 static int32_t nextValueLexer(Lexer *lexer) {
@@ -100,7 +98,6 @@ static int32_t peekValueLexer(Lexer *lexer) {
   }
 }
 
-
 // Parses integer with radix
 static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
                                    uint64_t radix) {
@@ -135,7 +132,7 @@ static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes comments
-static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
+static void lexComment(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   int32_t c = nextValueLexer(lexer);
@@ -189,7 +186,7 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
                 .comment =
                     {
                         .inner = inner,
-                        .comment = manageMemArena(arena, releaseVector(&data)),
+                        .comment = manageMemArena(lexer->ar, releaseVector(&data)),
                     },
                 .span = SPAN(start, lexer->position),
                 .error = DK_Ok};
@@ -216,7 +213,7 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
                 .comment =
                     {
                         .inner = inner,
-                        .comment = manageMemArena(arena, releaseVector(&data)),
+                        .comment = manageMemArena(lexer->ar, releaseVector(&data)),
                     },
                 .span = SPAN(start, lexer->position),
                 .error = DK_Ok};
@@ -228,7 +225,7 @@ static void lexComment(Lexer *lexer, Token *token, Arena *arena) {
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
-static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
+static void lexStringLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = nextValueLexer(lexer);
@@ -310,7 +307,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
 
-  char *string = manageMemArena(arena, releaseVector(&data));
+  char *string = manageMemArena(lexer->ar, releaseVector(&data));
 
   // Return data
   // clang-format off
@@ -327,8 +324,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token, Arena *arena) {
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
-  UNUSED(arena);
+static void lexNumberLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   Vector data;
@@ -402,14 +398,11 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
         break;
       }
       default: {
-        // clang-format off
-                   *token = (Token) {
-                     .kind = TK_None,
-                       .span = SPAN(start, lexer->position),
-                       .error = DK_IntLiteralUnrecognizedRadixCode
+        *token = (Token){.kind = TK_None,
+                         .span = SPAN(start, lexer->position),
+                         .error = DK_IntLiteralUnrecognizedRadixCode
 
-                   };
-        // clang-format on
+        };
         goto CLEANUP;
       }
       }
@@ -426,24 +419,15 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     uint64_t integer_value;
     DiagnosticKind ret = parseInteger(&integer_value, intStr, intStrLen, radix);
     if (ret != DK_Ok) {
-      // clang-format off
-      *token = (Token) {
-        .kind = TK_None,
-          .span = SPAN(start, lexer->position),
-          .error = ret
-      };
-      // clang-format on
+      *token = (Token){
+          .kind = TK_None, .span = SPAN(start, lexer->position), .error = ret};
       goto CLEANUP;
     } else {
       // Return data
-      // clang-format off
-      *token  = (Token) {
-        .kind = TK_IntLiteral,
-          .span = SPAN(start, lexer->position),
-          .int_literal = integer_value,
-          .error = DK_Ok
-      };
-      // clang-format on
+      *token = (Token){.kind = TK_IntLiteral,
+                       .span = SPAN(start, lexer->position),
+                       .int_literal = integer_value,
+                       .error = DK_Ok};
       goto CLEANUP;
     }
   } else {
@@ -472,13 +456,9 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
     if (initial_err == DK_Ok) {
       result += (double)initial_integer;
     } else {
-      // clang-format off
-      *token = (Token) {
-        .kind = TK_None,
-          .span = SPAN(start, lexer->position),
-          .error = initial_err
-      };
-      // clang-format on
+      *token = (Token){.kind = TK_None,
+                       .span = SPAN(start, lexer->position),
+                       .error = initial_err};
       goto CLEANUP;
     }
     // If there's a bit after the inital part, then we must add it
@@ -495,13 +475,9 @@ static void lexNumberLiteral(Lexer *lexer, Token *token, Arena *arena) {
         }
         result += decimalResult;
       } else {
-        // clang-format off
-        *token = (Token) {
-          .kind = TK_None,
-            .span = SPAN(start, lexer->position),
-            .error = final_err
-        };
-        // clang-format on
+        *token = (Token){.kind = TK_None,
+                         .span = SPAN(start, lexer->position),
+                         .error = final_err};
         goto CLEANUP;
       }
     }
@@ -519,8 +495,7 @@ CLEANUP:
   return;
 }
 
-static void lexCharLiteral(Lexer *lexer, Token *token, Arena *arena) {
-  UNUSED(arena);
+static void lexCharLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = nextValueLexer(lexer);
@@ -632,7 +607,7 @@ CLEANUP:
 }
 
 // Parses an identifer or macro
-static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
+static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
 
   LnCol start = lexer->position;
 
@@ -660,7 +635,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
   // Note that string length does not incude the trailing null byte
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-  char *string = manageMemArena(arena, releaseVector(&data));
+  char *string = manageMemArena(lexer->ar, releaseVector(&data));
 
   if (macro) {
     // It is an identifier, and we need to keep the string
@@ -745,7 +720,7 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token, Arena *arena) {
   RETURN_RESULT_TOKEN(tokenType)
 /* clang-format on */
 
-void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
+void lexNextToken(Lexer *lexer, Token *token) {
   int32_t c;
 
   // Set c to first nonblank character
@@ -760,23 +735,23 @@ void lexNextToken(Lexer *lexer, Token *token, Arena *arena) {
   LnCol start = lexer->position;
 
   if (isalpha(c)) {
-    lexIdentifierOrMacro(lexer, token, arena);
+    lexIdentifierOrMacro(lexer, token);
     return;
   } else if (isdigit(c)) {
-    lexNumberLiteral(lexer, token, arena);
+    lexNumberLiteral(lexer, token);
     return;
   } else {
     switch (c) {
     case '\'': {
-      lexCharLiteral(lexer, token, arena);
+      lexCharLiteral(lexer, token);
       return;
     }
     case '\"': {
-      lexStringLiteral(lexer, token, arena);
+      lexStringLiteral(lexer, token);
       return;
     }
     case '#': {
-      lexComment(lexer, token, arena);
+      lexComment(lexer, token);
       return;
     }
     case '&': {

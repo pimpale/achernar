@@ -127,9 +127,9 @@ typedef struct TypeExpr_s {
     } fnExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
-        TEUOK_Ref,   // $
-        TEUOK_Deref, // @
-        TEUOK_Gen,   // ...
+        TEUOK_Ref,      // $
+        TEUOK_Deref,    // @
+        TEUOK_Stream,   // ..
       }
       operator;
       struct TypeExpr_s *operand;

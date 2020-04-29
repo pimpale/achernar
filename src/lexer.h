@@ -29,29 +29,17 @@ typedef struct {
   };
   // Caches the current location in file
   LnCol position;
+  // Stores the data of each token
+  Arena *ar;
 } Lexer;
 
-Lexer *createLexerFile(Lexer *lexer, FILE *file);
-Lexer *createLexerMemory(Lexer *lexer, char *ptr, size_t len);
-Lexer *destroyLexer(Lexer *lexer);
+void createLexerFile(Lexer *lexer, FILE *file,  Arena *ar);
+void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Arena *ar);
+Arena *releaseLexer(Lexer *lexer);
 
 // Initializes Token to the value of the next token if there has not been an error.
 // Otherwise the token will have the type TokenNone and will contain a diagnostic.
 // Tokens will be deallocated when the lexer is deallocated.
-void lexNextToken(Lexer *lexer, Token* token, Arena* arena);
-
-
-typedef struct {
-  Lexer *lexer;
-  bool has_next;
-  Token next;
-  Arena* arena;
-} BufferedLexer;
-
-// Accepts a reference to the arena
-BufferedLexer* createBufferedLexer(BufferedLexer* blp, Lexer* lexer, Arena* arena);
-void advanceToken(BufferedLexer* blp, Token* token);
-void setNextToken(BufferedLexer* blp, Token* token);
-BufferedLexer* destroyBufferedLexer(BufferedLexer* blp);
+void lexNextToken(Lexer *lexer, Token* token);
 
 #endif

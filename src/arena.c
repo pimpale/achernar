@@ -88,10 +88,12 @@ Arena *createArena(Arena *mem) {
   createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 2);
   createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 4);
   createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 8);
+  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 16);
   mem->current_1_index = 0;
   mem->current_2_index = 1;
   mem->current_4_index = 2;
   mem->current_8_index = 3;
+  mem->current_16_index = 4;
   return mem;
 }
 
@@ -134,8 +136,12 @@ void *allocAlignedArena(Arena *ar, size_t len, size_t alignment) {
     index_ptr = &ar->current_8_index;
     break;
   }
+  case 16: {
+    index_ptr = &ar->current_16_index;
+    break;
+  }
   default: {
-    INTERNAL_ERROR("alignment is not one of 1, 2, 4, or 8");
+    INTERNAL_ERROR("alignment is not one of 1, 2, 4, 8, or 16");
     PANIC();
   }
   }
@@ -165,6 +171,10 @@ void *allocArena(Arena *ar, size_t len) {
 }
 
 void* manageMemArena(Arena *ar, void *ptr) {
+  if(ptr == NULL) {
+    return NULL;
+  }
+
   *VEC_PUSH(&ar->pages, ArenaPage) = (ArenaPage){
       .capacity = 0,
       .length = 0,

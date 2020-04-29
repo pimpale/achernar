@@ -78,11 +78,11 @@ typedef enum {
   DK_BlockExpectedRightBrace,
   // Array Access
   DK_ArrayAccessExpectedBracket,
-  // Function Calls
-  DK_FunctionCallExpectedParen,
+  // Fn Calls
+  DK_CallExpectedComma,
+  DK_CallExpectedParen,
   // Generic Parsing errors
   DK_UnexpectedToken,
-  DK_SubcomponentFailedToParse,
   DK_FieldAccessExpectedIdentifier,
 } DiagnosticKind;
 

@@ -74,11 +74,11 @@ static void advanceToken(Parser *pp, Token *t) {
       if (c.kind == TK_Comment) {
         // Push a comment object to the vector on the top of the stack
         size_t vec_len = VEC_LEN(&pp->comments, Vector);
-        if(vec_len == 0) {
+        if (vec_len == 0) {
           INTERNAL_ERROR("no scope to push comments to");
           PANIC();
         }
-        Vector* current_scope = VEC_GET(&pp->comments, vec_len - 1, Vector);
+        Vector *current_scope = VEC_GET(&pp->comments, vec_len - 1, Vector);
 
         *VEC_PUSH(current_scope, Comment) =
             (Comment){.span = c.span,
@@ -118,8 +118,11 @@ static Vector popCommentScope(Parser *parser) {
 /// GUARANTEES: `parser`'s comment stack has new empty scope on top of stack
 static void pushNewCommentScope(Parser *parser) {
   Vector v;
-  createVector(&v);
-  *VEC_PUSH(&parser->comments,  Vector) = v;
+  // We create the vector with zero capacity initially so that
+  // allocation is deferred until we actually encounter a comment
+  // Most scopes will not have a comment
+  createWithCapacityVector(&v, 0);
+  *VEC_PUSH(&parser->comments, Vector) = v;
 }
 
 Arena *releaseParser(Parser *pp) { return pp->ar; }
@@ -352,6 +355,7 @@ static void parseGroupValueExpr(ValueExpr *gvep, Parser *parser, Arena *ar) {
   advanceToken(parser, &t);
   LnCol start = t.span.start;
   EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
+
   gvep->groupExpr.value = allocArena(ar, sizeof(ValueExpr));
   parseValueExpr(gvep->groupExpr.value, parser, ar);
 
@@ -529,28 +533,48 @@ HANDLE_NO_WHILE:
 // Pattern : Expr,
 static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep, Parser *parser,
                                Arena *ar) {
+  pushNewCommentScope(parser);
   ZERO(mcep);
-
   Token t;
+
   // Get pattern
   mcep->pattern = allocArena(ar, sizeof(ValueExpr));
   parseValueExpr(mcep->pattern, parser, ar);
+
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  LnCol start = mcep->pattern->span.start;
+  LnCol end = mcep->pattern->span.end;
+
   // Expect colon
   advanceToken(parser, &t);
-  EXPECT_TYPE(t, TK_Colon, HANDLE_NO_COLON);
+  if (t.kind != TK_Colon) {
+    diagnostic = DIAGNOSTIC(DK_MatchCaseNoColon, t.span);
+    resyncStmnt(parser, ar);
+    goto CLEANUP;
+  }
+
   // Get Value
   mcep->value = allocArena(ar, sizeof(ValueExpr));
   parseValueExpr(mcep->value, parser, ar);
-  mcep->span = SPAN(mcep->pattern->span.start, mcep->value->span.end);
-  mcep->diagnostics_length = 0;
-  return;
+  end = mcep->value->span.end;
 
-HANDLE_NO_COLON:
-  mcep->span = mcep->pattern->span;
-  mcep->diagnostics_length = 1;
-  mcep->diagnostics = allocArena(ar, sizeof(Diagnostic));
-  mcep->diagnostics[0] = DIAGNOSTIC(DK_MatchCaseNoColon, t.span);
-  resyncStmnt(parser, ar);
+CLEANUP:
+  if (diagnostic.kind != DK_Ok) {
+    mcep->diagnostics_length = 1;
+    mcep->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
+    mcep->diagnostics[0] = diagnostic;
+  } else {
+    mcep->diagnostics_length = 0;
+  }
+
+  mcep->span = SPAN(start, end);
+
+  Vector comments = popCommentScope(parser);
+  mcep->comments_length = VEC_LEN(&comments, Comment);
+  mcep->comments = manageMemArena(parser->ar, releaseVector(&comments));
+
   return;
 }
 
@@ -643,6 +667,8 @@ static void parseReferenceValueExpr(ValueExpr *rvep, Parser *parser,
 // Level9ValueExpr = += -= *= /= %= &= |=  (Assignment)
 
 static void parseL1ValueExpr(ValueExpr *l1, Parser *parser, Arena *ar) {
+  pushNewCommentScope(parser);
+
   Token t;
   advanceToken(parser, &t);
   // Decide which expression it is
@@ -651,72 +677,72 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser, Arena *ar) {
   case TK_IntLiteral: {
     setNextToken(parser, &t);
     parseIntValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_BoolLiteral: {
     setNextToken(parser, &t);
     parseBoolValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_FloatLiteral: {
     setNextToken(parser, &t);
     parseFloatValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_CharLiteral: {
     setNextToken(parser, &t);
     parseCharValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_StringLiteral: {
     setNextToken(parser, &t);
     parseStringValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_ParenLeft: {
     setNextToken(parser, &t);
     parseGroupValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_BraceLeft: {
     setNextToken(parser, &t);
     parseBlockValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_If: {
     setNextToken(parser, &t);
     parseIfValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_Break: {
     setNextToken(parser, &t);
     parseBreakValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_Continue: {
     setNextToken(parser, &t);
     parseContinueValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_Return: {
     setNextToken(parser, &t);
     parseReturnValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_While: {
     setNextToken(parser, &t);
     parseWhileValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_Match: {
     setNextToken(parser, &t);
     parseMatchValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_Identifier: {
     setNextToken(parser, &t);
     parseReferenceValueExpr(l1, parser, ar);
-    return;
+    break;
   }
   case TK_None: {
     // put the token error in the value expression.
@@ -726,7 +752,7 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser, Arena *ar) {
     l1->diagnostics_length = 1;
     l1->diagnostics = allocArena(ar, sizeof(Diagnostic));
     l1->diagnostics[0] = DIAGNOSTIC(t.error, t.span);
-    return;
+    break;
   }
   default: {
     logInternalError(__LINE__, __func__, "unimplemented: %d at %d, %d", t.kind,
@@ -734,6 +760,9 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser, Arena *ar) {
     PANIC();
   }
   }
+  Vector comments = popCommentScope(parser);
+  l1->comments_length = VEC_LEN(&comments, Comment);
+  l1->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
 static void parseL2ValueExpr(ValueExpr *l2, Parser *parser, Arena *ar) {
@@ -788,7 +817,7 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser, Arena *ar) {
         v.diagnostics = allocArena(ar, sizeof(Diagnostic));
         v.diagnostics[0] = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, v.span);
         *l2 = v;
-        return;
+        break;
       }
       v.fieldAccess.field = internArena(t.identifier, ar);
       v.diagnostics_length = 0;
@@ -816,7 +845,7 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser, Arena *ar) {
         v.diagnostics[0] = DIAGNOSTIC(DK_ArrayAccessExpectedBracket, v.span);
         setNextToken(parser, &t);
         *l2 = v;
-        return;
+        break;
       }
       v.diagnostics_length = 0;
       currentTopLevel = v;
@@ -824,59 +853,42 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser, Arena *ar) {
     }
     case TK_ParenLeft: {
       ValueExpr v;
-      Vector arguments;
-      createVector(&arguments);
-      // Parse the arguments (Comma Seperated list of valueexprs)
-      while (true) {
-        // Check for end paren
-        advanceToken(parser, &t);
-        if (t.kind == TK_ParenRight) {
-          break;
-        }
-        // If it wasn't an end paren, we push it back
-        setNextToken(parser, &t);
-
-        // Parse and push the argument
-        parseValueExpr(VEC_PUSH(&arguments, ValueExpr), parser, ar);
-
-        // Accept comma, if any
-        // If there's no comma then it MUST be followed by an end paren
-        // This also allows trailing commas
-        advanceToken(parser, &t);
-        if (t.kind != TK_Comma) {
-          if (t.kind == TK_ParenRight) {
-            break;
-          } else {
-            // If the next value isn't an end paren, then we throw an error
-            v.kind = VEK_Call;
-            v.callExpr.function = allocArena(ar, sizeof(ValueExpr));
-            *v.callExpr.function = currentTopLevel;
-            v.callExpr.arguments_length = VEC_LEN(&arguments, ValueExpr);
-            v.callExpr.arguments =
-                manageMemArena(ar, releaseVector(&arguments));
-
-            // Calculate span and diagnostics
-            v.span = SPAN(start, t.span.end);
-            v.diagnostics_length = 1;
-            v.diagnostics = allocArena(ar, sizeof(Diagnostic));
-            v.diagnostics[0] = DIAGNOSTIC(DK_FunctionCallExpectedParen, v.span);
-            // Bail out of the subexpr
-            setNextToken(parser, &t);
-            currentTopLevel = v;
-            return;
-          }
-        }
-      }
-
       v.kind = VEK_Call;
+
+      Vector args;
+      createVector(&args);
+
+      Vector diagnostics;
+      createVector(&diagnostics);
+
+      LnCol end;
+
+      PARSE_DELIMITED_LIST(
+          &args,                      // members_vec_ptr
+          &diagnostics,               // diagnostics_vec_ptr
+          parseValueExpr,              // member_parse_function
+          ValueExpr,                   // member_kind
+          &v.callExpr.trailing_comma, // trailing_spacer_ptr (will set to true
+                                      // if last element is semicolon
+          TK_Comma,      // spacer_token_kind (semicolon in block value expr)
+          TK_ParenRight, // delimiting_token_kind
+          DK_CallExpectedComma, // missing_spacer_error
+          DK_CallExpectedParen, // missing_delimiter_error
+          end,                  // end_lncol
+          parser,               // parser
+          ar                    // ar
+      )
+
+      v.callExpr.arguments_length = VEC_LEN(&args, ValueExpr);
+      v.callExpr.arguments = manageMemArena(parser->ar, releaseVector(&args));
+
+      v.diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+      v.diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
+
+      v.span = SPAN(start, end);
+
       v.callExpr.function = allocArena(ar, sizeof(ValueExpr));
       *v.callExpr.function = currentTopLevel;
-      v.callExpr.arguments_length = VEC_LEN(&arguments, ValueExpr);
-      v.callExpr.arguments = manageMemArena(ar, releaseVector(&arguments));
-
-      // Calculate span and diagnostics
-      v.span = SPAN(start, t.span.end);
-      v.diagnostics_length = 0;
       currentTopLevel = v;
       break;
     }
@@ -1556,6 +1568,10 @@ static void parseTypeExpr(TypeExpr *tep, Parser *parser, Arena *ar) {
 static void parseBinding(Binding *bp, Parser *parser, Arena *ar) {
   // zero-initialize bp
   ZERO(bp);
+
+  // TODO need to patch this to the new style + add comment support
+
+  pushNewCommentScope(parser);
 
   // these variables will be reused
   Token t;

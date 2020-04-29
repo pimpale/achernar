@@ -198,8 +198,12 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "ArrayAccessExpectedBracket";
     break;
   }
-  case DK_FunctionCallExpectedParen: {
-    errmsg = "FunctionCallExpectedParen";
+  case DK_CallExpectedComma: {
+    errmsg = "CallExpectedComma";
+    break;
+  }
+  case DK_CallExpectedParen: {
+    errmsg = "CallExpectedParen";
     break;
   }
   case DK_UnexpectedToken: {

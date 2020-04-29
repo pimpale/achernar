@@ -275,6 +275,7 @@ typedef struct ValueExpr_s {
       ValueExpr *function;
       ValueExpr *arguments;
       size_t arguments_length;
+      bool trailing_comma;
     } callExpr;
     struct {
       ValueExpr *value;

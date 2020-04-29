@@ -8,17 +8,22 @@
 #include "error.h"
 
 // The initial capacity of the vector
-#define INITIAL_CAPACITY 10
+#define DEFAULT_INITIAL_CAPACITY 10
 // The percent it will increase when out of room MUST BE POSITIVE
 // Ex. 1.5 -> 50% expansion each time the limit is hit
-#define LOAD_FACTOR 1.5f
+#define LOAD_FACTOR 2
 
 void setSizeVector(Vector *vector, size_t size);
 void resizeVector(Vector *vector, size_t size);
 
 // Sets the size of the vector
 void setSizeVector(Vector *vector, size_t size) {
-  vector->data = realloc(vector->data, size);
+  if(size == 0) {
+    free(vector->data);
+    vector->data = NULL;
+  } else {
+    vector->data = realloc(vector->data, size);
+  }
   vector->capacity = size;
 }
 
@@ -33,28 +38,22 @@ Vector *createWithCapacityVector(Vector *vector, size_t initialCapacity) {
   vector->data = NULL;
   vector->length = 0;
   vector->capacity = 0;
-  resizeVector(vector, initialCapacity);
+  setSizeVector(vector, initialCapacity);
   return vector;
 }
 
 Vector *createVector(Vector *vector) {
-  return createWithCapacityVector(vector, INITIAL_CAPACITY);
+  return createWithCapacityVector(vector, DEFAULT_INITIAL_CAPACITY);
 }
 
 Vector *destroyVector(Vector *vector) {
-  free(vector->data);
-  vector->capacity = 0;
+  setSizeVector(vector, 0);
   vector->length = 0;
   return vector;
 }
 
 void *releaseVector(Vector *vector) {
-  if (vector->length == 0) {
-    destroyVector(vector);
-    return NULL;
-  } else {
-    vector->data = realloc(vector->data, vector->length);
-  }
+  setSizeVector(vector, vector->length);
   return vector->data;
 }
 

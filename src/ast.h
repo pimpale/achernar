@@ -72,12 +72,12 @@ typedef struct Path_s {
   // diagnostics
   Diagnostic *diagnostics;
   size_t diagnostics_length;
-  struct PathSegment_s {
-    char* data;
-    // comments
-    Comment *comments;
-    size_t comments_length;
-  }* pathSegments;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
+
+  char **pathSegments;
   size_t pathSegments_length;
 } Path;
 
@@ -125,9 +125,9 @@ typedef struct TypeExpr_s {
     } fnExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
-        TEUOK_Ref,      // $
-        TEUOK_Deref,    // @
-        TEUOK_Stream,   // ..
+        TEUOK_Ref,    // $
+        TEUOK_Deref,  // @
+        TEUOK_Stream, // ..
       }
       operator;
       struct TypeExpr_s *operand;

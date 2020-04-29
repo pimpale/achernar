@@ -198,6 +198,9 @@ static void parseTypeExpr(TypeExpr *tep, Parser *parser, Arena *ar);
 static void parseBinding(Binding *bp, Parser *parser, Arena *ar);
 
 static void parsePath(Path *pp, Parser *parser, Arena *ar) {
+  // start comment scope
+  pushNewCommentScope(parser);
+
   Token t;
   advanceToken(parser, &t);
   if (t.kind != TK_Identifier) {
@@ -227,6 +230,7 @@ static void parsePath(Path *pp, Parser *parser, Arena *ar) {
         end = t.span.end;
         goto CLEANUP;
       }
+
       *VEC_PUSH(&pathSegments, char *) = internArena(t.identifier, ar);
     } else {
       // we've reached the end of the path
@@ -249,6 +253,10 @@ CLEANUP:
     pp->diagnostics = NULL;
   }
   pp->span = SPAN(start, end);
+
+  Vector comments = popCommentScope(parser);
+  pp->comments_length = VEC_LEN(&comments, Comment);
+  pp->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
 static void parseIntValueExpr(ValueExpr *ivep, Parser *parser, Arena *ar) {

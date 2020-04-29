@@ -110,7 +110,7 @@ typedef struct Token_s {
     char *macro;
     struct {
       char *comment;
-      bool inner;
+      char *scope;
     } comment;
     char *string_literal;
     uint64_t int_literal;

@@ -16,10 +16,10 @@
 #define PARSE_DELIMITED_LIST(                                                  \
     members_vec_ptr, diagnostics_vec_ptr, member_parse_function, member_kind,  \
     trailing_spacer_ptr, spacer_token_kind, delimiting_token_kind,             \
-    missing_spacer_error, missing_delimiter_error, end_lncol, parser, ar)         \
+    missing_spacer_error, missing_delimiter_error, end_lncol, parser, ar)      \
   while (true) {                                                               \
     Token PARSE_DELIMITED_LIST_token;                                          \
-    advanceToken(parser, &PARSE_DELIMITED_LIST_token);                            \
+    advanceToken(parser, &PARSE_DELIMITED_LIST_token);                         \
     if (PARSE_DELIMITED_LIST_token.kind == delimiting_token_kind) {            \
       *trailing_spacer_ptr = true;                                             \
       end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
@@ -32,11 +32,11 @@
       break;                                                                   \
     }                                                                          \
     /* if there wasn't an end delimiter, push the last token back */           \
-    setNextToken(parser, &PARSE_DELIMITED_LIST_token);                            \
-    member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), parser, ar);    \
+    setNextToken(parser, &PARSE_DELIMITED_LIST_token);                         \
+    member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), parser, ar); \
     /* accept spacer, if any. If no comma it must be followed by delimiter.    \
      * Allows trailing spacers */                                              \
-    advanceToken(parser, &PARSE_DELIMITED_LIST_token);                            \
+    advanceToken(parser, &PARSE_DELIMITED_LIST_token);                         \
     if (PARSE_DELIMITED_LIST_token.kind == delimiting_token_kind) {            \
       *trailing_spacer_ptr = false;                                            \
       end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
@@ -54,12 +54,12 @@
     }                                                                          \
   } while (false)
 
-
 // Parser
 void createParser(Parser *pp, Lexer *lp, Arena *ar) {
-  pp->has_next_token= false;
+  pp->has_next_token = false;
   pp->lexer = lp;
   pp->ar = ar;
+  createVector(&pp->comments);
 }
 
 // If has an ungotten token, return that. Else return next in line, and cache it
@@ -68,7 +68,26 @@ static void advanceToken(Parser *pp, Token *t) {
     *t = pp->next_token;
     pp->has_next_token = false;
   } else {
-    lexNextToken(pp->lexer, t);
+    while (true) {
+      Token c;
+      lexNextToken(pp->lexer, &c);
+      if (c.kind == TK_Comment) {
+        // Push a comment object to the vector on the top of the stack
+        size_t vec_len = VEC_LEN(&pp->comments, Vector);
+        if(vec_len == 0) {
+          INTERNAL_ERROR("no scope to push comments to");
+          PANIC();
+        }
+        Vector* current_scope = VEC_GET(&pp->comments, vec_len - 1, Vector);
+
+        *VEC_PUSH(current_scope, Comment) =
+            (Comment){.span = c.span,
+                      .scope = internArena(c.comment.scope, pp->ar),
+                      .data = internArena(c.comment.comment, pp->ar)};
+      } else {
+        *t = c;
+      }
+    }
   }
 }
 
@@ -76,16 +95,34 @@ static void advanceToken(Parser *pp, Token *t) {
 static void setNextToken(Parser *pp, Token *t) {
   if (!pp->has_next_token) {
     pp->has_next_token = true;
-    pp->next_token= *t;
+    pp->next_token = *t;
   } else {
     INTERNAL_ERROR("already set next token");
     PANIC();
   }
 }
 
-Arena* releaseParser(Parser *pp) {
-  return pp->ar;
+// pops the top comment scope off the comment stack
+/// REQUIRES: `parser` is pointer to valid Parser
+/// REQUIRES: the stack has at least one member
+/// GUARANTEES: return value is the topmost element of the comment stack
+/// GUARANTEES: the topmost element fo the comment stack has been removed
+static Vector popCommentScope(Parser *parser) {
+  Vector v;
+  VEC_POP(&parser->comments, &v, Vector);
+  return v;
 }
+
+// pushes a new empty comment scope to the top of the comment stack
+/// REQUIRES: `parser` is pointer to valid Parser
+/// GUARANTEES: `parser`'s comment stack has new empty scope on top of stack
+static void pushNewCommentScope(Parser *parser) {
+  Vector v;
+  createVector(&v);
+  *VEC_PUSH(&parser->comments,  Vector) = v;
+}
+
+Arena *releaseParser(Parser *pp) { return pp->ar; }
 
 // Jump till after semicolon, taking into account parentheses, brackets,
 // attributes, and braces It will ignore subexprs, but can halt at the end
@@ -163,7 +200,7 @@ static void parseBinding(Binding *bp, Parser *parser, Arena *ar);
 static void parsePath(Path *pp, Parser *parser, Arena *ar) {
   Token t;
   advanceToken(parser, &t);
-  if(t.kind != TK_Identifier) {
+  if (t.kind != TK_Identifier) {
     INTERNAL_ERROR("called path parser where there was no path");
     PANIC();
   }
@@ -185,8 +222,8 @@ static void parsePath(Path *pp, Parser *parser, Arena *ar) {
     advanceToken(parser, &t);
     if (t.kind == TK_ScopeResolution) {
       advanceToken(parser, &t);
-      if(t.kind != TK_Identifier) {
-        diagnostic =  DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
+      if (t.kind != TK_Identifier) {
+        diagnostic = DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
         end = t.span.end;
         goto CLEANUP;
       }
@@ -203,7 +240,7 @@ CLEANUP:
   pp->pathSegments_length = VEC_LEN(&pathSegments, char *);
   pp->pathSegments = manageMemArena(ar, releaseVector(&pathSegments));
 
-  if(diagnostic.kind != DK_Ok) {
+  if (diagnostic.kind != DK_Ok) {
     pp->diagnostics_length = 1;
     pp->diagnostics = allocArena(ar, sizeof(Diagnostic));
     pp->diagnostics[0] = diagnostic;
@@ -248,8 +285,7 @@ HANDLE_NO_BOOL_LITERAL:
   PANIC();
 }
 
-static void parseFloatValueExpr(ValueExpr *fvep, Parser *parser,
-                                Arena *ar) {
+static void parseFloatValueExpr(ValueExpr *fvep, Parser *parser, Arena *ar) {
   UNUSED(ar);
   Token t;
   advanceToken(parser, &t);
@@ -283,8 +319,7 @@ HANDLE_NO_CHAR_LITERAL:
   PANIC();
 }
 
-static void parseStringValueExpr(ValueExpr *svep, Parser *parser,
-                                 Arena *ar) {
+static void parseStringValueExpr(ValueExpr *svep, Parser *parser, Arena *ar) {
   UNUSED(ar);
   Token t;
   advanceToken(parser, &t);
@@ -301,8 +336,7 @@ HANDLE_NO_STRING_LITERAL:
   PANIC();
 }
 
-static void parseGroupValueExpr(ValueExpr *gvep, Parser *parser,
-                                Arena *ar) {
+static void parseGroupValueExpr(ValueExpr *gvep, Parser *parser, Arena *ar) {
   ZERO(gvep);
   gvep->kind = VEK_Group;
 
@@ -332,8 +366,7 @@ HANDLE_NO_RIGHTPAREN:
   gvep->diagnostics[0] = DIAGNOSTIC(DK_GroupExpectRightParen, gvep->span);
 }
 
-static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser,
-                                Arena *ar) {
+static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser, Arena *ar) {
   ZERO(bvep);
   bvep->kind = VEK_Block;
 
@@ -364,7 +397,7 @@ static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser,
       DK_BlockExpectedSemicolon,  // missing_spacer_error
       DK_BlockExpectedRightBrace, // missing_delimiter_error
       end,                        // end_lncol
-      parser,                        // parser
+      parser,                     // parser
       ar                          // ar
   )
 
@@ -432,8 +465,7 @@ HANDLE_NO_BREAK:
   PANIC();
 }
 
-static void parseContinueValueExpr(ValueExpr *cep, Parser *parser,
-                                   Arena *ar) {
+static void parseContinueValueExpr(ValueExpr *cep, Parser *parser, Arena *ar) {
   UNUSED(ar);
   cep->kind = VEK_Continue;
   Token t;
@@ -448,8 +480,7 @@ HANDLE_NO_CONTINUE:
   PANIC();
 }
 
-static void parseReturnValueExpr(ValueExpr *rep, Parser *parser,
-                                 Arena *ar) {
+static void parseReturnValueExpr(ValueExpr *rep, Parser *parser, Arena *ar) {
   rep->kind = VEK_Return;
   Token t;
   advanceToken(parser, &t);
@@ -515,8 +546,7 @@ HANDLE_NO_COLON:
   return;
 }
 
-static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser,
-                                Arena *ar) {
+static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser, Arena *ar) {
   ZERO(mvep);
   mvep->kind = VEK_Match;
   Token t;
@@ -555,7 +585,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser,
       DK_MatchNoComma,      // missing_spacer_error
       DK_MatchNoRightBrace, // missing_delimiter_error
       end,                  // end_lncol
-      parser,                  // parser
+      parser,               // parser
       ar                    // ar
   )
 
@@ -1198,8 +1228,8 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser, Arena *ar) {
   PARSE_DELIMITED_LIST(
       &members,                        // members_vec_ptr
       &diagnostics,                    // diagnostics_vec_ptr
-      parseBinding,                   // member_parse_function
-      Binding,                        // member_kind
+      parseBinding,                    // member_parse_function
+      Binding,                         // member_kind
       &ste->structExpr.trailing_comma, // trailing_spacer_ptr (will set to true
                                        // if last element is semicolon)
       TK_Comma,      // spacer_token_kind (semicolon in block value expr)
@@ -1207,7 +1237,7 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser, Arena *ar) {
       DK_StructExpectedComma,      // missing_spacer_error
       DK_StructExpectedRightBrace, // missing_delimiter_error
       end,                         // end_lncol
-      parser,                         // parser
+      parser,                      // parser
       ar                           // ar
   )
 
@@ -1233,8 +1263,7 @@ HANDLE_NO_STRUCT:
   PANIC();
 }
 
-static void parseReferenceTypeExpr(TypeExpr *rtep, Parser *parser,
-                                   Arena *ar) {
+static void parseReferenceTypeExpr(TypeExpr *rtep, Parser *parser, Arena *ar) {
   ZERO(rtep);
   rtep->kind = TEK_Reference;
   rtep->referenceExpr.path = allocArena(ar, sizeof(Path));
@@ -1292,7 +1321,7 @@ static void parseTupleTypeExpr(TypeExpr *tte, Parser *parser, Arena *ar) {
       DK_TupleExpectedComma,      // missing_spacer_error
       DK_TupleExpectedRightParen, // missing_delimiter_error
       end,                        // end_lncol
-      parser,                        // parser
+      parser,                     // parser
       ar                          // ar
   )
   tte->tupleExpr.members_length = VEC_LEN(&members, Binding);
@@ -1368,7 +1397,7 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser, Arena *ar) {
       DK_FnTypeExprExpectedComma,      // missing_spacer_error
       DK_FnTypeExprExpectedRightParen, // missing_delimiter_error
       end,                             // end_lncol
-      parser,                             // parser
+      parser,                          // parser
       ar                               // ar
   )
 
@@ -1644,7 +1673,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, Parser *parser, Arena *ar) {
       DK_FnDeclStmntExpectedComma,      // missing_spacer_error
       DK_FnDeclStmntExpectedRightParen, // missing_delimiter_error
       end,                              // end_lncol
-      parser,                              // parser
+      parser,                           // parser
       ar                                // ar
   )
 
@@ -1722,9 +1751,9 @@ static void parseTypeAliasStmnt(Stmnt *adsp, Parser *parser, Arena *ar) {
   Token t;
   advanceToken(parser, &t);
 
-  if(t.kind != TK_TypeAlias) {
+  if (t.kind != TK_TypeAlias) {
     INTERNAL_ERROR("called type alias declaration parser where there was no "
-        "type alias declaration");
+                   "type alias declaration");
     PANIC();
   }
 
@@ -1734,11 +1763,10 @@ static void parseTypeAliasStmnt(Stmnt *adsp, Parser *parser, Arena *ar) {
 
   advanceToken(parser, &t);
 
-  if(t.kind != TK_Identifier) {
+  if (t.kind != TK_Identifier) {
     adsp->typeAliasStmnt.name = NULL;
     adsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-    adsp->diagnostics[0] =
-      DIAGNOSTIC(DK_TypeAliasExpectedIdentifier, t.span);
+    adsp->diagnostics[0] = DIAGNOSTIC(DK_TypeAliasExpectedIdentifier, t.span);
     adsp->diagnostics_length = 1;
     end = t.span.end;
     goto CLEANUP;
@@ -1748,10 +1776,9 @@ static void parseTypeAliasStmnt(Stmnt *adsp, Parser *parser, Arena *ar) {
 
   // Now get equals sign
   advanceToken(parser, &t);
-  if(t.kind != TK_Assign) {
+  if (t.kind != TK_Assign) {
     adsp->diagnostics = allocArena(ar, sizeof(Diagnostic));
-    adsp->diagnostics[0] =
-      DIAGNOSTIC(DK_TypeAliasExpectedAssign, t.span);
+    adsp->diagnostics[0] = DIAGNOSTIC(DK_TypeAliasExpectedAssign, t.span);
     end = t.span.end;
     goto CLEANUP;
   }

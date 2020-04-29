@@ -63,9 +63,7 @@ typedef struct Stmnt_s Stmnt;
 
 typedef struct Comment_s {
   Span span;
-  Diagnostic *diagnostics;
-  size_t diagnostics_length;
-  bool inner;
+  char *scope;
   char *data;
 } Comment;
 
@@ -74,12 +72,12 @@ typedef struct Path_s {
   // diagnostics
   Diagnostic *diagnostics;
   size_t diagnostics_length;
-
-  // comments
-  Comment *comments;
-  size_t comments_length;
-
-  char **pathSegments;
+  struct PathSegment_s {
+    char* data;
+    // comments
+    Comment *comments;
+    size_t comments_length;
+  }* pathSegments;
   size_t pathSegments_length;
 } Path;
 

@@ -8,6 +8,8 @@ typedef struct Parser_s {
   Lexer *lexer;
   bool has_next_token;
   Token next_token;
+  // Vector<Vector<Comment>> (will comments push to the topmost scope)
+  Vector comments;
 } Parser;
 
 void createParser(Parser *pp, Lexer *lp, Arena* ar);

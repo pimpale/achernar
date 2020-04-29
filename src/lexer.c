@@ -143,10 +143,21 @@ static void lexComment(Lexer *lexer, Token *token) {
 
   c = peekValueLexer(lexer);
 
-  // if there's an exclamation mark right after, it is marked as inner
-  bool inner = c == '!';
-  if (inner) {
-    c = nextValueLexer(lexer);
+  // Determine the scope of the
+  char *scope = "";
+  if (c == '@') {
+    Vector data;
+    createVector(&data);
+    while ((c = nextValueLexer(lexer)) != EOF) {
+      if (isalnum(c) || c == '/') {
+        *VEC_PUSH(&data, char) = (char)c;
+      } else {
+        break;
+      }
+
+      *VEC_PUSH(&data, char) = '\0';
+      scope = manageMemArena(lexer->ar, releaseVector(&data));
+    }
   }
 
   // Now we determine the type of comment as well as gather the comment data
@@ -181,15 +192,15 @@ static void lexComment(Lexer *lexer, Token *token) {
     *VEC_PUSH(&data, char) = '\0';
 
     // Return data
-    *token =
-        (Token){.kind = TK_Comment,
-                .comment =
-                    {
-                        .inner = inner,
-                        .comment = manageMemArena(lexer->ar, releaseVector(&data)),
-                    },
-                .span = SPAN(start, lexer->position),
-                .error = DK_Ok};
+    *token = (Token){
+        .kind = TK_Comment,
+        .comment =
+            {
+                .scope = scope,
+                .comment = manageMemArena(lexer->ar, releaseVector(&data)),
+            },
+        .span = SPAN(start, lexer->position),
+        .error = DK_Ok};
     return;
   }
   default: {
@@ -208,15 +219,15 @@ static void lexComment(Lexer *lexer, Token *token) {
     *VEC_PUSH(&data, char) = '\0';
 
     // Return data
-    *token =
-        (Token){.kind = TK_Comment,
-                .comment =
-                    {
-                        .inner = inner,
-                        .comment = manageMemArena(lexer->ar, releaseVector(&data)),
-                    },
-                .span = SPAN(start, lexer->position),
-                .error = DK_Ok};
+    *token = (Token){
+        .kind = TK_Comment,
+        .comment =
+            {
+                .scope = scope,
+                .comment = manageMemArena(lexer->ar, releaseVector(&data)),
+            },
+        .span = SPAN(start, lexer->position),
+        .error = DK_Ok};
     return;
   }
   }

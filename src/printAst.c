@@ -696,8 +696,17 @@ Arena* releasePrinter(Printer* printer) {
 }
 
 void printJsonPrinter(Printer* printer, FILE* file) {
+  bool first = true;
+  fprintf(file, "[");
   while(true) {
-
-
+    if(first) {
+      fprintf(file, ",");
+    } else {
+      first = false;
+    }
+    Stmnt s;
+    parseStmnt(&s, printer);
+    char* stmnt_str = toStringJsonElem(
   }
+  fprintf(file, "]");
 }

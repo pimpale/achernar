@@ -146,6 +146,8 @@ static void lexComment(Lexer *lexer, Token *token) {
   // Determine the scope of the
   char *scope = "";
   if (c == '@') {
+    nextValueLexer(lexer);
+
     Vector data;
     createVector(&data);
     while ((c = nextValueLexer(lexer)) != EOF) {
@@ -157,29 +159,28 @@ static void lexComment(Lexer *lexer, Token *token) {
     }
     *VEC_PUSH(&data, char) = '\0';
     scope = manageMemArena(lexer->ar, releaseVector(&data));
+  } else {
   }
 
   // Now we determine the type of comment as well as gather the comment data
   switch (c) {
-  case '[': {
+  case '{': {
     // This is a comment. It will continue until another quote asterix is found.
     // These strings are preserved in the AST. They are nestable
     // also nestable
-    // #[ Comment ]#
+    // #{ Comment }#
     Vector data;
     createVector(&data);
-    // skip hash
-    nextValueLexer(lexer);
     size_t stackDepth = 1;
     char lastChar = '\0';
     while ((c = nextValueLexer(lexer)) != EOF) {
-      if (c == '#' && lastChar == ']') {
+      if (c == '#' && lastChar == '}') {
         // If we see a "# to pair off the starting #"
         stackDepth--;
         if (stackDepth == 0) {
           break;
         }
-      } else if (c == '[' && lastChar == '#') {
+      } else if (c == '{' && lastChar == '#') {
         stackDepth++;
       }
       *VEC_PUSH(&data, char) = (char)c;

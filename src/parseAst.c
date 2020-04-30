@@ -16,7 +16,7 @@
 #define PARSE_DELIMITED_LIST(                                                  \
     members_vec_ptr, diagnostics_vec_ptr, member_parse_function, member_kind,  \
     trailing_spacer_ptr, spacer_token_kind, delimiting_token_kind,             \
-    missing_spacer_error, missing_delimiter_error, end_lncol, parser)      \
+    missing_spacer_error, missing_delimiter_error, end_lncol, parser)          \
   while (true) {                                                               \
     Token PARSE_DELIMITED_LIST_token;                                          \
     advanceToken(parser, &PARSE_DELIMITED_LIST_token);                         \
@@ -33,7 +33,7 @@
     }                                                                          \
     /* if there wasn't an end delimiter, push the last token back */           \
     setNextToken(parser, &PARSE_DELIMITED_LIST_token);                         \
-    member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), parser); \
+    member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), parser);     \
     /* accept spacer, if any. If no comma it must be followed by delimiter.    \
      * Allows trailing spacers */                                              \
     advanceToken(parser, &PARSE_DELIMITED_LIST_token);                         \
@@ -116,7 +116,7 @@ static void pushNewCommentScope(Parser *parser) {
   // We create the vector with zero capacity initially so that
   // allocation is deferred until we actually encounter a comment
   // Most scopes will not have a comment
-  Vector* v = VEC_PUSH(&parser->comments, Vector);
+  Vector *v = VEC_PUSH(&parser->comments, Vector);
   createWithCapacityVector(v, 10);
 }
 
@@ -125,16 +125,18 @@ Arena *releaseParser(Parser *pp) {
   return pp->ar;
 }
 
-// appends all members of the topmost comment scope on the stack to the second topmost member
+// appends all members of the topmost comment scope on the stack to the second
+// topmost member
 /// REQUIRES: `parser` is pointer to valid Parser
 /// REQUIRES: `parser` has 2 or more elements on the comment stack
-/// REQUIRES: the top 2 elements of `parser`'s comment stack are both valid vectors
-/// GUARANTEES: the top element of `parser`'s comment stack is removed
+/// REQUIRES: the top 2 elements of `parser`'s comment stack are both valid
+/// vectors GUARANTEES: the top element of `parser`'s comment stack is removed
 /// GUARANTEES: the secondmost element is now the top of the stack
-/// GUARANTEES: the new topmost element of the stack contains all comments from the old topmost member
+/// GUARANTEES: the new topmost element of the stack contains all comments from
+/// the old topmost member
 static void mergeCommentScope(Parser *parser) {
   Vector old_top = popCommentScope(parser);
-  Vector* new_top = VEC_PEEK(&parser->comments, Vector);
+  Vector *new_top = VEC_PEEK(&parser->comments, Vector);
 
   size_t old_len = lengthVector(&old_top);
   popVector(&old_top, pushVector(new_top, old_len), old_len);
@@ -417,11 +419,12 @@ static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser) {
       DK_BlockExpectedSemicolon,  // missing_spacer_error
       DK_BlockExpectedRightBrace, // missing_delimiter_error
       end,                        // end_lncol
-      parser                     // parser
+      parser                      // parser
   )
 
   bvep->blockExpr.statements_length = VEC_LEN(&statements, Stmnt);
-  bvep->blockExpr.statements = manageMemArena(parser->ar, releaseVector(&statements));
+  bvep->blockExpr.statements =
+      manageMemArena(parser->ar, releaseVector(&statements));
   bvep->span = SPAN(start, end);
   bvep->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
   bvep->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
@@ -621,7 +624,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser) {
       DK_MatchNoComma,      // missing_spacer_error
       DK_MatchNoRightBrace, // missing_delimiter_error
       end,                  // end_lncol
-      parser               // parser
+      parser                // parser
   )
 
   // Get interior cases
@@ -868,8 +871,8 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
       PARSE_DELIMITED_LIST(
           &args,                      // members_vec_ptr
           &diagnostics,               // diagnostics_vec_ptr
-          parseValueExpr,              // member_parse_function
-          ValueExpr,                   // member_kind
+          parseValueExpr,             // member_parse_function
+          ValueExpr,                  // member_kind
           &v.callExpr.trailing_comma, // trailing_spacer_ptr (will set to true
                                       // if last element is semicolon
           TK_Comma,      // spacer_token_kind (semicolon in block value expr)
@@ -877,7 +880,7 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
           DK_CallExpectedComma, // missing_spacer_error
           DK_CallExpectedParen, // missing_delimiter_error
           end,                  // end_lncol
-          parser               // parser
+          parser                // parser
       )
 
       v.callExpr.arguments_length = VEC_LEN(&args, ValueExpr);
@@ -904,7 +907,8 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
 
     Vector comments = popCommentScope(parser);
     currentTopLevel.comments_length = VEC_LEN(&comments, Comment);
-    currentTopLevel.comments = manageMemArena(parser->ar, releaseVector(&comments));
+    currentTopLevel.comments =
+        manageMemArena(parser->ar, releaseVector(&comments));
   }
 }
 
@@ -1263,7 +1267,7 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
       DK_StructExpectedComma,      // missing_spacer_error
       DK_StructExpectedRightBrace, // missing_delimiter_error
       end,                         // end_lncol
-      parser                      // parser
+      parser                       // parser
   )
 
   ste->structExpr.members_length = VEC_LEN(&members, Binding);
@@ -1346,7 +1350,7 @@ static void parseTupleTypeExpr(TypeExpr *tte, Parser *parser) {
       DK_TupleExpectedComma,      // missing_spacer_error
       DK_TupleExpectedRightParen, // missing_delimiter_error
       end,                        // end_lncol
-      parser                     // parser
+      parser                      // parser
   )
   tte->tupleExpr.members_length = VEC_LEN(&members, Binding);
   tte->tupleExpr.members = manageMemArena(parser->ar, releaseVector(&members));
@@ -1420,7 +1424,7 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
       DK_FnTypeExprExpectedComma,      // missing_spacer_error
       DK_FnTypeExprExpectedRightParen, // missing_delimiter_error
       end,                             // end_lncol
-      parser                          // parser
+      parser                           // parser
   )
 
   advanceToken(parser, &t);
@@ -1436,7 +1440,8 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
 
 CLEANUP_PARAMETERS:
   fte->fnExpr.parameters_length = VEC_LEN(&parameters, TypeExpr);
-  fte->fnExpr.parameters = manageMemArena(parser->ar, releaseVector(&parameters));
+  fte->fnExpr.parameters =
+      manageMemArena(parser->ar, releaseVector(&parameters));
 
 CLEANUP_DIAGNOSTICS:
   fte->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
@@ -1565,7 +1570,8 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
     }
     Vector comments = popCommentScope(parser);
     currentTopLevel.comments_length = VEC_LEN(&comments, Comment);
-    currentTopLevel.comments = manageMemArena(parser->ar, releaseVector(&comments));
+    currentTopLevel.comments =
+        manageMemArena(parser->ar, releaseVector(&comments));
   }
 }
 
@@ -1576,19 +1582,31 @@ static void parseTypeExpr(TypeExpr *tep, Parser *parser) {
 static void parseBinding(Binding *bp, Parser *parser) {
   // zero-initialize bp
   ZERO(bp);
-
-  // TODO need to patch this to the new style + add comment support
-  // This is why it will crash big time
-
   pushNewCommentScope(parser);
 
-  // these variables will be reused
   Token t;
+
+  // diagnostics
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  LnCol start;
+  LnCol end;
 
   // get identifier
   advanceToken(parser, &t);
-  EXPECT_TYPE(t, TK_Identifier, HANDLE_NO_IDENTIFIER);
+
   Span identitySpan = t.span;
+
+  start = identitySpan.start;
+
+  if(t.kind != TK_Identifier) {
+    bp->name = NULL;
+    diagnostic = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
+    end = identitySpan.end;
+    goto CLEANUP;
+  }
+
   bp->name = internArena(t.identifier, parser->ar);
 
   // check if colon
@@ -1597,31 +1615,33 @@ static void parseBinding(Binding *bp, Parser *parser) {
     // Get type of variable
     bp->type = allocArena(parser->ar, sizeof(TypeExpr));
     parseTypeExpr(bp->type, parser);
+    end = bp->type->span.end;
   } else {
+    end = identitySpan.end;
     // push back whatever
     setNextToken(parser, &t);
     bp->type = allocArena(parser->ar, sizeof(TypeExpr));
     bp->type->kind = TEK_Omitted;
     bp->type->span = identitySpan;
     bp->type->diagnostics_length = 0;
+    bp->type->comments_length = 0;
   }
 
-  bp->span = SPAN(identitySpan.start, bp->type->span.end);
-  bp->diagnostics_length = 0;
-  return;
+CLEANUP:
+  bp->span = SPAN(start, end);
 
-  // Error handling
-  // Set error, and give back the error causing thing
-  // Generally, we use the t token to find the last parsed token
+  if (diagnostic.kind != DK_Ok) {
+    bp->diagnostics_length = 1;
+    bp->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
+    bp->diagnostics[0] = diagnostic;
+  } else {
+    bp->diagnostics_length = 0;
+    bp->diagnostics = NULL;
+  }
 
-HANDLE_NO_IDENTIFIER:
-  // If it's not an identifier token, we must resync
-  bp->name = NULL;
-  bp->span = t.span;
-  bp->diagnostics_length = 1;
-  bp->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
-  bp->diagnostics[0] = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
-  resyncStmnt(parser);
+  Vector comments = popCommentScope(parser);
+  bp->comments_length = VEC_LEN(&comments, Comment);
+  bp->comments = manageMemArena(parser->ar, releaseVector(&comments));
   return;
 }
 
@@ -1706,7 +1726,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, Parser *parser) {
       DK_FnDeclStmntExpectedComma,      // missing_spacer_error
       DK_FnDeclStmntExpectedRightParen, // missing_delimiter_error
       end,                              // end_lncol
-      parser                           // parser
+      parser                            // parser
   )
 
   // Copy arguments in
@@ -1918,4 +1938,3 @@ static void parseTranslationUnit(TranslationUnit *tu, Parser *parser) {
 void parseTranslationUnitParser(Parser *pp, TranslationUnit *tu) {
   parseTranslationUnit(tu, pp);
 }
-

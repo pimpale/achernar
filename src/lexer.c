@@ -154,10 +154,9 @@ static void lexComment(Lexer *lexer, Token *token) {
       } else {
         break;
       }
-
-      *VEC_PUSH(&data, char) = '\0';
-      scope = manageMemArena(lexer->ar, releaseVector(&data));
     }
+    *VEC_PUSH(&data, char) = '\0';
+    scope = manageMemArena(lexer->ar, releaseVector(&data));
   }
 
   // Now we determine the type of comment as well as gather the comment data

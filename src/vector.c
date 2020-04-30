@@ -13,11 +13,11 @@
 // Ex. 1.5 -> 50% expansion each time the limit is hit
 #define LOAD_FACTOR 2
 
-void setSizeVector(Vector *vector, size_t size);
+void setCapacityVector(Vector *vector, size_t size);
 void resizeVector(Vector *vector, size_t size);
 
 // Sets the size of the vector
-void setSizeVector(Vector *vector, size_t size) {
+void setCapacityVector(Vector *vector, size_t size) {
   if(size == 0) {
     free(vector->data);
     vector->data = NULL;
@@ -31,14 +31,13 @@ void setSizeVector(Vector *vector, size_t size) {
 void resizeVector(Vector *vector, size_t size) {
   // This is the new size of the vector if we used the loadFactor
   size_t newCapacity = (size_t)((vector->length + size) * LOAD_FACTOR);
-  setSizeVector(vector, newCapacity);
+  setCapacityVector(vector, newCapacity);
 }
 
 Vector *createWithCapacityVector(Vector *vector, size_t initialCapacity) {
   vector->data = NULL;
   vector->length = 0;
-  vector->capacity = 0;
-  setSizeVector(vector, initialCapacity);
+  setCapacityVector(vector, initialCapacity);
   return vector;
 }
 
@@ -47,13 +46,13 @@ Vector *createVector(Vector *vector) {
 }
 
 Vector *destroyVector(Vector *vector) {
-  setSizeVector(vector, 0);
+  setCapacityVector(vector, 0);
   vector->length = 0;
   return vector;
 }
 
 void *releaseVector(Vector *vector) {
-  setSizeVector(vector, vector->length);
+  setCapacityVector(vector, vector->length);
   return vector->data;
 }
 
@@ -78,7 +77,6 @@ void popVector(Vector *vector, void *data, size_t len) {
   removeVector(vector, data, vector->length - len, len);
 }
 
-// Insert a segment of empty data of len length at the specified position loc
 void *insertVector(Vector *vector, size_t loc, size_t len) {
   if (vector->length + len >= vector->capacity) {
     resizeVector(vector, len);

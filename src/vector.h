@@ -98,13 +98,13 @@ size_t capacityVector(Vector *vec);
 
 // Macros to help work with vectors
 #define VEC_GET(vector, index, type)                                           \
-  ((type *)getVector(vector, index * sizeof(type)))
+  ((type *)getVector(vector, (index) * sizeof(type)))
 #define VEC_INS(vector, index, type)                                           \
-  ((type *)insertVector(vector, index * sizeof(type), sizeof(type)))
-#define VEC_REM(vector, data, index, type)                                           \
-  removeVector(vector, data, index * sizeof(type), sizeof(type))
-#define VEC_PUSH(vector, type) ((type *)pushVector(vector, sizeof(type)))
-#define VEC_POP(vector, data, type) popVector(vector, data, sizeof(type))
+  ((type *)insertVector((vector), (index) * sizeof(type), sizeof(type)))
+#define VEC_REM(vector, data, index, type)                                     \
+  removeVector((vector), (data), (index) * sizeof(type), sizeof(type))
+#define VEC_PUSH(vector, type) ((type *)pushVector((vector), sizeof(type)))
+#define VEC_POP(vector, data, type) popVector(vector, (data), sizeof(type))
 #define VEC_LEN(vector, type) (lengthVector(vector) / sizeof(type))
 
 #endif

@@ -78,6 +78,7 @@ static void advanceToken(Parser *pp, Token *t) {
           INTERNAL_ERROR("no scope to push comments to");
           PANIC();
         }
+
         Vector *current_scope = VEC_GET(&pp->comments, vec_len - 1, Vector);
 
         *VEC_PUSH(current_scope, Comment) =
@@ -86,6 +87,7 @@ static void advanceToken(Parser *pp, Token *t) {
                       .data = internArena(c.comment.comment, pp->ar)};
       } else {
         *t = c;
+        break;
       }
     }
   }
@@ -117,15 +119,17 @@ static Vector popCommentScope(Parser *parser) {
 /// REQUIRES: `parser` is pointer to valid Parser
 /// GUARANTEES: `parser`'s comment stack has new empty scope on top of stack
 static void pushNewCommentScope(Parser *parser) {
-  Vector v;
   // We create the vector with zero capacity initially so that
   // allocation is deferred until we actually encounter a comment
   // Most scopes will not have a comment
-  createWithCapacityVector(&v, 0);
-  *VEC_PUSH(&parser->comments, Vector) = v;
+  Vector* v = VEC_PUSH(&parser->comments, Vector);
+  createWithCapacityVector(v, 10);
 }
 
-Arena *releaseParser(Parser *pp) { return pp->ar; }
+Arena *releaseParser(Parser *pp) {
+  destroyVector(&pp->comments);
+  return pp->ar;
+}
 
 // Jump till after semicolon, taking into account parentheses, brackets,
 // attributes, and braces It will ignore subexprs, but can halt at the end
@@ -1831,17 +1835,15 @@ static void parseStmnt(Stmnt *sp, Parser *parser) {
     break;
   }
   }
+
   Vector comments = popCommentScope(parser);
   sp->comments_length = VEC_LEN(&comments, Comment);
   sp->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-void parseStatementParser(Parser *pp, Stmnt *s) {
-  parseStmnt(s, pp);
-}
+static void parseTranslationUnit(TranslationUnit *tu, Parser *parser) {
+  pushNewCommentScope(parser);
 
-/*
-void parseTranslationUnit(TranslationUnit *tu, Parser *parser) {
   Token t;
   Vector statements;
   createVector(&statements);
@@ -1880,10 +1882,18 @@ void parseTranslationUnit(TranslationUnit *tu, Parser *parser) {
   LnCol end = t.span.end;
 
   tu->statements_length = VEC_LEN(&statements, Stmnt);
-  tu->statements = manageMemArena(ar, releaseVector(&statements));
+  tu->statements = manageMemArena(parser->ar, releaseVector(&statements));
   tu->span = SPAN(LNCOL(0, 0), end);
   tu->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
-  tu->diagnostics = manageMemArena(ar, releaseVector(&diagnostics));
+  tu->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
+
+  Vector comments = popCommentScope(parser);
+  tu->comments_length = VEC_LEN(&comments, Comment);
+  tu->comments = manageMemArena(parser->ar, releaseVector(&comments));
   return;
 }
-*/
+
+void parseTranslationUnitParser(Parser *pp, TranslationUnit *tu) {
+  parseTranslationUnit(tu, pp);
+}
+

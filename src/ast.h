@@ -342,4 +342,18 @@ typedef struct Stmnt_s {
   };
 } Stmnt;
 
+typedef struct TranslationUnit_s {
+  Span span;               // span of the translation unit
+
+  Diagnostic *diagnostics; // any errors that occur during parsing
+  size_t diagnostics_length;
+
+  Stmnt *statements;          // The top level is just a series of statements
+  size_t statements_length; // The number of statements
+
+  Comment *comments;        // top level comments
+  size_t comments_length; // number of comments
+
+} TranslationUnit;
+
 #endif

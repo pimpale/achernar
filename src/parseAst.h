@@ -13,7 +13,7 @@ typedef struct Parser_s {
 } Parser;
 
 void createParser(Parser *pp, Lexer *lp, Arena* ar);
-void parseStatementParser(Parser *pp, Stmnt *s);
+void parseTranslationUnitParser(Parser *pp, TranslationUnit *tu);
 Arena* releaseParser(Parser* pp);
 
 #endif

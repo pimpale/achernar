@@ -210,10 +210,6 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "UnexpectedToken";
     break;
   }
-  case DK_SubcomponentFailedToParse: {
-    errmsg = "SubcomponentFailedToParse";
-    break;
-  }
   case DK_FieldAccessExpectedIdentifier: {
     errmsg = "FieldAccessExpectedIdentifier";
     break;

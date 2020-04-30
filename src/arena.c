@@ -111,7 +111,7 @@ void *allocAlignedArena(Arena *ar, size_t len, size_t alignment) {
   }
 
   // if len is larger than the default page size, we create a page specially
-  // allocated without using the currently active page
+  // allocated without touching the currently active page
   if (len >= DEFAULT_PAGE_SIZE) {
     ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
     createArenaPage(newPage, len, alignment);

@@ -73,13 +73,7 @@ static void advanceToken(Parser *pp, Token *t) {
       lexNextToken(pp->lexer, &c);
       if (c.kind == TK_Comment) {
         // Push a comment object to the vector on the top of the stack
-        size_t vec_len = VEC_LEN(&pp->comments, Vector);
-        if (vec_len == 0) {
-          INTERNAL_ERROR("no scope to push comments to");
-          PANIC();
-        }
-
-        Vector *current_scope = VEC_GET(&pp->comments, vec_len - 1, Vector);
+        Vector *current_scope = VEC_PEEK(&pp->comments, Vector);
 
         *VEC_PUSH(current_scope, Comment) =
             (Comment){.span = c.span,
@@ -129,6 +123,22 @@ static void pushNewCommentScope(Parser *parser) {
 Arena *releaseParser(Parser *pp) {
   destroyVector(&pp->comments);
   return pp->ar;
+}
+
+// appends all members of the topmost comment scope on the stack to the second topmost member
+/// REQUIRES: `parser` is pointer to valid Parser
+/// REQUIRES: `parser` has 2 or more elements on the comment stack
+/// REQUIRES: the top 2 elements of `parser`'s comment stack are both valid vectors
+/// GUARANTEES: the top element of `parser`'s comment stack is removed
+/// GUARANTEES: the secondmost element is now the top of the stack
+/// GUARANTEES: the new topmost element of the stack contains all comments from the old topmost member
+static void mergeCommentScope(Parser *parser) {
+  Vector old_top = popCommentScope(parser);
+  Vector* new_top = VEC_PEEK(&parser->comments, Vector);
+
+  size_t old_len = lengthVector(&old_top);
+  popVector(&old_top, pushVector(new_top, old_len), old_len);
+  destroyVector(&old_top);
 }
 
 // Jump till after semicolon, taking into account parentheses, brackets,
@@ -758,7 +768,6 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
 }
 
 static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
-
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
@@ -767,6 +776,7 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
   LnCol start = currentTopLevel.span.start;
 
   while (true) {
+    pushNewCommentScope(parser);
     Token t;
     advanceToken(parser, &t);
     switch (t.kind) {
@@ -885,11 +895,16 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
     }
     default: {
       // there are no more level 2 expressions
+      mergeCommentScope(parser);
       setNextToken(parser, &t);
       *l2 = currentTopLevel;
       return;
     }
     }
+
+    Vector comments = popCommentScope(parser);
+    currentTopLevel.comments_length = VEC_LEN(&comments, Comment);
+    currentTopLevel.comments = manageMemArena(parser->ar, releaseVector(&comments));
   }
 }
 
@@ -1488,6 +1503,8 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
   LnCol start = currentTopLevel.span.start;
 
   while (true) {
+    pushNewCommentScope(parser);
+
     Token t;
     advanceToken(parser, &t);
     switch (t.kind) {
@@ -1513,7 +1530,7 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
       currentTopLevel = te;
       break;
     }
-    case TK_FieldAccess: {
+    case TK_ScopeResolution: {
       TypeExpr te;
       te.kind = TEK_FieldAccess;
       te.fieldAccess.value = allocArena(parser->ar, sizeof(TypeExpr));
@@ -1529,22 +1546,26 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
         te.diagnostics_length = 1;
         te.diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
         te.diagnostics[0] =
-            DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier, te.span);
-        *l2 = te;
-        return;
+            DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier, t.span);
+
+      } else {
+        te.fieldAccess.field = internArena(t.identifier, parser->ar);
+        te.diagnostics_length = 0;
       }
-      te.fieldAccess.field = internArena(t.identifier, parser->ar);
-      te.diagnostics_length = 0;
       currentTopLevel = te;
       break;
     }
     default: {
       // there are no more level 2 expressions
+      mergeCommentScope(parser);
       setNextToken(parser, &t);
       *l2 = currentTopLevel;
       return;
     }
     }
+    Vector comments = popCommentScope(parser);
+    currentTopLevel.comments_length = VEC_LEN(&comments, Comment);
+    currentTopLevel.comments = manageMemArena(parser->ar, releaseVector(&comments));
   }
 }
 
@@ -1557,6 +1578,7 @@ static void parseBinding(Binding *bp, Parser *parser) {
   ZERO(bp);
 
   // TODO need to patch this to the new style + add comment support
+  // This is why it will crash big time
 
   pushNewCommentScope(parser);
 

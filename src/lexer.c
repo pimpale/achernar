@@ -617,7 +617,7 @@ CLEANUP:
   return;
 }
 
-// Parses an identifer or macro
+// Parses an identifer or macro or builtin
 static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
 
   LnCol start = lexer->position;
@@ -626,6 +626,8 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   createVector(&data);
 
   bool macro = false;
+
+  peekValueLexer(lexer);
 
   int32_t c;
   while ((c = peekValueLexer(lexer)) != EOF) {
@@ -671,8 +673,8 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->kind = TK_While;
   } else if (!strcmp(string, "with")) {
     token->kind = TK_With;
-  } else if (!strcmp(string, "for")) {
-    token->kind = TK_For;
+  } else if (!strcmp(string, "when")) {
+    token->kind = TK_When;
   } else if (!strcmp(string, "break")) {
     token->kind = TK_Break;
   } else if (!strcmp(string, "continue")) {
@@ -695,12 +697,6 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->kind = TK_TypeAlias;
   } else if (!strcmp(string, "void")) {
     token->kind = TK_Void;
-  } else if (!strcmp(string, "sizeof")) {
-    token->kind = TK_Sizeof;
-  } else if (!strcmp(string, "typeof")) {
-    token->kind = TK_Typeof;
-  } else if (!strcmp(string, "alignof")) {
-    token->kind = TK_Alignof;
   } else {
     // It is an identifier, and we need to keep the string
     token->kind = TK_Identifier;
@@ -710,6 +706,54 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   // If it wasn't an identifier
   token->error = DK_Ok;
 
+  return;
+}
+
+// Parses a builtin or an underscore token
+static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {
+  LnCol start = lexer->position;
+  // Skip first quote
+  int32_t c = nextValueLexer(lexer);
+  if (c != '\'') {
+    INTERNAL_ERROR(
+        "called builtin or underscore lexer where there wasn't an underscore");
+    PANIC();
+  }
+
+  c = peekValueLexer(lexer);
+  if (!isalpha(c)) {
+    *token = (Token){
+        .kind = TK_Underscore,
+        .span = SPAN(start, lexer->position),
+        .error = DK_Ok,
+    };
+    return;
+  }
+
+  Vector data;
+  createVector(&data);
+
+  while ((c = peekValueLexer(lexer)) != EOF) {
+    if (isalnum(c)) {
+      *VEC_PUSH(&data, char) = (char)c;
+      nextValueLexer(lexer);
+    } else {
+      break;
+    }
+  }
+
+  token->span = SPAN(start, lexer->position);
+
+  // Note that string length does not incude the trailing null byte
+  // Push null byte
+  *VEC_PUSH(&data, char) = '\0';
+  char *string = manageMemArena(lexer->ar, releaseVector(&data));
+
+  // If it wasn't an identifier
+  token->error = DK_Ok;
+  token->builtin = string;
+  token->kind = TK_Builtin;
+  token->span = SPAN(start, lexer->position);
   return;
 }
 
@@ -759,6 +803,10 @@ void lexNextToken(Lexer *lexer, Token *token) {
     }
     case '\"': {
       lexStringLiteral(lexer, token);
+      return;
+    }
+    case '_': {
+      lexBuiltinOrUnderscore(lexer, token);
       return;
     }
     case '#': {
@@ -956,9 +1004,7 @@ void lexNextToken(Lexer *lexer, Token *token) {
     case ';': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Semicolon)
     }
-    case '_': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Underscore)
-    }
+
     case EOF: {
       RESULT_TOKEN(TK_None, DK_EOF)
       return;

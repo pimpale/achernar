@@ -172,10 +172,6 @@ static JsonElem typeExprJson(TypeExpr *tep, Arena *ja) {
       unOpStr = "TEUOK_Deref";
       break;
     }
-    case TEUOK_Stream: {
-      unOpStr = "TEUOK_Stream";
-      break;
-    }
     }
     ptrs[4] = KVJson("operator", strJson(unOpStr));
     ptrs[5] = KVJson("operand", typeExprJson(tep->unaryOp.operand, ja));
@@ -315,19 +311,6 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
         KVJson("value", strJson(internArena(vep->stringLiteral.value, ja)));
     break;
   }
-  case VEK_ArrayLiteral: {
-    ptrs_len = 5;
-    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = KVJson("kind", strJson("VEK_ArrayLiteral"));
-    // Embed array
-    size_t len = vep->arrayLiteral.elements_length;
-    JsonElem *array = allocArena(ja, len * sizeof(JsonElem));
-    for (size_t i = 0; i < len; i++) {
-      array[i] = valueExprJson(&vep->arrayLiteral.elements[i], ja);
-    }
-    ptrs[4] = KVJson("elements", arrDefJson(array, len));
-    break;
-  }
   case VEK_StructLiteral: {
     ptrs_len = 4;
     ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
@@ -411,10 +394,6 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     }
     case VEBOK_CompGreaterEqual: {
       binOpStr = "VEBOK_CompGreaterEqual";
-      break;
-    }
-    case VEBOK_ArrayAccess: {
-      binOpStr = "VEBOK_ArrayAccess";
       break;
     }
     case VEBOK_Pipeline: {
@@ -530,13 +509,6 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("VEK_While"));
     ptrs[4] = KVJson("condition", valueExprJson(vep->ifExpr.condition, ja));
     ptrs[5] = KVJson("body", valueExprJson(vep->ifExpr.body, ja));
-    break;
-  }
-  case VEK_For: {
-    ptrs_len = 4;
-    ptrs = allocArena(ja, sizeof(JsonKV) * ptrs_len);
-    ptrs[0] = KVJson("kind", strJson("VEK_For"));
-    // TODO
     break;
   }
   case VEK_With: {

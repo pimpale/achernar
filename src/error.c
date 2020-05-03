@@ -22,6 +22,10 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "EOF";
     break;
   }
+  case DK_IfExpectedElse: {
+    errmsg = "IfExpectedElse";
+    break;
+  }
   case DK_UnrecognizedCharacter: {
     errmsg = "UnrecognizedCharacter";
     break;
@@ -192,10 +196,6 @@ char *strDiagnosticKind(DiagnosticKind dk) {
   }
   case DK_BlockExpectedRightBrace: {
     errmsg = "BlockExpectedRightBrace";
-    break;
-  }
-  case DK_ArrayAccessExpectedBracket: {
-    errmsg = "ArrayAccessExpectedBracket";
     break;
   }
   case DK_CallExpectedComma: {

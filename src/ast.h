@@ -23,14 +23,14 @@ typedef enum {
   VEK_FloatLiteral,
   VEK_CharLiteral,
   VEK_StringLiteral,
-  VEK_ArrayLiteral,
   VEK_StructLiteral,
   VEK_BinaryOp,
   VEK_UnaryOp,
   VEK_Call,
   VEK_If,
+  VEK_When,
+  VEK_Else,
   VEK_While,
-  VEK_For,
   VEK_With,
   VEK_Pass,
   VEK_Break,
@@ -38,7 +38,6 @@ typedef enum {
   VEK_Return,
   VEK_Match,
   VEK_Block,
-  VEK_Group,
   VEK_FieldAccess,
   VEK_Reference,
 } ValueExprKind;
@@ -48,7 +47,6 @@ typedef enum {
   TEK_Omitted,     // Omitted
   TEK_Void,        // void type
   TEK_Reference,   // Reference (primitive or aliased or path)
-  TEK_Typeof,      // typeof
   TEK_Struct,      // struct
   TEK_Tuple,       // tuple
   TEK_Fn,          // function pointer
@@ -99,9 +97,6 @@ typedef struct TypeExpr_s {
       Path *path;
     } referenceExpr;
     struct {
-      ValueExpr *value;
-    } typeofExpr;
-    struct {
       TypeExpr *members;
       size_t members_length;
       bool trailing_comma;
@@ -127,7 +122,6 @@ typedef struct TypeExpr_s {
       enum TypeExprUnaryOpKind_e {
         TEUOK_Ref,    // $
         TEUOK_Deref,  // @
-        TEUOK_Stream, // ..
       }
       operator;
       struct TypeExpr_s *operand;
@@ -240,7 +234,6 @@ typedef struct ValueExpr_s {
         VEBOK_CompLessEqual,    // <=
         VEBOK_CompGreater,      // >
         VEBOK_CompGreaterEqual, // >=
-        VEBOK_ArrayAccess,      // []
         VEBOK_Pipeline,         // ->
         VEBOK_Assign,           // =
         VEBOK_AssignAdd,        // +=
@@ -258,19 +251,16 @@ typedef struct ValueExpr_s {
     struct {
       ValueExpr *condition;
       ValueExpr *body;
-      bool has_else;
       ValueExpr *else_body;
     } ifExpr;
     struct {
       ValueExpr *condition;
       ValueExpr *body;
-    } whileExpr;
+    } whenExpr;
     struct {
-      ValueExpr *init;
       ValueExpr *condition;
-      ValueExpr *update;
       ValueExpr *body;
-    } forExpr;
+    } whileExpr;
     struct {
       ValueExpr *function;
       ValueExpr *arguments;
@@ -280,6 +270,9 @@ typedef struct ValueExpr_s {
     struct {
       ValueExpr *value;
     } returnExpr;
+    struct {
+      ValueExpr *value;
+    } breakExpr;
     struct Match_s {
       ValueExpr *value;
       struct MatchCaseExpr_s {
@@ -297,9 +290,6 @@ typedef struct ValueExpr_s {
       size_t cases_length;
       bool trailing_comma;
     } matchExpr;
-    struct Group_s {
-      ValueExpr *value;
-    } groupExpr;
     struct Block_s {
       Stmnt *statements;
       size_t statements_length;

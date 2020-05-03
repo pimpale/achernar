@@ -67,6 +67,8 @@ typedef enum {
   DK_FnTypeExprExpectedColon,
   // Groups
   DK_GroupExpectRightParen,
+  // If Expr
+  DK_IfExpectedElse,
   // MatchCase
   DK_MatchCaseNoColon,
   // Match
@@ -76,8 +78,6 @@ typedef enum {
   // Block
   DK_BlockExpectedSemicolon,
   DK_BlockExpectedRightBrace,
-  // Array Access
-  DK_ArrayAccessExpectedBracket,
   // Fn Calls
   DK_CallExpectedComma,
   DK_CallExpectedParen,

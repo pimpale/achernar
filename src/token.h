@@ -15,8 +15,8 @@ typedef enum {
   // Keywords
   TK_If,        // if
   TK_Else,      // else
+  TK_When,      // when
   TK_While,     // while
-  TK_For,       // for
   TK_With,      // with
   TK_Match,     // match
   TK_Break,     // break
@@ -29,10 +29,6 @@ typedef enum {
   TK_Union,     // union
   TK_Enum,      // enum
   TK_TypeAlias, // type
-  TK_Void,      // type
-  TK_Typeof,    // typeof
-  TK_Sizeof,    // sizeof
-  TK_Alignof,   // alignof
   // Literals and constants
   TK_BoolLiteral,   // true | false
   TK_StringLiteral, // "string"
@@ -81,6 +77,7 @@ typedef enum {
   // Scope resolution
   TK_ScopeResolution, // ::
   // Other Miscellaneous Operator Things
+  TK_Void,         // is both type and value
   TK_ParenLeft,    // (
   TK_ParenRight,   // )
   TK_BracketLeft,  // [
@@ -92,10 +89,11 @@ typedef enum {
   TK_Colon,        // :
   TK_Semicolon,    // ;
   TK_Underscore,   // _
-  // Macros
+  // Macros and Builtins
   TK_Macro, // macro!
+  TK_Builtin, // _builtin
   // Comments, and Attributes
-  TK_Comment,    // #[ comment ]# and # comment
+  TK_Comment,    // #{ comment }# and # comment
 } TokenKind;
 
 typedef struct Token_s {
@@ -108,6 +106,7 @@ typedef struct Token_s {
   union {
     char *identifier;
     char *macro;
+    char *builtin;
     struct {
       char *comment;
       char *scope;

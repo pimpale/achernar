@@ -77,7 +77,6 @@ typedef enum {
 
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
-typedef struct Binding_s Binding;
 typedef struct Stmnt_s Stmnt;
 typedef struct Pattern_s Pattern;
 
@@ -176,9 +175,21 @@ typedef struct TypeExpr_s {
         TESK_Union,
         TESK_Enum,
       } kind;
-      Binding *members;
-      size_t members_length;
-      bool trailing_comma;
+
+      struct {
+        Span span;
+        Diagnostic *diagnostics;
+        size_t diagnostics_length;
+
+        // comments
+        Comment *comments;
+        size_t comments_length;
+
+        char *name;
+        ValueExpr *value;
+      } * entries;
+      size_t entries_length;
+      bool trailing_semicolon;
     } structExpr;
     struct {
       TypeExpr *parameters;
@@ -208,21 +219,6 @@ typedef struct TypeExpr_s {
     } fieldAccess;
   };
 } TypeExpr;
-
-// Represents var:Type
-typedef struct Binding_s {
-  Span span;
-  Diagnostic *diagnostics;
-  size_t diagnostics_length;
-
-  // comments
-  Comment *comments;
-  size_t comments_length;
-
-  // Elements
-  char *name;
-  TypeExpr *type;
-} Binding;
 
 typedef struct ValueExpr_s {
   ValueExprKind kind;
@@ -267,6 +263,7 @@ typedef struct ValueExpr_s {
         ValueExpr *value;
       } * entries;
       size_t entries_length;
+      bool trailing_semicolon;
     } structLiteral;
     struct {
       ValueExpr *value;

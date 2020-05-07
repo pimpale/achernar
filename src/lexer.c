@@ -847,7 +847,7 @@ void lexNextToken(Lexer *lexer, Token *token) {
       // ! or !=
       switch (peekValueLexer(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_NotEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_CompNotEqual)
       }
       default: {
         RETURN_RESULT_TOKEN(TK_Not)
@@ -856,10 +856,13 @@ void lexNextToken(Lexer *lexer, Token *token) {
     }
     case '=': {
       nextValueLexer(lexer);
-      // = or ==
+      // = or == or =>
       switch (peekValueLexer(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_Equal)
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_CompEqual)
+      }
+      case '>': {
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_Arrow)
       }
       default: {
         RETURN_RESULT_TOKEN(TK_Assign)

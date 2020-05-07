@@ -77,8 +77,8 @@ typedef enum {
 
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
+typedef struct PatternExpr_s PatternExpr;
 typedef struct Stmnt_s Stmnt;
-typedef struct Pattern_s Pattern;
 
 typedef struct Comment_s {
   Span span;
@@ -86,13 +86,17 @@ typedef struct Comment_s {
   char *data;
 } Comment;
 
-typedef struct Pattern_s {
+typedef struct PatternExpr_s {
   PatternExprKind kind;
   Span span;
 
   // diagnostics
   Diagnostic *diagnostics;
   size_t diagnostics_length;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
 
   bool has_binding;
   char* binding;
@@ -101,12 +105,12 @@ typedef struct Pattern_s {
     struct {
       PatternExprValueRestrictionKind restriction;
       ValueExpr* value;
-    } literalRestriction;
+    } valueRestriction;
     struct {
       TypeExpr* type;
     } typeRestriction;
     struct {
-      Pattern* patterns;
+      PatternExpr* patterns;
       size_t patterns_length;
     } structWrapper;
     struct {
@@ -123,18 +127,18 @@ typedef struct Pattern_s {
       enum PatternExprUnaryOperatorKind_e {
         PEUOK_Group,
       } operator;
-      Pattern* operand;
+      PatternExpr* operand;
     } unaryOperator;
     struct {
       enum PatternExprBinaryOperatorKind_e {
         PEBOK_Product,
         PEBOK_Sum,
       } operator;
-      Pattern* operand1;
-      Pattern* operand2;
+      PatternExpr* left_operand;
+      PatternExpr* right_operand;
     } binaryOperator;
   };
-} Pattern;
+} PatternExpr;
 
 
 typedef struct Path_s {
@@ -211,7 +215,8 @@ typedef struct TypeExpr_s {
         TEBOK_Sum,        // |
       }
       operator;
-      struct TypeExpr_s *operand;
+      struct TypeExpr_s *left_operand;
+      struct TypeExpr_s *right_operand;
     } binaryOp;
     struct {
       struct TypeExpr_s *value;

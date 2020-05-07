@@ -53,8 +53,8 @@ typedef enum {
   TK_ShiftLeft,  // <<
   TK_ShiftRight, // >>
   // Comparison and Equality
-  TK_Equal,            // ==
-  TK_NotEqual,         // !=
+  TK_CompEqual,        // ==
+  TK_CompNotEqual,     // !=
   TK_CompLess,         // <
   TK_CompLessEqual,    // <=
   TK_CompGreater,      // >
@@ -64,7 +64,6 @@ typedef enum {
   TK_Deref,   // @
   TK_Stream,  // ..
   // Assignment
-  TK_Define,       // :=
   TK_Assign,       // =
   TK_AssignAdd,    // +=
   TK_AssignSub,    // -=
@@ -73,8 +72,9 @@ typedef enum {
   TK_AssignMod,    // %=
   TK_AssignBitAnd, // &=
   TK_AssignBitOr,  // |=
-  // Pipelines
+  // Arrowish
   TK_Pipe, // ->
+  TK_Arrow, // =>
   // Scope resolution
   TK_ScopeResolution, // ::
   // Other Miscellaneous Operator Things

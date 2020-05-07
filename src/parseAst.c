@@ -213,7 +213,7 @@ static void resyncStmnt(Parser *parser) {
 static void parseStmnt(Stmnt *sp, Parser *parser);
 static void parseValueExpr(ValueExpr *vep, Parser *parser);
 static void parseTypeExpr(TypeExpr *tep, Parser *parser);
-static void parsePattern(Pattern *pp, Parser *parser);
+static void parsePattern(PatternExpr *pp, Parser *parser);
 
 static void parsePath(Path *pp, Parser *parser) {
   // start comment scope
@@ -1097,11 +1097,11 @@ static void parseL7ValueExpr(ValueExpr *l7, Parser *parser) {
     l7->binaryOp.operator= VEBOK_CompGreaterEqual;
     break;
   }
-  case TK_Equal: {
+  case TK_CompEqual: {
     l7->binaryOp.operator= VEBOK_CompEqual;
     break;
   }
-  case TK_NotEqual: {
+  case TK_CompNotEqual: {
     l7->binaryOp.operator= VEBOK_CompNotEqual;
     break;
   }
@@ -1271,8 +1271,8 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
 
   EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
-  Vector members;
-  createVector(&members);
+  Vector entries;
+  createVector(&entries);
 
   Vector diagnostics;
   createVector(&diagnostics);
@@ -1280,13 +1280,13 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
   LnCol end;
 
   PARSE_DELIMITED_LIST(
-      &members,                        // members_vec_ptr
-      &diagnostics,                    // diagnostics_vec_ptr
-      parseBinding,                    // member_parse_function
-      Binding,                         // member_kind
-      &ste->structExpr.trailing_comma, // trailing_spacer_ptr (will set to true
-                                       // if last element is semicolon)
-      TK_Comma,      // spacer_token_kind (semicolon in block value expr)
+      &entries,                            // members_vec_ptr
+      &diagnostics,                        // diagnostics_vec_ptr
+      parseBinding,                        // member_parse_function
+      Binding,                             // member_kind
+      &ste->structExpr.trailing_semicolon, // trailing_spacer_ptr (will set to
+                                           // true if last element is semicolon)
+      TK_Semicolon,  // spacer_token_kind (semicolon in block value expr)
       TK_BraceRight, // delimiting_token_kind
       DK_StructExpectedComma,      // missing_spacer_error
       DK_StructExpectedRightBrace, // missing_delimiter_error
@@ -1294,16 +1294,16 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
       parser                       // parser
   )
 
-  ste->structExpr.members_length = VEC_LEN(&members, Binding);
-  ste->structExpr.members = manageMemArena(parser->ar, releaseVector(&members));
+  ste->structExpr.entries_length = VEC_LEN(&entries, Binding);
+  ste->structExpr.entries = manageMemArena(parser->ar, releaseVector(&entries));
   ste->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
   ste->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
   ste->span = SPAN(start, end);
   return;
 
 HANDLE_NO_LEFTBRACE:
-  ste->structExpr.members_length = 0;
-  ste->structExpr.members = NULL;
+  ste->structExpr.entries_length = 0;
+  ste->structExpr.entries = NULL;
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 1;
   ste->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
@@ -1323,50 +1323,6 @@ static void parseReferenceTypeExpr(TypeExpr *rtep, Parser *parser) {
   parsePath(rtep->referenceExpr.path, parser);
   rtep->diagnostics_length = 0;
   rtep->span = rtep->referenceExpr.path->span;
-}
-
-static void parseTupleTypeExpr(TypeExpr *tte, Parser *parser) {
-  ZERO(tte);
-  tte->kind = TEK_Tuple;
-
-  Token t;
-  advanceToken(parser, &t);
-  LnCol start = t.span.start;
-  EXPECT_TYPE(t, TK_ParenLeft, HANDLE_NO_LEFTPAREN);
-
-  Vector members;
-  createVector(&members);
-
-  Vector diagnostics;
-  createVector(&diagnostics);
-
-  LnCol end;
-
-  PARSE_DELIMITED_LIST(
-      &members,                       // members_vec_ptr
-      &diagnostics,                   // diagnostics_vec_ptr
-      parseTypeExpr,                  // member_parse_function
-      TypeExpr,                       // member_kind
-      &tte->tupleExpr.trailing_comma, // trailing_spacer_ptr (will set to true
-                                      // if last element is semicolon
-      TK_Comma,      // spacer_token_kind (semicolon in block value expr)
-      TK_ParenRight, // delimiting_token_kind
-      DK_TupleExpectedComma,      // missing_spacer_error
-      DK_TupleExpectedRightParen, // missing_delimiter_error
-      end,                        // end_lncol
-      parser                      // parser
-  )
-  tte->tupleExpr.members_length = VEC_LEN(&members, Binding);
-  tte->tupleExpr.members = manageMemArena(parser->ar, releaseVector(&members));
-  tte->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
-  tte->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
-  tte->span = SPAN(start, end);
-  return;
-
-HANDLE_NO_LEFTPAREN:
-  INTERNAL_ERROR("called tuple type expression parser where there was no "
-                 "tuple");
-  PANIC();
 }
 
 static void parseVoidTypeExpr(TypeExpr *vte, Parser *parser) {
@@ -1579,36 +1535,122 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
   }
 }
 
+static void parseL3TypeExpr(TypeExpr *l3, Parser *parser) {
+  TypeExpr ty;
+  parseL2TypeExpr(&ty, parser);
+
+  pushNewCommentScope(parser);
+
+  Token t;
+  advanceToken(parser, &t);
+  switch (t.kind) {
+  case TK_Comma: {
+    l3->binaryOp.operator= TEBOK_Product;
+    break;
+  }
+  case TK_BitOr: {
+    l3->binaryOp.operator= TEBOK_Sum;
+    break;
+  }
+  default: {
+    // there is no level 3 expression
+    mergeCommentScope(parser);
+    setNextToken(parser, &t);
+    *l3 = ty;
+    return;
+  }
+  }
+
+  l3->kind = TEK_BinaryOp;
+  l3->binaryOp.left_operand = allocArena(parser->ar, sizeof(ValueExpr));
+  *l3->binaryOp.left_operand = ty;
+  l3->binaryOp.right_operand = allocArena(parser->ar, sizeof(ValueExpr));
+  parseL2TypeExpr(l3->binaryOp.right_operand, parser);
+  l3->span = SPAN(l3->binaryOp.left_operand->span.start,
+                  l3->binaryOp.right_operand->span.end);
+  l3->diagnostics_length = 0;
+
+  Vector comments = popCommentScope(parser);
+  l3->comments_length = VEC_LEN(&comments, Comment);
+  l3->comments = manageMemArena(parser->ar, releaseVector(&comments));
+  return;
+}
+
+
+
 static void parseTypeExpr(TypeExpr *tep, Parser *parser) {
-  parseL2TypeExpr(tep, parser);
+  parseL3TypeExpr(tep, parser);
 }
 
-static void parseStructPatternExpr(Pattern *l1, Parser *parser) {
+static void parseValueRestrictPatternExpr(PatternExpr *vrpe, Parser *parser) {
+  ZERO(vrpe);
+
+  Token t;
+  advanceToken(parser, &t);
+  switch (t.kind) {
+  case TK_CompEqual: {
+    vrpe->valueRestriction.restriction = PEVRK_CompEqual;
+    break;
+  }
+  case TK_CompNotEqual: {
+    vrpe->valueRestriction.restriction = PEVRK_CompNotEqual;
+    break;
+  }
+  case TK_CompGreaterEqual: {
+    vrpe->valueRestriction.restriction = PEVRK_CompGreaterEqual;
+    break;
+  }
+  case TK_CompGreater: {
+    vrpe->valueRestriction.restriction = PEVRK_CompGreater;
+    break;
+  }
+  case TK_CompLess: {
+    vrpe->valueRestriction.restriction = PEVRK_CompLess;
+    break;
+  }
+  case TK_CompLessEqual: {
+    vrpe->valueRestriction.restriction = PEVRK_CompLessEqual;
+    break;
+  }
+  default: {
+    INTERNAL_ERROR("called value restrict pattern expr parser where there was "
+                   "no value restrict pattern");
+    PANIC();
+  }
+  }
+
+  vrpe->valueRestriction = 
 
 }
 
-static void parseL1PatternExpr(Pattern *l1, Parser *parser) {
+static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
+  // TODO
+}
+
+static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {
   // TODO  convert for patterns
   pushNewCommentScope(parser);
   Token t;
   advanceToken(parser, &t);
   switch (t.kind) {
-  case TK_Identifier: {
-    setNextToken(parser, &t);
-    parseReferenceTypeExpr(l1, parser);
-    return;
-  }
-  case TK_Enum:
-  case TK_Pack:
-  case TK_Union:
   case TK_Struct: {
     setNextToken(parser, &t);
-    parseStructTypeExpr(l1, parser);
+    parseStructPatternExpr(l1, parser);
+    return;
+  }
+  case TK_CompEqual:
+  case TK_CompNotEqual:
+  case TK_CompGreaterEqual:
+  case TK_CompGreater:
+  case TK_CompLess:
+  case TK_CompLessEqual: {
+    setNextToken(parser, &t);
+    parseValueRestrictPattern(l1, parser);
     break;
   }
-  case TK_ParenLeft: {
+  case TK_BraceLeft: {
     setNextToken(parser, &t);
-    parseTupleTypeExpr(l1, parser);
+    parseGroup(l1, parser);
     break;
   }
   case TK_Void: {
@@ -1638,7 +1680,7 @@ static void parseL1PatternExpr(Pattern *l1, Parser *parser) {
   l1->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-static void parseL2PatternExpr(Pattern *l2, Parser *parser) {
+static void parseL2PatternExpr(PatternExpr *l2, Parser *parser) {
   parseL1PatternExpr
 }
 

@@ -213,7 +213,7 @@ static void resyncStmnt(Parser *parser) {
 static void parseStmnt(Stmnt *sp, Parser *parser);
 static void parseValueExpr(ValueExpr *vep, Parser *parser);
 static void parseTypeExpr(TypeExpr *tep, Parser *parser);
-static void parseBinding(Binding *bp, Parser *parser);
+static void parsePattern(Pattern *pp, Parser *parser);
 
 static void parsePath(Path *pp, Parser *parser) {
   // start comment scope
@@ -1583,7 +1583,66 @@ static void parseTypeExpr(TypeExpr *tep, Parser *parser) {
   parseL2TypeExpr(tep, parser);
 }
 
-static void parseBinding(Binding *bp, Parser *parser) {
+static void parseStructPatternExpr(Pattern *l1, Parser *parser) {
+
+}
+
+static void parseL1PatternExpr(Pattern *l1, Parser *parser) {
+  // TODO  convert for patterns
+  pushNewCommentScope(parser);
+  Token t;
+  advanceToken(parser, &t);
+  switch (t.kind) {
+  case TK_Identifier: {
+    setNextToken(parser, &t);
+    parseReferenceTypeExpr(l1, parser);
+    return;
+  }
+  case TK_Enum:
+  case TK_Pack:
+  case TK_Union:
+  case TK_Struct: {
+    setNextToken(parser, &t);
+    parseStructTypeExpr(l1, parser);
+    break;
+  }
+  case TK_ParenLeft: {
+    setNextToken(parser, &t);
+    parseTupleTypeExpr(l1, parser);
+    break;
+  }
+  case TK_Void: {
+    setNextToken(parser, &t);
+    parseVoidTypeExpr(l1, parser);
+    break;
+  }
+  case TK_Function: {
+    setNextToken(parser, &t);
+    parseFnTypeExpr(l1, parser);
+    break;
+  }
+  default: {
+    l1->kind = TEK_None;
+    l1->span = t.span;
+    l1->diagnostics_length = 1;
+    l1->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
+    l1->diagnostics[0] = DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
+    // Resync
+    resyncStmnt(parser);
+    break;
+  }
+  }
+
+  Vector comments = popCommentScope(parser);
+  l1->comments_length = VEC_LEN(&comments, Comment);
+  l1->comments = manageMemArena(parser->ar, releaseVector(&comments));
+}
+
+static void parseL2PatternExpr(Pattern *l2, Parser *parser) {
+  parseL1PatternExpr
+}
+
+static void parsePatternExpr(Pattern *pp, Parser *parser) {
   // zero-initialize bp
   ZERO(bp);
   pushNewCommentScope(parser);

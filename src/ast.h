@@ -186,7 +186,7 @@ typedef struct TypeExpr_s {
         size_t comments_length;
 
         char *name;
-        ValueExpr *value;
+        TypeExpr *type;
       } * entries;
       size_t entries_length;
       bool trailing_semicolon;
@@ -382,14 +382,12 @@ typedef struct Stmnt_s {
   union {
     struct {
       char *name;
-      Binding *params;
-      size_t params_length;
-      bool params_trailing_comma;
+      Pattern *params;
       TypeExpr *type;
       ValueExpr *body;
     } fnDecl;
     struct {
-      Binding *binding;
+      Pattern *pattern;
       ValueExpr *value;
     } varDecl;
     struct {

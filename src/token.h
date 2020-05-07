@@ -64,6 +64,7 @@ typedef enum {
   TK_Deref,   // @
   TK_Stream,  // ..
   // Assignment
+  TK_Define,       // :=
   TK_Assign,       // =
   TK_AssignAdd,    // +=
   TK_AssignSub,    // -=

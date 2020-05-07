@@ -48,22 +48,95 @@ typedef enum {
   TEK_Void,        // void type
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Struct,      // struct
-  TEK_Tuple,       // tuple
   TEK_Fn,          // function pointer
   TEK_UnaryOp,     // $ or @
+  TEK_BinaryOp,    // , or |
   TEK_FieldAccess, // .
 } TypeExprKind;
+
+typedef enum PatternExprValueRestrictionKind_e {
+  PEVRK_CompEqual,        // ==
+  PEVRK_CompNotEqual,     // !=
+  PEVRK_CompLess,         // <
+  PEVRK_CompLessEqual,    // <=
+  PEVRK_CompGreater,      // >
+  PEVRK_CompGreaterEqual, // >=
+} PatternExprValueRestrictionKind;
+
+typedef enum {
+  PEK_None, // Error type
+  PEK_ValueRestriction, // matches a value, and optionally binds it
+  PEK_TypeRestriction, // matches a type, and optionally binds it (this is also the one used for wildcards)
+  PEK_StructWrapper, // a container for struct based patterns
+  PEK_StructValueRestriction, // (in struct) by name matches a value to a literal
+  PEK_StructTypeRestriction, // (in struct) by name matches a value to a type
+  PEK_StructRest,            // (in struct) all values that were not matched
+  PEK_UnaryOp,  // ()
+  PEK_BinaryOp, // , |
+} PatternExprKind;
 
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValueExpr_s ValueExpr;
 typedef struct Binding_s Binding;
 typedef struct Stmnt_s Stmnt;
+typedef struct Pattern_s Pattern;
 
 typedef struct Comment_s {
   Span span;
   char *scope;
   char *data;
 } Comment;
+
+typedef struct Pattern_s {
+  PatternExprKind kind;
+  Span span;
+
+  // diagnostics
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
+
+  bool has_binding;
+  char* binding;
+
+  union {
+    struct {
+      PatternExprValueRestrictionKind restriction;
+      ValueExpr* value;
+    } literalRestriction;
+    struct {
+      TypeExpr* type;
+    } typeRestriction;
+    struct {
+      Pattern* patterns;
+      size_t patterns_length;
+    } structWrapper;
+    struct {
+      PatternExprValueRestrictionKind restriction;
+      char* field;
+      ValueExpr* value;
+    } structValueRestriction;
+    struct {
+      TypeExpr* type;
+      char* field;
+      ValueExpr* value;
+    } structTypeRestriction;
+    struct {
+      enum PatternExprUnaryOperatorKind_e {
+        PEUOK_Group,
+      } operator;
+      Pattern* operand;
+    } unaryOperator;
+    struct {
+      enum PatternExprBinaryOperatorKind_e {
+        PEBOK_Product,
+        PEBOK_Sum,
+      } operator;
+      Pattern* operand1;
+      Pattern* operand2;
+    } binaryOperator;
+  };
+} Pattern;
+
 
 typedef struct Path_s {
   Span span;
@@ -97,11 +170,6 @@ typedef struct TypeExpr_s {
       Path *path;
     } referenceExpr;
     struct {
-      TypeExpr *members;
-      size_t members_length;
-      bool trailing_comma;
-    } tupleExpr;
-    struct {
       enum TypeExprStructKind_e {
         TESK_Struct,
         TESK_Pack,
@@ -127,12 +195,21 @@ typedef struct TypeExpr_s {
       struct TypeExpr_s *operand;
     } unaryOp;
     struct {
+      enum TypeExprBinaryOpKind_e {
+        TEBOK_Product,    // ,
+        TEBOK_Sum,        // |
+      }
+      operator;
+      struct TypeExpr_s *operand;
+    } binaryOp;
+    struct {
       struct TypeExpr_s *value;
       char *field;
     } fieldAccess;
   };
 } TypeExpr;
 
+// Represents var:Type
 typedef struct Binding_s {
   Span span;
   Diagnostic *diagnostics;
@@ -176,10 +253,6 @@ typedef struct ValueExpr_s {
       char *value;
       size_t value_length;
     } stringLiteral;
-    struct {
-      ValueExpr *elements;
-      size_t elements_length;
-    } arrayLiteral;
     struct {
       struct {
         Span span;

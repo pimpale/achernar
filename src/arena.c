@@ -183,7 +183,7 @@ void* manageMemArena(Arena *ar, void *ptr) {
   return ptr;
 }
 
-char* internArena(char* str, Arena *ar) {
+char* internArena(Arena *ar, char *str) {
   if(str == NULL) {
     return NULL;
   } else {

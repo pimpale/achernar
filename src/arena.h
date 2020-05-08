@@ -63,6 +63,10 @@ void* manageMemArena(Arena* ar, void* ptr);
 /// REQUIRES: `str` is a pointer to a valid null terminated string or NULL
 /// GUARANTEES: if `str` is NULL, will return NULL
 /// GUARANTEES: returns a pointer to a duplicated string allocated within `ar`
-char* internArena(char* str, Arena *ar);
+char* internArena(Arena *ar, char* str);
+
+// Created this macro for type safety
+#define RALLOC(arena, type) RALLOC_ARR(arena, type, 1)
+#define RALLOC_ARR(arena, type, n) (type*) allocArena((arena), ((n)*sizeof(type)))
 
 #endif

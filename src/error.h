@@ -42,22 +42,22 @@ typedef enum {
   // StructMemberLiteralExpr
   DK_StructMemberLiteralExpectedValue,
   DK_StructMemberLiteralExpectedIdentifier,
+  // FnValueExpr
+  DK_FnValueExprExpectedRightParen,
+  DK_FnValueExprExpectedLeftParen,
+  DK_FnValueExprExpectedArrow,
   // TypeExpr
   DK_TypeExprUnexpectedToken,
   DK_TypeExprFieldAccessExpectedIdentifier,
   // VarDeclStmnt
   DK_VarDeclStmntExpectedAssign,
   DK_VarDeclStmntExpectedValue,
-  // TypeAlias
-  DK_TypeAliasExpectedIdentifier,
-  DK_TypeAliasExpectedAssign,
+  // TypeDeclStmnt
+  DK_TypeDeclStmntExpectedIdentifier,
+  DK_TypeDeclStmntExpectedAssign,
   // StructTypeExpr
   DK_StructExpectedLeftBrace,
   DK_StructExpectedRightBrace,
-  // FnDeclStmnt
-  DK_FnDeclStmntExpectedRightParen,
-  DK_FnDeclStmntExpectedLeftParen,
-  DK_FnDeclStmntExpectedArrow,
   // FnTypeExpr
   DK_FnTypeExprExpectedLeftParen,
   DK_FnTypeExprExpectedRightParen,

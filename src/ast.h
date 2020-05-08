@@ -201,7 +201,7 @@ typedef struct TypeExpr_s {
     } structExpr;
     struct {
       TypeExpr *parameters;
-      TypeExpr *result;
+      TypeExpr *type;
     } fnExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
@@ -387,14 +387,7 @@ typedef struct Stmnt_s {
   // comments
   Comment *comments;
   size_t comments_length;
-
   union {
-    struct {
-      char *name;
-      PatternExpr *parameters;
-      TypeExpr *type;
-      ValueExpr *body;
-    } fnDecl;
     struct {
       PatternExpr *pattern;
       ValueExpr *value;
@@ -402,7 +395,7 @@ typedef struct Stmnt_s {
     struct {
       TypeExpr *type;
       char *name;
-    } typeAliasStmnt;
+    } typeDecl;
     struct {
       ValueExpr *value;
     } exprStmnt;

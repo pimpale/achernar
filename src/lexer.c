@@ -111,7 +111,7 @@ static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
     } else if (isdigit(c)) {
       digit_value = (uint64_t)(c - '0');
     } else {
-      return DK_UnrecognizedCharacter;
+      return DK_IntLiteralUnknownCharacter;
     }
 
     // If you put something higher than is requested
@@ -970,7 +970,7 @@ void lexNextToken(Lexer *lexer, Token *token) {
       nextValueLexer(lexer);
       switch (peekValueLexer(lexer)) {
       case '.': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_Stream)
+        NEXT_AND_RETURN_RESULT_TOKEN(TK_Rest)
       }
       default: {
         RETURN_RESULT_TOKEN(TK_FieldAccess)

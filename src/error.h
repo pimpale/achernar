@@ -13,12 +13,14 @@ typedef enum {
   DK_Ok,
   // unknown error
   DK_Unknown,
-  // EOF error
-  DK_EOF,
   // Generic Lexing Errors
+  DK_EOF,
+  DK_UnrecognizedCharacter,
+  // Integer literals
   DK_IntLiteralUnrecognizedRadixCode,
   DK_IntLiteralDigitExceedsRadix,
   DK_IntLiteralOverflow,
+  DK_IntLiteralUnknownCharacter,
   // Float Literals
   DK_FloatLiteralDigitExceedsRadix,
   DK_FloatLiteralExceedsMaxPrecision,
@@ -51,6 +53,9 @@ typedef enum {
   DK_TypeExprFieldAccessExpectedIdentifier,
   // PatternExprs
   DK_PatternGroupExpectedRightBrace,
+  DK_PatternStructExpectedRightBrace,
+  DK_PatternStructExpectedIdentifier,
+  DK_PatternStructExpectedAssignForTypeRestriction,
   // VarDeclStmnt
   DK_VarDeclStmntExpectedAssign,
   DK_VarDeclStmntExpectedValue,

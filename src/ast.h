@@ -68,10 +68,10 @@ typedef enum {
   PEK_ValueRestriction, // matches a value, and optionally binds it
   PEK_TypeRestriction,  // matches a type, and optionally binds it (this is also
                         // the one used for wildcards)
-  PEK_Struct,    // a container for struct based patterns
-  PEK_StructRest,             // (in struct) all values that were not matched
-  PEK_UnaryOp,                // ()
-  PEK_BinaryOp,               // , |
+  PEK_Struct,           // a container for struct based patterns
+  PEK_StructRest,       // (in struct) all values that were not matched
+  PEK_UnaryOp,          // ()
+  PEK_BinaryOp,         // , |
 } PatternExprKind;
 
 typedef struct TypeExpr_s TypeExpr;
@@ -115,22 +115,24 @@ typedef struct PatternExpr_s {
       } kind;
 
       struct PatternExprStructMemberExpr_s {
+        enum PatternExprStructMemberExprKind_e {
+          PESMEK_Field,
+          PESMEK_Rest,
+        } kind;
         Span span;
         Diagnostic *diagnostics;
         size_t diagnostics_length;
-
         // comments
         Comment *comments;
         size_t comments_length;
-
-        char *name;
+        char *field_name;
         PatternExpr *pattern;
       } * members;
       size_t members_length;
     } structExpr;
     struct {
-        bool has_bindings;
-        char *binding;
+      bool has_bindings;
+      char *binding;
     } structRest;
     struct {
       enum PatternExprUnaryOperatorKind_e {

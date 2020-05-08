@@ -417,8 +417,14 @@ static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser) {
 
   Token t;
   advanceToken(parser, &t);
+
+  if (t.kind != TK_BraceLeft) {
+    INTERNAL_ERROR(
+        "called a block expresion parser where there was no leftbrace");
+    PANIC();
+  }
+
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
   // Create list of statements
   Vector statements;
@@ -447,11 +453,6 @@ static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser) {
   bvep->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
   bvep->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
   return;
-
-HANDLE_NO_LEFTBRACE:
-  INTERNAL_ERROR(
-      "called a block expresion parser where there was no leftbrace");
-  PANIC();
 }
 
 static void parseIfValueExpr(ValueExpr *ivep, Parser *parser) {
@@ -1395,9 +1396,9 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
     break;
   }
   default: {
-  INTERNAL_ERROR("called struct type expression parser where there was no "
-                 "struct declaration");
-  PANIC();
+    INTERNAL_ERROR("called struct type expression parser where there was no "
+                   "struct declaration");
+    PANIC();
   }
   }
 
@@ -1533,11 +1534,6 @@ static void parseL1TypeExpr(TypeExpr *l1, Parser *parser) {
     parseStructTypeExpr(l1, parser);
     break;
   }
-  case TK_ParenLeft: {
-    setNextToken(parser, &t);
-    parseTupleTypeExpr(l1, parser);
-    break;
-  }
   case TK_Void: {
     setNextToken(parser, &t);
     parseVoidTypeExpr(l1, parser);
@@ -1654,10 +1650,6 @@ static void parseL3TypeExpr(TypeExpr *l3, Parser *parser) {
     l3->binaryOp.operator= TEBOK_Product;
     break;
   }
-  case TK_BitOr: {
-    l3->binaryOp.operator= TEBOK_Sum;
-    break;
-  }
   default: {
     // there is no level 3 expression
     mergeCommentScope(parser);
@@ -1668,9 +1660,9 @@ static void parseL3TypeExpr(TypeExpr *l3, Parser *parser) {
   }
 
   l3->kind = TEK_BinaryOp;
-  l3->binaryOp.left_operand = RALLOC(parser->ar, ValueExpr);
+  l3->binaryOp.left_operand = RALLOC(parser->ar, TypeExpr);
   *l3->binaryOp.left_operand = ty;
-  l3->binaryOp.right_operand = RALLOC(parser->ar, ValueExpr);
+  l3->binaryOp.right_operand = RALLOC(parser->ar, TypeExpr);
   parseL2TypeExpr(l3->binaryOp.right_operand, parser);
   l3->span = SPAN(l3->binaryOp.left_operand->span.start,
                   l3->binaryOp.right_operand->span.end);
@@ -1682,8 +1674,44 @@ static void parseL3TypeExpr(TypeExpr *l3, Parser *parser) {
   return;
 }
 
+static void parseL4TypeExpr(TypeExpr *l4, Parser *parser) {
+  TypeExpr ty;
+  parseL3TypeExpr(&ty, parser);
+
+  pushNewCommentScope(parser);
+
+  Token t;
+  advanceToken(parser, &t);
+  switch (t.kind) {
+  case TK_BitOr: {
+    l4->binaryOp.operator= TEBOK_Sum;
+    break;
+  }
+  default: {
+    // there is no level 3 expression
+    mergeCommentScope(parser);
+    setNextToken(parser, &t);
+    *l4 = ty;
+    return;
+  }
+  }
+
+  l4->kind = TEK_BinaryOp;
+  l4->binaryOp.left_operand = RALLOC(parser->ar, TypeExpr);
+  *l4->binaryOp.left_operand = ty;
+  l4->binaryOp.right_operand = RALLOC(parser->ar, TypeExpr);
+  parseL3TypeExpr(l4->binaryOp.right_operand, parser);
+  l4->span = SPAN(l4->binaryOp.left_operand->span.start,
+                  l4->binaryOp.right_operand->span.end);
+  l4->diagnostics_length = 0;
+
+  Vector comments = popCommentScope(parser);
+  l4->comments_length = VEC_LEN(&comments, Comment);
+  l4->comments = manageMemArena(parser->ar, releaseVector(&comments));
+  return;
+}
 static void parseTypeExpr(TypeExpr *tep, Parser *parser) {
-  parseL3TypeExpr(tep, parser);
+  parseL4TypeExpr(tep, parser);
 }
 
 static void parseValueRestrictionPatternExpr(PatternExpr *vrpe,
@@ -1832,9 +1860,68 @@ static void parseGroupPatternExpr(PatternExpr *gpe, Parser *parser) {
   gpe->span = SPAN(start, end);
 }
 
-static void parsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
+static voidparsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
                                  Parser *parser) {
   ZERO(pesme);
+
+  Token t;
+  advanceToken(parser, &t);
+
+  LnCol start = t.span.end;
+  LnCol end;
+
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  switch (t.kind) {
+  case TK_Rest: {
+    pesme->kind = PESMEK_Rest;
+    end = t.span.end;
+    break;
+  }
+  case TK_Identifier: {
+    // copy identifier
+    pesme->kind = PESMEK_Field;
+    pesme->field_name = internArena(parser->ar, t.identifier);
+    end = t.span.end;
+    break;
+  }
+  default: {
+    diagnostic = DIAGNOSTIC(DK_PatternStructExpectedIdentifier, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
+  }
+
+  // test if the statement has an assign
+  // The assignment is only necessary if it is a type restriction
+  bool has_assign;
+
+  advanceToken(parser, &t);
+  if (t.kind == TK_Assign) {
+    has_assign = true;
+    advanceToken(parser, &t);
+  } else {
+    has_assign = false;
+  }
+  pesme->pattern = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(pesme->pattern, parser);
+
+CLEANUP:
+  if (diagnostic.kind != DK_Ok) {
+    pesme->diagnostics_length = 1;
+    pesme->diagnostics = RALLOC(parser->ar, Diagnostic);
+    pesme->diagnostics[0] = diagnostic;
+  } else {
+    pesme->diagnostics_length = 0;
+  }
+
+  pesme->span = SPAN(start, end);
+
+  Vector comments = popCommentScope(parser);
+  pesme->comments_length = VEC_LEN(&comments, Comment);
+  pesme->comments = manageMemArena(parser->ar, releaseVector(&comments));
+  return;
 }
 
 static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
@@ -1881,12 +1968,13 @@ static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
              parsePatternExprStructMemberExpr,     // member_parse_function
              struct PatternExprStructMemberExpr_s, // member_kind
              TK_BraceRight,                        // delimiting_token_kind
-             DK_PatternGroupExpectedRightBrace,    // missing_delimiter_error
+             DK_PatternStructExpectedRightBrace,   // missing_delimiter_error
              end,                                  // end_lncol
              parser                                // parser
   )
 
-  spe->structExpr.members_length = VEC_LEN(&members, struct PatternExprStructMemberExpr_s);
+  spe->structExpr.members_length =
+      VEC_LEN(&members, struct PatternExprStructMemberExpr_s);
   spe->structExpr.members = manageMemArena(parser->ar, releaseVector(&members));
   spe->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
   spe->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));

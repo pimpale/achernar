@@ -13,22 +13,23 @@ typedef enum {
   // function, type, or variable
   TK_Identifier,
   // Keywords
-  TK_If,        // if
-  TK_Else,      // else
-  TK_Case,      // case
-  TK_While,     // while
-  TK_With,      // with
-  TK_Match,     // match
-  TK_Break,     // break
-  TK_Continue,  // continue
-  TK_Return,    // return
-  TK_Fn,        // fn
-  TK_Let,       // let
-  TK_Struct,    // struct
-  TK_Pack,      // pack
-  TK_Union,     // union
-  TK_Enum,      // enum
-  TK_TypeAlias, // type
+  TK_Void,     // is both type and value
+  TK_If,       // if
+  TK_Else,     // else
+  TK_Case,     // case
+  TK_While,    // while
+  TK_With,     // with
+  TK_Match,    // match
+  TK_Break,    // break
+  TK_Continue, // continue
+  TK_Return,   // return
+  TK_Fn,       // fn
+  TK_Let,      // let
+  TK_Struct,   // struct
+  TK_Pack,     // pack
+  TK_Union,    // union
+  TK_Enum,     // enum
+  TK_Type,     // type
   // Literals and constants
   TK_BoolLiteral,   // true | false
   TK_StringLiteral, // "string"
@@ -60,9 +61,8 @@ typedef enum {
   TK_CompGreater,      // >
   TK_CompGreaterEqual, // >=
   // Type Modifiers
-  TK_Ref,     // $
-  TK_Deref,   // @
-  TK_Stream,  // ..
+  TK_Ref,   // $
+  TK_Deref, // @
   // Assignment
   TK_Assign,       // =
   TK_AssignAdd,    // +=
@@ -73,12 +73,11 @@ typedef enum {
   TK_AssignBitAnd, // &=
   TK_AssignBitOr,  // |=
   // Arrowish
-  TK_Pipe, // ->
+  TK_Pipe,  // ->
   TK_Arrow, // =>
   // Scope resolution
   TK_ScopeResolution, // ::
   // Other Miscellaneous Operator Things
-  TK_Void,         // is both type and value
   TK_ParenLeft,    // (
   TK_ParenRight,   // )
   TK_BracketLeft,  // [
@@ -90,11 +89,12 @@ typedef enum {
   TK_Colon,        // :
   TK_Semicolon,    // ;
   TK_Underscore,   // _
+  TK_Rest,         // ..
   // Macros and Builtins
-  TK_Macro, // macro!
+  TK_Macro,   // macro!
   TK_Builtin, // _builtin
   // Comments, and Attributes
-  TK_Comment,    // #{ comment }# and # comment
+  TK_Comment, // #{ comment }# and # comment
 } TokenKind;
 
 typedef struct Token_s {

@@ -4,6 +4,7 @@
 #include "lexer.h"
 #include "parseAst.h"
 #include "printAst.h"
+#include <stdio.h>
 
 int main() {
   Arena mem;

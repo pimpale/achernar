@@ -94,6 +94,10 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "StructMemberLiteralExpectedIdentifier";
     break;
   }
+  case DK_PatternGroupExpectedRightBrace: {
+      errmsg ="PatternGroupExpectedRightBrace";
+      break;
+  }
   case DK_TypeExprUnexpectedToken: {
     errmsg = "TypeExprUnexpectedToken";
     break;
@@ -110,12 +114,12 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "VarDeclStmntExpectedValue";
     break;
   }
-  case DK_TypeAliasExpectedIdentifier: {
-    errmsg = "TypeAliasExpectedIdentifier";
+  case DK_TypeDeclStmntExpectedIdentifier: {
+    errmsg = "TypeDeclStmntExpectedIdentifier";
     break;
   }
-  case DK_TypeAliasExpectedAssign: {
-    errmsg = "TypeAliasExpectedAssign";
+  case DK_TypeDeclStmntExpectedAssign: {
+    errmsg = "TypeDeclStmntExpectedAssign";
     break;
   }
   case DK_StructExpectedLeftBrace: {
@@ -126,16 +130,16 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "StructExpectedRightBrace";
     break;
   }
-  case DK_FnDeclStmntExpectedRightParen: {
-    errmsg = "FnDeclStmntExpectedRightParen";
+  case DK_FnValueExprExpectedRightParen: {
+    errmsg = "FnValueExprExpectedRightParen";
     break;
   }
-  case DK_FnDeclStmntExpectedLeftParen: {
-    errmsg = "FnDeclStmntExpectedLeftParen";
+  case DK_FnValueExprExpectedLeftParen: {
+    errmsg = "FnValueExprExpectedLeftParen";
     break;
   }
-  case DK_FnDeclStmntExpectedArrow: {
-    errmsg = "FnDeclStmntExpectedArrow";
+  case DK_FnValueExprExpectedArrow: {
+    errmsg = "FnValueExprExpectedArrow";
     break;
   }
   case DK_FnTypeExprExpectedLeftParen: {

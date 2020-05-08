@@ -128,6 +128,7 @@ typedef struct PatternExpr_s {
     struct {
       enum PatternExprUnaryOperatorKind_e {
         PEUOK_Group,
+        PEUOK_Not,
       } operator;
       PatternExpr* operand;
     } unaryOperator;

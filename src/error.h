@@ -49,6 +49,8 @@ typedef enum {
   // TypeExpr
   DK_TypeExprUnexpectedToken,
   DK_TypeExprFieldAccessExpectedIdentifier,
+  // PatternExprs
+  DK_PatternGroupExpectedRightBrace,
   // VarDeclStmnt
   DK_VarDeclStmntExpectedAssign,
   DK_VarDeclStmntExpectedValue,

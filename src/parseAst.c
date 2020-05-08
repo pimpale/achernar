@@ -1742,6 +1742,8 @@ static void parseValueRestrictionPatternExpr(PatternExpr *vrpe,
 static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
   ZERO(trpe);
 
+  trpe->kind = PEK_TypeRestriction;
+
   bool parseType = false;
 
   Token t;
@@ -1790,6 +1792,49 @@ static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
   trpe->diagnostics_length = 0;
 }
 
+static void parseGroupPatternExpr(PatternExpr *gpe, Parser *parser) {
+  ZERO(gpe);
+
+  Token t;
+  advanceToken(parser, &t);
+  if (t.kind != TK_BraceLeft) {
+    INTERNAL_ERROR("called group pattern expr parser where there was "
+                   "no group pattern expr");
+    PANIC();
+  }
+
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  LnCol start = t.span.start;
+
+  gpe->kind = PEK_UnaryOp;
+  gpe->unaryOperator.operator= PEUOK_Group;
+  gpe->unaryOperator.operand = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(gpe->unaryOperator.operand, parser);
+
+  LnCol end = gpe->unaryOperator.operand->span.end;
+  advanceToken(parser, &t);
+
+  if (t.kind != TK_BraceRight) {
+    diagnostic = DIAGNOSTIC(DK_PatternGroupExpectedRightBrace, t.span);
+    resyncStmnt(parser);
+  } else {
+    end = t.span.end;
+  }
+
+  if (diagnostic.kind != DK_Ok) {
+    gpe->diagnostics_length = 1;
+    gpe->diagnostics = RALLOC(parser->ar, Diagnostic);
+    gpe->diagnostics[0] = diagnostic;
+  } else {
+    gpe->diagnostics_length = 0;
+    gpe->diagnostics = NULL;
+  }
+
+  gpe->span = SPAN(start, end);
+}
+
 static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
   ZERO(spe);
 
@@ -1833,17 +1878,7 @@ static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {
   }
   case TK_BraceLeft: {
     setNextToken(parser, &t);
-    parseGroup(l1, parser);
-    break;
-  }
-  case TK_Void: {
-    setNextToken(parser, &t);
-    parseVoidTypeExpr(l1, parser);
-    break;
-  }
-  case TK_Fn: {
-    setNextToken(parser, &t);
-    parseFnTypeExpr(l1, parser);
+    parseGroupPatternExpr(l1, parser);
     break;
   }
   default: {

@@ -1395,7 +1395,9 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
     break;
   }
   default: {
-    goto HANDLE_NO_STRUCT;
+  INTERNAL_ERROR("called struct type expression parser where there was no "
+                 "struct declaration");
+  PANIC();
   }
   }
 
@@ -1438,11 +1440,6 @@ HANDLE_NO_LEFTBRACE:
   ste->diagnostics = RALLOC(parser->ar, Diagnostic);
   ste->diagnostics[0] = DIAGNOSTIC(DK_StructExpectedLeftBrace, ste->span);
   return;
-
-HANDLE_NO_STRUCT:
-  INTERNAL_ERROR("called struct type expression parser where there was no "
-                 "struct declaration");
-  PANIC();
 }
 
 static void parseReferenceTypeExpr(TypeExpr *rtep, Parser *parser) {
@@ -1835,22 +1832,75 @@ static void parseGroupPatternExpr(PatternExpr *gpe, Parser *parser) {
   gpe->span = SPAN(start, end);
 }
 
+static void parsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
+                                 Parser *parser) {
+  ZERO(pesme);
+}
+
 static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
   ZERO(spe);
-
+  spe->kind = PEK_Struct;
   Token t;
   advanceToken(parser, &t);
-
-  if (t.kind != TK_Struct) {
-    INTERNAL_ERROR("called struct pattern expr parser where there was "
-                   "no struct pattern");
+  switch (t.kind) {
+  case TK_Struct: {
+    spe->structExpr.kind = PESK_Struct;
+    break;
+  }
+  case TK_Pack: {
+    spe->structExpr.kind = PESK_Pack;
+    break;
+  }
+  case TK_Union: {
+    spe->structExpr.kind = PESK_Union;
+    break;
+  }
+  default: {
+    INTERNAL_ERROR("called struct pattern expression parser where there was no "
+                   "struct pattern declaration");
     PANIC();
+  }
   }
 
   LnCol start = t.span.start;
+
+  advanceToken(parser, &t);
+
+  EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
+
+  Vector members;
+  createVector(&members);
+
+  Vector diagnostics;
+  createVector(&diagnostics);
+
   LnCol end;
 
-  // TODO
+  PARSE_LIST(&members,                             // members_vec_ptr
+             &diagnostics,                         // diagnostics_vec_ptr
+             parsePatternExprStructMemberExpr,     // member_parse_function
+             struct PatternExprStructMemberExpr_s, // member_kind
+             TK_BraceRight,                        // delimiting_token_kind
+             DK_PatternGroupExpectedRightBrace,    // missing_delimiter_error
+             end,                                  // end_lncol
+             parser                                // parser
+  )
+
+  spe->structExpr.members_length = VEC_LEN(&members, struct PatternExprStructMemberExpr_s);
+  spe->structExpr.members = manageMemArena(parser->ar, releaseVector(&members));
+  spe->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
+  spe->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
+  spe->span = SPAN(start, end);
+  return;
+
+HANDLE_NO_LEFTBRACE:
+  spe->structExpr.members_length = 0;
+  spe->structExpr.members = NULL;
+  spe->span = SPAN(start, t.span.end);
+  spe->diagnostics_length = 1;
+  spe->diagnostics = RALLOC(parser->ar, Diagnostic);
+  spe->diagnostics[0] = DIAGNOSTIC(DK_StructExpectedLeftBrace, spe->span);
+  return;
 }
 
 static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {

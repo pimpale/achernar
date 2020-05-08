@@ -64,15 +64,14 @@ typedef enum PatternExprValueRestrictionKind_e {
 } PatternExprValueRestrictionKind;
 
 typedef enum {
-  PEK_None, // Error type
+  PEK_None,             // Error type
   PEK_ValueRestriction, // matches a value, and optionally binds it
-  PEK_TypeRestriction, // matches a type, and optionally binds it (this is also the one used for wildcards)
-  PEK_StructWrapper, // a container for struct based patterns
-  PEK_StructValueRestriction, // (in struct) by name matches a value to a literal
-  PEK_StructTypeRestriction, // (in struct) by name matches a value to a type
-  PEK_StructRest,            // (in struct) all values that were not matched
-  PEK_UnaryOp,  // ()
-  PEK_BinaryOp, // , |
+  PEK_TypeRestriction,  // matches a type, and optionally binds it (this is also
+                        // the one used for wildcards)
+  PEK_Struct,    // a container for struct based patterns
+  PEK_StructRest,             // (in struct) all values that were not matched
+  PEK_UnaryOp,                // ()
+  PEK_BinaryOp,               // , |
 } PatternExprKind;
 
 typedef struct TypeExpr_s TypeExpr;
@@ -101,36 +100,45 @@ typedef struct PatternExpr_s {
   union {
     struct {
       PatternExprValueRestrictionKind restriction;
-      ValueExpr* value;
+      ValueExpr *value;
     } valueRestriction;
     struct {
       bool has_binding;
-      char* binding;
-      TypeExpr* type;
+      char *binding;
+      TypeExpr *type;
     } typeRestriction;
     struct {
-      PatternExpr* patterns;
-      size_t patterns_length;
-    } structWrapper;
-    struct {
-      PatternExprValueRestrictionKind restriction;
-      char* field;
-      ValueExpr* value;
-    } structValueRestriction;
-    struct {
-      bool has_binding;
-      char* binding;
+      enum PatternExprStructKind_e {
+        PESK_Struct,
+        PESK_Pack,
+        PESK_Union,
+      } kind;
 
-      TypeExpr* type;
-      char* field;
-      ValueExpr* value;
-    } structTypeRestriction;
+      struct PatternExprStructMemberExpr_s {
+        Span span;
+        Diagnostic *diagnostics;
+        size_t diagnostics_length;
+
+        // comments
+        Comment *comments;
+        size_t comments_length;
+
+        char *name;
+        PatternExpr *pattern;
+      } * members;
+      size_t members_length;
+    } structExpr;
+    struct {
+        bool has_bindings;
+        char *binding;
+    } structRest;
     struct {
       enum PatternExprUnaryOperatorKind_e {
         PEUOK_Group,
         PEUOK_Not,
-      } operator;
-      PatternExpr* operand;
+      }
+      operator;
+      PatternExpr *operand;
     } unaryOperator;
     struct {
       enum PatternExprBinaryOperatorKind_e {
@@ -138,13 +146,13 @@ typedef struct PatternExpr_s {
         PEBOK_Sum,
         PEBOK_And,
         PEBOK_Or,
-      } operator;
-      PatternExpr* left_operand;
-      PatternExpr* right_operand;
+      }
+      operator;
+      PatternExpr *left_operand;
+      PatternExpr *right_operand;
     } binaryOperator;
   };
 } PatternExpr;
-
 
 typedef struct Path_s {
   Span span;
@@ -198,7 +206,6 @@ typedef struct TypeExpr_s {
         TypeExpr *type;
       } * members;
       size_t members_length;
-      bool trailing_semicolon;
     } structExpr;
     struct {
       TypeExpr *parameters;
@@ -206,16 +213,16 @@ typedef struct TypeExpr_s {
     } fnExpr;
     struct {
       enum TypeExprUnaryOpKind_e {
-        TEUOK_Ref,    // $
-        TEUOK_Deref,  // @
+        TEUOK_Ref,   // $
+        TEUOK_Deref, // @
       }
       operator;
       struct TypeExpr_s *operand;
     } unaryOp;
     struct {
       enum TypeExprBinaryOpKind_e {
-        TEBOK_Product,    // ,
-        TEBOK_Sum,        // |
+        TEBOK_Product, // ,
+        TEBOK_Sum,     // |
       }
       operator;
       struct TypeExpr_s *left_operand;
@@ -271,7 +278,6 @@ typedef struct ValueExpr_s {
         ValueExpr *value;
       } * members;
       size_t members_length;
-      bool trailing_semicolon;
     } structLiteral;
     struct {
       ValueExpr *value;
@@ -340,7 +346,6 @@ typedef struct ValueExpr_s {
       ValueExpr *function;
       ValueExpr *arguments;
       size_t arguments_length;
-      bool trailing_comma;
     } callExpr;
     struct {
       PatternExpr *parameters;
@@ -368,7 +373,6 @@ typedef struct ValueExpr_s {
         ValueExpr *value;
       } * cases;
       size_t cases_length;
-      bool trailing_comma;
     } matchExpr;
     struct Block_s {
       Stmnt *statements;
@@ -404,15 +408,15 @@ typedef struct Stmnt_s {
 } Stmnt;
 
 typedef struct TranslationUnit_s {
-  Span span;               // span of the translation unit
+  Span span; // span of the translation unit
 
   Diagnostic *diagnostics; // any errors that occur during parsing
   size_t diagnostics_length;
 
-  Stmnt *statements;          // The top level is just a series of statements
+  Stmnt *statements;        // The top level is just a series of statements
   size_t statements_length; // The number of statements
 
-  Comment *comments;        // top level comments
+  Comment *comments;      // top level comments
   size_t comments_length; // number of comments
 
 } TranslationUnit;

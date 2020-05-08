@@ -98,15 +98,14 @@ typedef struct PatternExpr_s {
   Comment *comments;
   size_t comments_length;
 
-  bool has_binding;
-  char* binding;
-
   union {
     struct {
       PatternExprValueRestrictionKind restriction;
       ValueExpr* value;
     } valueRestriction;
     struct {
+      bool has_binding;
+      char* binding;
       TypeExpr* type;
     } typeRestriction;
     struct {
@@ -119,6 +118,9 @@ typedef struct PatternExpr_s {
       ValueExpr* value;
     } structValueRestriction;
     struct {
+      bool has_binding;
+      char* binding;
+
       TypeExpr* type;
       char* field;
       ValueExpr* value;
@@ -133,6 +135,8 @@ typedef struct PatternExpr_s {
       enum PatternExprBinaryOperatorKind_e {
         PEBOK_Product,
         PEBOK_Sum,
+        PEBOK_And,
+        PEBOK_Or,
       } operator;
       PatternExpr* left_operand;
       PatternExpr* right_operand;
@@ -180,7 +184,7 @@ typedef struct TypeExpr_s {
         TESK_Enum,
       } kind;
 
-      struct {
+      struct StructMemberExpr_s {
         Span span;
         Diagnostic *diagnostics;
         size_t diagnostics_length;
@@ -191,14 +195,12 @@ typedef struct TypeExpr_s {
 
         char *name;
         TypeExpr *type;
-      } * entries;
-      size_t entries_length;
+      } * members;
+      size_t members_length;
       bool trailing_semicolon;
     } structExpr;
     struct {
       TypeExpr *parameters;
-      size_t parameters_length;
-      bool parameters_trailing_comma;
       TypeExpr *result;
     } fnExpr;
     struct {
@@ -255,7 +257,7 @@ typedef struct ValueExpr_s {
       size_t value_length;
     } stringLiteral;
     struct {
-      struct {
+      struct StructLiteralMemberExpr_s {
         Span span;
         Diagnostic *diagnostics;
         size_t diagnostics_length;
@@ -266,8 +268,8 @@ typedef struct ValueExpr_s {
 
         char *name;
         ValueExpr *value;
-      } * entries;
-      size_t entries_length;
+      } * members;
+      size_t members_length;
       bool trailing_semicolon;
     } structLiteral;
     struct {
@@ -326,12 +328,9 @@ typedef struct ValueExpr_s {
     struct {
       ValueExpr *condition;
       ValueExpr *body;
+      bool has_else;
       ValueExpr *else_body;
     } ifExpr;
-    struct {
-      ValueExpr *condition;
-      ValueExpr *body;
-    } whenExpr;
     struct {
       ValueExpr *condition;
       ValueExpr *body;
@@ -342,6 +341,11 @@ typedef struct ValueExpr_s {
       size_t arguments_length;
       bool trailing_comma;
     } callExpr;
+    struct {
+      PatternExpr *parameters;
+      TypeExpr *type;
+      ValueExpr *body;
+    } fnExpr;
     struct {
       ValueExpr *value;
     } returnExpr;
@@ -359,7 +363,7 @@ typedef struct ValueExpr_s {
         Comment *comments;
         size_t comments_length;
 
-        ValueExpr *pattern;
+        PatternExpr *pattern;
         ValueExpr *value;
       } * cases;
       size_t cases_length;
@@ -387,12 +391,12 @@ typedef struct Stmnt_s {
   union {
     struct {
       char *name;
-      Pattern *params;
+      PatternExpr *parameters;
       TypeExpr *type;
       ValueExpr *body;
     } fnDecl;
     struct {
-      Pattern *pattern;
+      PatternExpr *pattern;
       ValueExpr *value;
     } varDecl;
     struct {

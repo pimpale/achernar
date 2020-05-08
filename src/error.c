@@ -14,20 +14,12 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "Ok";
     break;
   }
-  case DK_Unknown: {
-    errmsg = "Unknown";
-    break;
-  }
   case DK_EOF: {
     errmsg = "EOF";
     break;
   }
-  case DK_IfExpectedElse: {
-    errmsg = "IfExpectedElse";
-    break;
-  }
-  case DK_UnrecognizedCharacter: {
-    errmsg = "UnrecognizedCharacter";
+  case DK_Unknown: {
+    errmsg = "Unknown";
     break;
   }
   case DK_IntLiteralUnrecognizedRadixCode: {
@@ -70,16 +62,36 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "StringLiteralUnrecognizedEscapeCode";
     break;
   }
+  case DK_StructLiteralExpectedEntry: {
+    errmsg = "StructLiteralExpectedEntry";
+    break;
+  }
+  case DK_StructLiteralExpectedRightBrace: {
+    errmsg = "StructLiteralExpectedRightBrace";
+    break;
+  }
+  case DK_StructLiteralExpectedLeftBrace: {
+    errmsg = "StructLiteralExpectedLeftBrace";
+    break;
+  }
   case DK_PathExpectedIdentifier: {
     errmsg = "PathExpectedIdentifier";
     break;
   }
-  case DK_BindingExpectedType: {
-    errmsg = "BindingExpectedType";
+  case DK_StructMemberExpectedType: {
+    errmsg = "StructMemberExpectedType";
     break;
   }
-  case DK_BindingExpectedIdentifier: {
-    errmsg = "BindingExpectedIdentifier";
+  case DK_StructMemberExpectedIdentifier: {
+    errmsg = "StructMemberExpectedIdentifier";
+    break;
+  }
+  case DK_StructMemberLiteralExpectedValue: {
+    errmsg = "StructMemberLiteralExpectedValue";
+    break;
+  }
+  case DK_StructMemberLiteralExpectedIdentifier: {
+    errmsg = "StructMemberLiteralExpectedIdentifier";
     break;
   }
   case DK_TypeExprUnexpectedToken: {
@@ -114,18 +126,6 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "StructExpectedRightBrace";
     break;
   }
-  case DK_StructExpectedComma: {
-    errmsg = "StructExpectedComma";
-    break;
-  }
-  case DK_TupleExpectedRightParen: {
-    errmsg = "TupleExpectedRightParen";
-    break;
-  }
-  case DK_TupleExpectedComma: {
-    errmsg = "TupleExpectedComma";
-    break;
-  }
   case DK_FnDeclStmntExpectedRightParen: {
     errmsg = "FnDeclStmntExpectedRightParen";
     break;
@@ -134,24 +134,8 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "FnDeclStmntExpectedLeftParen";
     break;
   }
-  case DK_FnDeclStmntExpectedComma: {
-    errmsg = "FnDeclStmntExpectedComma";
-    break;
-  }
-  case DK_FnDeclStmntExpectedIdentifier: {
-    errmsg = "FnDeclStmntExpectedIdentifier";
-    break;
-  }
-  case DK_FnDeclStmntExpectedColon: {
-    errmsg = "FnDeclStmntExpectedColon";
-    break;
-  }
-  case DK_FnDeclStmntExpectedAssign: {
-    errmsg = "FnDeclStmntExpectedAssign";
-    break;
-  }
-  case DK_FnDeclStmntExpectedBody: {
-    errmsg = "FnDeclStmntExpectedBody";
+  case DK_FnDeclStmntExpectedArrow: {
+    errmsg = "FnDeclStmntExpectedArrow";
     break;
   }
   case DK_FnTypeExprExpectedLeftParen: {
@@ -162,16 +146,8 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "FnTypeExprExpectedRightParen";
     break;
   }
-  case DK_FnTypeExprExpectedComma: {
-    errmsg = "FnTypeExprExpectedComma";
-    break;
-  }
   case DK_FnTypeExprExpectedColon: {
     errmsg = "FnTypeExprExpectedColon";
-    break;
-  }
-  case DK_GroupExpectRightParen: {
-    errmsg = "GroupExpectRightParen";
     break;
   }
   case DK_MatchCaseNoColon: {
@@ -190,16 +166,8 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "MatchNoComma";
     break;
   }
-  case DK_BlockExpectedSemicolon: {
-    errmsg = "BlockExpectedSemicolon";
-    break;
-  }
   case DK_BlockExpectedRightBrace: {
     errmsg = "BlockExpectedRightBrace";
-    break;
-  }
-  case DK_CallExpectedComma: {
-    errmsg = "CallExpectedComma";
     break;
   }
   case DK_CallExpectedParen: {

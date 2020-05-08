@@ -13,38 +13,25 @@
 
 // convoluted function to save repetitive tasks
 
-#define PARSE_DELIMITED_LIST(                                                  \
-    members_vec_ptr, diagnostics_vec_ptr, member_parse_function, member_kind,  \
-    trailing_spacer_ptr, spacer_token_kind, delimiting_token_kind,             \
-    missing_spacer_error, missing_delimiter_error, end_lncol, parser)          \
+#define PARSE_LIST(members_vec_ptr, diagnostics_vec_ptr,                       \
+                   member_parse_function, member_kind, delimiting_token_kind,  \
+                   missing_delimiter_error, end_lncol, parser)                 \
   while (true) {                                                               \
-    Token PARSE_DELIMITED_LIST_token;                                          \
-    advanceToken(parser, &PARSE_DELIMITED_LIST_token);                         \
-    if (PARSE_DELIMITED_LIST_token.kind == delimiting_token_kind) {            \
-      *trailing_spacer_ptr = true;                                             \
-      end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
+    Token PARSE_LIST_token;                                                    \
+    advanceToken(parser, &PARSE_LIST_token);                                   \
+    if (PARSE_LIST_token.kind == delimiting_token_kind) {                      \
+      end_lncol = PARSE_LIST_token.span.end;                                   \
       break;                                                                   \
-    } else if (PARSE_DELIMITED_LIST_token.kind == TK_None &&                   \
-               PARSE_DELIMITED_LIST_token.error == DK_EOF) {                   \
-      *VEC_PUSH(diagnostics_vec_ptr, Diagnostic) = DIAGNOSTIC(                 \
-          missing_delimiter_error, PARSE_DELIMITED_LIST_token.span);           \
-      end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
+    } else if (PARSE_LIST_token.kind == TK_None &&                             \
+               PARSE_LIST_token.error == DK_EOF) {                             \
+      *VEC_PUSH(diagnostics_vec_ptr, Diagnostic) =                             \
+          DIAGNOSTIC(missing_delimiter_error, PARSE_LIST_token.span);          \
+      end_lncol = PARSE_LIST_token.span.end;                                   \
       break;                                                                   \
     }                                                                          \
     /* if there wasn't an end delimiter, push the last token back */           \
-    setNextToken(parser, &PARSE_DELIMITED_LIST_token);                         \
+    setNextToken(parser, &PARSE_LIST_token);                                   \
     member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), parser);     \
-    /* accept spacer, if any. If no comma it must be followed by delimiter.    \
-     * Allows trailing spacers */                                              \
-    advanceToken(parser, &PARSE_DELIMITED_LIST_token);                         \
-    if (PARSE_DELIMITED_LIST_token.kind == delimiting_token_kind) {            \
-      *trailing_spacer_ptr = false;                                            \
-      end_lncol = PARSE_DELIMITED_LIST_token.span.end;                         \
-      break;                                                                   \
-    } else if (PARSE_DELIMITED_LIST_token.kind != spacer_token_kind) {         \
-      *VEC_PUSH(diagnostics_vec_ptr, Diagnostic) =                             \
-          DIAGNOSTIC(missing_spacer_error, PARSE_DELIMITED_LIST_token.span);   \
-    }                                                                          \
   }
 
 #define EXPECT_TYPE(token, tokenType, onErrLabel)                              \
@@ -213,7 +200,7 @@ static void resyncStmnt(Parser *parser) {
 static void parseStmnt(Stmnt *sp, Parser *parser);
 static void parseValueExpr(ValueExpr *vep, Parser *parser);
 static void parseTypeExpr(TypeExpr *tep, Parser *parser);
-static void parsePattern(PatternExpr *pp, Parser *parser);
+static void parsePatternExpr(PatternExpr *pp, Parser *parser);
 
 static void parsePath(Path *pp, Parser *parser) {
   // start comment scope
@@ -376,16 +363,12 @@ static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser) {
 
   LnCol end;
 
-  PARSE_DELIMITED_LIST(
+  PARSE_LIST(
       &statements,                     // members_vec_ptr
       &diagnostics,                    // diagnostics_vec_ptr
       parseStmnt,                      // member_parse_function
       Stmnt,                           // member_kind
-      &bvep->blockExpr.suppress_value, // trailing_spacer_ptr (will set to true
-                                       // if last element is semicolon
-      TK_Semicolon,  // spacer_token_kind (semicolon in block value expr)
       TK_BraceRight, // delimiting_token_kind
-      DK_BlockExpectedSemicolon,  // missing_spacer_error
       DK_BlockExpectedRightBrace, // missing_delimiter_error
       end,                        // end_lncol
       parser                      // parser
@@ -405,46 +388,13 @@ HANDLE_NO_LEFTBRACE:
   PANIC();
 }
 
-static void parseWhenExpr(ValueExpr *wvep, Parser *parser) {
-  ZERO(wvep);
-  Token t;
-  advanceToken(parser, &t);
-  LnCol start = t.span.start;
-  if (t.kind != TK_When) {
-    INTERNAL_ERROR("called when expression parser where there was no "
-                   "when expression");
-    PANIC();
-  }
-  wvep->kind = VEK_When;
-
-  // parse condition
-  wvep->whenExpr.condition = allocArena(parser->ar, sizeof(ValueExpr));
-  parseValueExpr(wvep->whenExpr.condition, parser);
-
-  // parse body
-  wvep->whenExpr.body = allocArena(parser->ar, sizeof(ValueExpr));
-  parseValueExpr(wvep->whenExpr.body, parser);
-
-  wvep->span = SPAN(start, wvep->whenExpr.body->span.end);
-}
-
 static void parseIfValueExpr(ValueExpr *ivep, Parser *parser) {
   ZERO(ivep);
-  ivep->kind = VEK_If;
-
   Token t;
   advanceToken(parser, &t);
   LnCol start = t.span.start;
-  LnCol end;
-
-  if (t.kind != TK_If) {
-    INTERNAL_ERROR("called if expression parser where there was no "
-                   "if expression");
-    PANIC();
-  }
-
-  Diagnostic diagnostic;
-  diagnostic.kind = DK_Ok;
+  EXPECT_TYPE(t, TK_If, HANDLE_NO_IF);
+  ivep->kind = VEK_If;
 
   // parse condition
   ivep->ifExpr.condition = allocArena(parser->ar, sizeof(ValueExpr));
@@ -456,28 +406,22 @@ static void parseIfValueExpr(ValueExpr *ivep, Parser *parser) {
 
   // if the next value is else
   advanceToken(parser, &t);
-  if (t.kind != TK_Else) {
-    end = t.span.end;
-    diagnostic = DIAGNOSTIC(DK_IfExpectedElse, t.span);
-    goto CLEANUP;
-  }
-
-  ivep->ifExpr.else_body = allocArena(parser->ar, sizeof(ValueExpr));
-  parseValueExpr(ivep->ifExpr.else_body, parser);
-  end = ivep->ifExpr.else_body->span.end;
-
-CLEANUP:
-  if (diagnostic.kind != DK_Ok) {
-    ivep->diagnostics_length = 1;
-    ivep->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
-    ivep->diagnostics[0] = diagnostic;
+  if (t.kind == TK_Else) {
+    ivep->ifExpr.has_else = true;
+    ivep->ifExpr.else_body = allocArena(parser->ar, sizeof(ValueExpr));
+    parseValueExpr(ivep->ifExpr.else_body, parser);
+    ivep->span = SPAN(start, ivep->ifExpr.else_body->span.end);
   } else {
-    ivep->diagnostics_length = 0;
-    ivep->diagnostics = NULL;
+    // back up
+    setNextToken(parser, &t);
+    ivep->span = SPAN(start, ivep->ifExpr.body->span.end);
   }
-
-  ivep->span = SPAN(start, end);
   return;
+
+HANDLE_NO_IF:
+  INTERNAL_ERROR("called if expression parser where there was no "
+                 "if expression");
+  PANIC();
 }
 
 static void parseBreakValueExpr(ValueExpr *bep, Parser *parser) {
@@ -622,16 +566,12 @@ static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser) {
 
   LnCol end;
 
-  PARSE_DELIMITED_LIST(
+  PARSE_LIST(
       &cases,                          // members_vec_ptr
       &diagnostics,                    // diagnostics_vec_ptr
       parseMatchCaseExpr,              // member_parse_function
       struct MatchCaseExpr_s,          // member_kind
-      &mvep->matchExpr.trailing_comma, // trailing_spacer_ptr (will set to true
-                                       // if last element is semicolon
-      TK_Comma,             // spacer_token_kind (semicolon in block value expr)
       TK_BraceRight,        // delimiting_token_kind
-      DK_MatchNoComma,      // missing_spacer_error
       DK_MatchNoRightBrace, // missing_delimiter_error
       end,                  // end_lncol
       parser                // parser
@@ -851,16 +791,12 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
 
       LnCol end;
 
-      PARSE_DELIMITED_LIST(
+      PARSE_LIST(
           &args,                      // members_vec_ptr
           &diagnostics,               // diagnostics_vec_ptr
           parseValueExpr,             // member_parse_function
           ValueExpr,                  // member_kind
-          &v.callExpr.trailing_comma, // trailing_spacer_ptr (will set to true
-                                      // if last element is semicolon
-          TK_Comma,      // spacer_token_kind (semicolon in block value expr)
           TK_ParenRight, // delimiting_token_kind
-          DK_CallExpectedComma, // missing_spacer_error
           DK_CallExpectedParen, // missing_delimiter_error
           end,                  // end_lncol
           parser                // parser
@@ -1238,6 +1174,136 @@ static void parseValueExpr(ValueExpr *vep, Parser *parser) {
   parseL9ValueExpr(vep, parser);
 }
 
+// field = Value
+static void
+parseStructLiteralMemberExpr(struct StructLiteralMemberExpr_s *slmep,
+                             Parser *parser) {
+  // zero-initialize bp
+  ZERO(slmep);
+  pushNewCommentScope(parser);
+
+  Token t;
+
+  // diagnostics
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  LnCol start;
+  LnCol end;
+
+  // get identifier
+  advanceToken(parser, &t);
+
+  Span identitySpan = t.span;
+
+  start = identitySpan.start;
+
+  if (t.kind != TK_Identifier) {
+    slmep->name = NULL;
+    diagnostic = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
+    end = identitySpan.end;
+    goto CLEANUP;
+  }
+
+  slmep->name = internArena(t.identifier, parser->ar);
+
+  // check if assign
+  advanceToken(parser, &t);
+  if (t.kind == TK_Colon) {
+    // Get value of variable
+    slmep->value = allocArena(parser->ar, sizeof(ValueExpr));
+    parseValueExpr(slmep->value, parser);
+    end = slmep->value->span.end;
+  } else {
+    // TODO error
+  }
+
+CLEANUP:
+  slmep->span = SPAN(start, end);
+
+  if (diagnostic.kind != DK_Ok) {
+    slmep->diagnostics_length = 1;
+    slmep->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
+    slmep->diagnostics[0] = diagnostic;
+  } else {
+    slmep->diagnostics_length = 0;
+    slmep->diagnostics = NULL;
+  }
+
+  Vector comments = popCommentScope(parser);
+  slmep->comments_length = VEC_LEN(&comments, Comment);
+  slmep->comments = manageMemArena(parser->ar, releaseVector(&comments));
+  return;
+}
+
+// field : Type,
+static void parseStructMemberExpr(struct StructMemberExpr_s *smep,
+                                  Parser *parser) {
+  // zero-initialize bp
+  ZERO(smep);
+  pushNewCommentScope(parser);
+
+  Token t;
+
+  // diagnostics
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  LnCol start;
+  LnCol end;
+
+  // get identifier
+  advanceToken(parser, &t);
+
+  Span identitySpan = t.span;
+
+  start = identitySpan.start;
+
+  if (t.kind != TK_Identifier) {
+    smep->name = NULL;
+    diagnostic = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
+    end = identitySpan.end;
+    goto CLEANUP;
+  }
+
+  smep->name = internArena(t.identifier, parser->ar);
+
+  // check if colon
+  advanceToken(parser, &t);
+  if (t.kind == TK_Colon) {
+    // Get type of variable
+    smep->type = allocArena(parser->ar, sizeof(TypeExpr));
+    parseTypeExpr(smep->type, parser);
+    end = smep->type->span.end;
+  } else {
+    end = identitySpan.end;
+    // push back whatever
+    setNextToken(parser, &t);
+    smep->type = allocArena(parser->ar, sizeof(TypeExpr));
+    smep->type->kind = TEK_Omitted;
+    smep->type->span = identitySpan;
+    smep->type->diagnostics_length = 0;
+    smep->type->comments_length = 0;
+  }
+
+CLEANUP:
+  smep->span = SPAN(start, end);
+
+  if (diagnostic.kind != DK_Ok) {
+    smep->diagnostics_length = 1;
+    smep->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
+    smep->diagnostics[0] = diagnostic;
+  } else {
+    smep->diagnostics_length = 0;
+    smep->diagnostics = NULL;
+  }
+
+  Vector comments = popCommentScope(parser);
+  smep->comments_length = VEC_LEN(&comments, Comment);
+  smep->comments = manageMemArena(parser->ar, releaseVector(&comments));
+  return;
+}
+
 static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
   ZERO(ste);
   ste->kind = TEK_Struct;
@@ -1271,39 +1337,35 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
 
   EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
-  Vector entries;
-  createVector(&entries);
+  Vector members;
+  createVector(&members);
 
   Vector diagnostics;
   createVector(&diagnostics);
 
   LnCol end;
 
-  PARSE_DELIMITED_LIST(
-      &entries,                            // members_vec_ptr
+  PARSE_LIST(
+      &members,                            // members_vec_ptr
       &diagnostics,                        // diagnostics_vec_ptr
-      parseBinding,                        // member_parse_function
-      Binding,                             // member_kind
-      &ste->structExpr.trailing_semicolon, // trailing_spacer_ptr (will set to
-                                           // true if last element is semicolon)
-      TK_Semicolon,  // spacer_token_kind (semicolon in block value expr)
+      parseStructMemberExpr,                        // member_parse_function
+      struct StructMemberExpr_s,                             // member_kind
       TK_BraceRight, // delimiting_token_kind
-      DK_StructExpectedComma,      // missing_spacer_error
       DK_StructExpectedRightBrace, // missing_delimiter_error
       end,                         // end_lncol
       parser                       // parser
   )
 
-  ste->structExpr.entries_length = VEC_LEN(&entries, Binding);
-  ste->structExpr.entries = manageMemArena(parser->ar, releaseVector(&entries));
+  ste->structExpr.members_length = VEC_LEN(&members, struct StructMemberExpr_s);
+  ste->structExpr.members = manageMemArena(parser->ar, releaseVector(&members));
   ste->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
   ste->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
   ste->span = SPAN(start, end);
   return;
 
 HANDLE_NO_LEFTBRACE:
-  ste->structExpr.entries_length = 0;
-  ste->structExpr.entries = NULL;
+  ste->structExpr.members_length = 0;
+  ste->structExpr.members = NULL;
   ste->span = SPAN(start, t.span.end);
   ste->diagnostics_length = 1;
   ste->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
@@ -1355,57 +1417,38 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
   LnCol end = t.span.end;
 
   // create diagnostics
-  Vector diagnostics;
-  createVector(&diagnostics);
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
 
   // check for leftparen
   advanceToken(parser, &t);
   if (t.kind != TK_ParenLeft) {
-    *VEC_PUSH(&diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_FnTypeExprExpectedLeftParen, t.span);
+    diagnostic = DIAGNOSTIC(DK_FnTypeExprExpectedLeftParen, t.span);
     end = t.span.end;
-    goto CLEANUP_DIAGNOSTICS;
+    goto CLEANUP;
   }
 
-  // create members list
-  Vector parameters;
-  createVector(&parameters);
-
-  PARSE_DELIMITED_LIST(
-      &parameters,   // members_vec_ptr
-      &diagnostics,  // diagnostics_vec_ptr
-      parseTypeExpr, // member_parse_function
-      TypeExpr,      // member_kind
-      &fte->fnExpr
-           .parameters_trailing_comma, // trailing_spacer_ptr (will set to true
-                                       // if last element is semicolon
-      TK_Comma,      // spacer_token_kind (semicolon in block value expr)
-      TK_ParenRight, // delimiting_token_kind
-      DK_FnTypeExprExpectedComma,      // missing_spacer_error
-      DK_FnTypeExprExpectedRightParen, // missing_delimiter_error
-      end,                             // end_lncol
-      parser                           // parser
-  )
+  fte->fnExpr.parameters = allocArena(parser->ar, sizeof(TypeExpr));
+  parseTypeExpr(fte->fnExpr.parameters, parser);
 
   advanceToken(parser, &t);
   if (t.kind != TK_Colon) {
-    *VEC_PUSH(&diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_FnTypeExprExpectedColon, t.span);
+      diagnostic = DIAGNOSTIC(DK_FnTypeExprExpectedColon, t.span);
     end = t.span.end;
-    goto CLEANUP_PARAMETERS;
   }
 
   fte->fnExpr.result = allocArena(parser->ar, sizeof(TypeExpr));
   parseTypeExpr(fte->fnExpr.result, parser);
 
-CLEANUP_PARAMETERS:
-  fte->fnExpr.parameters_length = VEC_LEN(&parameters, TypeExpr);
-  fte->fnExpr.parameters =
-      manageMemArena(parser->ar, releaseVector(&parameters));
 
-CLEANUP_DIAGNOSTICS:
-  fte->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
-  fte->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
+CLEANUP:
+  if(diagnostic.kind == DK_Ok) {
+    fte->diagnostics_length = 0;
+  } else {
+    fte->diagnostics_length = 1;
+    fte->diagnostics = allocArena(parser->ar, sizeof(Diagnostic));
+    fte->diagnostics[0] = diagnostic;
+  }
   fte->span = SPAN(start, end);
 }
 
@@ -1576,17 +1619,20 @@ static void parseL3TypeExpr(TypeExpr *l3, Parser *parser) {
   return;
 }
 
-
-
 static void parseTypeExpr(TypeExpr *tep, Parser *parser) {
   parseL3TypeExpr(tep, parser);
 }
 
-static void parseValueRestrictPatternExpr(PatternExpr *vrpe, Parser *parser) {
+static void parseValueRestrictionPatternExpr(PatternExpr *vrpe,
+                                             Parser *parser) {
   ZERO(vrpe);
 
   Token t;
   advanceToken(parser, &t);
+  LnCol start = t.span.start;
+
+  vrpe->kind = PEK_ValueRestriction;
+
   switch (t.kind) {
   case TK_CompEqual: {
     vrpe->valueRestriction.restriction = PEVRK_CompEqual;
@@ -1618,12 +1664,78 @@ static void parseValueRestrictPatternExpr(PatternExpr *vrpe, Parser *parser) {
     PANIC();
   }
   }
+  vrpe->valueRestriction.value = allocArena(parser->ar, sizeof(ValueExpr));
+  parseValueExpr(vrpe->valueRestriction.value, parser);
+  LnCol end = vrpe->valueRestriction.value->span.end;
 
-  vrpe->valueRestriction = 
+  vrpe->span = SPAN(start, end);
+  vrpe->diagnostics_length = 0;
+  return;
+}
 
+static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
+  ZERO(trpe);
+
+  bool parseType = false;
+
+  Token t;
+  advanceToken(parser, &t);
+
+  LnCol start = t.span.start;
+
+  LnCol end;
+
+  switch (t.kind) {
+  // No binding created
+  case TK_Colon: {
+    trpe->typeRestriction.has_binding = false;
+    parseType = true;
+    break;
+  }
+  // Create a binding
+  case TK_Identifier: {
+    trpe->typeRestriction.has_binding = true;
+    trpe->typeRestriction.binding = internArena(t.identifier, parser->ar);
+    end = t.span.end;
+    advanceToken(parser, &t);
+    if (t.kind == TK_Colon) {
+      parseType = true;
+    } else {
+      parseType = false;
+      setNextToken(parser, &t);
+    }
+  }
+  default: {
+    INTERNAL_ERROR("called type restrict pattern expr parser where there was "
+                   "no type restrict pattern");
+    PANIC();
+  }
+  }
+
+  if (parseType) {
+    trpe->typeRestriction.type = allocArena(parser->ar, sizeof(TypeExpr));
+    parseTypeExpr(trpe->typeRestriction.type, parser);
+    end = t.span.end;
+  }
+  trpe->span = SPAN(start, end);
+  trpe->diagnostics_length = 0;
 }
 
 static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
+  ZERO(spe);
+
+  Token t;
+  advanceToken(parser, &t);
+
+  if (t.kind != TK_Struct) {
+    INTERNAL_ERROR("called struct pattern expr parser where there was "
+                   "no struct pattern");
+    PANIC();
+  }
+
+  LnCol start = t.span.start;
+  LnCol end;
+
   // TODO
 }
 
@@ -1645,7 +1757,7 @@ static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {
   case TK_CompLess:
   case TK_CompLessEqual: {
     setNextToken(parser, &t);
-    parseValueRestrictPattern(l1, parser);
+    parseValueRestrictionPatternExpr(l1, parser);
     break;
   }
   case TK_BraceLeft: {
@@ -1684,7 +1796,7 @@ static void parseL2PatternExpr(PatternExpr *l2, Parser *parser) {
   parseL1PatternExpr
 }
 
-static void parsePatternExpr(Pattern *pp, Parser *parser) {
+static void parsePatternExpr(PatternExpr *ppe, Parser *parser) {
   // zero-initialize bp
   ZERO(bp);
   pushNewCommentScope(parser);
@@ -1819,7 +1931,7 @@ static void parseFnDeclStmnt(Stmnt *fdsp, Parser *parser) {
 
   LnCol end;
 
-  PARSE_DELIMITED_LIST(
+  PARSE_LIST(
       &parameters,                         // members_vec_ptr
       &diagnostics,                        // diagnostics_vec_ptr
       parseBinding,                        // member_parse_function

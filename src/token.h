@@ -15,7 +15,7 @@ typedef enum {
   // Keywords
   TK_If,        // if
   TK_Else,      // else
-  TK_When,      // when
+  TK_Case,      // case
   TK_While,     // while
   TK_With,      // with
   TK_Match,     // match

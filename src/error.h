@@ -13,10 +13,9 @@ typedef enum {
   DK_Ok,
   // unknown error
   DK_Unknown,
-  // Generic Lexing Errors
+  // EOF error
   DK_EOF,
-  DK_UnrecognizedCharacter,
-  // Integer Literals
+  // Generic Lexing Errors
   DK_IntLiteralUnrecognizedRadixCode,
   DK_IntLiteralDigitExceedsRadix,
   DK_IntLiteralOverflow,
@@ -30,12 +29,19 @@ typedef enum {
   // String Literals
   DK_StringLiteralTooLong,
   DK_StringLiteralUnrecognizedEscapeCode,
+  // Struct Literals
+  DK_StructLiteralExpectedEntry,
+  DK_StructLiteralExpectedRightBrace,
+  DK_StructLiteralExpectedLeftBrace,
   // Parsing Errors
   // Path
   DK_PathExpectedIdentifier,
-  // Binding
-  DK_BindingExpectedType,
-  DK_BindingExpectedIdentifier,
+  // StructMemberExpr
+  DK_StructMemberExpectedType,
+  DK_StructMemberExpectedIdentifier,
+  // StructMemberLiteralExpr
+  DK_StructMemberLiteralExpectedValue,
+  DK_StructMemberLiteralExpectedIdentifier,
   // TypeExpr
   DK_TypeExprUnexpectedToken,
   DK_TypeExprFieldAccessExpectedIdentifier,
@@ -45,30 +51,17 @@ typedef enum {
   // TypeAlias
   DK_TypeAliasExpectedIdentifier,
   DK_TypeAliasExpectedAssign,
-  // StructDeclStmnt
+  // StructTypeExpr
   DK_StructExpectedLeftBrace,
   DK_StructExpectedRightBrace,
-  DK_StructExpectedComma,
-  // Tuple
-  DK_TupleExpectedRightParen,
-  DK_TupleExpectedComma,
   // FnDeclStmnt
   DK_FnDeclStmntExpectedRightParen,
   DK_FnDeclStmntExpectedLeftParen,
-  DK_FnDeclStmntExpectedComma,
-  DK_FnDeclStmntExpectedIdentifier,
-  DK_FnDeclStmntExpectedColon,
-  DK_FnDeclStmntExpectedAssign,
-  DK_FnDeclStmntExpectedBody,
+  DK_FnDeclStmntExpectedArrow,
   // FnTypeExpr
   DK_FnTypeExprExpectedLeftParen,
   DK_FnTypeExprExpectedRightParen,
-  DK_FnTypeExprExpectedComma,
   DK_FnTypeExprExpectedColon,
-  // Groups
-  DK_GroupExpectRightParen,
-  // If Expr
-  DK_IfExpectedElse,
   // MatchCase
   DK_MatchCaseNoColon,
   // Match
@@ -76,10 +69,8 @@ typedef enum {
   DK_MatchNoRightBrace,
   DK_MatchNoComma,
   // Block
-  DK_BlockExpectedSemicolon,
   DK_BlockExpectedRightBrace,
   // Fn Calls
-  DK_CallExpectedComma,
   DK_CallExpectedParen,
   // Generic Parsing errors
   DK_UnexpectedToken,

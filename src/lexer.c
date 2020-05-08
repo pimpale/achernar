@@ -673,8 +673,8 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->kind = TK_While;
   } else if (!strcmp(string, "with")) {
     token->kind = TK_With;
-  } else if (!strcmp(string, "when")) {
-    token->kind = TK_When;
+  } else if (!strcmp(string, "case")) {
+    token->kind = TK_Case;
   } else if (!strcmp(string, "break")) {
     token->kind = TK_Break;
   } else if (!strcmp(string, "continue")) {

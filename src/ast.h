@@ -66,8 +66,7 @@ typedef enum PatternExprValueRestrictionKind_e {
 typedef enum {
   PEK_None,             // Error type
   PEK_ValueRestriction, // matches a value, and optionally binds it
-  PEK_TypeRestriction,  // matches a type, and optionally binds it (this is also
-                        // the one used for wildcards)
+  PEK_TypeRestriction,  // matches a type, and optionally binds it
   PEK_Struct,           // a container for struct based patterns
   PEK_StructRest,       // (in struct) all values that were not matched
   PEK_UnaryOp,          // ()

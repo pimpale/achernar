@@ -55,7 +55,8 @@ typedef enum {
   DK_PatternGroupExpectedRightBrace,
   DK_PatternStructExpectedRightBrace,
   DK_PatternStructExpectedIdentifier,
-  DK_PatternStructExpectedAssignForTypeRestriction,
+  DK_PatternStructUnexpectedAssignForValueRestriction,
+  DK_PatternStructExpectedAssignForNonValueRestriction,
   // VarDeclStmnt
   DK_VarDeclStmntExpectedAssign,
   DK_VarDeclStmntExpectedValue,

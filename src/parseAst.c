@@ -1860,7 +1860,7 @@ static void parseGroupPatternExpr(PatternExpr *gpe, Parser *parser) {
   gpe->span = SPAN(start, end);
 }
 
-static voidparsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
+static void parsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
                                  Parser *parser) {
   ZERO(pesme);
 
@@ -1894,18 +1894,32 @@ static voidparsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s
   }
 
   // test if the statement has an assign
-  // The assignment is only necessary if it is a type restriction
+  // The assignment is only omitted if it is a value restriction
   bool has_assign;
 
   advanceToken(parser, &t);
   if (t.kind == TK_Assign) {
     has_assign = true;
-    advanceToken(parser, &t);
   } else {
     has_assign = false;
+    setNextToken(parser, &t);
   }
   pesme->pattern = RALLOC(parser->ar, PatternExpr);
   parsePatternExpr(pesme->pattern, parser);
+
+  end = pesme->pattern->span.end;
+
+  advanceToken(parser, &t);
+
+  if (pesme->pattern->kind == PEK_ValueRestriction && has_assign) {
+    diagnostic =
+        DIAGNOSTIC(DK_PatternStructUnexpectedAssignForValueRestriction, t.span);
+    goto CLEANUP;
+  } else if (pesme->pattern->kind != PEK_ValueRestriction && !has_assign) {
+    diagnostic = DIAGNOSTIC(
+        DK_PatternStructExpectedAssignForNonValueRestriction, t.span);
+    goto CLEANUP;
+  }
 
 CLEANUP:
   if (diagnostic.kind != DK_Ok) {

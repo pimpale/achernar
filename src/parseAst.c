@@ -186,8 +186,8 @@ static void mergeCommentScopeParser(Parser *parser) {
 }
 
 // Heuristic to resync the parser after reaching a syntax error
-// Continues reading tokens until we jump out of a paren, brace, or bracket group
-// discards any comments and tokens found
+// Continues reading tokens until we jump out of a paren, brace, or bracket
+// group discards any comments and tokens found
 static void resyncParser(Parser *parser) {
   Token t;
   Vector comments;
@@ -195,9 +195,9 @@ static void resyncParser(Parser *parser) {
   int64_t initial_paren_depth = parser->paren_depth;
   int64_t initial_brace_depth = parser->brace_depth;
   int64_t initial_bracket_depth = parser->bracket_depth;
-  while(initial_brace_depth <= parser->brace_depth &&
-        initial_paren_depth <= parser->paren_depth && 
-        initial_bracket_depth <= parser->bracket_depth) {
+  while (initial_brace_depth <= parser->brace_depth &&
+         initial_paren_depth <= parser->paren_depth &&
+         initial_bracket_depth <= parser->bracket_depth) {
     rawNextTokenParser(parser, &t, &comments);
   }
   destroyVector(&comments);
@@ -785,123 +785,131 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
   l1->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
+static void parseFieldAccessValueExpr(ValueExpr *fave, Parser *parser,
+                                      ValueExpr *root) {
+  ZERO(fave);
+  fave->kind = VEK_FieldAccess;
+  fave->fieldAccess.value = root;
+
+  Token t;
+
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_FieldAccess) {
+    INTERNAL_ERROR("expected field access operator");
+    PANIC();
+  }
+
+  // Now we get the field
+  peekTokenParser(parser, &t);
+  if (t.kind != TK_Identifier) {
+    // it is possible we encounter an error
+    fave->fieldAccess.field = NULL;
+    fave->diagnostics_length = 1;
+    fave->diagnostics = RALLOC(parser->ar, Diagnostic);
+    fave->diagnostics[0] = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, t.span);
+  } else {
+    fave->fieldAccess.field = internArena(parser->ar, t.identifier);
+    fave->diagnostics_length = 0;
+  }
+
+  fave->span = SPAN(root->span.start, t.span.end);
+}
+
+static void parseCallValueExpr(ValueExpr *cvep, Parser *parser,
+                               ValueExpr *root) {
+  ZERO(cvep);
+
+  cvep->kind = VEK_Call;
+  cvep->callExpr.function = root;
+
+  Token t;
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_ParenLeft) {
+    INTERNAL_ERROR("called call value expression parser where there was none");
+    PANIC();
+  }
+
+  LnCol end;
+
+  cvep->callExpr.parameters = RALLOC(parser->ar, ValueExpr);
+  parseValueExpr(cvep->callExpr.parameters, parser);
+
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_ParenRight) {
+    cvep->diagnostics_length = 1;
+    cvep->diagnostics = RALLOC(parser->ar, Diagnostic);
+    cvep->diagnostics[0] = DIAGNOSTIC(DK_CallExpectedParen, t.span);
+  } else {
+    cvep->diagnostics_length = 0;
+  }
+  end = t.span.end;
+
+  cvep->span = SPAN(root->span.start, end);
+}
+
 static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
-  ValueExpr currentTopLevel;
-  parseL1ValueExpr(&currentTopLevel, parser);
-  LnCol start = currentTopLevel.span.start;
+  parseL1ValueExpr(l2, parser);
 
   while (true) {
-    pushCommentScopeParser(parser);
     Token t;
+    // represents the new operation
+    ValueExpr *v;
+
     peekTokenParser(parser, &t);
     switch (t.kind) {
     case TK_Ref: {
-      ValueExpr v;
-      v.kind = VEK_UnaryOp;
-      v.unaryOp.operator= VEUOK_Ref;
-      v.unaryOp.operand = RALLOC(parser->ar, ValueExpr);
-      *v.unaryOp.operand = currentTopLevel;
-      v.span = SPAN(start, t.span.end);
-      v.diagnostics_length = 0;
-      currentTopLevel = v;
+      pushCommentScopeParser(parser);
+      v = RALLOC(parser->ar, ValueExpr);
+      v->kind = VEK_UnaryOp;
+      v->unaryOp.operator= VEUOK_Ref;
+      v->unaryOp.operand = l2;
+      v->span = SPAN(l2->span.start, t.span.end);
+      v->diagnostics_length = 0;
       nextTokenParser(parser, &t);
       break;
     }
     case TK_Deref: {
-      ValueExpr v;
-      v.kind = VEK_UnaryOp;
-      v.unaryOp.operator= VEUOK_Deref;
-      v.unaryOp.operand = RALLOC(parser->ar, ValueExpr);
-      *v.unaryOp.operand = currentTopLevel;
-      v.span = SPAN(start, t.span.end);
-      v.diagnostics_length = 0;
-      currentTopLevel = v;
+      pushCommentScopeParser(parser);
+      v = RALLOC(parser->ar, ValueExpr);
+      v->kind = VEK_UnaryOp;
+      v->unaryOp.operator= VEUOK_Deref;
+      v->unaryOp.operand = l2;
+      v->span = SPAN(l2->span.start, t.span.end);
+      v->diagnostics_length = 0;
       nextTokenParser(parser, &t);
       break;
     }
     case TK_FieldAccess: {
-      ValueExpr v;
-      v.kind = VEK_FieldAccess;
-      v.fieldAccess.value = RALLOC(parser->ar, ValueExpr);
-      *v.fieldAccess.value = currentTopLevel;
-
-      // Drop the peeked token
-      nextTokenParser(parser, &t);
-      // Now we get the next thing
-      peekTokenParser(parser, &t);
-      v.span = SPAN(start, t.span.end);
-      if (t.kind != TK_Identifier) {
-        // it is possible we encounter an error
-        v.fieldAccess.field = NULL;
-        v.diagnostics_length = 1;
-        v.diagnostics = RALLOC(parser->ar, Diagnostic);
-        v.diagnostics[0] = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, v.span);
-        return;
-      }
-      v.fieldAccess.field = internArena(parser->ar, t.identifier);
-      v.diagnostics_length = 0;
-      currentTopLevel = v;
+      pushCommentScopeParser(parser);
+      v = RALLOC(parser->ar, ValueExpr);
+      parseFieldAccessValueExpr(v, parser, l2);
       break;
     }
     case TK_ParenLeft: {
-      nextTokenParser(parser, &t);
-      ValueExpr v;
-      v.kind = VEK_Call;
-
-      Vector args;
-      createVector(&args);
-
-      Vector diagnostics;
-      createVector(&diagnostics);
-
-      LnCol end;
-
-      PARSE_LIST(&args,                // members_vec_ptr
-                 &diagnostics,         // diagnostics_vec_ptr
-                 parseValueExpr,       // member_parse_function
-                 ValueExpr,            // member_kind
-                 TK_ParenRight,        // delimiting_token_kind
-                 DK_CallExpectedParen, // missing_delimiter_error
-                 end,                  // end_lncol
-                 parser                // parser
-      )
-
-      v.callExpr.arguments_length = VEC_LEN(&args, ValueExpr);
-      v.callExpr.arguments = manageMemArena(parser->ar, releaseVector(&args));
-
-      v.diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
-      v.diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
-
-      v.span = SPAN(start, end);
-
-      v.callExpr.function = RALLOC(parser->ar, ValueExpr);
-      *v.callExpr.function = currentTopLevel;
-      currentTopLevel = v;
+      pushCommentScopeParser(parser);
+      v = RALLOC(parser->ar, ValueExpr);
+      parseCallValueExpr(v, parser, l2);
       break;
     }
     default: {
       // there are no more level 2 expressions
-      mergeCommentScopeParser(parser);
-      setNextToken(parser, &t);
-      *l2 = currentTopLevel;
       return;
     }
     }
 
     Vector comments = popCommentScopeParser(parser);
-    currentTopLevel.comments_length = VEC_LEN(&comments, Comment);
-    currentTopLevel.comments =
-        manageMemArena(parser->ar, releaseVector(&comments));
+    v->comments_length = VEC_LEN(&comments, Comment);
+    v->comments = manageMemArena(parser->ar, releaseVector(&comments));
+    l2 = v;
   }
 }
 
 static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
   Token t;
-  pushCommentScopeParser(parser);
-  advanceToken(parser, &t);
+  peekTokenParser(parser, &t);
   switch (t.kind) {
   case TK_Sub: {
     l3->unaryOp.operator= VEUOK_Negate;
@@ -921,320 +929,251 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
   }
   default: {
     // there is no level 3 expression
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
     parseL2ValueExpr(l3, parser);
     return;
   }
   }
 
-  // Now parse the rest of the expression
+  // this will only execute if an L3 operator exists
   l3->kind = VEK_UnaryOp;
+
+  // first create comment scope and go through op
+  pushCommentScopeParser(parser);
+  nextTokenParser(parser, &t);
+
+  // Now parse the rest of the expression
   l3->unaryOp.operand = RALLOC(parser->ar, ValueExpr);
   parseL3ValueExpr(l3->unaryOp.operand, parser);
+
+  // finally calculate the misc stuff
   l3->span = SPAN(t.span.start, l3->unaryOp.operand->span.end);
   l3->diagnostics_length = 0;
+
+  // comments
   Vector comments = popCommentScopeParser(parser);
   l3->comments_length = VEC_LEN(&comments, Comment);
   l3->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-static void parseL4ValueExpr(ValueExpr *l4, Parser *parser) {
-  ValueExpr v;
-  parseL3ValueExpr(&v, parser);
+// type is the type of object that the generated function will parse
+// x is the index level of the function
+// lower_fn is the name of the function that will be called to evaluate the left
+// and right op_det_fn is the name of the function that determines the binary
+// operator this function should take a pointer to the type and return a bool if
+// successful
+#define FN_BINOP_PARSE_LX_EXPR(type, type_shorthand, x, lower_fn, op_det_fn)   \
+  static void parseL##x##type(type *l##x, Parser *parser) {                    \
+    ValueExpr v;                                                               \
+    lower_fn(&v, parser);                                                      \
+                                                                               \
+    Token t;                                                                   \
+    peekTokenParser(parser, &t);                                               \
+    bool success = op_det_fn(t.kind, &l##x->binaryOp.operator);                \
+    if (!success) {                                                            \
+      /* there is no level x expression */                                     \
+      *l##x = v;                                                               \
+      return;                                                                  \
+    }                                                                          \
+    /* this will only execute if the operator exists */                        \
+    l##x->kind = type_shorthand##_BinaryOp;                                    \
+                                                                               \
+    /* set the left side */                                                    \
+    l##x->binaryOp.left_operand = RALLOC(parser->ar, type);                    \
+    *l##x->binaryOp.left_operand = v;                                          \
+                                                                               \
+    /* first create comment scope and go through operator */                   \
+    pushCommentScopeParser(parser);                                            \
+    nextTokenParser(parser, &t);                                               \
+                                                                               \
+    /* now parse the rest of the expression */                                 \
+    l##x->binaryOp.right_operand = RALLOC(parser->ar, type);                   \
+    lower_fn(l##x->binaryOp.right_operand, parser);                            \
+                                                                               \
+    /* calculate misc stuff */                                                 \
+    l##x->span = SPAN(l##x->binaryOp.left_operand->span.start,                 \
+                      l##x->binaryOp.right_operand->span.end);                 \
+    l##x->diagnostics_length = 0;                                              \
+                                                                               \
+    /* comments */                                                             \
+    Vector comments = popCommentScopeParser(parser);                           \
+    l##x->comments_length = VEC_LEN(&comments, Comment);                       \
+    l##x->comments = manageMemArena(parser->ar, releaseVector(&comments));     \
+    return;                                                                    \
+  }
 
-  pushCommentScopeParser(parser);
-
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
+static inline bool opDetL4ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_Mul: {
-    l4->binaryOp.operator= VEBOK_Mul;
-    break;
+    *val = VEBOK_Mul;
+    return true;
   }
   case TK_Div: {
-    l4->binaryOp.operator= VEBOK_Div;
-    break;
+    *val = VEBOK_Mul;
+    return true;
   }
   case TK_Mod: {
-    l4->binaryOp.operator= VEBOK_Mod;
-    break;
+    *val = VEBOK_Mul;
+    return true;
   }
   default: {
     // there is no level 4 expression
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l4 = v;
-    return;
+    return false;
   }
   }
-
-  l4->kind = VEK_BinaryOp;
-  l4->binaryOp.left_operand = RALLOC(parser->ar, ValueExpr);
-  *l4->binaryOp.left_operand = v;
-  l4->binaryOp.right_operand = RALLOC(parser->ar, ValueExpr);
-  parseL4ValueExpr(l4->binaryOp.right_operand, parser);
-  l4->span = SPAN(l4->binaryOp.left_operand->span.start,
-                  l4->binaryOp.right_operand->span.end);
-  l4->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l4->comments_length = VEC_LEN(&comments, Comment);
-  l4->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
 
-static void parseL5ValueExpr(ValueExpr *l5, Parser *parser) {
-  ValueExpr v;
-  parseL4ValueExpr(&v, parser);
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 4, parseL3ValueExpr, opDetL4ValueExpr)
 
-  pushCommentScopeParser(parser);
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
+static inline bool opDetL5ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_Add: {
-    l5->binaryOp.operator= VEBOK_Add;
-    break;
+    *val = VEBOK_Add;
+    return true;
   }
   case TK_Sub: {
-    l5->binaryOp.operator= VEBOK_Sub;
-    break;
+    *val = VEBOK_Sub;
+    return true;
   }
   default: {
     // there is no level 5 expression
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l5 = v;
-    return;
+    return false;
   }
   }
-
-  l5->kind = VEK_BinaryOp;
-  l5->binaryOp.left_operand = RALLOC(parser->ar, ValueExpr);
-  *l5->binaryOp.left_operand = v;
-  l5->binaryOp.right_operand = RALLOC(parser->ar, ValueExpr);
-  parseL5ValueExpr(l5->binaryOp.right_operand, parser);
-  l5->span = SPAN(l5->binaryOp.left_operand->span.start,
-                  l5->binaryOp.right_operand->span.end);
-  l5->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l5->comments_length = VEC_LEN(&comments, Comment);
-  l5->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
 
-static void parseL6ValueExpr(ValueExpr *l6, Parser *parser) {
-  ValueExpr v;
-  parseL5ValueExpr(&v, parser);
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 5, parseL4ValueExpr, opDetL5ValueExpr)
 
-  pushCommentScopeParser(parser);
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
+static inline bool opDetL6ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_ShiftLeft: {
-    l6->binaryOp.operator= VEBOK_BitShl;
-    break;
+    *val = VEBOK_BitShl;
+    return true;
   }
   case TK_ShiftRight: {
-    l6->binaryOp.operator= VEBOK_BitShr;
-    break;
+    *val = VEBOK_BitShr;
+    return true;
   }
   case TK_BitAnd: {
-    l6->binaryOp.operator= VEBOK_BitAnd;
-    break;
+    *val = VEBOK_BitAnd;
+    return true;
   }
   case TK_BitOr: {
-    l6->binaryOp.operator= VEBOK_BitOr;
-    break;
+    *val = VEBOK_BitOr;
+    return true;
   }
   case TK_BitXor: {
-    l6->binaryOp.operator= VEBOK_BitXor;
-    break;
+    *val = VEBOK_BitXor;
+    return true;
   }
   default: {
     // there is no level 6 expression
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l6 = v;
-    return;
+    return false;
   }
   }
-
-  l6->kind = VEK_BinaryOp;
-  l6->binaryOp.left_operand = RALLOC(parser->ar, ValueExpr);
-  *l6->binaryOp.left_operand = v;
-  l6->binaryOp.right_operand = RALLOC(parser->ar, ValueExpr);
-  parseL6ValueExpr(l6->binaryOp.right_operand, parser);
-  l6->span = SPAN(l6->binaryOp.left_operand->span.start,
-                  l6->binaryOp.right_operand->span.end);
-  l6->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l6->comments_length = VEC_LEN(&comments, Comment);
-  l6->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
 
-static void parseL7ValueExpr(ValueExpr *l7, Parser *parser) {
-  ValueExpr v;
-  parseL6ValueExpr(&v, parser);
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 6, parseL5ValueExpr, opDetL6ValueExpr)
 
-  pushCommentScopeParser(parser);
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
+static inline bool opDetL7ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_CompLess: {
-    l7->binaryOp.operator= VEBOK_CompLess;
-    break;
+    *val = VEBOK_CompLess;
+    return true;
   }
   case TK_CompGreater: {
-    l7->binaryOp.operator= VEBOK_CompGreater;
-    break;
+    *val = VEBOK_CompGreater;
+    return true;
   }
   case TK_CompLessEqual: {
-    l7->binaryOp.operator= VEBOK_CompLessEqual;
-    break;
+    *val = VEBOK_CompLessEqual;
+    return true;
   }
   case TK_CompGreaterEqual: {
-    l7->binaryOp.operator= VEBOK_CompGreaterEqual;
-    break;
+    *val = VEBOK_CompGreaterEqual;
+    return true;
   }
   case TK_CompEqual: {
-    l7->binaryOp.operator= VEBOK_CompEqual;
-    break;
+    *val = VEBOK_CompEqual;
+    return true;
   }
   case TK_CompNotEqual: {
-    l7->binaryOp.operator= VEBOK_CompNotEqual;
-    break;
+    *val = VEBOK_CompNotEqual;
+    return true;
   }
   default: {
     // there is no level 7 expression
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l7 = v;
-    return;
+    return false;
   }
   }
-
-  l7->kind = VEK_BinaryOp;
-  l7->binaryOp.left_operand = RALLOC(parser->ar, ValueExpr);
-  *l7->binaryOp.left_operand = v;
-  l7->binaryOp.right_operand = RALLOC(parser->ar, ValueExpr);
-  parseL7ValueExpr(l7->binaryOp.right_operand, parser);
-  l7->span = SPAN(l7->binaryOp.left_operand->span.start,
-                  l7->binaryOp.right_operand->span.end);
-  l7->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l7->comments_length = VEC_LEN(&comments, Comment);
-  l7->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
 
-static void parseL8ValueExpr(ValueExpr *l8, Parser *parser) {
-  ValueExpr v;
-  parseL7ValueExpr(&v, parser);
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 7, parseL6ValueExpr, opDetL7ValueExpr)
 
-  pushCommentScopeParser(parser);
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
+static inline bool opDetL8ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_And: {
-    l8->binaryOp.operator= VEBOK_LogicalAnd;
-    break;
+    *val = VEBOK_CompLess;
+    return true;
   }
   case TK_Or: {
-    l8->binaryOp.operator= VEBOK_LogicalOr;
-    break;
+    *val = VEBOK_CompGreater;
+    return true;
   }
   default: {
-    // There is no level 8 expr
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l8 = v;
-    return;
+    // there is no level 8 expression
+    return false;
   }
   }
-
-  l8->kind = VEK_BinaryOp;
-  l8->binaryOp.left_operand = RALLOC(parser->ar, ValueExpr);
-  *l8->binaryOp.left_operand = v;
-  l8->binaryOp.right_operand = RALLOC(parser->ar, ValueExpr);
-  parseL8ValueExpr(l8->binaryOp.right_operand, parser);
-  l8->span = SPAN(l8->binaryOp.left_operand->span.start,
-                  l8->binaryOp.right_operand->span.end);
-  l8->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l8->comments_length = VEC_LEN(&comments, Comment);
-  l8->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 8, parseL7ValueExpr, opDetL8ValueExpr)
 
-static void parseL9ValueExpr(ValueExpr *l9, Parser *parser) {
-  ValueExpr v;
-  parseL8ValueExpr(&v, parser);
-
-  pushCommentScopeParser(parser);
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
+static bool opDetL9ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_Assign: {
-    l9->binaryOp.operator= VEBOK_Assign;
-    break;
+    *val = VEBOK_Assign;
+    return true;
   }
   case TK_AssignAdd: {
-    l9->binaryOp.operator= VEBOK_AssignAdd;
-    break;
+    *val = VEBOK_AssignAdd;
+    return true;
   }
   case TK_AssignSub: {
-    l9->binaryOp.operator= VEBOK_AssignSub;
-    break;
+    *val = VEBOK_AssignSub;
+    return true;
   }
   case TK_AssignMul: {
-    l9->binaryOp.operator= VEBOK_AssignMul;
-    break;
+    *val = VEBOK_AssignMul;
+    return true;
   }
   case TK_AssignDiv: {
-    l9->binaryOp.operator= VEBOK_AssignDiv;
-    break;
+    *val = VEBOK_AssignDiv;
+    return true;
   }
   case TK_AssignMod: {
-    l9->binaryOp.operator= VEBOK_AssignMod;
-    break;
+    *val = VEBOK_AssignMod;
+    return true;
   }
   case TK_AssignBitAnd: {
-    l9->binaryOp.operator= VEBOK_AssignBitAnd;
-    break;
+    *val = VEBOK_AssignBitAnd;
+    return true;
   }
   case TK_AssignBitOr: {
-    l9->binaryOp.operator= VEBOK_AssignBitOr;
-    break;
+    *val = VEBOK_AssignBitOr;
+    return true;
   }
   default: {
-    // There is no level 8 expr
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l9 = v;
-    return;
+    // There is no level 9 expr
+    return false;
   }
   }
-
-  l9->kind = VEK_BinaryOp;
-  l9->binaryOp.left_operand = RALLOC(parser->ar, ValueExpr);
-  *l9->binaryOp.left_operand = v;
-  l9->binaryOp.right_operand = RALLOC(parser->ar, ValueExpr);
-  parseL8ValueExpr(l9->binaryOp.right_operand, parser);
-  l9->span = SPAN(l9->binaryOp.left_operand->span.start,
-                  l9->binaryOp.right_operand->span.end);
-  l9->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l9->comments_length = VEC_LEN(&comments, Comment);
-  l9->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
+
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr, opDetL9ValueExpr)
 
 // shim method
 static void parseValueExpr(ValueExpr *vep, Parser *parser) {
@@ -1572,8 +1511,7 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
   LnCol start = currentTopLevel.span.start;
 
   while (true) {
-    pushCommentScopeParser
- (parser);
+    pushCommentScopeParser(parser);
 
     Token t;
     advanceToken(parser, &t);

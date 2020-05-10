@@ -963,7 +963,7 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
 // successful
 #define FN_BINOP_PARSE_LX_EXPR(type, type_shorthand, x, lower_fn, op_det_fn)   \
   static void parseL##x##type(type *l##x, Parser *parser) {                    \
-    ValueExpr v;                                                               \
+    type v;                                                                    \
     lower_fn(&v, parser);                                                      \
                                                                                \
     Token t;                                                                   \
@@ -1198,7 +1198,7 @@ parseStructLiteralMemberExpr(struct StructLiteralMemberExpr_s *slmep,
   LnCol end;
 
   // get identifier
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   Span identitySpan = t.span;
 
@@ -1215,7 +1215,7 @@ parseStructLiteralMemberExpr(struct StructLiteralMemberExpr_s *slmep,
   slmep->name = internArena(parser->ar, t.identifier);
 
   // check if assign
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   if (t.kind == TK_Colon) {
     // Get value of variable
     slmep->value = RALLOC(parser->ar, ValueExpr);
@@ -1263,7 +1263,7 @@ static void parseStructMemberExpr(struct StructMemberExpr_s *smep,
   LnCol end;
 
   // get identifier
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   Span identitySpan = t.span;
 
@@ -1279,16 +1279,16 @@ static void parseStructMemberExpr(struct StructMemberExpr_s *smep,
   smep->name = internArena(parser->ar, t.identifier);
 
   // check if colon
-  advanceToken(parser, &t);
+  peekTokenParser(parser, &t);
   if (t.kind == TK_Colon) {
+    // advance through colon
+    nextTokenParser(parser, &t);
     // Get type of variable
     smep->type = RALLOC(parser->ar, TypeExpr);
     parseTypeExpr(smep->type, parser);
     end = smep->type->span.end;
   } else {
     end = identitySpan.end;
-    // push back whatever
-    setNextToken(parser, &t);
     smep->type = RALLOC(parser->ar, TypeExpr);
     smep->type->kind = TEK_Omitted;
     smep->type->span = identitySpan;
@@ -1318,7 +1318,7 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
   ZERO(ste);
   ste->kind = TEK_Struct;
   Token t;
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   switch (t.kind) {
   case TK_Struct: {
     ste->structExpr.kind = TESK_Struct;
@@ -1345,7 +1345,7 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
 
   LnCol start = t.span.start;
 
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
@@ -1395,7 +1395,7 @@ static void parseReferenceTypeExpr(TypeExpr *rtep, Parser *parser) {
 
 static void parseVoidTypeExpr(TypeExpr *vte, Parser *parser) {
   Token t;
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   EXPECT_TYPE(t, TK_Void, HANDLE_NO_VOID);
   vte->kind = TEK_Void;
   vte->span = t.span;
@@ -1411,7 +1411,7 @@ HANDLE_NO_VOID:
 static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
   ZERO(fte);
   Token t;
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   if (t.kind != TK_Fn) {
     INTERNAL_ERROR("called function type expression parser where there was no "
@@ -1427,7 +1427,7 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
   diagnostic.kind = DK_Ok;
 
   // check for leftparen
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   if (t.kind != TK_ParenLeft) {
     diagnostic = DIAGNOSTIC(DK_FnTypeExprExpectedLeftParen, t.span);
     end = t.span.end;
@@ -1437,7 +1437,7 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
   fte->fnExpr.parameters = RALLOC(parser->ar, TypeExpr);
   parseTypeExpr(fte->fnExpr.parameters, parser);
 
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   if (t.kind != TK_Colon) {
     diagnostic = DIAGNOSTIC(DK_FnTypeExprExpectedColon, t.span);
     end = t.span.end;
@@ -1460,28 +1460,24 @@ CLEANUP:
 static void parseL1TypeExpr(TypeExpr *l1, Parser *parser) {
   pushCommentScopeParser(parser);
   Token t;
-  advanceToken(parser, &t);
+  peekTokenParser(parser, &t);
   switch (t.kind) {
   case TK_Identifier: {
-    setNextToken(parser, &t);
     parseReferenceTypeExpr(l1, parser);
-    return;
+    break;
   }
   case TK_Enum:
   case TK_Pack:
   case TK_Union:
   case TK_Struct: {
-    setNextToken(parser, &t);
     parseStructTypeExpr(l1, parser);
     break;
   }
   case TK_Void: {
-    setNextToken(parser, &t);
     parseVoidTypeExpr(l1, parser);
     break;
   }
   case TK_Fn: {
-    setNextToken(parser, &t);
     parseFnTypeExpr(l1, parser);
     break;
   }
@@ -1502,155 +1498,123 @@ static void parseL1TypeExpr(TypeExpr *l1, Parser *parser) {
   l1->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
+static void parseScopeResolutionTypeExpr(TypeExpr *srte, Parser *parser,
+                                      TypeExpr *root) {
+  ZERO(srte);
+  srte->kind = TEK_FieldAccess;
+  srte->fieldAccess.value = root;
+
+  Token t;
+
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_FieldAccess) {
+    INTERNAL_ERROR("expected field access operator");
+    PANIC();
+  }
+
+  // Now we get the field
+  peekTokenParser(parser, &t);
+  if (t.kind != TK_Identifier) {
+    // it is possible we encounter an error
+    srte->fieldAccess.field = NULL;
+    srte->diagnostics_length = 1;
+    srte->diagnostics = RALLOC(parser->ar, Diagnostic);
+    srte->diagnostics[0] = DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier , t.span);
+  } else {
+    srte->fieldAccess.field = internArena(parser->ar, t.identifier);
+    srte->diagnostics_length = 0;
+  }
+
+  srte->span = SPAN(root->span.start, t.span.end);
+}
+
 static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
-  TypeExpr currentTopLevel;
-  parseL1TypeExpr(&currentTopLevel, parser);
-  LnCol start = currentTopLevel.span.start;
+  parseL1TypeExpr(l2, parser);
 
   while (true) {
-    pushCommentScopeParser(parser);
-
     Token t;
-    advanceToken(parser, &t);
+    // represents the new operation
+    TypeExpr *ty;
+
+    peekTokenParser(parser, &t);
     switch (t.kind) {
     case TK_Ref: {
-      TypeExpr te;
-      te.kind = TEK_UnaryOp;
-      te.unaryOp.operator= TEUOK_Ref;
-      te.unaryOp.operand = RALLOC(parser->ar, TypeExpr);
-      *te.unaryOp.operand = currentTopLevel;
-      te.span = SPAN(start, t.span.end);
-      te.diagnostics_length = 0;
-      currentTopLevel = te;
+      pushCommentScopeParser(parser);
+      ty = RALLOC(parser->ar, TypeExpr);
+      ty->kind = TEK_UnaryOp;
+      ty->unaryOp.operator= TEUOK_Ref;
+      ty->unaryOp.operand = l2;
+      ty->span = SPAN(l2->span.start, t.span.end);
+      ty->diagnostics_length = 0;
+      nextTokenParser(parser, &t);
       break;
     }
     case TK_Deref: {
-      TypeExpr te;
-      te.kind = TEK_UnaryOp;
-      te.unaryOp.operator= TEUOK_Deref;
-      te.unaryOp.operand = RALLOC(parser->ar, TypeExpr);
-      *te.unaryOp.operand = currentTopLevel;
-      te.span = SPAN(start, t.span.end);
-      te.diagnostics_length = 0;
-      currentTopLevel = te;
+      pushCommentScopeParser(parser);
+      ty = RALLOC(parser->ar, TypeExpr);
+      ty->kind = TEK_UnaryOp;
+      ty->unaryOp.operator= TEUOK_Deref;
+      ty->unaryOp.operand = l2;
+      ty->span = SPAN(l2->span.start, t.span.end);
+      ty->diagnostics_length = 0;
+      nextTokenParser(parser, &t);
       break;
     }
     case TK_ScopeResolution: {
-      TypeExpr te;
-      te.kind = TEK_FieldAccess;
-      te.fieldAccess.value = RALLOC(parser->ar, TypeExpr);
-      *te.fieldAccess.value = currentTopLevel;
-
-      // Now we get the next thing
-      advanceToken(parser, &t);
-      te.span = SPAN(start, t.span.end);
-      if (t.kind != TK_Identifier) {
-        // If we encounter an error, we bail out of this L2ValueExpr
-        te.fieldAccess.field = NULL;
-        setNextToken(parser, &t);
-        te.diagnostics_length = 1;
-        te.diagnostics = RALLOC(parser->ar, Diagnostic);
-        te.diagnostics[0] =
-            DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier, t.span);
-
-      } else {
-        te.fieldAccess.field = internArena(parser->ar, t.identifier);
-        te.diagnostics_length = 0;
-      }
-      currentTopLevel = te;
+      pushCommentScopeParser(parser);
+      ty = RALLOC(parser->ar, TypeExpr);
+      parseScopeResolutionTypeExpr(ty, parser, l2);
       break;
     }
     default: {
-      // there are no more level 2 expressions
-      mergeCommentScopeParser(parser);
-      setNextToken(parser, &t);
-      *l2 = currentTopLevel;
+      // there are no more level2 expressions
       return;
     }
     }
+
     Vector comments = popCommentScopeParser(parser);
-    currentTopLevel.comments_length = VEC_LEN(&comments, Comment);
-    currentTopLevel.comments =
-        manageMemArena(parser->ar, releaseVector(&comments));
+    ty->comments_length = VEC_LEN(&comments, Comment);
+    ty->comments = manageMemArena(parser->ar, releaseVector(&comments));
+    l2 = ty;
   }
 }
 
-static void parseL3TypeExpr(TypeExpr *l3, Parser *parser) {
-  TypeExpr ty;
-  parseL2TypeExpr(&ty, parser);
 
-  pushCommentScopeParser(parser);
-
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
+static inline bool opDetL3TypeExpr(TokenKind tk,
+                                    enum TypeExprBinaryOpKind_e*val) {
+  switch (tk) {
   case TK_Comma: {
-    l3->binaryOp.operator= TEBOK_Product;
-    break;
+    *val = TEBOK_Product;
+    return true;
   }
   default: {
-    // there is no level 3 expression
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l3 = ty;
-    return;
+    // there is no level 4 expression
+    return false;
   }
   }
-
-  l3->kind = TEK_BinaryOp;
-  l3->binaryOp.left_operand = RALLOC(parser->ar, TypeExpr);
-  *l3->binaryOp.left_operand = ty;
-  l3->binaryOp.right_operand = RALLOC(parser->ar, TypeExpr);
-  parseL2TypeExpr(l3->binaryOp.right_operand, parser);
-  l3->span = SPAN(l3->binaryOp.left_operand->span.start,
-                  l3->binaryOp.right_operand->span.end);
-  l3->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l3->comments_length = VEC_LEN(&comments, Comment);
-  l3->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
 
-static void parseL4TypeExpr(TypeExpr *l4, Parser *parser) {
-  TypeExpr ty;
-  parseL3TypeExpr(&ty, parser);
+FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 3, parseL2TypeExpr, opDetL3TypeExpr)
 
-  pushCommentScopeParser(parser);
-
-  Token t;
-  advanceToken(parser, &t);
-  switch (t.kind) {
-  case TK_BitOr: {
-    l4->binaryOp.operator= TEBOK_Sum;
-    break;
+static inline bool opDetL4TypeExpr(TokenKind tk,
+                                    enum TypeExprBinaryOpKind_e*val) {
+  switch (tk) {
+  case TK_Comma: {
+    *val = TEBOK_Product;
+    return true;
   }
   default: {
-    // there is no level 3 expression
-    mergeCommentScopeParser(parser);
-    setNextToken(parser, &t);
-    *l4 = ty;
-    return;
+    // there is no level 4 expression
+    return false;
   }
   }
-
-  l4->kind = TEK_BinaryOp;
-  l4->binaryOp.left_operand = RALLOC(parser->ar, TypeExpr);
-  *l4->binaryOp.left_operand = ty;
-  l4->binaryOp.right_operand = RALLOC(parser->ar, TypeExpr);
-  parseL3TypeExpr(l4->binaryOp.right_operand, parser);
-  l4->span = SPAN(l4->binaryOp.left_operand->span.start,
-                  l4->binaryOp.right_operand->span.end);
-  l4->diagnostics_length = 0;
-
-  Vector comments = popCommentScopeParser(parser);
-  l4->comments_length = VEC_LEN(&comments, Comment);
-  l4->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
 }
+
+FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 4, parseL3TypeExpr, opDetL4TypeExpr)
+
 static void parseTypeExpr(TypeExpr *tep, Parser *parser) {
   parseL4TypeExpr(tep, parser);
 }
@@ -1660,7 +1624,7 @@ static void parseValueRestrictionPatternExpr(PatternExpr *vrpe,
   ZERO(vrpe);
 
   Token t;
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   LnCol start = t.span.start;
 
   vrpe->kind = PEK_ValueRestriction;

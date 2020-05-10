@@ -8,10 +8,14 @@ typedef struct Parser_s {
   Lexer *lexer;
   bool has_next_token;
   Token next_token;
-  // Vector<Comment> peeked comments
+  // Vector<Comment> vector of peeked comments
   Vector next_comments;
-  // Vector<Vector<Comment>> (will comments push to the topmost scope)
+  // Vector<Vector<Comment>> (stack of vectors of comments)
   Vector comments;
+  // list of nested scopes for breaking out of stuff
+  int64_t paren_depth;
+  int64_t brace_depth;
+  int64_t bracket_depth;
 } Parser;
 
 void createParser(Parser *pp, Lexer *lp, Arena* ar);

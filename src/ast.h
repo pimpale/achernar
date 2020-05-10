@@ -345,8 +345,7 @@ typedef struct ValueExpr_s {
     } whileExpr;
     struct {
       ValueExpr *function;
-      ValueExpr *arguments;
-      size_t arguments_length;
+      ValueExpr *parameters;
     } callExpr;
     struct {
       PatternExpr *parameters;

@@ -18,7 +18,6 @@ Vector *createVector(Vector *mem);
 
 /// Creates a vector with capacity
 /// REQUIRES: `mem` is a pointer to a valid section of memory
-/// REQUIRES: `initialCapacity` is greater than 0
 /// GUARANTEES: returns a pointer to a valid Vector
 /// GUARANTEES: returned vector will have a capacity >= initialCapacity
 Vector *createWithCapacityVector(Vector *mem, size_t initialCapacity);

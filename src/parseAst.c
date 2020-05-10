@@ -49,11 +49,43 @@ void createParser(Parser *pp, Lexer *lp, Arena *ar) {
   createVector(&pp->comments);
 }
 
+/// gets the next token, ignoring buffering
+static void rawNextToken(Lexer *l, Arena *ar, Token *t, Vector *comments) {
+  while (true) {
+    Token c;
+    lexNextToken(l, &c);
+    switch (c.kind) {
+    case TK_Comment: {
+      *VEC_PUSH(comments, Comment) =
+          (Comment){.span = c.span,
+                    .scope = internArena(ar, c.comment.scope),
+                    .data = internArena(ar, c.comment.comment)};
+      break;
+    }
+    case TK_Semicolon: {
+      // Semicolons are a NOP and don't appear in the AST
+      break;
+    }
+    default: {
+      *t = c;
+      return;
+    }
+    }
+  }
+}
+
 // If has an ungotten token, return that. Else return next in line, and cache it
-static void advanceToken(Parser *pp, Token *t) {
+static void nextToken(Parser *pp, Token *t) {
   if (pp->has_next_token) {
+    // set the token
     *t = pp->next_token;
     pp->has_next_token = false;
+    // merge the next comments
+    Vector *top = VEC_PEEK(&pp->comments, Vector);
+    size_t next_comments_len = lengthVector(&pp->next_comments);
+    popVector(&pp->next_comments, pushVector(top, next_comments_len),
+              next_comments_len);
+
   } else {
     while (true) {
       Token c;
@@ -75,13 +107,13 @@ static void advanceToken(Parser *pp, Token *t) {
 }
 
 // If token exists in line
-static void setNextToken(Parser *pp, Token *t) {
-  if (!pp->has_next_token) {
+static void peekToken(Parser *pp, Token *t) {
+  if (pp->has_next_token) {
+    *t = pp->next_token;
+  } else {
+    advanceToken(pp, t);
     pp->has_next_token = true;
     pp->next_token = *t;
-  } else {
-    INTERNAL_ERROR("already set next token");
-    PANIC();
   }
 }
 
@@ -1860,7 +1892,8 @@ static void parseGroupPatternExpr(PatternExpr *gpe, Parser *parser) {
   gpe->span = SPAN(start, end);
 }
 
-static void parsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
+static void
+parsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
                                  Parser *parser) {
   ZERO(pesme);
 
@@ -2050,9 +2083,7 @@ static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {
   l1->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-static void parseL2PatternExpr(PatternExpr *l2, Parser *parser) {
-  parseL1PatternExpr
-}
+static void parseL2PatternExpr(PatternExpr *l2, Parser *parser) {}
 
 static void parsePatternExpr(PatternExpr *ppe, Parser *parser) {
   // zero-initialize bp

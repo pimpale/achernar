@@ -671,8 +671,8 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->kind = TK_Else;
   } else if (!strcmp(string, "while")) {
     token->kind = TK_While;
-  } else if (!strcmp(string, "with")) {
-    token->kind = TK_With;
+  } else if (!strcmp(string, "as")) {
+    token->kind = TK_As;
   } else if (!strcmp(string, "case")) {
     token->kind = TK_Case;
   } else if (!strcmp(string, "break")) {
@@ -682,19 +682,17 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   } else if (!strcmp(string, "return")) {
     token->kind = TK_Return;
   } else if (!strcmp(string, "fn")) {
-    token->kind = TK_Function;
+    token->kind = TK_Fn;
   } else if (!strcmp(string, "let")) {
     token->kind = TK_Let;
   } else if (!strcmp(string, "struct")) {
     token->kind = TK_Struct;
-  } else if (!strcmp(string, "pack")) {
-    token->kind = TK_Pack;
   } else if (!strcmp(string, "enum")) {
     token->kind = TK_Enum;
   } else if (!strcmp(string, "union")) {
     token->kind = TK_Union;
   } else if (!strcmp(string, "type")) {
-    token->kind = TK_TypeAlias;
+    token->kind = TK_Type;
   } else if (!strcmp(string, "void")) {
     token->kind = TK_Void;
   } else {

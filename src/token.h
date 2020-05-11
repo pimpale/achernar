@@ -18,15 +18,14 @@ typedef enum {
   TK_Else,     // else
   TK_Case,     // case
   TK_While,    // while
-  TK_With,     // with
   TK_Match,    // match
   TK_Break,    // break
   TK_Continue, // continue
   TK_Return,   // return
   TK_Fn,       // fn
+  TK_As,       // as
   TK_Let,      // let
   TK_Struct,   // struct
-  TK_Pack,     // pack
   TK_Union,    // union
   TK_Enum,     // enum
   TK_Type,     // type
@@ -46,13 +45,6 @@ typedef enum {
   TK_And, // &&
   TK_Or,  // ||
   TK_Not, // !
-  // Bitwise Operators
-  TK_BitAnd,     // &
-  TK_BitOr,      // |
-  TK_BitXor,     // ^
-  TK_BitNot,     // ~
-  TK_ShiftLeft,  // <<
-  TK_ShiftRight, // >>
   // Comparison and Equality
   TK_CompEqual,        // ==
   TK_CompNotEqual,     // !=
@@ -61,7 +53,7 @@ typedef enum {
   TK_CompGreater,      // >
   TK_CompGreaterEqual, // >=
   // Type Modifiers
-  TK_Ref,   // $
+  TK_Ref,   // &
   TK_Deref, // @
   // Assignment
   TK_Assign,       // =
@@ -90,7 +82,7 @@ typedef enum {
   TK_Semicolon,    // ;
   TK_Underscore,   // _
   TK_Rest,         // ..
-  // Macros and Builtins
+  // Macros
   TK_Macro,   // macro!
   TK_Builtin, // _builtin
   // Comments, and Attributes

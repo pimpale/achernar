@@ -689,14 +689,15 @@ static void parseReferenceValueExpr(ValueExpr *rvep, Parser *parser) {
 }
 
 // Level1ValueExpr parentheses, braces, literals
-// Level2ValueExpr () [] $ @ . -> (postfixes)
+// Level2ValueExpr as () [] & @ . -> (postfixes)
 // Level3ValueExpr - + ~ ! (prefixes)
 // Level4ValueExpr * / % (multiplication and division)
 // Level5ValueExpr + - (addition and subtraction)
-// Level6ValueExpr << >> & | ^ (bitwise operators)
 // Level7ValueExpr < <= > >= == != (comparators)
-// Level8ValueExpr && || (Boolean Operators)
-// Level9ValueExpr = += -= *= /= %= &= |=  (Assignment)
+// Level8ValueExpr && (logical and)
+// Level8ValueExpr || (logical or)
+// Level10ValueExpr , (create product type)
+// Level11ValueExpr = += -= *= /= %= (Assignment)
 
 static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
   pushCommentScopeParser(parser);

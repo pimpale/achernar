@@ -767,11 +767,11 @@ static void parseReferenceValueExpr(ValueExpr *rvep, Parser *parser) {
 // Level3ValueExpr - + ! (prefixes)
 // Level4ValueExpr * / % (multiplication and division)
 // Level5ValueExpr + - (addition and subtraction)
-// Level7ValueExpr < <= > >= == != (comparators)
-// Level8ValueExpr && (logical and)
+// Level6ValueExpr < <= > >= == != (comparators)
+// Level7ValueExpr && (logical and)
 // Level8ValueExpr || (logical or)
-// Level10ValueExpr , (create tuple)
-// Level11ValueExpr = += -= *= /= %= (Assignment)
+// Level9ValueExpr , (create tuple)
+// Level10ValueExpr = += -= *= /= %= (Assignment)
 
 static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
   pushCommentScopeParser(parser);
@@ -986,6 +986,10 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
     l3->unaryOp.operator= VEUOK_Posit;
     break;
   }
+  case TK_Not: {
+    l3->unaryOp.operator= VEUOK_Not;
+    break;
+  }
   default: {
     // there is no level 3 expression
     parseL2ValueExpr(l3, parser);
@@ -1068,11 +1072,11 @@ static inline bool opDetL4ValueExpr(TokenKind tk,
     return true;
   }
   case TK_Div: {
-    *val = VEBOK_Mul;
+    *val = VEBOK_Div;
     return true;
   }
   case TK_Mod: {
-    *val = VEBOK_Mul;
+    *val = VEBOK_Mod;
     return true;
   }
   default: {
@@ -1107,38 +1111,6 @@ FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 5, parseL4ValueExpr, opDetL5ValueExpr)
 static inline bool opDetL6ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
-  case TK_ShiftLeft: {
-    *val = VEBOK_BitShl;
-    return true;
-  }
-  case TK_ShiftRight: {
-    *val = VEBOK_BitShr;
-    return true;
-  }
-  case TK_BitAnd: {
-    *val = VEBOK_BitAnd;
-    return true;
-  }
-  case TK_BitOr: {
-    *val = VEBOK_BitOr;
-    return true;
-  }
-  case TK_BitXor: {
-    *val = VEBOK_BitXor;
-    return true;
-  }
-  default: {
-    // there is no level 6 expression
-    return false;
-  }
-  }
-}
-
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 6, parseL5ValueExpr, opDetL6ValueExpr)
-
-static inline bool opDetL7ValueExpr(TokenKind tk,
-                                    enum ValueExprBinaryOpKind_e *val) {
-  switch (tk) {
   case TK_CompLess: {
     *val = VEBOK_CompLess;
     return true;
@@ -1170,15 +1142,26 @@ static inline bool opDetL7ValueExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 7, parseL6ValueExpr, opDetL7ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 6, parseL5ValueExpr, opDetL6ValueExpr)
 
-static inline bool opDetL8ValueExpr(TokenKind tk,
+static inline bool opDetL7ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_And: {
     *val = VEBOK_CompLess;
     return true;
   }
+  default: {
+    // there is no level 8 expression
+    return false;
+  }
+  }
+}
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 7, parseL6ValueExpr, opDetL7ValueExpr)
+
+static inline bool opDetL8ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_Or: {
     *val = VEBOK_CompGreater;
     return true;
@@ -1191,7 +1174,21 @@ static inline bool opDetL8ValueExpr(TokenKind tk,
 }
 FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 8, parseL7ValueExpr, opDetL8ValueExpr)
 
-static bool opDetL9ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
+static inline bool opDetL9ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
+  case TK_Tuple: {
+    *val = VEBOK_Tuple;
+    return true;
+  }
+  default: {
+    // there is no level 9 expression
+    return false;
+  }
+  }
+}FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr, opDetL9ValueExpr)
+
+static bool opDetL10ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Assign: {
     *val = VEBOK_Assign;
@@ -1217,26 +1214,18 @@ static bool opDetL9ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
     *val = VEBOK_AssignMod;
     return true;
   }
-  case TK_AssignBitAnd: {
-    *val = VEBOK_AssignBitAnd;
-    return true;
-  }
-  case TK_AssignBitOr: {
-    *val = VEBOK_AssignBitOr;
-    return true;
-  }
   default: {
-    // There is no level 9 expr
+    // There is no level 10 expr
     return false;
   }
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr, opDetL9ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 10, parseL9ValueExpr, opDetL10ValueExpr)
 
 // shim method
 static void parseValueExpr(ValueExpr *vep, Parser *parser) {
-  parseL9ValueExpr(vep, parser);
+  parseL10ValueExpr(vep, parser);
 }
 
 // field = Value

@@ -348,6 +348,7 @@ typedef struct ValueExpr_s {
         VEBOK_AssignMul,
         VEBOK_AssignDiv,
         VEBOK_AssignMod,
+        VEBOK_Tuple,
       }
       operator;
       ValueExpr *left_operand;

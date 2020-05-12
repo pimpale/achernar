@@ -689,8 +689,6 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->kind = TK_Struct;
   } else if (!strcmp(string, "enum")) {
     token->kind = TK_Enum;
-  } else if (!strcmp(string, "union")) {
-    token->kind = TK_Union;
   } else if (!strcmp(string, "type")) {
     token->kind = TK_Type;
   } else if (!strcmp(string, "void")) {
@@ -818,11 +816,8 @@ void lexNextToken(Lexer *lexer, Token *token) {
       case '&': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_And)
       }
-      case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignBitAnd)
-      }
       default: {
-        RETURN_RESULT_TOKEN(TK_BitAnd)
+        RETURN_RESULT_TOKEN(TK_Ref)
       }
       }
     }
@@ -832,11 +827,8 @@ void lexNextToken(Lexer *lexer, Token *token) {
       case '|': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_Or)
       }
-      case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignBitOr)
-      }
       default: {
-        RETURN_RESULT_TOKEN(TK_BitOr)
+        RETURN_RESULT_TOKEN(TK_Union)
       }
       }
     }
@@ -870,9 +862,6 @@ void lexNextToken(Lexer *lexer, Token *token) {
     case '<': {
       nextValueLexer(lexer);
       switch (peekValueLexer(lexer)) {
-      case '<': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_ShiftLeft)
-      }
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_CompLessEqual)
       }
@@ -884,9 +873,6 @@ void lexNextToken(Lexer *lexer, Token *token) {
     case '>': {
       nextValueLexer(lexer);
       switch (peekValueLexer(lexer)) {
-      case '>': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_ShiftRight)
-      }
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(TK_CompGreaterEqual)
       }
@@ -981,9 +967,6 @@ void lexNextToken(Lexer *lexer, Token *token) {
     case ']': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_BracketRight)
     }
-    case '$': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Ref)
-    }
     case '@': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Deref)
     }
@@ -1000,12 +983,14 @@ void lexNextToken(Lexer *lexer, Token *token) {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_BraceRight)
     }
     case ',': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Comma)
+      NEXT_AND_RETURN_RESULT_TOKEN(TK_Tuple)
     }
     case ';': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Semicolon)
     }
-
+    case '$': {
+      NEXT_AND_RETURN_RESULT_TOKEN(TK_Dollar)
+    }
     case EOF: {
       RESULT_TOKEN(TK_None, DK_EOF)
       return;

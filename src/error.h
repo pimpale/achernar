@@ -28,6 +28,8 @@ typedef enum {
   DK_CharLiteralEmpty,
   DK_CharLiteralTooLong,
   DK_CharLiteralUnrecognizedEscapeCode,
+  // ConstExpr Errors
+  DK_ConstExprUnrecognizedLiteral,
   // String Literals
   DK_StringLiteralTooLong,
   DK_StringLiteralUnrecognizedEscapeCode,

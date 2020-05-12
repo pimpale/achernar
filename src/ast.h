@@ -12,16 +12,13 @@ typedef enum {
   SK_None,
   SK_FnDecl,
   SK_VarDecl,
-  SK_TypeAliasStmnt,
+  SK_TypeDecl,
   SK_Expr,
 } StmntKind;
 
 typedef enum {
   VEK_None,
-  VEK_IntLiteral,
-  VEK_BoolLiteral,
-  VEK_FloatLiteral,
-  VEK_CharLiteral,
+  VEK_ConstExpr,
   VEK_StringLiteral,
   VEK_StructLiteral,
   VEK_BinaryOp,
@@ -49,7 +46,7 @@ typedef enum {
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Struct,      // struct
   TEK_Fn,          // function pointer
-  TEK_UnaryOp,     // $ or @
+  TEK_UnaryOp,     // & or @
   TEK_BinaryOp,    // , or |
   TEK_FieldAccess, // .
 } TypeExprKind;
@@ -65,7 +62,7 @@ typedef enum PatternExprValueRestrictionKind_e {
 
 typedef enum {
   PEK_None,             // Error type
-  PEK_ValueRestriction, // matches a value, and optionally binds it
+  PEK_ValueRestriction, // matches a constant value, and optionally binds it
   PEK_TypeRestriction,  // matches a type, and optionally binds it
   PEK_Struct,           // a container for struct based patterns
   PEK_StructRest,       // (in struct) all values that were not matched
@@ -73,7 +70,17 @@ typedef enum {
   PEK_BinaryOp,         // , |
 } PatternExprKind;
 
+typedef enum ConstExprKind_e {
+  CEK_None,         // Error type
+  CEK_IntLiteral,   // 8
+  CEK_BoolLiteral,  // true
+  CEK_FloatLiteral, // 8.32
+  CEK_CharLiteral,  // 'a'
+  CEK_ValueExpr,    // ${ 1 + 2 }
+} ConstExprKind;
+
 typedef struct TypeExpr_s TypeExpr;
+typedef struct ConstExpr_s ConstExpr;
 typedef struct ValueExpr_s ValueExpr;
 typedef struct PatternExpr_s PatternExpr;
 typedef struct Stmnt_s Stmnt;
@@ -83,6 +90,38 @@ typedef struct Comment_s {
   char *scope;
   char *data;
 } Comment;
+
+typedef struct ConstExpr_s {
+
+  ConstExprKind kind;
+  Span span;
+
+  // diagnostics
+  Diagnostic *diagnostics;
+  size_t diagnostics_length;
+
+  // comments
+  Comment *comments;
+  size_t comments_length;
+  union {
+    struct {
+      uint64_t value;
+    } intLiteral;
+    struct {
+      bool value;
+    } boolLiteral;
+    struct {
+      double value;
+    } floatLiteral;
+    struct {
+      char value;
+    } charLiteral;
+    struct {
+      ValueExpr *expr;
+    } valueExpr;
+  };
+
+} ConstExpr;
 
 typedef struct PatternExpr_s {
   PatternExprKind kind;
@@ -143,8 +182,8 @@ typedef struct PatternExpr_s {
     } unaryOperator;
     struct {
       enum PatternExprBinaryOperatorKind_e {
-        PEBOK_Product,
-        PEBOK_Sum,
+        PEBOK_Tuple,
+        PEBOK_Union,
         PEBOK_And,
         PEBOK_Or,
       }
@@ -189,8 +228,6 @@ typedef struct TypeExpr_s {
     struct {
       enum TypeExprStructKind_e {
         TESK_Struct,
-        TESK_Pack,
-        TESK_Union,
         TESK_Enum,
       } kind;
 
@@ -222,8 +259,8 @@ typedef struct TypeExpr_s {
     } unaryOp;
     struct {
       enum TypeExprBinaryOpKind_e {
-        TEBOK_Product, // ,
-        TEBOK_Sum,     // |
+        TEBOK_Tuple, // ,
+        TEBOK_Union, // |
       }
       operator;
       struct TypeExpr_s *left_operand;
@@ -250,17 +287,8 @@ typedef struct ValueExpr_s {
 
   union {
     struct {
-      uint64_t value;
-    } intLiteral;
-    struct {
-      bool value;
-    } boolLiteral;
-    struct {
-      double value;
-    } floatLiteral;
-    struct {
-      char value;
-    } charLiteral;
+      ConstExpr *constExpr;
+    } constExpr;
     struct {
       char *value;
       size_t value_length;
@@ -289,45 +317,37 @@ typedef struct ValueExpr_s {
     } reference;
     struct {
       enum ValueExprUnaryOpKind_e {
-        VEUOK_Negate,     // -
-        VEUOK_Posit,      // +
-        VEUOK_LogicalNot, // !
-        VEUOK_BitNot,     // ~
-        VEUOK_Ref,        // $
-        VEUOK_Deref       // @
+        VEUOK_Negate,
+        VEUOK_Posit,
+        VEUOK_Not,
+        VEUOK_Ref,
+        VEUOK_Deref,
       }
       operator;
       ValueExpr *operand;
     } unaryOp;
     struct {
       enum ValueExprBinaryOpKind_e {
-        VEBOK_Add,              // +
-        VEBOK_Sub,              // -
-        VEBOK_Mul,              // *
-        VEBOK_Div,              // /
-        VEBOK_Mod,              // %
-        VEBOK_BitAnd,           // &
-        VEBOK_BitOr,            // |
-        VEBOK_BitXor,           // ^
-        VEBOK_BitShl,           // <<
-        VEBOK_BitShr,           // >>
-        VEBOK_LogicalAnd,       // &&
-        VEBOK_LogicalOr,        // ||
-        VEBOK_CompEqual,        // ==
-        VEBOK_CompNotEqual,     // !=
-        VEBOK_CompLess,         // <
-        VEBOK_CompLessEqual,    // <=
-        VEBOK_CompGreater,      // >
-        VEBOK_CompGreaterEqual, // >=
-        VEBOK_Pipeline,         // ->
-        VEBOK_Assign,           // =
-        VEBOK_AssignAdd,        // +=
-        VEBOK_AssignSub,        // -=
-        VEBOK_AssignMul,        // *=
-        VEBOK_AssignDiv,        // /=
-        VEBOK_AssignMod,        // &=
-        VEBOK_AssignBitAnd,     // &=
-        VEBOK_AssignBitOr,      // |=
+        VEBOK_Add,
+        VEBOK_Sub,
+        VEBOK_Mul,
+        VEBOK_Div,
+        VEBOK_Mod,
+        VEBOK_And,
+        VEBOK_Or,
+        VEBOK_CompEqual,
+        VEBOK_CompNotEqual,
+        VEBOK_CompLess,
+        VEBOK_CompLessEqual,
+        VEBOK_CompGreater,
+        VEBOK_CompGreaterEqual,
+        VEBOK_Pipeline,
+        VEBOK_Assign,
+        VEBOK_AssignAdd,
+        VEBOK_AssignSub,
+        VEBOK_AssignMul,
+        VEBOK_AssignDiv,
+        VEBOK_AssignMod,
       }
       operator;
       ValueExpr *left_operand;

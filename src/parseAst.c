@@ -195,9 +195,12 @@ static void resyncParser(Parser *parser) {
   int64_t initial_paren_depth = parser->paren_depth;
   int64_t initial_brace_depth = parser->brace_depth;
   int64_t initial_bracket_depth = parser->bracket_depth;
-  while (initial_brace_depth <= parser->brace_depth &&
-         initial_paren_depth <= parser->paren_depth &&
-         initial_bracket_depth <= parser->bracket_depth) {
+  while (true) {
+    if (initial_brace_depth <= parser->brace_depth &&
+        initial_paren_depth <= parser->paren_depth &&
+        initial_bracket_depth <= parser->bracket_depth) {
+      break;
+    }
     rawNextTokenParser(parser, &t, &comments);
   }
   destroyVector(&comments);
@@ -208,6 +211,7 @@ static void parseStmnt(Stmnt *sp, Parser *parser);
 static void parseValueExpr(ValueExpr *vep, Parser *parser);
 static void parseTypeExpr(TypeExpr *tep, Parser *parser);
 static void parsePatternExpr(PatternExpr *pp, Parser *parser);
+static void parseConstExpr(ConstExpr *cep, Parser *parser);
 
 static void parsePath(Path *pp, Parser *parser) {
   // start comment scope
@@ -273,14 +277,14 @@ CLEANUP:
   pp->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-static void parseIntValueExpr(ValueExpr *ivep, Parser *parser) {
+static void parseIntConstExpr(ConstExpr *icep, Parser *parser) {
   Token t;
   nextTokenParser(parser, &t);
   EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INT_LITERAL);
-  ivep->kind = VEK_IntLiteral;
-  ivep->intLiteral.value = t.int_literal;
-  ivep->span = t.span;
-  ivep->diagnostics_length = 0;
+  icep->kind = CEK_IntLiteral;
+  icep->intLiteral.value = t.int_literal;
+  icep->span = t.span;
+  icep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_INT_LITERAL:
@@ -289,14 +293,14 @@ HANDLE_NO_INT_LITERAL:
   PANIC();
 }
 
-static void parseBoolValueExpr(ValueExpr *bvep, Parser *parser) {
+static void parseBoolConstExpr(ConstExpr *bcep, Parser *parser) {
   Token t;
   nextTokenParser(parser, &t);
   EXPECT_TYPE(t, TK_BoolLiteral, HANDLE_NO_BOOL_LITERAL);
-  bvep->kind = VEK_BoolLiteral;
-  bvep->boolLiteral.value = t.bool_literal;
-  bvep->span = t.span;
-  bvep->diagnostics_length = 0;
+  bcep->kind = CEK_BoolLiteral;
+  bcep->boolLiteral.value = t.bool_literal;
+  bcep->span = t.span;
+  bcep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_BOOL_LITERAL:
@@ -305,14 +309,14 @@ HANDLE_NO_BOOL_LITERAL:
   PANIC();
 }
 
-static void parseFloatValueExpr(ValueExpr *fvep, Parser *parser) {
+static void parseFloatConstExpr(ConstExpr *fcep, Parser *parser) {
   Token t;
   nextTokenParser(parser, &t);
   EXPECT_TYPE(t, TK_FloatLiteral, HANDLE_NO_FLOAT_LITERAL);
-  fvep->kind = VEK_FloatLiteral;
-  fvep->floatLiteral.value = t.float_literal;
-  fvep->span = t.span;
-  fvep->diagnostics_length = 0;
+  fcep->kind = CEK_FloatLiteral;
+  fcep->floatLiteral.value = t.float_literal;
+  fcep->span = t.span;
+  fcep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_FLOAT_LITERAL:
@@ -321,20 +325,90 @@ HANDLE_NO_FLOAT_LITERAL:
   PANIC();
 }
 
-static void parseCharValueExpr(ValueExpr *cvep, Parser *parser) {
+static void parseCharConstExpr(ConstExpr *ccep, Parser *parser) {
   Token t;
   nextTokenParser(parser, &t);
   EXPECT_TYPE(t, TK_CharLiteral, HANDLE_NO_CHAR_LITERAL);
-  cvep->kind = VEK_CharLiteral;
-  cvep->charLiteral.value = t.char_literal;
-  cvep->span = t.span;
-  cvep->diagnostics_length = 0;
+  ccep->kind = CEK_CharLiteral;
+  ccep->charLiteral.value = t.char_literal;
+  ccep->span = t.span;
+  ccep->diagnostics_length = 0;
   return;
 
 HANDLE_NO_CHAR_LITERAL:
   INTERNAL_ERROR("called char literal parser where there was no "
                  "char literal");
   PANIC();
+}
+
+static void parseValueConstExpr(ConstExpr *vcep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_Dollar) {
+    INTERNAL_ERROR("called value const expr parser where there was no "
+                   "value const expr");
+    PANIC();
+  }
+  LnCol start = t.span.start;
+  vcep->kind = CEK_ValueExpr;
+  vcep->valueExpr.expr = RALLOC(parser->ar, ValueExpr);
+  parseValueExpr(vcep->valueExpr.expr, parser);
+  vcep->span = SPAN(start, vcep->valueExpr.expr->span.end);
+  vcep->diagnostics_length = 0;
+}
+
+static void parseConstExpr(ConstExpr *cep, Parser *parser) {
+  pushCommentScopeParser(parser);
+
+  Token t;
+  peekTokenParser(parser, &t);
+  switch (t.kind) {
+  case TK_IntLiteral: {
+    parseIntConstExpr(cep, parser);
+    break;
+  }
+  case TK_BoolLiteral: {
+    parseBoolConstExpr(cep, parser);
+    break;
+  }
+  case TK_FloatLiteral: {
+    parseBoolConstExpr(cep, parser);
+    break;
+  }
+  case TK_CharLiteral: {
+    parseCharConstExpr(cep, parser);
+    break;
+  }
+  case TK_Dollar: {
+    parseValueConstExpr(cep, parser);
+    break;
+  }
+  default: {
+    // put the token error in the value expression.
+    ZERO(cep);
+    cep->kind = CEK_None;
+    cep->span = t.span;
+    cep->diagnostics_length = 1;
+    cep->diagnostics = RALLOC(parser->ar, Diagnostic);
+    cep->diagnostics[0] = DIAGNOSTIC(DK_ConstExprUnrecognizedLiteral, t.span);
+    // discard this token
+    nextTokenParser(parser, &t);
+    break;
+  }
+  }
+  Vector comments = popCommentScopeParser(parser);
+  cep->comments_length = VEC_LEN(&comments, Comment);
+  cep->comments = manageMemArena(parser->ar, releaseVector(&comments));
+}
+
+static void parseConstValueExpr(ValueExpr *cvep, Parser *parser) {
+  ZERO(cvep);
+  cvep->kind = VEK_ConstExpr;
+  cvep->constExpr.constExpr = RALLOC(parser->ar, ConstExpr);
+  parseConstExpr(cvep->constExpr.constExpr, parser);
+
+  cvep->span = cvep->constExpr.constExpr->span;
+  cvep->diagnostics_length = 0;
 }
 
 static void parseStringValueExpr(ValueExpr *svep, Parser *parser) {
@@ -690,13 +764,13 @@ static void parseReferenceValueExpr(ValueExpr *rvep, Parser *parser) {
 
 // Level1ValueExpr parentheses, braces, literals
 // Level2ValueExpr as () [] & @ . -> (postfixes)
-// Level3ValueExpr - + ~ ! (prefixes)
+// Level3ValueExpr - + ! (prefixes)
 // Level4ValueExpr * / % (multiplication and division)
 // Level5ValueExpr + - (addition and subtraction)
 // Level7ValueExpr < <= > >= == != (comparators)
 // Level8ValueExpr && (logical and)
 // Level8ValueExpr || (logical or)
-// Level10ValueExpr , (create product type)
+// Level10ValueExpr , (create tuple)
 // Level11ValueExpr = += -= *= /= %= (Assignment)
 
 static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
@@ -707,20 +781,12 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
   // Decide which expression it is
   switch (t.kind) {
   // Literals
-  case TK_IntLiteral: {
-    parseIntValueExpr(l1, parser);
-    break;
-  }
-  case TK_BoolLiteral: {
-    parseBoolValueExpr(l1, parser);
-    break;
-  }
-  case TK_FloatLiteral: {
-    parseFloatValueExpr(l1, parser);
-    break;
-  }
-  case TK_CharLiteral: {
-    parseCharValueExpr(l1, parser);
+  case TK_IntLiteral:
+  case TK_BoolLiteral:
+  case TK_FloatLiteral:
+  case TK_CharLiteral:
+  case TK_Dollar: {
+    parseConstValueExpr(l1, parser);
     break;
   }
   case TK_StringLiteral: {
@@ -918,14 +984,6 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
   }
   case TK_Add: {
     l3->unaryOp.operator= VEUOK_Posit;
-    break;
-  }
-  case TK_BitNot: {
-    l3->unaryOp.operator= VEUOK_BitNot;
-    break;
-  }
-  case TK_Not: {
-    l3->unaryOp.operator= VEUOK_LogicalNot;
     break;
   }
   default: {
@@ -1500,7 +1558,7 @@ static void parseL1TypeExpr(TypeExpr *l1, Parser *parser) {
 }
 
 static void parseScopeResolutionTypeExpr(TypeExpr *srte, Parser *parser,
-                                      TypeExpr *root) {
+                                         TypeExpr *root) {
   ZERO(srte);
   srte->kind = TEK_FieldAccess;
   srte->fieldAccess.value = root;
@@ -1520,7 +1578,8 @@ static void parseScopeResolutionTypeExpr(TypeExpr *srte, Parser *parser,
     srte->fieldAccess.field = NULL;
     srte->diagnostics_length = 1;
     srte->diagnostics = RALLOC(parser->ar, Diagnostic);
-    srte->diagnostics[0] = DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier , t.span);
+    srte->diagnostics[0] =
+        DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier, t.span);
   } else {
     srte->fieldAccess.field = internArena(parser->ar, t.identifier);
     srte->diagnostics_length = 0;
@@ -1583,9 +1642,8 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
   }
 }
 
-
 static inline bool opDetL3TypeExpr(TokenKind tk,
-                                    enum TypeExprBinaryOpKind_e*val) {
+                                   enum TypeExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Comma: {
     *val = TEBOK_Product;
@@ -1601,7 +1659,7 @@ static inline bool opDetL3TypeExpr(TokenKind tk,
 FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 3, parseL2TypeExpr, opDetL3TypeExpr)
 
 static inline bool opDetL4TypeExpr(TokenKind tk,
-                                    enum TypeExprBinaryOpKind_e*val) {
+                                   enum TypeExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Comma: {
     *val = TEBOK_Product;

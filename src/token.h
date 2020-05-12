@@ -26,7 +26,6 @@ typedef enum {
   TK_As,       // as
   TK_Let,      // let
   TK_Struct,   // struct
-  TK_Union,    // union
   TK_Enum,     // enum
   TK_Type,     // type
   // Literals and constants
@@ -56,19 +55,20 @@ typedef enum {
   TK_Ref,   // &
   TK_Deref, // @
   // Assignment
-  TK_Assign,       // =
-  TK_AssignAdd,    // +=
-  TK_AssignSub,    // -=
-  TK_AssignMul,    // *=
-  TK_AssignDiv,    // /=
-  TK_AssignMod,    // %=
-  TK_AssignBitAnd, // &=
-  TK_AssignBitOr,  // |=
-  // Arrowish
+  TK_Assign,    // =
+  TK_AssignAdd, // +=
+  TK_AssignSub, // -=
+  TK_AssignMul, // *=
+  TK_AssignDiv, // /=
+  TK_AssignMod, // %=
+  // Arrows
   TK_Pipe,  // ->
   TK_Arrow, // =>
   // Scope resolution
   TK_ScopeResolution, // ::
+  // Types
+  TK_Tuple, // ,
+  TK_Union, // |
   // Other Miscellaneous Operator Things
   TK_ParenLeft,    // (
   TK_ParenRight,   // )
@@ -77,11 +77,11 @@ typedef enum {
   TK_BraceLeft,    // {
   TK_BraceRight,   // }
   TK_FieldAccess,  // .
-  TK_Comma,        // ,
   TK_Colon,        // :
   TK_Semicolon,    // ;
   TK_Underscore,   // _
   TK_Rest,         // ..
+  TK_Dollar,       // $
   // Macros
   TK_Macro,   // macro!
   TK_Builtin, // _builtin

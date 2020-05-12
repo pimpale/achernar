@@ -71,12 +71,12 @@ typedef enum {
 } PatternExprKind;
 
 typedef enum ConstExprKind_e {
-  CEK_None,         // Error type
-  CEK_IntLiteral,   // 8
-  CEK_BoolLiteral,  // true
+    CEK_None, // Error type
+  CEK_IntLiteral, // 8
+  CEK_BoolLiteral, // true
   CEK_FloatLiteral, // 8.32
-  CEK_CharLiteral,  // 'a'
-  CEK_ValueExpr,    // ${ 1 + 2 }
+  CEK_CharLiteral, // 'a'
+  CEK_ValueExpr, // ${ 1 + 2 }
 } ConstExprKind;
 
 typedef struct TypeExpr_s TypeExpr;
@@ -138,7 +138,7 @@ typedef struct PatternExpr_s {
   union {
     struct {
       PatternExprValueRestrictionKind restriction;
-      ValueExpr *value;
+      ConstExpr *constExpr;
     } valueRestriction;
     struct {
       bool has_binding;
@@ -173,15 +173,16 @@ typedef struct PatternExpr_s {
       char *binding;
     } structRest;
     struct {
-      enum PatternExprUnaryOperatorKind_e {
-        PEUOK_Group,
+      enum PatternExprUnaryOpKind_e {
+        PEUOK_Posit,
+        PEUOK_Negate,
         PEUOK_Not,
       }
       operator;
       PatternExpr *operand;
-    } unaryOperator;
+    } unaryOp;
     struct {
-      enum PatternExprBinaryOperatorKind_e {
+      enum PatternExprBinaryOpKind_e {
         PEBOK_Tuple,
         PEBOK_Union,
         PEBOK_And,
@@ -190,7 +191,7 @@ typedef struct PatternExpr_s {
       operator;
       PatternExpr *left_operand;
       PatternExpr *right_operand;
-    } binaryOperator;
+    } binaryOp;
   };
 } PatternExpr;
 
@@ -287,7 +288,7 @@ typedef struct ValueExpr_s {
 
   union {
     struct {
-      ConstExpr *constExpr;
+      ConstExpr* constExpr;
     } constExpr;
     struct {
       char *value;

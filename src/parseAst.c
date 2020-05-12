@@ -277,130 +277,6 @@ CLEANUP:
   pp->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-static void parseIntConstExpr(ConstExpr *icep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INT_LITERAL);
-  icep->kind = CEK_IntLiteral;
-  icep->intLiteral.value = t.int_literal;
-  icep->span = t.span;
-  icep->diagnostics_length = 0;
-  return;
-
-HANDLE_NO_INT_LITERAL:
-  INTERNAL_ERROR("called int literal parser where there was no "
-                 "int literal");
-  PANIC();
-}
-
-static void parseBoolConstExpr(ConstExpr *bcep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_BoolLiteral, HANDLE_NO_BOOL_LITERAL);
-  bcep->kind = CEK_BoolLiteral;
-  bcep->boolLiteral.value = t.bool_literal;
-  bcep->span = t.span;
-  bcep->diagnostics_length = 0;
-  return;
-
-HANDLE_NO_BOOL_LITERAL:
-  INTERNAL_ERROR("called int literal parser where there was no "
-                 "int literal");
-  PANIC();
-}
-
-static void parseFloatConstExpr(ConstExpr *fcep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_FloatLiteral, HANDLE_NO_FLOAT_LITERAL);
-  fcep->kind = CEK_FloatLiteral;
-  fcep->floatLiteral.value = t.float_literal;
-  fcep->span = t.span;
-  fcep->diagnostics_length = 0;
-  return;
-
-HANDLE_NO_FLOAT_LITERAL:
-  INTERNAL_ERROR("called float literal parser where there was no "
-                 "float literal");
-  PANIC();
-}
-
-static void parseCharConstExpr(ConstExpr *ccep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_CharLiteral, HANDLE_NO_CHAR_LITERAL);
-  ccep->kind = CEK_CharLiteral;
-  ccep->charLiteral.value = t.char_literal;
-  ccep->span = t.span;
-  ccep->diagnostics_length = 0;
-  return;
-
-HANDLE_NO_CHAR_LITERAL:
-  INTERNAL_ERROR("called char literal parser where there was no "
-                 "char literal");
-  PANIC();
-}
-
-static void parseValueConstExpr(ConstExpr *vcep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  if (t.kind != TK_Dollar) {
-    INTERNAL_ERROR("called value const expr parser where there was no "
-                   "value const expr");
-    PANIC();
-  }
-  LnCol start = t.span.start;
-  vcep->kind = CEK_ValueExpr;
-  vcep->valueExpr.expr = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(vcep->valueExpr.expr, parser);
-  vcep->span = SPAN(start, vcep->valueExpr.expr->span.end);
-  vcep->diagnostics_length = 0;
-}
-
-static void parseConstExpr(ConstExpr *cep, Parser *parser) {
-  pushCommentScopeParser(parser);
-
-  Token t;
-  peekTokenParser(parser, &t);
-  switch (t.kind) {
-  case TK_IntLiteral: {
-    parseIntConstExpr(cep, parser);
-    break;
-  }
-  case TK_BoolLiteral: {
-    parseBoolConstExpr(cep, parser);
-    break;
-  }
-  case TK_FloatLiteral: {
-    parseBoolConstExpr(cep, parser);
-    break;
-  }
-  case TK_CharLiteral: {
-    parseCharConstExpr(cep, parser);
-    break;
-  }
-  case TK_Dollar: {
-    parseValueConstExpr(cep, parser);
-    break;
-  }
-  default: {
-    // put the token error in the value expression.
-    ZERO(cep);
-    cep->kind = CEK_None;
-    cep->span = t.span;
-    cep->diagnostics_length = 1;
-    cep->diagnostics = RALLOC(parser->ar, Diagnostic);
-    cep->diagnostics[0] = DIAGNOSTIC(DK_ConstExprUnrecognizedLiteral, t.span);
-    // discard this token
-    nextTokenParser(parser, &t);
-    break;
-  }
-  }
-  Vector comments = popCommentScopeParser(parser);
-  cep->comments_length = VEC_LEN(&comments, Comment);
-  cep->comments = manageMemArena(parser->ar, releaseVector(&comments));
-}
-
 static void parseConstValueExpr(ValueExpr *cvep, Parser *parser) {
   ZERO(cvep);
   cvep->kind = VEK_ConstExpr;
@@ -1186,7 +1062,8 @@ static inline bool opDetL9ValueExpr(TokenKind tk,
     return false;
   }
   }
-}FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr, opDetL9ValueExpr)
+}
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr, opDetL9ValueExpr)
 
 static bool opDetL10ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
@@ -1226,6 +1103,130 @@ FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 10, parseL9ValueExpr, opDetL10ValueExpr)
 // shim method
 static void parseValueExpr(ValueExpr *vep, Parser *parser) {
   parseL10ValueExpr(vep, parser);
+}
+
+static void parseIntConstExpr(ConstExpr *icep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INT_LITERAL);
+  icep->kind = CEK_IntLiteral;
+  icep->intLiteral.value = t.int_literal;
+  icep->span = t.span;
+  icep->diagnostics_length = 0;
+  return;
+
+HANDLE_NO_INT_LITERAL:
+  INTERNAL_ERROR("called int literal parser where there was no "
+                 "int literal");
+  PANIC();
+}
+
+static void parseBoolConstExpr(ConstExpr *bcep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  EXPECT_TYPE(t, TK_BoolLiteral, HANDLE_NO_BOOL_LITERAL);
+  bcep->kind = CEK_BoolLiteral;
+  bcep->boolLiteral.value = t.bool_literal;
+  bcep->span = t.span;
+  bcep->diagnostics_length = 0;
+  return;
+
+HANDLE_NO_BOOL_LITERAL:
+  INTERNAL_ERROR("called int literal parser where there was no "
+                 "int literal");
+  PANIC();
+}
+
+static void parseFloatConstExpr(ConstExpr *fcep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  EXPECT_TYPE(t, TK_FloatLiteral, HANDLE_NO_FLOAT_LITERAL);
+  fcep->kind = CEK_FloatLiteral;
+  fcep->floatLiteral.value = t.float_literal;
+  fcep->span = t.span;
+  fcep->diagnostics_length = 0;
+  return;
+
+HANDLE_NO_FLOAT_LITERAL:
+  INTERNAL_ERROR("called float literal parser where there was no "
+                 "float literal");
+  PANIC();
+}
+
+static void parseCharConstExpr(ConstExpr *ccep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  EXPECT_TYPE(t, TK_CharLiteral, HANDLE_NO_CHAR_LITERAL);
+  ccep->kind = CEK_CharLiteral;
+  ccep->charLiteral.value = t.char_literal;
+  ccep->span = t.span;
+  ccep->diagnostics_length = 0;
+  return;
+
+HANDLE_NO_CHAR_LITERAL:
+  INTERNAL_ERROR("called char literal parser where there was no "
+                 "char literal");
+  PANIC();
+}
+
+static void parseValueConstExpr(ConstExpr *vcep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_Dollar) {
+    INTERNAL_ERROR("called value const expr parser where there was no "
+                   "value const expr");
+    PANIC();
+  }
+  LnCol start = t.span.start;
+  vcep->kind = CEK_ValueExpr;
+  vcep->valueExpr.expr = RALLOC(parser->ar, ValueExpr);
+  parseL3ValueExpr(vcep->valueExpr.expr, parser);
+  vcep->span = SPAN(start, vcep->valueExpr.expr->span.end);
+  vcep->diagnostics_length = 0;
+}
+
+static void parseConstExpr(ConstExpr *cep, Parser *parser) {
+  pushCommentScopeParser(parser);
+
+  Token t;
+  peekTokenParser(parser, &t);
+  switch (t.kind) {
+  case TK_IntLiteral: {
+    parseIntConstExpr(cep, parser);
+    break;
+  }
+  case TK_BoolLiteral: {
+    parseBoolConstExpr(cep, parser);
+    break;
+  }
+  case TK_FloatLiteral: {
+    parseBoolConstExpr(cep, parser);
+    break;
+  }
+  case TK_CharLiteral: {
+    parseCharConstExpr(cep, parser);
+    break;
+  }
+  case TK_Dollar: {
+    parseValueConstExpr(cep, parser);
+    break;
+  }
+  default: {
+    // put the token error in the value expression.
+    ZERO(cep);
+    cep->kind = CEK_None;
+    cep->span = t.span;
+    cep->diagnostics_length = 1;
+    cep->diagnostics = RALLOC(parser->ar, Diagnostic);
+    cep->diagnostics[0] = DIAGNOSTIC(DK_ConstExprUnrecognizedLiteral, t.span);
+    // discard this token
+    nextTokenParser(parser, &t);
+    break;
+  }
+  }
+  Vector comments = popCommentScopeParser(parser);
+  cep->comments_length = VEC_LEN(&comments, Comment);
+  cep->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
 // field = Value
@@ -1372,16 +1373,8 @@ static void parseStructTypeExpr(TypeExpr *ste, Parser *parser) {
     ste->structExpr.kind = TESK_Struct;
     break;
   }
-  case TK_Pack: {
-    ste->structExpr.kind = TESK_Pack;
-    break;
-  }
-  case TK_Union: {
-    ste->structExpr.kind = TESK_Union;
-    break;
-  }
   case TK_Enum: {
-    ste->structExpr.kind = TESK_Union;
+    ste->structExpr.kind = TESK_Enum;
     break;
   }
   default: {
@@ -1515,8 +1508,6 @@ static void parseL1TypeExpr(TypeExpr *l1, Parser *parser) {
     break;
   }
   case TK_Enum:
-  case TK_Pack:
-  case TK_Union:
   case TK_Struct: {
     parseStructTypeExpr(l1, parser);
     break;
@@ -1634,12 +1625,12 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
 static inline bool opDetL3TypeExpr(TokenKind tk,
                                    enum TypeExprBinaryOpKind_e *val) {
   switch (tk) {
-  case TK_Comma: {
-    *val = TEBOK_Product;
+  case TK_Tuple: {
+    *val = TEBOK_Tuple;
     return true;
   }
   default: {
-    // there is no level 4 expression
+    // there is no level 3 expression
     return false;
   }
   }
@@ -1650,8 +1641,8 @@ FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 3, parseL2TypeExpr, opDetL3TypeExpr)
 static inline bool opDetL4TypeExpr(TokenKind tk,
                                    enum TypeExprBinaryOpKind_e *val) {
   switch (tk) {
-  case TK_Comma: {
-    *val = TEBOK_Product;
+  case TK_Union: {
+    *val = TEBOK_Union;
     return true;
   }
   default: {
@@ -1708,9 +1699,9 @@ static void parseValueRestrictionPatternExpr(PatternExpr *vrpe,
     PANIC();
   }
   }
-  vrpe->valueRestriction.value = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(vrpe->valueRestriction.value, parser);
-  LnCol end = vrpe->valueRestriction.value->span.end;
+  vrpe->valueRestriction.constExpr = RALLOC(parser->ar, ConstExpr);
+  parseConstExpr(vrpe->valueRestriction.constExpr, parser);
+  LnCol end = vrpe->valueRestriction.constExpr->span.end;
 
   vrpe->span = SPAN(start, end);
   vrpe->diagnostics_length = 0;
@@ -1725,10 +1716,9 @@ static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
   bool parseType = false;
 
   Token t;
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   LnCol start = t.span.start;
-
   LnCol end;
 
   switch (t.kind) {
@@ -1744,12 +1734,13 @@ static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
     trpe->typeRestriction.has_binding = true;
     trpe->typeRestriction.binding = internArena(parser->ar, t.identifier);
     end = t.span.end;
-    advanceToken(parser, &t);
+    peekTokenParser(parser, &t);
     if (t.kind == TK_Colon) {
       parseType = true;
+      // advance through it
+      nextTokenParser(parser, &t);
     } else {
       parseType = false;
-      setNextToken(parser, &t);
     }
     break;
   }
@@ -1770,56 +1761,13 @@ static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
   trpe->diagnostics_length = 0;
 }
 
-static void parseGroupPatternExpr(PatternExpr *gpe, Parser *parser) {
-  ZERO(gpe);
-
-  Token t;
-  advanceToken(parser, &t);
-  if (t.kind != TK_BraceLeft) {
-    INTERNAL_ERROR("called group pattern expr parser where there was "
-                   "no group pattern expr");
-    PANIC();
-  }
-
-  Diagnostic diagnostic;
-  diagnostic.kind = DK_Ok;
-
-  LnCol start = t.span.start;
-
-  gpe->kind = PEK_UnaryOp;
-  gpe->unaryOperator.operator= PEUOK_Group;
-  gpe->unaryOperator.operand = RALLOC(parser->ar, PatternExpr);
-  parsePatternExpr(gpe->unaryOperator.operand, parser);
-
-  LnCol end = gpe->unaryOperator.operand->span.end;
-  advanceToken(parser, &t);
-
-  if (t.kind != TK_BraceRight) {
-    diagnostic = DIAGNOSTIC(DK_PatternGroupExpectedRightBrace, t.span);
-    resyncParser(parser);
-  } else {
-    end = t.span.end;
-  }
-
-  if (diagnostic.kind != DK_Ok) {
-    gpe->diagnostics_length = 1;
-    gpe->diagnostics = RALLOC(parser->ar, Diagnostic);
-    gpe->diagnostics[0] = diagnostic;
-  } else {
-    gpe->diagnostics_length = 0;
-    gpe->diagnostics = NULL;
-  }
-
-  gpe->span = SPAN(start, end);
-}
-
 static void
 parsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
                                  Parser *parser) {
   ZERO(pesme);
 
   Token t;
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   LnCol start = t.span.end;
   LnCol end;
@@ -1863,7 +1811,7 @@ parsePatternExprStructMemberExpr(struct PatternExprStructMemberExpr_s *pesme,
 
   end = pesme->pattern->span.end;
 
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   if (pesme->pattern->kind == PEK_ValueRestriction && has_assign) {
     diagnostic =
@@ -1902,14 +1850,6 @@ static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
     spe->structExpr.kind = PESK_Struct;
     break;
   }
-  case TK_Pack: {
-    spe->structExpr.kind = PESK_Pack;
-    break;
-  }
-  case TK_Union: {
-    spe->structExpr.kind = PESK_Union;
-    break;
-  }
   default: {
     INTERNAL_ERROR("called struct pattern expression parser where there was no "
                    "struct pattern declaration");
@@ -1919,7 +1859,7 @@ static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
 
   LnCol start = t.span.start;
 
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
@@ -1963,14 +1903,16 @@ static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {
   // TODO  convert for patterns
   pushCommentScopeParser(parser);
   Token t;
-  advanceToken(parser, &t);
+  peekTokenParser(parser, &t);
   switch (t.kind) {
-  case TK_Pack:
-  case TK_Union:
   case TK_Struct: {
-    setNextToken(parser, &t);
     parseStructPatternExpr(l1, parser);
     return;
+  }
+  case TK_Identifier:
+  case TK_Colon: {
+    parseTypeRestrictionPatternExpr(l1, parser);
+    break;
   }
   case TK_CompEqual:
   case TK_CompNotEqual:
@@ -1978,13 +1920,7 @@ static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {
   case TK_CompGreater:
   case TK_CompLess:
   case TK_CompLessEqual: {
-    setNextToken(parser, &t);
     parseValueRestrictionPatternExpr(l1, parser);
-    break;
-  }
-  case TK_BraceLeft: {
-    setNextToken(parser, &t);
-    parseGroupPatternExpr(l1, parser);
     break;
   }
   default: {
@@ -2004,72 +1940,117 @@ static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {
   l1->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-static void parseL2PatternExpr(PatternExpr *l2, Parser *parser) {}
+static void parseL2PatternExpr(PatternExpr *l2, Parser *parser) {
+  Token t;
+  peekTokenParser(parser, &t);
+  switch (t.kind) {
+  case TK_Sub: {
+    l2->unaryOp.operator= PEUOK_Negate;
+    break;
+  }
+  case TK_Add: {
+    l2->unaryOp.operator= PEUOK_Posit;
+    break;
+  }
+  case TK_Not: {
+    l2->unaryOp.operator= PEUOK_Not;
+    break;
+  }
+  default: {
+    // there is no level 3 expression
+    parseL1PatternExpr(l2, parser);
+    return;
+  }
+  }
+
+  // this will only execute if an L3 operator exists
+  l2->kind = PEK_UnaryOp;
+
+  // first create comment scope and go through op
+  pushCommentScopeParser(parser);
+  nextTokenParser(parser, &t);
+
+  // Now parse the rest of the expression
+  l2->unaryOp.operand = RALLOC(parser->ar, PatternExpr);
+  parseL2PatternExpr(l2->unaryOp.operand, parser);
+
+  // finally calculate the misc stuff
+  l2->span = SPAN(t.span.start, l2->unaryOp.operand->span.end);
+  l2->diagnostics_length = 0;
+
+  // comments
+  Vector comments = popCommentScopeParser(parser);
+  l2->comments_length = VEC_LEN(&comments, Comment);
+  l2->comments = manageMemArena(parser->ar, releaseVector(&comments));
+}
+
+static inline bool opDetL3PatternExpr(TokenKind tk,
+                                      enum PatternExprBinaryOpKind_e *val) {
+  switch (tk) {
+  case TK_Tuple: {
+    *val = PEBOK_Tuple;
+    return true;
+  }
+  default: {
+    // there is no level 4 expression
+    return false;
+  }
+  }
+}
+
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 3, parseL2PatternExpr,
+                       opDetL3PatternExpr)
+
+static inline bool opDetL4PatternExpr(TokenKind tk,
+                                      enum PatternExprBinaryOpKind_e *val) {
+  switch (tk) {
+  case TK_Union: {
+    *val = PEBOK_Union;
+    return true;
+  }
+  default: {
+    return false;
+  }
+  }
+}
+
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 4, parseL3PatternExpr,
+                       opDetL4PatternExpr)
+
+static inline bool opDetL5PatternExpr(TokenKind tk,
+                                      enum PatternExprBinaryOpKind_e *val) {
+  switch (tk) {
+  case TK_And: {
+    *val = PEBOK_And;
+    return true;
+  }
+  default: {
+    return false;
+  }
+  }
+}
+
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 5, parseL4PatternExpr,
+                       opDetL5PatternExpr)
+
+static inline bool opDetL6PatternExpr(TokenKind tk,
+                                      enum PatternExprBinaryOpKind_e *val) {
+  switch (tk) {
+  case TK_Or: {
+    *val = PEBOK_Or;
+    return true;
+  }
+  default: {
+    return false;
+  }
+  }
+}
+
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 6, parseL5PatternExpr,
+                       opDetL6PatternExpr)
 
 static void parsePatternExpr(PatternExpr *ppe, Parser *parser) {
-  // zero-initialize bp
-  ZERO(bp);
-  pushCommentScopeParser(parser);
-
-  Token t;
-
-  // diagnostics
-  Diagnostic diagnostic;
-  diagnostic.kind = DK_Ok;
-
-  LnCol start;
-  LnCol end;
-
-  // get identifier
-  advanceToken(parser, &t);
-
-  Span identitySpan = t.span;
-
-  start = identitySpan.start;
-
-  if (t.kind != TK_Identifier) {
-    bp->name = NULL;
-    diagnostic = DIAGNOSTIC(DK_BindingExpectedIdentifier, t.span);
-    end = identitySpan.end;
-    goto CLEANUP;
-  }
-
-  bp->name = internArena(parser->ar, t.identifier);
-
-  // check if colon
-  advanceToken(parser, &t);
-  if (t.kind == TK_Colon) {
-    // Get type of variable
-    bp->type = RALLOC(parser->ar, TypeExpr);
-    parseTypeExpr(bp->type, parser);
-    end = bp->type->span.end;
-  } else {
-    end = identitySpan.end;
-    // push back whatever
-    setNextToken(parser, &t);
-    bp->type = RALLOC(parser->ar, TypeExpr);
-    bp->type->kind = TEK_Omitted;
-    bp->type->span = identitySpan;
-    bp->type->diagnostics_length = 0;
-    bp->type->comments_length = 0;
-  }
-
-CLEANUP:
-  bp->span = SPAN(start, end);
-
-  if (diagnostic.kind != DK_Ok) {
-    bp->diagnostics_length = 1;
-    bp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    bp->diagnostics[0] = diagnostic;
-  } else {
-    bp->diagnostics_length = 0;
-    bp->diagnostics = NULL;
-  }
-
-  Vector comments = popCommentScopeParser(parser);
-  bp->comments_length = VEC_LEN(&comments, Comment);
-  bp->comments = manageMemArena(parser->ar, releaseVector(&comments));
-  return;
+  parseL6PatternExpr(ppe, parser);
 }
 
 static void parseVarDeclStmnt(Stmnt *vdsp, Parser *parser) {
@@ -2080,7 +2061,7 @@ static void parseVarDeclStmnt(Stmnt *vdsp, Parser *parser) {
   Token t;
 
   // Skip let declaration
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   // The start of the variable declaration
   LnCol start = t.span.start;
   EXPECT_TYPE(t, TK_Let, HANDLE_NO_LET);
@@ -2114,26 +2095,25 @@ HANDLE_NO_ASSIGN:
 
 static void parseTypeDecl(Stmnt *tdp, Parser *parser) {
   ZERO(tdp);
-  tdp->kind = SK_TypeAliasStmnt;
+  tdp->kind = SK_TypeDecl;
   Token t;
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
-  if (t.kind != TK_TypeAlias) {
+  if (t.kind != TK_Type) {
     INTERNAL_ERROR("called type alias declaration parser where there was no "
                    "type alias declaration");
     PANIC();
   }
 
   LnCol start = t.span.start;
-
   LnCol end;
 
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
 
   if (t.kind != TK_Identifier) {
-    tdp->typeAliasStmnt.name = NULL;
+    tdp->typeDecl.name = NULL;
     tdp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeAliasExpectedIdentifier, t.span);
+    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeDeclStmntExpectedIdentifier, t.span);
     tdp->diagnostics_length = 1;
     end = t.span.end;
     goto CLEANUP;

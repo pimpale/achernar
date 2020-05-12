@@ -2067,11 +2067,11 @@ static void parseVarDeclStmnt(Stmnt *vdsp, Parser *parser) {
   EXPECT_TYPE(t, TK_Let, HANDLE_NO_LET);
 
   // Get Binding
-  vdsp->varDecl.binding = RALLOC(parser->ar, Binding);
-  parseBinding(vdsp->varDecl.binding, parser);
+  vdsp->varDecl.pattern = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(vdsp->varDecl.pattern, parser);
 
   // Expect Equal Sign
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   EXPECT_TYPE(t, TK_Assign, HANDLE_NO_ASSIGN);
 
   // Get Value;
@@ -2093,7 +2093,7 @@ HANDLE_NO_ASSIGN:
   resyncParser(parser);
 }
 
-static void parseTypeDecl(Stmnt *tdp, Parser *parser) {
+static void parseTypeDeclStmnt(Stmnt *tdp, Parser *parser) {
   ZERO(tdp);
   tdp->kind = SK_TypeDecl;
   Token t;
@@ -2113,26 +2113,27 @@ static void parseTypeDecl(Stmnt *tdp, Parser *parser) {
   if (t.kind != TK_Identifier) {
     tdp->typeDecl.name = NULL;
     tdp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeDeclStmntExpectedIdentifier, t.span);
+    tdp->diagnostics[0] =
+        DIAGNOSTIC(DK_TypeDeclStmntExpectedIdentifier, t.span);
     tdp->diagnostics_length = 1;
     end = t.span.end;
     goto CLEANUP;
   }
 
-  tdp->typeAliasStmnt.name = internArena(parser->ar, t.identifier);
+  tdp->typeDecl.name = internArena(parser->ar, t.identifier);
 
   // Now get equals sign
-  advanceToken(parser, &t);
+  nextTokenParser(parser, &t);
   if (t.kind != TK_Assign) {
     tdp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeAliasExpectedAssign, t.span);
+    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeDeclStmntExpectedAssign, t.span);
     end = t.span.end;
     goto CLEANUP;
   }
 
-  tdp->typeAliasStmnt.type = RALLOC(parser->ar, TypeExpr);
-  parseTypeExpr(tdp->typeAliasStmnt.type, parser);
-  end = tdp->typeAliasStmnt.type->span.end;
+  tdp->typeDecl.type = RALLOC(parser->ar, TypeExpr);
+  parseTypeExpr(tdp->typeDecl.type, parser);
+  end = tdp->typeDecl.type->span.end;
   tdp->diagnostics_length = 0;
   tdp->diagnostics = NULL;
 
@@ -2146,16 +2147,14 @@ static void parseStmnt(Stmnt *sp, Parser *parser) {
 
   Token t;
   // peek next token
-  advanceToken(parser, &t);
-  setNextToken(parser, &t);
-
+  peekTokenParser(parser, &t);
   switch (t.kind) {
   case TK_Let: {
     parseVarDeclStmnt(sp, parser);
     break;
   }
-  case TK_TypeAlias: {
-    parseTypeAliasStmnt(sp, parser);
+  case TK_Type: {
+    parseTypeDeclStmnt(sp, parser);
     break;
   }
   default: {
@@ -2181,44 +2180,22 @@ static void parseTranslationUnit(TranslationUnit *tu, Parser *parser) {
   Vector statements;
   createVector(&statements);
 
-  // List of diagnostics
-  Vector diagnostics;
-  createVector(&diagnostics);
+  LnCol end;
 
   while (true) {
-    // Check for EOF
-    advanceToken(parser, &t);
+    peekTokenParser(parser, &t);
     if (t.kind == TK_None && t.error == DK_EOF) {
+      end = t.span.end;
       break;
     }
-    // If it wasn't an EOF, we push it back
-    setNextToken(parser, &t);
-
-    // Parse and push the statement
+    /* if there wasn't an end delimiter, push the last token back */
     parseStmnt(VEC_PUSH(&statements, Stmnt), parser);
-
-    // semicolon is required
-    advanceToken(parser, &t);
-    if (t.kind == TK_None && t.error == DK_EOF) {
-      // We've hit the end of the file
-      break;
-    } else if (t.kind == TK_Semicolon) {
-      // Do nothing
-    } else {
-      // give them a missing semicolon error, but keep parsing
-      setNextToken(parser, &t);
-      *VEC_PUSH(&diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_BlockExpectedSemicolon, t.span);
-    }
   }
-
-  LnCol end = t.span.end;
 
   tu->statements_length = VEC_LEN(&statements, Stmnt);
   tu->statements = manageMemArena(parser->ar, releaseVector(&statements));
   tu->span = SPAN(LNCOL(0, 0), end);
-  tu->diagnostics_length = VEC_LEN(&diagnostics, Diagnostic);
-  tu->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
+  tu->diagnostics_length = 0;
 
   Vector comments = popCommentScopeParser(parser);
   tu->comments_length = VEC_LEN(&comments, Comment);

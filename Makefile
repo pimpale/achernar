@@ -13,7 +13,7 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 LDFLAGS :=
 
 CC := clang
-CFLAGS ?= $(INC_FLAGS) -std=c11 -MMD -MP -O0 -g3 -Wall -Weverything -pedantic -Wno-padded -Wno-switch-enum -Wno-format-nonliteral
+CFLAGS ?= $(INC_FLAGS) --analyze -std=c11 -MMD -MP -O0 -g3 -Wall -Weverything -pedantic -Wno-padded -Wno-switch-enum -Wno-format-nonliteral
 
 # CC := clang
 # CFLAGS ?= $(INC_FLAGS) -std=c11 -MMD -MP -O3 -Wall -Weverything -pedantic -Wno-padded -Wno-switch-enum -Wno-format-nonliteral

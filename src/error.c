@@ -22,6 +22,10 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "Unknown";
     break;
   }
+  case DK_UnrecognizedCharacter: {
+      errmsg = "UnrecognizedCharacter";
+      break;
+  }
   case DK_IntLiteralUnrecognizedRadixCode: {
     errmsg = "IntLiteralUnrecognizedRadixCode";
     break;

@@ -145,7 +145,7 @@ static JsonElem typeExprJson(TypeExpr *tep, Arena *ja) {
     size_t len = tep->structExpr.members_len;
     JsonElem *array = RALLOC_ARR(ja, len, JsonElem);
     for (size_t i = 0; i < len; i++) {
-      array[i] = typeStructMemberExpr(&tep->structExpr.members[i], ja);
+      array[i] = typeStructMemberExprJson(&tep->structExpr.members[i], ja);
     }
     ptrs[5] = KVJson("members", arrDefJson(array, len));
     break;
@@ -613,7 +613,7 @@ JsonElem stmntJson(Stmnt *sp, Arena *ja) {
     ptrs_len = 6;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("SK_VarDecl"));
-    ptrs[4] = KVJson("pattern", patternExpr(sp->varDecl.pattern, ja));
+    ptrs[4] = KVJson("pattern", patternExprJson(sp->varDecl.pattern, ja));
     ptrs[5] = KVJson("value", valueExprJson(sp->varDecl.value, ja));
     break;
   }

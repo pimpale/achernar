@@ -350,7 +350,6 @@ static void parseFnValueExpr(ValueExpr *fvep, Parser *parser) {
   if (t.kind == TK_Colon) {
     fvep->fnExpr.type = RALLOC(parser->ar, TypeExpr);
     parseTypeExpr(fvep->fnExpr.type, parser);
-    end = fvep->fnExpr.type->span.end;
     // advance
     nextTokenParser(parser, &t);
   } else {
@@ -1478,7 +1477,7 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
   }
 
   LnCol start = t.span.start;
-  LnCol end = t.span.end;
+  LnCol end;
 
   Vector diagnostics;
   createVector(&diagnostics);
@@ -1804,15 +1803,13 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
 
   switch (t.kind) {
   case TK_Rest: {
-    psmep->kind = PESMEK_Rest;
-    end = t.span.end;
+    psmep->kind = PSMEK_Rest;
     break;
   }
   case TK_Identifier: {
     // copy identifier
-    psmep->kind = PESMEK_Field;
-    psmep->field_name = internArena(parser->ar, t.identifier);
-    end = t.span.end;
+    psmep->kind = PSMEK_Field;
+    psmep->field.field = internArena(parser->ar, t.identifier);
     break;
   }
   default: {
@@ -1833,18 +1830,18 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
   } else {
     has_assign = false;
   }
-  psmep->pattern = RALLOC(parser->ar, PatternExpr);
-  parsePatternExpr(psmep->pattern, parser);
+  psmep->field.pattern = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(psmep->field.pattern, parser);
 
-  end = psmep->pattern->span.end;
+  end = psmep->field.pattern->span.end;
 
   nextTokenParser(parser, &t);
 
-  if (psmep->pattern->kind == PEK_ValueRestriction && has_assign) {
+  if (psmep->field.pattern->kind == PEK_ValueRestriction && has_assign) {
     diagnostic =
         DIAGNOSTIC(DK_PatternStructUnexpectedAssignForValueRestriction, t.span);
     goto CLEANUP;
-  } else if (psmep->pattern->kind != PEK_ValueRestriction && !has_assign) {
+  } else if (psmep->field.pattern->kind != PEK_ValueRestriction && !has_assign) {
     diagnostic = DIAGNOSTIC(
         DK_PatternStructExpectedAssignForNonValueRestriction, t.span);
     goto CLEANUP;

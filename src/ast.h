@@ -10,7 +10,6 @@
 
 typedef enum {
   SK_None,
-  SK_FnDecl,
   SK_VarDecl,
   SK_TypeDecl,
   SK_Expr,
@@ -25,8 +24,6 @@ typedef enum {
   VEK_UnaryOp,
   VEK_Call,
   VEK_If,
-  VEK_When,
-  VEK_Else,
   VEK_While,
   VEK_With,
   VEK_Pass,
@@ -98,11 +95,11 @@ typedef struct ConstExpr_s {
 
   // diagnostics
   Diagnostic *diagnostics;
-  size_t diagnostics_length;
+  size_t diagnostics_len;
 
   // comments
   Comment *comments;
-  size_t comments_length;
+  size_t comments_len;
   union {
     struct {
       uint64_t value;
@@ -129,11 +126,11 @@ typedef struct PatternExpr_s {
 
   // diagnostics
   Diagnostic *diagnostics;
-  size_t diagnostics_length;
+  size_t diagnostics_len;
 
   // comments
   Comment *comments;
-  size_t comments_length;
+  size_t comments_len;
 
   union {
     struct {
@@ -146,27 +143,29 @@ typedef struct PatternExpr_s {
       TypeExpr *type;
     } typeRestriction;
     struct {
-      enum PatternExprStructKind_e {
+      enum PatternStructExprKind_e {
         PESK_Struct,
         PESK_Pack,
         PESK_Union,
       } kind;
 
-      struct PatternExprStructMemberExpr_s {
-        enum PatternExprStructMemberExprKind_e {
-          PESMEK_Field,
-          PESMEK_Rest,
+      struct PatternStructMemberExpr_s {
+        enum PatternStructMemberExprKind_e {
+          PSMEK_Field,
+          PSMEK_Rest,
         } kind;
         Span span;
         Diagnostic *diagnostics;
-        size_t diagnostics_length;
+        size_t diagnostics_len;
         // comments
         Comment *comments;
-        size_t comments_length;
-        char *field_name;
-        PatternExpr *pattern;
+        size_t comments_len;
+        struct {
+            char *field;
+            PatternExpr *pattern;
+        } field;
       } * members;
-      size_t members_length;
+      size_t members_len;
     } structExpr;
     struct {
       bool has_bindings;
@@ -199,14 +198,14 @@ typedef struct Path_s {
   Span span;
   // diagnostics
   Diagnostic *diagnostics;
-  size_t diagnostics_length;
+  size_t diagnostics_len;
 
   // comments
   Comment *comments;
-  size_t comments_length;
+  size_t comments_len;
 
   char **pathSegments;
-  size_t pathSegments_length;
+  size_t pathSegments_len;
 } Path;
 
 // Expressions and operations yielding a type
@@ -216,38 +215,39 @@ typedef struct TypeExpr_s {
 
   // diagnostics
   Diagnostic *diagnostics;
-  size_t diagnostics_length;
+  size_t diagnostics_len;
 
   // comments
   Comment *comments;
-  size_t comments_length;
+  size_t comments_len;
 
   union {
     struct {
       Path *path;
     } referenceExpr;
     struct {
-      enum TypeExprStructKind_e {
-        TESK_Struct,
-        TESK_Enum,
+      enum TypeStructExprKind_e {
+        TSEK_Struct,
+        TSEK_Enum,
       } kind;
 
-      struct StructMemberExpr_s {
+      struct TypeStructMemberExpr_s {
         Span span;
         Diagnostic *diagnostics;
-        size_t diagnostics_length;
+        size_t diagnostics_len;
 
         // comments
         Comment *comments;
-        size_t comments_length;
+        size_t comments_len;
 
         char *name;
         TypeExpr *type;
       } * members;
-      size_t members_length;
+      size_t members_len;
     } structExpr;
     struct {
       TypeExpr *parameters;
+      size_t parameters_len;
       TypeExpr *type;
     } fnExpr;
     struct {
@@ -280,11 +280,11 @@ typedef struct ValueExpr_s {
 
   // diagnostics
   Diagnostic *diagnostics;
-  size_t diagnostics_length;
+  size_t diagnostics_len;
 
   // comments
   Comment *comments;
-  size_t comments_length;
+  size_t comments_len;
 
   union {
     struct {
@@ -292,23 +292,23 @@ typedef struct ValueExpr_s {
     } constExpr;
     struct {
       char *value;
-      size_t value_length;
+      size_t value_len;
     } stringLiteral;
     struct {
-      struct StructLiteralMemberExpr_s {
+      struct ValueStructMemberExpr_s {
         Span span;
         Diagnostic *diagnostics;
-        size_t diagnostics_length;
+        size_t diagnostics_len;
 
         // comments
         Comment *comments;
-        size_t comments_length;
+        size_t comments_len;
 
         char *name;
         ValueExpr *value;
       } * members;
-      size_t members_length;
-    } structLiteral;
+      size_t members_len;
+    } structExpr;
     struct {
       ValueExpr *value;
       char *field;
@@ -368,9 +368,11 @@ typedef struct ValueExpr_s {
     struct {
       ValueExpr *function;
       ValueExpr *parameters;
+      size_t parameters_len;
     } callExpr;
     struct {
       PatternExpr *parameters;
+      size_t parameters_len;
       TypeExpr *type;
       ValueExpr *body;
     } fnExpr;
@@ -385,20 +387,20 @@ typedef struct ValueExpr_s {
       struct MatchCaseExpr_s {
         Span span;
         Diagnostic *diagnostics;
-        size_t diagnostics_length;
+        size_t diagnostics_len;
 
         // comments
         Comment *comments;
-        size_t comments_length;
+        size_t comments_len;
 
         PatternExpr *pattern;
         ValueExpr *value;
       } * cases;
-      size_t cases_length;
+      size_t cases_len;
     } matchExpr;
     struct Block_s {
       Stmnt *statements;
-      size_t statements_length;
+      size_t statements_len;
       bool suppress_value;
     } blockExpr;
   };
@@ -409,11 +411,11 @@ typedef struct Stmnt_s {
   Span span;
   // diagnostics
   Diagnostic *diagnostics;
-  size_t diagnostics_length;
+  size_t diagnostics_len;
 
   // comments
   Comment *comments;
-  size_t comments_length;
+  size_t comments_len;
   union {
     struct {
       PatternExpr *pattern;
@@ -433,13 +435,13 @@ typedef struct TranslationUnit_s {
   Span span; // span of the translation unit
 
   Diagnostic *diagnostics; // any errors that occur during parsing
-  size_t diagnostics_length;
+  size_t diagnostics_len;
 
   Stmnt *statements;        // The top level is just a series of statements
-  size_t statements_length; // The number of statements
+  size_t statements_len; // The number of statements
 
   Comment *comments;      // top level comments
-  size_t comments_length; // number of comments
+  size_t comments_len; // number of comments
 
 } TranslationUnit;
 

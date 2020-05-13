@@ -66,7 +66,7 @@ void* manageMemArena(Arena* ar, void* ptr);
 char* internArena(Arena *ar, char* str);
 
 // Created this macro for type safety
-#define RALLOC(arena, type) RALLOC_ARR(arena, type, 1)
-#define RALLOC_ARR(arena, type, n) (type*) allocArena((arena), ((n)*sizeof(type)))
+#define RALLOC(arena, type) RALLOC_ARR(arena, 1, type)
+#define RALLOC_ARR(arena, n, type) (type*) allocArena((arena), ((n)*sizeof(type)))
 
 #endif

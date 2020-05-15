@@ -22,12 +22,15 @@ typedef enum {
   TK_Break,    // break
   TK_Continue, // continue
   TK_Return,   // return
+  TK_Stmnt,   // return
   TK_Fn,       // fn
+  TK_Pat,      // pat
   TK_As,       // as
-  TK_Let,      // let
+  TK_Val,      // val
   TK_Struct,   // struct
   TK_Enum,     // enum
   TK_Type,     // type
+  TK_Macro,    // macro
   // Literals and constants
   TK_BoolLiteral,   // true | false
   TK_StringLiteral, // "string"
@@ -80,10 +83,11 @@ typedef enum {
   TK_Colon,        // :
   TK_Semicolon,    // ;
   TK_Underscore,   // _
+  TK_Backtick,     // `
   TK_Rest,         // ..
   TK_Dollar,       // $
   // Macros
-  TK_Macro,   // macro!
+  TK_MacroCall,   // macrocall!
   TK_Builtin, // _builtin
   // Comments, and Attributes
   TK_Comment, // #{ comment }# and # comment
@@ -98,7 +102,7 @@ typedef struct Token_s {
   // be null
   union {
     char *identifier;
-    char *macro;
+    char *macro_call;
     char *builtin;
     struct {
       char *comment;

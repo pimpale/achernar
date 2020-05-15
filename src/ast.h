@@ -10,8 +10,11 @@
 
 typedef enum {
   SK_None,
-  SK_VarDecl,
+  SK_ValDecl,
   SK_TypeDecl,
+  SK_MacroDecl,
+  SK_Use,
+  SK_Mod,
   SK_Expr,
 } StmntKind;
 
@@ -42,6 +45,7 @@ typedef enum {
   TEK_Void,        // void type
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Struct,      // struct
+  TEK_Strop,       // Ast type of code
   TEK_Fn,          // function pointer
   TEK_UnaryOp,     // & or @
   TEK_BinaryOp,    // , or |
@@ -80,6 +84,7 @@ typedef struct TypeExpr_s TypeExpr;
 typedef struct ConstExpr_s ConstExpr;
 typedef struct ValueExpr_s ValueExpr;
 typedef struct PatternExpr_s PatternExpr;
+typedef struct MacroExpr_s MacroExpr;
 typedef struct Stmnt_s Stmnt;
 
 typedef struct Comment_s {
@@ -87,6 +92,21 @@ typedef struct Comment_s {
   char *scope;
   char *data;
 } Comment;
+
+typedef struct MacroExpr_s {
+  Span span;
+
+  // diagnostics
+  Diagnostic *diagnostics;
+  size_t diagnostics_len;
+
+  // comments
+  Comment *comments;
+  size_t comments_len;
+
+  // 
+
+} MacroExpr;
 
 typedef struct ConstExpr_s {
 
@@ -420,11 +440,14 @@ typedef struct Stmnt_s {
     struct {
       PatternExpr *pattern;
       ValueExpr *value;
-    } varDecl;
+    } valDecl;
     struct {
       TypeExpr *type;
       char *name;
     } typeDecl;
+    struct {
+      Path* path;
+    } useStmnt;
     struct {
       ValueExpr *value;
     } exprStmnt;

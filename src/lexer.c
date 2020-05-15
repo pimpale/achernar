@@ -618,7 +618,7 @@ CLEANUP:
 }
 
 // Parses an identifer or macro or builtin
-static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
+static void lexWord(Lexer *lexer, Token *token) {
 
   LnCol start = lexer->position;
 
@@ -648,13 +648,14 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
   // Note that string length does not incude the trailing null byte
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-  char *string = manageMemArena(lexer->ar, releaseVector(&data));
+  char *string = releaseVector(&data);
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    token->kind = TK_Macro;
-    token->macro = string;
+    token->kind = TK_MacroCall;
+    token->macro_call = manageMemArena(lexer->ar, string);
     token->error = DK_Ok;
+    return; 
   }
 
   // boolean literals
@@ -683,34 +684,82 @@ static void lexIdentifierOrMacro(Lexer *lexer, Token *token) {
     token->kind = TK_Return;
   } else if (!strcmp(string, "fn")) {
     token->kind = TK_Fn;
-  } else if (!strcmp(string, "let")) {
-    token->kind = TK_Let;
+  } else if (!strcmp(string, "val")) {
+    token->kind = TK_Val;
+  } else if (!strcmp(string, "pat")) {
+    token->kind = TK_Pat;
+  } else if (!strcmp(string, "stmnt")) {
+    token->kind = TK_Stmnt;
   } else if (!strcmp(string, "struct")) {
     token->kind = TK_Struct;
   } else if (!strcmp(string, "enum")) {
     token->kind = TK_Enum;
   } else if (!strcmp(string, "type")) {
     token->kind = TK_Type;
+  } else if (!strcmp(string, "macro")) {
+    token->kind = TK_Macro;
   } else if (!strcmp(string, "void")) {
     token->kind = TK_Void;
   } else {
     // It is an identifier, and we need to keep the string
     token->kind = TK_Identifier;
-    token->identifier = string;
+    token->identifier = manageMemArena(lexer->ar, string);
     token->error = DK_Ok;
+    return;
   }
-  // If it wasn't an identifier
-  token->error = DK_Ok;
 
+  // If it wasn't an identifier or macro
+  token->error = DK_Ok;
+  free(string);
   return;
 }
+
+/*
+// Parses a builtin or an underscore token
+static void lexBackticked(Lexer *lexer, Token *token) {
+  LnCol start = lexer->position;
+  // Skip first quote
+  int32_t c = nextValueLexer(lexer);
+  if (c != '`') {
+    INTERNAL_ERROR(
+        "called backticked lexer where there wasn't a backtick");
+    PANIC();
+  }
+
+  Vector data;
+  createVector(&data);
+
+  while ((c = peekValueLexer(lexer)) != EOF) {
+    if (c != '`') {
+      *VEC_PUSH(&data, char) = (char)c;
+      nextValueLexer(lexer);
+    } else {
+      break;
+    }
+  }
+
+  token->span = SPAN(start, lexer->position);
+
+  // Note that string length does not incude the trailing null byte
+  // Push null byte
+  *VEC_PUSH(&data, char) = '\0';
+  char *string = manageMemArena(lexer->ar, releaseVector(&data));
+
+  // If it wasn't an identifier
+  token->error = DK_Ok;
+  token->backticked = string;
+  token->kind = TK_Backticked;
+  token->span = SPAN(start, lexer->position);
+  return;
+}
+*/
 
 // Parses a builtin or an underscore token
 static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = nextValueLexer(lexer);
-  if (c != '\'') {
+  if (c != '_') {
     INTERNAL_ERROR(
         "called builtin or underscore lexer where there wasn't an underscore");
     PANIC();
@@ -754,7 +803,6 @@ static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {
 }
 
 /* clang-format off */
-
 #define RESULT_TOKEN( tokenType, errorType)                                    \
   *token = (Token){                                                            \
     .kind = tokenType,                                                         \
@@ -786,7 +834,7 @@ void lexNextToken(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   if (isalpha(c)) {
-    lexIdentifierOrMacro(lexer, token);
+    lexWord(lexer, token);
     return;
   } else if (isdigit(c)) {
     lexNumberLiteral(lexer, token);
@@ -990,6 +1038,9 @@ void lexNextToken(Lexer *lexer, Token *token) {
     }
     case '$': {
       NEXT_AND_RETURN_RESULT_TOKEN(TK_Dollar)
+    }
+    case '`': {
+      NEXT_AND_RETURN_RESULT_TOKEN(TK_Backtick)
     }
     case EOF: {
       RESULT_TOKEN(TK_None, DK_EOF)

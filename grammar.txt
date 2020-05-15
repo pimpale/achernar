@@ -61,7 +61,7 @@ l2expr = l1expr | (l2expr, ("$" | "@" | funcCall | arrayAccess | fieldAccess));
 l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | parenExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
 
 translationUnit = { stmnt };
-stmnt = funcDecl | structdecl | vardecl | assignstmnt | exprstmnt ;
+stmnt = useStmnt | modStmnt | exprStmnt | ;
 funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
 structDecl = "struct", "{", [ binding ], { "," binding }, [ "," ], "}";
 varDecl = "let", type, identifier, "=", expr, ";";

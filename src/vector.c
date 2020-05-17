@@ -18,7 +18,7 @@ void resizeVector(Vector *vector, size_t size);
 
 // Sets the size of the vector
 void setCapacityVector(Vector *vector, size_t size) {
-  if(size == 0) {
+  if (size == 0) {
     free(vector->data);
     vector->data = NULL;
   } else {

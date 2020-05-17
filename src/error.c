@@ -23,8 +23,8 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     break;
   }
   case DK_UnrecognizedCharacter: {
-      errmsg = "UnrecognizedCharacter";
-      break;
+    errmsg = "UnrecognizedCharacter";
+    break;
   }
   case DK_IntLiteralUnrecognizedRadixCode: {
     errmsg = "IntLiteralUnrecognizedRadixCode";
@@ -99,8 +99,8 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     break;
   }
   case DK_PatternGroupExpectedRightBrace: {
-      errmsg ="PatternGroupExpectedRightBrace";
-      break;
+    errmsg = "PatternGroupExpectedRightBrace";
+    break;
   }
   case DK_TypeExprUnexpectedToken: {
     errmsg = "TypeExprUnexpectedToken";

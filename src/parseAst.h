@@ -18,8 +18,8 @@ typedef struct Parser_s {
   int64_t bracket_depth;
 } Parser;
 
-void createParser(Parser *pp, Lexer *lp, Arena* ar);
+void createParser(Parser *pp, Lexer *lp, Arena *ar);
 void parseTranslationUnitParser(Parser *pp, TranslationUnit *tu);
-Arena* releaseParser(Parser* pp);
+Arena *releaseParser(Parser *pp);
 
 #endif

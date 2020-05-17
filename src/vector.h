@@ -57,15 +57,14 @@ void *insertVector(Vector *vec, size_t loc, size_t len);
 
 /// Removes `len` bytes of memory
 /// If `data` is not NULL, the removed memory will be copied to `data`
-/// REQUIRES: `data` is NULL or a pointer to a segment of memory at least `len` bytes
-/// REQUIRES: `vec` is a pointer to a valid Vector
-/// REQUIRES: `loc` < vector's current length
-/// REQUIRES: `len` <= `vec`'s current length - `loc`
+/// REQUIRES: `data` is NULL or a pointer to a segment of memory at least `len`
+/// bytes REQUIRES: `vec` is a pointer to a valid Vector REQUIRES: `loc` <
+/// vector's current length REQUIRES: `len` <= `vec`'s current length - `loc`
 /// GUARANTEES: vector's length is decreased by `len` byte
 /// GUARANTEES: vector's byes from [loc, `loc` + len) will be removed
 /// GUARANTEES: the remainder of the vector will be moved backward `len` bytes
 /// GUARANTEES: `len` bytes at data will be overwritten with the removed data
-void removeVector(Vector *vec, void* data, size_t loc, size_t len);
+void removeVector(Vector *vec, void *data, size_t loc, size_t len);
 
 /// Appends `len` bytes of memory to the end of `vec`
 /// REQUIRES: `vec` is a pointer to a valid Vector
@@ -79,10 +78,10 @@ void *pushVector(Vector *vec, size_t len);
 /// If `data` is not NULL, the removed memory will be copied to `data`
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// REQUIRES: `len` < vector's current length
-/// REQUIRES: data is either NULL, or a pointer to a segment of memory at least `len` bytes long
-/// GUARANTEES: the vector's length is decreased by `len` bytes
-/// GUARANTEES: if `data` is NULL, the bytes from the end of the array will be lost
-/// GUARANTEES: if `data` is not NULL, the the bytes from the 
+/// REQUIRES: data is either NULL, or a pointer to a segment of memory at least
+/// `len` bytes long GUARANTEES: the vector's length is decreased by `len` bytes
+/// GUARANTEES: if `data` is NULL, the bytes from the end of the array will be
+/// lost GUARANTEES: if `data` is not NULL, the the bytes from the
 void popVector(Vector *vec, void *data, size_t len);
 
 /// Returns the length of `vec`
@@ -106,8 +105,9 @@ size_t capacityVector(Vector *vec);
 #define VEC_POP(vector, data, type) popVector(vector, (data), sizeof(type))
 #define VEC_LEN(vector, type) (lengthVector(vector) / sizeof(type))
 
-/// REQUIRES: referentially transparent arguments ONLY (this macro evaluates its arguments multiple times)
-/// REQUIRES: there is at least one element of type `type` in `vector`
-#define VEC_PEEK(vector, type) VEC_GET(vector, VEC_LEN(vector, type) -1, type)
+/// REQUIRES: referentially transparent arguments ONLY (this macro evaluates its
+/// arguments multiple times) REQUIRES: there is at least one element of type
+/// `type` in `vector`
+#define VEC_PEEK(vector, type) VEC_GET(vector, VEC_LEN(vector, type) - 1, type)
 
 #endif

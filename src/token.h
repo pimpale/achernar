@@ -19,7 +19,7 @@ typedef enum {
   TK_While,     // while
   TK_Match,     // match
   TK_Break,     // break
-  TK_Let,     // let
+  TK_Let,       // let
   TK_Continue,  // continue
   TK_Return,    // return
   TK_Defer,     // defer

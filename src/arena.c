@@ -170,8 +170,8 @@ void *allocArena(Arena *ar, size_t len) {
   }
 }
 
-void* manageMemArena(Arena *ar, void *ptr) {
-  if(ptr == NULL) {
+void *manageMemArena(Arena *ar, void *ptr) {
+  if (ptr == NULL) {
     return NULL;
   }
 
@@ -183,10 +183,10 @@ void* manageMemArena(Arena *ar, void *ptr) {
   return ptr;
 }
 
-char* internArena(Arena *ar, char *str) {
-  if(str == NULL) {
+char *internArena(Arena *ar, char *str) {
+  if (str == NULL) {
     return NULL;
   } else {
-    return strcpy(allocAlignedArena(ar, strlen(str)+1, 1), str);
+    return strcpy(allocAlignedArena(ar, strlen(str) + 1, 1), str);
   }
 }

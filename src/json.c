@@ -6,45 +6,43 @@
 #include <stdio.h>
 #include <string.h>
 
-JsonKV KVJson(char* key, JsonElem value) {
-  return (JsonKV){.key=(key), .value=(value)};
+JsonKV KVJson(char *key, JsonElem value) {
+  return (JsonKV){.key = (key), .value = (value)};
 }
 
-JsonElem nullJson() {
-  return (JsonElem){.kind=JE_null};
-}
+JsonElem nullJson() { return (JsonElem){.kind = JE_null}; }
 
 JsonElem boolJson(bool x) {
-  return (JsonElem){.kind=JE_boolean, .boolean=(x)};
+  return (JsonElem){.kind = JE_boolean, .boolean = (x)};
 }
 
 JsonElem intJson(uint64_t x) {
-  return (JsonElem){.kind=JE_integer, .integer=(x)};
+  return (JsonElem){.kind = JE_integer, .integer = (x)};
 }
 
 JsonElem numJson(double x) {
-  return (JsonElem){.kind=JE_number, .number=(x)};
+  return (JsonElem){.kind = JE_number, .number = (x)};
 }
 
-JsonElem strJson(char* x) {
-  if(x != NULL) {
-    return (JsonElem){.kind=JE_string, .string=(x)};
+JsonElem strJson(char *x) {
+  if (x != NULL) {
+    return (JsonElem){.kind = JE_string, .string = (x)};
   } else {
     return nullJson();
   }
 }
 
-JsonElem arrDefJson(JsonElem* ptr, size_t len) {
-  return (JsonElem){.kind=JE_array, .array={.values=(ptr), .length=(len)}};
+JsonElem arrDefJson(JsonElem *ptr, size_t len) {
+  return (JsonElem){.kind = JE_array,
+                    .array = {.values = (ptr), .length = (len)}};
 }
 
-JsonElem objDefJson(JsonKV* ptr, size_t len) {
-  return (JsonElem){.kind=JE_object, .object={.values=(ptr), .length=(len)}};
+JsonElem objDefJson(JsonKV *ptr, size_t len) {
+  return (JsonElem){.kind = JE_object,
+                    .object = {.values = (ptr), .length = (len)}};
 }
 
-static void pushCharJson(Vector *vptr, char c) {
-  *VEC_PUSH(vptr, char) = c;
-}
+static void pushCharJson(Vector *vptr, char c) { *VEC_PUSH(vptr, char) = c; }
 
 // Checks for special characters
 static void escapePushStrJson(Vector *vptr, char *str) {

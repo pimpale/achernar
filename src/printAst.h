@@ -7,13 +7,13 @@
 #include "parseAst.h"
 
 typedef struct {
-  Parser* parser;
-  Arena* arena;
+  Parser *parser;
+  Arena *arena;
 } Printer;
 
-void createPrinter(Printer* printer, Parser *parser, Arena *arena);
+void createPrinter(Printer *printer, Parser *parser, Arena *arena);
 
-void printJsonPrinter(Printer* printer, FILE* file);
-Arena* releasePrinter(Printer* printer);
+void printJsonPrinter(Printer *printer, FILE *file);
+Arena *releasePrinter(Printer *printer);
 
 #endif

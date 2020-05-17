@@ -33,13 +33,13 @@ typedef struct {
   Arena *ar;
 } Lexer;
 
-void createLexerFile(Lexer *lexer, FILE *file,  Arena *ar);
+void createLexerFile(Lexer *lexer, FILE *file, Arena *ar);
 void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Arena *ar);
 Arena *releaseLexer(Lexer *lexer);
 
-// Initializes Token to the value of the next token if there has not been an error.
-// Otherwise the token will have the type TokenNone and will contain a diagnostic.
-// Tokens will be deallocated when the lexer is deallocated.
-void lexNextToken(Lexer *lexer, Token* token);
+// Initializes Token to the value of the next token if there has not been an
+// error. Otherwise the token will have the type TokenNone and will contain a
+// diagnostic. Tokens will be deallocated when the lexer is deallocated.
+void lexNextToken(Lexer *lexer, Token *token);
 
 #endif

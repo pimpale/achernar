@@ -59,7 +59,7 @@ static JsonElem commentsJson(Comment *comments, size_t comments_len,
 static JsonElem stmntJson(Stmnt *s, Arena *ja);
 static JsonElem typeExprJson(TypeExpr *tep, Arena *ja);
 static JsonElem valueExprJson(ValueExpr *vep, Arena *ja);
-static JsonElem constExprJson(ConstExpr *cep, Arena *ja); // TODO
+static JsonElem constExprJson(ConstExpr *cep, Arena *ja);     // TODO
 static JsonElem patternExprJson(PatternExpr *pep, Arena *ja); // TODO
 static JsonElem
 patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep, Arena *ja);

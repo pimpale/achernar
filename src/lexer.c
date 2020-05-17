@@ -655,7 +655,7 @@ static void lexWord(Lexer *lexer, Token *token) {
     token->kind = TK_MacroCall;
     token->macro_call = manageMemArena(lexer->ar, string);
     token->error = DK_Ok;
-    return; 
+    return;
   }
 
   // boolean literals

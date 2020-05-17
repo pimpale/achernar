@@ -11,10 +11,10 @@
 typedef enum {
   SK_None,
   SK_Use,
+  SK_Macro,
   SK_Namespace,
   SK_ValDecl,
   SK_TypeDecl,
-  SK_PatDecl,
   SK_ValExpr,
   SK_TypeExpr,
   SK_PatExpr,
@@ -74,12 +74,12 @@ typedef enum {
 } PatternExprKind;
 
 typedef enum ConstExprKind_e {
-    CEK_None, // Error type
-  CEK_IntLiteral, // 8
-  CEK_BoolLiteral, // true
+  CEK_None,         // Error type
+  CEK_IntLiteral,   // 8
+  CEK_BoolLiteral,  // true
   CEK_FloatLiteral, // 8.32
-  CEK_CharLiteral, // 'a'
-  CEK_ValueExpr, // ${ 1 + 2 }
+  CEK_CharLiteral,  // 'a'
+  CEK_ValueExpr,    // ${ 1 + 2 }
 } ConstExprKind;
 
 typedef struct TypeExpr_s TypeExpr;
@@ -167,8 +167,8 @@ typedef struct PatternExpr_s {
         Comment *comments;
         size_t comments_len;
         struct {
-            char *field;
-            PatternExpr *pattern;
+          char *field;
+          PatternExpr *pattern;
         } field;
       } * members;
       size_t members_len;
@@ -294,7 +294,7 @@ typedef struct ValueExpr_s {
 
   union {
     struct {
-      ConstExpr* constExpr;
+      ConstExpr *constExpr;
     } constExpr;
     struct {
       char *value;
@@ -433,19 +433,16 @@ typedef struct Stmnt_s {
       TypeExpr *type;
       char *name;
     } typeDecl;
-    struct {
-      PatternExpr *pattern;
-      char *name;
-    } patDecl;
     // Things
     struct {
-      Path* path;
+      Path *path;
     } useStmnt;
     struct {
       Path* path;
+      Stmnt* stmnt;
     } namespaceStmnt;
     struct {
-      char* name;
+      char *name;
     } macroStmnt;
     // Expressions
     struct {
@@ -466,10 +463,10 @@ typedef struct TranslationUnit_s {
   Diagnostic *diagnostics; // any errors that occur during parsing
   size_t diagnostics_len;
 
-  Stmnt *statements;        // The top level is just a series of statements
+  Stmnt *statements;     // The top level is just a series of statements
   size_t statements_len; // The number of statements
 
-  Comment *comments;      // top level comments
+  Comment *comments;   // top level comments
   size_t comments_len; // number of comments
 
 } TranslationUnit;

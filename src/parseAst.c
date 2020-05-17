@@ -2080,6 +2080,7 @@ static void parsePatternExpr(PatternExpr *ppe, Parser *parser) {
   parseL6PatternExpr(ppe, parser);
 }
 
+
 static void parseValDecl(Stmnt *vdsp, Parser *parser) {
   // zero-initialize vdsp
   ZERO(vdsp);
@@ -2155,48 +2156,6 @@ CLEANUP:
   return;
 }
 
-static void parsePatDecl(Stmnt *pdp, Parser *parser) {
-  ZERO(pdp);
-  pdp->kind = SK_PatDecl;
-  Token t;
-
-  LnCol end;
-
-  nextTokenParser(parser, &t);
-
-  LnCol start = t.span.start;
-
-  if (t.kind != TK_Identifier) {
-    pdp->patDecl.name = NULL;
-    pdp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    pdp->diagnostics[0] = DIAGNOSTIC(DK_PatDeclExpectedIdentifier, t.span);
-    pdp->diagnostics_len = 1;
-    end = t.span.end;
-    goto CLEANUP;
-  }
-
-  pdp->patDecl.name = internArena(parser->ar, t.identifier);
-
-  // Now get equals sign
-  nextTokenParser(parser, &t);
-  if (t.kind != TK_Assign) {
-    pdp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    pdp->diagnostics[0] = DIAGNOSTIC(DK_PatDeclExpectedAssign, t.span);
-    end = t.span.end;
-    goto CLEANUP;
-  }
-
-  pdp->patDecl.pattern = RALLOC(parser->ar, PatternExpr);
-  parsePatternExpr(pdp->patDecl.pattern, parser);
-  end = pdp->patDecl.pattern->span.end;
-  pdp->diagnostics_len = 0;
-  pdp->diagnostics = NULL;
-
-CLEANUP:
-  pdp->span = SPAN(start, end);
-  return;
-}
-
 static void parseStmnt(Stmnt *sp, Parser *parser) {
   pushCommentScopeParser(parser);
 
@@ -2204,32 +2163,59 @@ static void parseStmnt(Stmnt *sp, Parser *parser) {
   // peek next token
   peekTokenParser(parser, &t);
   switch (t.kind) {
-  case TK_Let {
-    LnCol start = t.span; nextTokenParser(parser, &t);
-    peekTokenParser(parser, &t); switch (t.kind) {
-      case TK_Type: {
+  // Let Stmnt (Decl)
+  case TK_Let: {
+    LnCol start = t.span.start;
     nextTokenParser(parser, &t);
-    parseTypeDecl(sp, parser);
+    peekTokenParser(parser, &t);
+    switch (t.kind) {
+    case TK_Type: {
+      nextTokenParser(parser, &t);
+      parseTypeDecl(sp, parser);
+      break;
+    }
+    default: {
+      parseValDecl(sp, parser);
+      break;
+    }
+    }
+      sp->span = SPAN(start, sp->span.end);
+    break;
+  }
+  // Expressions
+  case TK_Type: {
+    // Type Expr
+    LnCol start = t.span.start;
+    sp->kind = SK_TypeExpr;
+    sp->typeExpr.type = RALLOC(parser->ar, TypeExpr);
+    parseTypeExpr(sp->typeExpr.type, parser);
+    sp->span = SPAN(start, sp->patExpr.pattern->span.end);
+    sp->diagnostics_len = 0;
     break;
   }
   case TK_Pat: {
-    nextTokenParser(parser, &t);
-    parsePatDecl(sp, parser);
+    // Pattern Expr
+    LnCol start = t.span.start;
+    sp->kind = SK_PatExpr;
+    sp->patExpr.pattern = RALLOC(parser->ar, PatternExpr);
+    parsePatternExpr(sp->patExpr.pattern, parser);
+    sp->span = SPAN(start, sp->patExpr.pattern->span.end);
+    sp->diagnostics_len = 0;
     break;
   }
   default: {
-    parseValDecl(sp, parser);
+    // Value Expr Statement
+    sp->kind = SK_ValExpr;
+    sp->valExpr.value = RALLOC(parser->ar, ValueExpr);
+    parseValueExpr(sp->valExpr.value, parser);
+    sp->span = sp->valExpr.value->span;
+    sp->diagnostics_len = 0;
     break;
   }
-  }}default: {
-  // Value Expr Statement
-  sp->kind = SK_Expr;
-  sp->exprStmnt.value = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(sp->exprStmnt.value, parser);
-  sp->span = sp->exprStmnt.value->span;
-  sp->diagnostics_len = 0;
-  break;}}
-Vector comments = popCommentScopeParser(parser);sp->comments_len = VEC_LEN(&comments, Comment);sp->comments = manageMemArena(parser->ar, releaseVector(&comments));
+  }
+  Vector comments = popCommentScopeParser(parser);
+  sp->comments_len = VEC_LEN(&comments, Comment);
+  sp->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
 static void parseTranslationUnit(TranslationUnit *tu, Parser *parser) {

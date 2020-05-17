@@ -24,7 +24,7 @@ typedef struct JsonElem_s {
     bool boolean;
     uint64_t integer;
     double number;
-    char* string;
+    char *string;
     struct {
       JsonElem *values;
       size_t length;
@@ -37,22 +37,20 @@ typedef struct JsonElem_s {
 } JsonElem;
 
 typedef struct JsonKV_s {
-  char* key;
+  char *key;
   JsonElem value;
 } JsonKV;
 
-
 // Utility functions
-JsonKV KVJson(char* key, JsonElem value);
+JsonKV KVJson(char *key, JsonElem value);
 JsonElem nullJson(void);
 JsonElem boolJson(bool x);
 JsonElem intJson(uint64_t x);
 JsonElem numJson(double x);
-JsonElem strJson(char* x);
-JsonElem arrDefJson(JsonElem* ptr, size_t len);
-JsonElem objDefJson(JsonKV* ptr, size_t len);
+JsonElem strJson(char *x);
+JsonElem arrDefJson(JsonElem *ptr, size_t len);
+JsonElem objDefJson(JsonKV *ptr, size_t len);
 
-
-char* toStringJsonElem(JsonElem* j);
+char *toStringJsonElem(JsonElem *j);
 
 #endif

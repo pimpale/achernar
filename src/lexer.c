@@ -672,10 +672,16 @@ static void lexWord(Lexer *lexer, Token *token) {
     token->kind = TK_Else;
   } else if (!strcmp(string, "while")) {
     token->kind = TK_While;
+  } else if (!strcmp(string, "let")) {
+    token->kind = TK_Let;
+  } else if (!strcmp(string, "use")) {
+    token->kind = TK_Use;
+  } else if (!strcmp(string, "namespace")) {
+    token->kind = TK_Namespace;
   } else if (!strcmp(string, "as")) {
     token->kind = TK_As;
-  } else if (!strcmp(string, "case")) {
-    token->kind = TK_Case;
+  } else if (!strcmp(string, "defer")) {
+    token->kind = TK_Defer;
   } else if (!strcmp(string, "break")) {
     token->kind = TK_Break;
   } else if (!strcmp(string, "continue")) {
@@ -684,8 +690,6 @@ static void lexWord(Lexer *lexer, Token *token) {
     token->kind = TK_Return;
   } else if (!strcmp(string, "fn")) {
     token->kind = TK_Fn;
-  } else if (!strcmp(string, "val")) {
-    token->kind = TK_Val;
   } else if (!strcmp(string, "pat")) {
     token->kind = TK_Pat;
   } else if (!strcmp(string, "stmnt")) {

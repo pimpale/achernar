@@ -10,12 +10,14 @@
 
 typedef enum {
   SK_None,
+  SK_Use,
+  SK_Namespace,
   SK_ValDecl,
   SK_TypeDecl,
-  SK_MacroDecl,
-  SK_Use,
-  SK_Mod,
-  SK_Expr,
+  SK_PatDecl,
+  SK_ValExpr,
+  SK_TypeExpr,
+  SK_PatExpr,
 } StmntKind;
 
 typedef enum {
@@ -84,7 +86,6 @@ typedef struct TypeExpr_s TypeExpr;
 typedef struct ConstExpr_s ConstExpr;
 typedef struct ValueExpr_s ValueExpr;
 typedef struct PatternExpr_s PatternExpr;
-typedef struct MacroExpr_s MacroExpr;
 typedef struct Stmnt_s Stmnt;
 
 typedef struct Comment_s {
@@ -92,21 +93,6 @@ typedef struct Comment_s {
   char *scope;
   char *data;
 } Comment;
-
-typedef struct MacroExpr_s {
-  Span span;
-
-  // diagnostics
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
-
-  // comments
-  Comment *comments;
-  size_t comments_len;
-
-  // 
-
-} MacroExpr;
 
 typedef struct ConstExpr_s {
 
@@ -437,8 +423,10 @@ typedef struct Stmnt_s {
   Comment *comments;
   size_t comments_len;
   union {
+    // Declarations
     struct {
       PatternExpr *pattern;
+      bool has_value;
       ValueExpr *value;
     } valDecl;
     struct {
@@ -446,11 +434,29 @@ typedef struct Stmnt_s {
       char *name;
     } typeDecl;
     struct {
+      PatternExpr *pattern;
+      char *name;
+    } patDecl;
+    // Things
+    struct {
       Path* path;
     } useStmnt;
     struct {
+      Path* path;
+    } namespaceStmnt;
+    struct {
+      char* name;
+    } macroStmnt;
+    // Expressions
+    struct {
       ValueExpr *value;
-    } exprStmnt;
+    } valExpr;
+    struct {
+      TypeExpr *type;
+    } typeExpr;
+    struct {
+      PatternExpr *pattern;
+    } patExpr;
   };
 } Stmnt;
 

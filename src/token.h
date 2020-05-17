@@ -13,24 +13,26 @@ typedef enum {
   // function, type, or variable
   TK_Identifier,
   // Keywords
-  TK_Void,     // is both type and value
-  TK_If,       // if
-  TK_Else,     // else
-  TK_Case,     // case
-  TK_While,    // while
-  TK_Match,    // match
-  TK_Break,    // break
-  TK_Continue, // continue
-  TK_Return,   // return
-  TK_Stmnt,   // return
-  TK_Fn,       // fn
-  TK_Pat,      // pat
-  TK_As,       // as
-  TK_Val,      // val
-  TK_Struct,   // struct
-  TK_Enum,     // enum
-  TK_Type,     // type
-  TK_Macro,    // macro
+  TK_Void,      // is both type and value
+  TK_If,        // if
+  TK_Else,      // else
+  TK_While,     // while
+  TK_Match,     // match
+  TK_Break,     // break
+  TK_Let,     // let
+  TK_Continue,  // continue
+  TK_Return,    // return
+  TK_Defer,     // defer
+  TK_Stmnt,     // stmnt
+  TK_Fn,        // fn
+  TK_Pat,       // pat
+  TK_As,        // as
+  TK_Struct,    // struct
+  TK_Enum,      // enum
+  TK_Type,      // type
+  TK_Macro,     // macro
+  TK_Namespace, // namespace
+  TK_Use,       // use
   // Literals and constants
   TK_BoolLiteral,   // true | false
   TK_StringLiteral, // "string"
@@ -87,8 +89,7 @@ typedef enum {
   TK_Rest,         // ..
   TK_Dollar,       // $
   // Macros
-  TK_MacroCall,   // macrocall!
-  TK_Builtin, // _builtin
+  TK_MacroCall, // macrocall!
   // Comments, and Attributes
   TK_Comment, // #{ comment }# and # comment
 } TokenKind;

@@ -59,12 +59,12 @@ typedef enum {
   DK_PatternStructExpectedIdentifier,
   DK_PatternStructUnexpectedAssignForValueRestriction,
   DK_PatternStructExpectedAssignForNonValueRestriction,
-  // VarDeclStmnt
-  DK_VarDeclStmntExpectedAssign,
-  DK_VarDeclStmntExpectedValue,
-  // TypeDeclStmnt
-  DK_TypeDeclStmntExpectedIdentifier,
-  DK_TypeDeclStmntExpectedAssign,
+  // ValDecl
+  DK_ValDeclExpectedAssign,
+  DK_ValDeclExpectedValue,
+  // TypeDecl
+  DK_TypeDeclExpectedIdentifier,
+  DK_TypeDeclExpectedAssign,
   // StructTypeExpr
   DK_StructExpectedLeftBrace,
   DK_StructExpectedRightBrace,

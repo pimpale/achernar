@@ -343,7 +343,7 @@ static void parseFnValueExpr(ValueExpr *fvep, Parser *parser) {
   )
 
   fvep->fnExpr.parameters_len = VEC_LEN(&parameters, PatternExpr);
-  fvep->fnExpr.parameters=
+  fvep->fnExpr.parameters =
       manageMemArena(parser->ar, releaseVector(&parameters));
 
   peekTokenParser(parser, &t);
@@ -786,7 +786,7 @@ static void parseCallValueExpr(ValueExpr *cvep, Parser *parser,
   createVector(&parameters);
   Vector diagnostics;
   createVector(&diagnostics);
-  
+
   PARSE_LIST(&parameters,          // members_vec_ptr
              &diagnostics,         // diagnostics_vec_ptr
              parseValueExpr,       // member_parse_function
@@ -1485,7 +1485,8 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
   // check for leftparen
   nextTokenParser(parser, &t);
   if (t.kind != TK_ParenLeft) {
-    *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_FnTypeExprExpectedLeftParen, t.span);
+    *VEC_PUSH(&diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_FnTypeExprExpectedLeftParen, t.span);
     end = t.span.end;
     goto CLEANUP;
   }
@@ -1493,19 +1494,19 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
   Vector parameters;
   createVector(&parameters);
 
-  PARSE_LIST(&parameters,          // members_vec_ptr
-             &diagnostics,         // diagnostics_vec_ptr
-             parseTypeExpr,       // member_parse_function
-             TypeExpr,            // member_kind
-             TK_ParenRight,        // delimiting_token_kind
+  PARSE_LIST(&parameters,                     // members_vec_ptr
+             &diagnostics,                    // diagnostics_vec_ptr
+             parseTypeExpr,                   // member_parse_function
+             TypeExpr,                        // member_kind
+             TK_ParenRight,                   // delimiting_token_kind
              DK_FnTypeExprExpectedRightParen, // missing_delimiter_error
-             end,                  // end_lncol
-             parser                // parser
+             end,                             // end_lncol
+             parser                           // parser
   )
 
-
-  fte->fnExpr.parameters_len= VEC_LEN(&parameters, TypeExpr);
-  fte->fnExpr.parameters= manageMemArena(parser->ar, releaseVector(&parameters));
+  fte->fnExpr.parameters_len = VEC_LEN(&parameters, TypeExpr);
+  fte->fnExpr.parameters =
+      manageMemArena(parser->ar, releaseVector(&parameters));
 
   return;
   fte->fnExpr.parameters = RALLOC(parser->ar, TypeExpr);
@@ -1513,7 +1514,8 @@ static void parseFnTypeExpr(TypeExpr *fte, Parser *parser) {
 
   nextTokenParser(parser, &t);
   if (t.kind != TK_Colon) {
-    *VEC_PUSH(&diagnostics, Diagnostic)  = DIAGNOSTIC(DK_FnTypeExprExpectedColon, t.span);
+    *VEC_PUSH(&diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_FnTypeExprExpectedColon, t.span);
     end = t.span.end;
     goto CLEANUP;
   }
@@ -1841,7 +1843,8 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
     diagnostic =
         DIAGNOSTIC(DK_PatternStructUnexpectedAssignForValueRestriction, t.span);
     goto CLEANUP;
-  } else if (psmep->field.pattern->kind != PEK_ValueRestriction && !has_assign) {
+  } else if (psmep->field.pattern->kind != PEK_ValueRestriction &&
+             !has_assign) {
     diagnostic = DIAGNOSTIC(
         DK_PatternStructExpectedAssignForNonValueRestriction, t.span);
     goto CLEANUP;
@@ -2077,68 +2080,54 @@ static void parsePatternExpr(PatternExpr *ppe, Parser *parser) {
   parseL6PatternExpr(ppe, parser);
 }
 
-static void parseVarDeclStmnt(Stmnt *vdsp, Parser *parser) {
+static void parseValDecl(Stmnt *vdsp, Parser *parser) {
   // zero-initialize vdsp
   ZERO(vdsp);
-  vdsp->kind = SK_VarDecl;
+  vdsp->kind = SK_ValDecl;
   // these variables will be reused
   Token t;
 
-  // Skip let declaration
-  nextTokenParser(parser, &t);
-  // The start of the variable declaration
-  LnCol start = t.span.start;
-  EXPECT_TYPE(t, TK_Let, HANDLE_NO_LET);
-
   // Get Binding
-  vdsp->varDecl.pattern = RALLOC(parser->ar, PatternExpr);
-  parsePatternExpr(vdsp->varDecl.pattern, parser);
+  vdsp->valDecl.pattern = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(vdsp->valDecl.pattern, parser);
+
+  LnCol start = vdsp->valDecl.pattern->span.start;
+  LnCol end;
 
   // Expect Equal Sign
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_Assign, HANDLE_NO_ASSIGN);
+  peekTokenParser(parser, &t);
+  if (t.kind == TK_Assign) {
+    // accept the equal sign
+    nextTokenParser(parser, &t);
 
-  // Get Value;
-  vdsp->varDecl.value = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(vdsp->varDecl.value, parser);
+    vdsp->valDecl.has_value = true;
+    vdsp->valDecl.value = RALLOC(parser->ar, ValueExpr);
+    parseValueExpr(vdsp->valDecl.value, parser);
+    end = vdsp->valDecl.value->span.end;
+  } else {
+    vdsp->valDecl.has_value = false;
+    end = vdsp->valDecl.pattern->span.end;
+  }
+
+  vdsp->span = SPAN(start, end);
   vdsp->diagnostics_len = 0;
-  return;
-
-HANDLE_NO_LET:
-  INTERNAL_ERROR("called variable declaration parser where there was no "
-                 "variable declaration");
-  PANIC();
-
-HANDLE_NO_ASSIGN:
-  vdsp->span = SPAN(start, t.span.end);
-  vdsp->diagnostics_len = 1;
-  vdsp->diagnostics = RALLOC(parser->ar, Diagnostic);
-  vdsp->diagnostics[0] = DIAGNOSTIC(DK_VarDeclStmntExpectedAssign, t.span);
-  resyncParser(parser);
 }
 
-static void parseTypeDeclStmnt(Stmnt *tdp, Parser *parser) {
+static void parseTypeDecl(Stmnt *tdp, Parser *parser) {
   ZERO(tdp);
   tdp->kind = SK_TypeDecl;
   Token t;
-  nextTokenParser(parser, &t);
 
-  if (t.kind != TK_Type) {
-    INTERNAL_ERROR("called type alias declaration parser where there was no "
-                   "type alias declaration");
-    PANIC();
-  }
-
-  LnCol start = t.span.start;
   LnCol end;
 
   nextTokenParser(parser, &t);
 
+  LnCol start = t.span.start;
+
   if (t.kind != TK_Identifier) {
     tdp->typeDecl.name = NULL;
     tdp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    tdp->diagnostics[0] =
-        DIAGNOSTIC(DK_TypeDeclStmntExpectedIdentifier, t.span);
+    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeDeclExpectedIdentifier, t.span);
     tdp->diagnostics_len = 1;
     end = t.span.end;
     goto CLEANUP;
@@ -2150,7 +2139,7 @@ static void parseTypeDeclStmnt(Stmnt *tdp, Parser *parser) {
   nextTokenParser(parser, &t);
   if (t.kind != TK_Assign) {
     tdp->diagnostics = RALLOC(parser->ar, Diagnostic);
-    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeDeclStmntExpectedAssign, t.span);
+    tdp->diagnostics[0] = DIAGNOSTIC(DK_TypeDeclExpectedAssign, t.span);
     end = t.span.end;
     goto CLEANUP;
   }
@@ -2166,6 +2155,48 @@ CLEANUP:
   return;
 }
 
+static void parsePatDecl(Stmnt *pdp, Parser *parser) {
+  ZERO(pdp);
+  pdp->kind = SK_PatDecl;
+  Token t;
+
+  LnCol end;
+
+  nextTokenParser(parser, &t);
+
+  LnCol start = t.span.start;
+
+  if (t.kind != TK_Identifier) {
+    pdp->patDecl.name = NULL;
+    pdp->diagnostics = RALLOC(parser->ar, Diagnostic);
+    pdp->diagnostics[0] = DIAGNOSTIC(DK_PatDeclExpectedIdentifier, t.span);
+    pdp->diagnostics_len = 1;
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
+  pdp->patDecl.name = internArena(parser->ar, t.identifier);
+
+  // Now get equals sign
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_Assign) {
+    pdp->diagnostics = RALLOC(parser->ar, Diagnostic);
+    pdp->diagnostics[0] = DIAGNOSTIC(DK_PatDeclExpectedAssign, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
+  pdp->patDecl.pattern = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(pdp->patDecl.pattern, parser);
+  end = pdp->patDecl.pattern->span.end;
+  pdp->diagnostics_len = 0;
+  pdp->diagnostics = NULL;
+
+CLEANUP:
+  pdp->span = SPAN(start, end);
+  return;
+}
+
 static void parseStmnt(Stmnt *sp, Parser *parser) {
   pushCommentScopeParser(parser);
 
@@ -2173,28 +2204,32 @@ static void parseStmnt(Stmnt *sp, Parser *parser) {
   // peek next token
   peekTokenParser(parser, &t);
   switch (t.kind) {
-  case TK_Let: {
-    parseVarDeclStmnt(sp, parser);
+  case TK_Let {
+    LnCol start = t.span; nextTokenParser(parser, &t);
+    peekTokenParser(parser, &t); switch (t.kind) {
+      case TK_Type: {
+    nextTokenParser(parser, &t);
+    parseTypeDecl(sp, parser);
     break;
   }
-  case TK_Type: {
-    parseTypeDeclStmnt(sp, parser);
+  case TK_Pat: {
+    nextTokenParser(parser, &t);
+    parsePatDecl(sp, parser);
     break;
   }
   default: {
-    // Value Expr Statement
-    sp->kind = SK_Expr;
-    sp->exprStmnt.value = RALLOC(parser->ar, ValueExpr);
-    parseValueExpr(sp->exprStmnt.value, parser);
-    sp->span = sp->exprStmnt.value->span;
-    sp->diagnostics_len = 0;
+    parseValDecl(sp, parser);
     break;
   }
-  }
-
-  Vector comments = popCommentScopeParser(parser);
-  sp->comments_len = VEC_LEN(&comments, Comment);
-  sp->comments = manageMemArena(parser->ar, releaseVector(&comments));
+  }}default: {
+  // Value Expr Statement
+  sp->kind = SK_Expr;
+  sp->exprStmnt.value = RALLOC(parser->ar, ValueExpr);
+  parseValueExpr(sp->exprStmnt.value, parser);
+  sp->span = sp->exprStmnt.value->span;
+  sp->diagnostics_len = 0;
+  break;}}
+Vector comments = popCommentScopeParser(parser);sp->comments_len = VEC_LEN(&comments, Comment);sp->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
 static void parseTranslationUnit(TranslationUnit *tu, Parser *parser) {

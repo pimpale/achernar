@@ -110,20 +110,20 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "TypeExprFieldAccessExpectedIdentifier";
     break;
   }
-  case DK_VarDeclStmntExpectedAssign: {
-    errmsg = "VarDeclStmntExpectedAssign";
+  case DK_ValDeclExpectedAssign: {
+    errmsg = "ValDeclExpectedAssign";
     break;
   }
-  case DK_VarDeclStmntExpectedValue: {
-    errmsg = "VarDeclStmntExpectedValue";
+  case DK_ValDeclExpectedValue: {
+    errmsg = "ValDeclExpectedValue";
     break;
   }
-  case DK_TypeDeclStmntExpectedIdentifier: {
-    errmsg = "TypeDeclStmntExpectedIdentifier";
+  case DK_TypeDeclExpectedIdentifier: {
+    errmsg = "TypeDeclExpectedIdentifier";
     break;
   }
-  case DK_TypeDeclStmntExpectedAssign: {
-    errmsg = "TypeDeclStmntExpectedAssign";
+  case DK_TypeDeclExpectedAssign: {
+    errmsg = "TypeDeclExpectedAssign";
     break;
   }
   case DK_StructExpectedLeftBrace: {

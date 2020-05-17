@@ -16,6 +16,9 @@ typedef enum {
   // Generic Lexing Errors
   DK_EOF,
   DK_UnrecognizedCharacter,
+  // Builtins
+  DK_BuiltinExpectedLeftParen,
+  DK_BuiltinExpectedRightParen,
   // Integer literals
   DK_IntLiteralUnrecognizedRadixCode,
   DK_IntLiteralDigitExceedsRadix,

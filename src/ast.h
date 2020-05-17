@@ -22,6 +22,7 @@ typedef enum {
 
 typedef enum {
   VEK_None,
+  VEK_Builtin,
   VEK_ConstExpr,
   VEK_StringLiteral,
   VEK_StructLiteral,
@@ -30,8 +31,7 @@ typedef enum {
   VEK_Call,
   VEK_If,
   VEK_While,
-  VEK_With,
-  VEK_Pass,
+  VEK_Defer,
   VEK_Break,
   VEK_Continue,
   VEK_Return,
@@ -44,10 +44,10 @@ typedef enum {
 typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
+  TEK_Builtin,     // Builtin Type
   TEK_Void,        // void type
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Struct,      // struct
-  TEK_Strop,       // Ast type of code
   TEK_Fn,          // function pointer
   TEK_UnaryOp,     // & or @
   TEK_BinaryOp,    // , or |
@@ -82,6 +82,7 @@ typedef enum ConstExprKind_e {
   CEK_ValueExpr,    // ${ 1 + 2 }
 } ConstExprKind;
 
+typedef struct Builtin_s Builtin;
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ConstExpr_s ConstExpr;
 typedef struct ValueExpr_s ValueExpr;
@@ -93,6 +94,20 @@ typedef struct Comment_s {
   char *scope;
   char *data;
 } Comment;
+
+typedef struct Builtin_s {
+  Span span;
+
+  Comment* comments;
+  size_t comments_len;
+
+  Diagnostic* diagnostics;
+  size_t diagnostics_len;
+
+  char* name;
+  Stmnt* parameters;
+  size_t parameters_len;
+} Builtin;
 
 typedef struct ConstExpr_s {
 
@@ -140,6 +155,9 @@ typedef struct PatternExpr_s {
 
   union {
     struct {
+        Builtin* builtin;
+    } builtinExpr;
+    struct {
       PatternExprValueRestrictionKind restriction;
       ConstExpr *constExpr;
     } valueRestriction;
@@ -154,7 +172,6 @@ typedef struct PatternExpr_s {
         PESK_Pack,
         PESK_Union,
       } kind;
-
       struct PatternStructMemberExpr_s {
         enum PatternStructMemberExprKind_e {
           PSMEK_Field,
@@ -229,6 +246,9 @@ typedef struct TypeExpr_s {
 
   union {
     struct {
+        Builtin* builtin;
+    } builtinExpr;
+    struct {
       Path *path;
     } referenceExpr;
     struct {
@@ -293,6 +313,9 @@ typedef struct ValueExpr_s {
   size_t comments_len;
 
   union {
+    struct {
+        Builtin* builtin;
+    } builtinExpr;
     struct {
       ConstExpr *constExpr;
     } constExpr;
@@ -388,6 +411,9 @@ typedef struct ValueExpr_s {
     struct {
       ValueExpr *value;
     } breakExpr;
+    struct {
+      ValueExpr *value;
+    } deferExpr;
     struct Match_s {
       ValueExpr *value;
       struct MatchCaseExpr_s {

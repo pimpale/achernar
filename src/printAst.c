@@ -61,6 +61,7 @@ static JsonElem typeExprJson(TypeExpr *tep, Arena *ja);
 static JsonElem valueExprJson(ValueExpr *vep, Arena *ja);
 static JsonElem constExprJson(ConstExpr *cep, Arena *ja);     // TODO
 static JsonElem patternExprJson(PatternExpr *pep, Arena *ja); // TODO
+static JsonElem builtinJson(Builtin *bp, Arena *ja);
 static JsonElem
 patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep, Arena *ja);
 static JsonElem typeStructMemberExprJson(struct TypeStructMemberExpr_s *tsmep,
@@ -68,6 +69,25 @@ static JsonElem typeStructMemberExprJson(struct TypeStructMemberExpr_s *tsmep,
 static JsonElem valueStructMemberExprJson(struct ValueStructMemberExpr_s *vsmep,
                                           Arena *ja);
 static JsonElem matchCaseExprJson(struct MatchCaseExpr_s *mcep, Arena *ja);
+
+static JsonElem builtinJson(Builtin *bp, Arena *ja) {
+  size_t ptrs_len = 5;
+  JsonKV *ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+  ptrs[0] = KVJson("span", spanJson(bp->span, ja));
+  ptrs[1] =
+      KVJson("comments", commentsJson(bp->comments, bp->comments_len, ja));
+  ptrs[2] = KVJson("diagnostics",
+                   diagnosticsJson(bp->diagnostics, bp->diagnostics_len, ja));
+  ptrs[3] = KVJson("name", strJson(bp->name));
+
+  JsonElem *parameter_ptrs = RALLOC_ARR(ja, bp->parameters_len, JsonElem);
+  for (size_t i = 0; i < bp->parameters_len; i++) {
+    parameter_ptrs[i] = stmntJson(&bp->parameters[i], ja);
+  }
+  ptrs[4] =
+      KVJson("parameters", arrDefJson(parameter_ptrs, bp->parameters_len));
+  return objDefJson(ptrs, ptrs_len);
+}
 
 static JsonElem pathJson(Path *pp, Arena *ja) {
   size_t ptrs_len = 4;
@@ -107,6 +127,13 @@ static JsonElem typeExprJson(TypeExpr *tep, Arena *ja) {
     ptrs_len = 4;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("TEK_Omitted"));
+    break;
+  }
+  case TEK_Builtin: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("TEK_Builtin"));
+    ptrs[4] = KVJson("builtin", builtinJson(tep->builtinExpr.builtin, ja));
     break;
   }
   case TEK_Void: {
@@ -256,6 +283,7 @@ static JsonElem patternStructMemberJson(struct PatternStructMemberExpr_s *psmep,
     ptrs[0] = KVJson("kind", strJson("PSMEK_Field"));
     ptrs[4] = KVJson("field", strJson(internArena(ja, psmep->field.field)));
     ptrs[5] = KVJson("pattern", patternExprJson(psmep->field.pattern, ja));
+    break;
   }
   case PSMEK_Rest: {
     ptrs_len = 4;
@@ -508,23 +536,25 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     ptrs[5] = KVJson("body", valueExprJson(vep->ifExpr.body, ja));
     break;
   }
-  case VEK_With: {
+  case VEK_Builtin: {
     ptrs_len = 4;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("VEK_With"));
-    // TODO
+    ptrs[0] = KVJson("kind", strJson("VEK_Builtin"));
+    ptrs[4] = KVJson("value", builtinJson(vep->builtinExpr.builtin, ja));
     break;
   }
-  case VEK_Pass: {
+  case VEK_Defer: {
     ptrs_len = 4;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("VEK_Pass"));
+    ptrs[0] = KVJson("kind", strJson("VEK_Defer"));
+    ptrs[4] = KVJson("value", valueExprJson(vep->deferExpr.value, ja));
     break;
   }
   case VEK_Break: {
-    ptrs_len = 4;
+    ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Break"));
+    ptrs[4] = KVJson("value", valueExprJson(vep->breakExpr.value, ja));
     break;
   }
   case VEK_Continue: {
@@ -609,12 +639,36 @@ JsonElem stmntJson(Stmnt *sp, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("SK_None"));
     break;
   }
-  case SK_VarDecl: {
+  // Misc
+  case SK_Use: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("SK_Use"));
+    ptrs[4] = KVJson("path", pathJson(sp->useStmnt.path, ja));
+    break;
+  }
+  case SK_Namespace: {
     ptrs_len = 6;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("SK_VarDecl"));
-    ptrs[4] = KVJson("pattern", patternExprJson(sp->varDecl.pattern, ja));
-    ptrs[5] = KVJson("value", valueExprJson(sp->varDecl.value, ja));
+    ptrs[0] = KVJson("kind", strJson("SK_Namespace"));
+    ptrs[4] = KVJson("path", pathJson(sp->namespaceStmnt.path, ja));
+    ptrs[5] = KVJson("stmnt", stmntJson(sp->namespaceStmnt.stmnt, ja));
+    break;
+  }
+  case SK_Macro:  {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("SK_Macro"));
+    ptrs[4] = KVJson("macro", strJson(internArena(ja, sp->macroStmnt.name)));
+    break;
+  }
+  // Decls
+  case SK_ValDecl: {
+    ptrs_len = 6;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("SK_ValDecl"));
+    ptrs[4] = KVJson("pattern", patternExprJson(sp->valDecl.pattern, ja));
+    ptrs[5] = KVJson("value", valueExprJson(sp->valDecl.value, ja));
     break;
   }
   case SK_TypeDecl: {
@@ -625,11 +679,26 @@ JsonElem stmntJson(Stmnt *sp, Arena *ja) {
     ptrs[5] = KVJson("name", strJson(internArena(ja, sp->typeDecl.name)));
     break;
   }
-  case SK_Expr: {
+  // Exprs
+  case SK_ValExpr: {
     ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("SK_Expr"));
-    ptrs[4] = KVJson("value", valueExprJson(sp->exprStmnt.value, ja));
+    ptrs[4] = KVJson("value", valueExprJson(sp->valExpr.value, ja));
+    break;
+  }
+  case SK_TypeExpr: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("SK_Expr"));
+    ptrs[4] = KVJson("type", typeExprJson(sp->typeExpr.type, ja));
+    break;
+  }
+  case SK_PatExpr: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("SK_Expr"));
+    ptrs[4] = KVJson("pat", patternExprJson(sp->patExpr.pattern, ja));
     break;
   }
   }

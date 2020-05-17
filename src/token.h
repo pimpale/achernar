@@ -89,6 +89,7 @@ typedef enum {
   TK_Rest,         // ..
   TK_Dollar,       // $
   // Macros
+  TK_Builtin,
   TK_MacroCall, // macrocall!
   // Comments, and Attributes
   TK_Comment, // #{ comment }# and # comment

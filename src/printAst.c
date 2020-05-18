@@ -715,6 +715,22 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     ptrs[5] = KVJson("operand", valueExprJson(vep->unaryOp.operand, ja));
     break;
   }
+  case VEK_Fn: {
+    ptrs_len = 7;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("VEK_Fn"));
+
+    // Embed array
+    size_t len = vep->fnExpr.parameters_len;
+    JsonElem *array = RALLOC_ARR(ja, len, JsonElem);
+    for (size_t i = 0; i < len; i++) {
+      array[i] = patternExprJson(&vep->fnExpr.parameters[i], ja);
+    }
+    ptrs[4] = KVJson("parameters", arrDefJson(array, len));
+    ptrs[5] = KVJson("type", typeExprJson(vep->fnExpr.type, ja));
+    ptrs[6] = KVJson("body", valueExprJson(vep->fnExpr.body, ja));
+    break;
+  }
   case VEK_Call: {
     ptrs_len = 6;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
@@ -800,7 +816,7 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     break;
   }
   case VEK_Block: {
-    ptrs_len = 6;
+    ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Block"));
     // Embed array
@@ -810,7 +826,6 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
       array[i] = stmntJson(&vep->blockExpr.statements[i], ja);
     }
     ptrs[4] = KVJson("statements", arrDefJson(array, len));
-    ptrs[5] = KVJson("suppress_value", boolJson(vep->blockExpr.suppress_value));
     break;
   }
   case VEK_FieldAccess: {

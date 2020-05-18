@@ -24,6 +24,7 @@ typedef enum {
   VEK_None,
   VEK_Builtin,
   VEK_ConstExpr,
+  VEK_Fn,
   VEK_StringLiteral,
   VEK_StructLiteral,
   VEK_BinaryOp,
@@ -421,7 +422,6 @@ typedef struct ValueExpr_s {
     struct Block_s {
       Stmnt *statements;
       size_t statements_len;
-      bool suppress_value;
     } blockExpr;
   };
 } ValueExpr;

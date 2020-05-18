@@ -21,6 +21,7 @@
     peekTokenParser(parser, &PARSE_LIST_token);                                \
     if (PARSE_LIST_token.kind == delimiting_token_kind) {                      \
       end_lncol = PARSE_LIST_token.span.end;                                   \
+      nextTokenParser(parser, &PARSE_LIST_token); /* accept delimiting tk */   \
       break;                                                                   \
     } else if (PARSE_LIST_token.kind == TK_None &&                             \
                PARSE_LIST_token.error == DK_EOF) {                             \
@@ -64,11 +65,6 @@ static void rawNextTokenParser(Parser *parser, Token *t, Vector *comments) {
                     .scope = internArena(parser->ar, c.comment.scope),
                     .data = internArena(parser->ar, c.comment.comment)};
       // keep reading
-      break;
-    }
-    case TK_Semicolon: {
-      // Semicolons are a NOP and don't appear in the AST
-      // Keep Reading
       break;
     }
     case TK_ParenLeft: {
@@ -288,6 +284,9 @@ HANDLE_NO_STRING_LITERAL:
 
 static void parseFnValueExpr(ValueExpr *fvep, Parser *parser) {
   ZERO(fvep);
+
+  fvep->kind = VEK_Fn;
+
   Token t;
   nextTokenParser(parser, &t);
 
@@ -332,9 +331,10 @@ static void parseFnValueExpr(ValueExpr *fvep, Parser *parser) {
   peekTokenParser(parser, &t);
   if (t.kind == TK_Colon) {
     fvep->fnExpr.type = RALLOC(parser->ar, TypeExpr);
-    parseTypeExpr(fvep->fnExpr.type, parser);
     // advance
     nextTokenParser(parser, &t);
+
+    parseTypeExpr(fvep->fnExpr.type, parser);
   } else {
     fvep->fnExpr.type = RALLOC(parser->ar, TypeExpr);
     fvep->fnExpr.type->kind = TEK_Omitted;
@@ -539,6 +539,9 @@ static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep, Parser *parser) {
   pushCommentScopeParser(parser);
   ZERO(mcep);
   Token t;
+
+  // Get Pat
+  if(
 
   // Get pattern
   mcep->pattern = RALLOC(parser->ar, PatternExpr);
@@ -1974,8 +1977,7 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
     diagnostic =
         DIAGNOSTIC(DK_PatternStructUnexpectedAssignForValueRestriction, t.span);
     goto CLEANUP;
-  } else if (psmep->pattern->kind != PEK_ValueRestriction &&
-             !has_assign) {
+  } else if (psmep->pattern->kind != PEK_ValueRestriction && !has_assign) {
     diagnostic = DIAGNOSTIC(
         DK_PatternStructExpectedAssignForNonValueRestriction, t.span);
     goto CLEANUP;
@@ -2003,7 +2005,7 @@ static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
   spe->kind = PEK_Struct;
   Token t;
   nextTokenParser(parser, &t);
-  if(t.kind != TK_Struct) {
+  if (t.kind != TK_Struct) {
     INTERNAL_ERROR("called struct pattern expression parser where there was no "
                    "struct pattern declaration");
     PANIC();

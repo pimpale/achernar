@@ -1771,7 +1771,8 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
-  parseL1TypeExpr(l2, parser);
+  TypeExpr *root = l2;
+  parseL1TypeExpr(root, parser);
 
   while (true) {
     Token t;
@@ -1783,29 +1784,32 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
     case TK_Ref: {
       pushCommentScopeParser(parser);
       ty = RALLOC(parser->ar, TypeExpr);
-      ty->kind = TEK_UnaryOp;
-      ty->unaryOp.operator= TEUOK_Ref;
-      ty->unaryOp.operand = l2;
-      ty->span = SPAN(l2->span.start, t.span.end);
-      ty->diagnostics_len = 0;
+      *ty = *root;
+      root->kind = TEK_UnaryOp;
+      root->unaryOp.operator= TEUOK_Ref;
+      root->unaryOp.operand = ty;
+      root->span = SPAN(ty->span.start, t.span.end);
+      root->diagnostics_len = 0;
       nextTokenParser(parser, &t);
       break;
     }
     case TK_Deref: {
       pushCommentScopeParser(parser);
       ty = RALLOC(parser->ar, TypeExpr);
-      ty->kind = TEK_UnaryOp;
-      ty->unaryOp.operator= TEUOK_Deref;
-      ty->unaryOp.operand = l2;
-      ty->span = SPAN(l2->span.start, t.span.end);
-      ty->diagnostics_len = 0;
+      *ty = *root;
+      root->kind = TEK_UnaryOp;
+      root->unaryOp.operator= TEUOK_Deref;
+      root->unaryOp.operand = ty;
+      root->span = SPAN(ty->span.start, t.span.end);
+      root->diagnostics_len = 0;
       nextTokenParser(parser, &t);
       break;
     }
     case TK_ScopeResolution: {
       pushCommentScopeParser(parser);
       ty = RALLOC(parser->ar, TypeExpr);
-      parseScopeResolutionTypeExpr(ty, parser, l2);
+      *ty = *root;
+      parseScopeResolutionTypeExpr(root, parser, ty);
       break;
     }
     default: {
@@ -1815,9 +1819,8 @@ static void parseL2TypeExpr(TypeExpr *l2, Parser *parser) {
     }
 
     Vector comments = popCommentScopeParser(parser);
-    ty->comments_len = VEC_LEN(&comments, Comment);
-    ty->comments = manageMemArena(parser->ar, releaseVector(&comments));
-    l2 = ty;
+    root->comments_len = VEC_LEN(&comments, Comment);
+    root->comments = manageMemArena(parser->ar, releaseVector(&comments));
   }
 }
 

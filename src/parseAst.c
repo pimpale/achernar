@@ -540,23 +540,30 @@ static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep, Parser *parser) {
   ZERO(mcep);
   Token t;
 
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
   // Get Pat
-  if(
+  nextTokenParser(parser, &t);
+  LnCol start = t.span.start;
+  LnCol end;
+  if (t.kind != TK_Pat) {
+    diagnostic = DIAGNOSTIC(DK_MatchCaseNoPat, t.span);
+    start = t.span.end;
+    end = t.span.end;
+    goto CLEANUP;
+  }
 
   // Get pattern
   mcep->pattern = RALLOC(parser->ar, PatternExpr);
   parsePatternExpr(mcep->pattern, parser);
 
-  Diagnostic diagnostic;
-  diagnostic.kind = DK_Ok;
-
-  LnCol start = mcep->pattern->span.start;
-  LnCol end = mcep->pattern->span.end;
+  end = mcep->pattern->span.end;
 
   // Expect colon
   nextTokenParser(parser, &t);
-  if (t.kind != TK_Colon) {
-    diagnostic = DIAGNOSTIC(DK_MatchCaseNoColon, t.span);
+  if (t.kind != TK_Arrow) {
+    diagnostic = DIAGNOSTIC(DK_MatchCaseNoArrow, t.span);
     resyncParser(parser);
     goto CLEANUP;
   }
@@ -945,6 +952,24 @@ static void parseCallValueExpr(ValueExpr *cvep, Parser *parser,
   cvep->span = SPAN(root->span.start, end);
 }
 
+static void parseAsValueExpr(ValueExpr *avep, Parser *parser,
+                             ValueExpr *root) {
+  ZERO(avep);
+  avep->kind = VEK_As;
+  avep->asExpr.value = root;
+
+  Token t;
+  nextTokenParser(parser, &t);
+  if(t.kind != TK_As) {
+    INTERNAL_ERROR("called as value expression parser where there was none");
+    PANIC();
+  }
+
+  avep->asExpr.type = RALLOC(parser->ar, TypeExpr);
+  parseTypeExpr(avep->asExpr.type, parser);
+  avep->diagnostics_len = 0;
+}
+
 static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
@@ -990,6 +1015,12 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
       pushCommentScopeParser(parser);
       v = RALLOC(parser->ar, ValueExpr);
       parseCallValueExpr(v, parser, l2);
+      break;
+    }
+    case TK_As: {
+      pushCommentScopeParser(parser);
+      v = RALLOC(parser->ar, ValueExpr);
+      parseAsValueExpr(v, parser, l2);
       break;
     }
     default: {

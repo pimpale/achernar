@@ -25,6 +25,7 @@ typedef enum {
   VEK_Builtin,
   VEK_ConstExpr,
   VEK_Fn,
+  VEK_As,
   VEK_StringLiteral,
   VEK_StructLiteral,
   VEK_BinaryOp,
@@ -98,14 +99,14 @@ typedef struct Comment_s {
 typedef struct Builtin_s {
   Span span;
 
-  Comment* comments;
+  Comment *comments;
   size_t comments_len;
 
-  Diagnostic* diagnostics;
+  Diagnostic *diagnostics;
   size_t diagnostics_len;
 
-  char* name;
-  Stmnt* parameters;
+  char *name;
+  Stmnt *parameters;
   size_t parameters_len;
 } Builtin;
 
@@ -235,7 +236,7 @@ typedef struct TypeExpr_s {
 
   union {
     struct {
-        Builtin* builtin;
+      Builtin *builtin;
     } builtinExpr;
     struct {
       Path *path;
@@ -303,7 +304,7 @@ typedef struct ValueExpr_s {
 
   union {
     struct {
-        Builtin* builtin;
+      Builtin *builtin;
     } builtinExpr;
     struct {
       ConstExpr *constExpr;
@@ -327,6 +328,11 @@ typedef struct ValueExpr_s {
       } * members;
       size_t members_len;
     } structExpr;
+    struct {
+      ValueExpr *value;
+      TypeExpr *type;
+      char *field;
+    } asExpr;
     struct {
       ValueExpr *value;
       char *field;
@@ -452,8 +458,8 @@ typedef struct Stmnt_s {
       Path *path;
     } useStmnt;
     struct {
-      Path* path;
-      Stmnt* stmnt;
+      Path *path;
+      Stmnt *stmnt;
     } namespaceStmnt;
     struct {
       char *name;

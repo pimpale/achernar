@@ -76,7 +76,8 @@ typedef enum {
   DK_FnTypeExprExpectedRightParen,
   DK_FnTypeExprExpectedColon,
   // MatchCase
-  DK_MatchCaseNoColon,
+  DK_MatchCaseNoArrow,
+  DK_MatchCaseNoPat,
   // Match
   DK_MatchNoLeftBrace,
   DK_MatchNoRightBrace,

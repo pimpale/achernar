@@ -192,8 +192,12 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "FnTypeExprExpectedColon";
     break;
   }
-  case DK_MatchCaseNoColon: {
-    errmsg = "MatchCaseNoColon";
+  case DK_MatchCaseNoArrow: {
+    errmsg = "MatchCaseNoArrow";
+    break;
+  }
+  case DK_MatchCaseNoPat: {
+    errmsg = "MatchCaseNoPat";
     break;
   }
   case DK_MatchNoLeftBrace: {

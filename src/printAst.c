@@ -768,17 +768,25 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     break;
   }
   case VEK_Builtin: {
-    ptrs_len = 4;
+    ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Builtin"));
     ptrs[4] = KVJson("value", builtinJson(vep->builtinExpr.builtin, ja));
     break;
   }
   case VEK_Defer: {
-    ptrs_len = 4;
+    ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Defer"));
     ptrs[4] = KVJson("value", valueExprJson(vep->deferExpr.value, ja));
+    break;
+  }
+  case VEK_As: {
+    ptrs_len = 6;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("VEK_As"));
+    ptrs[4] = KVJson("value", valueExprJson(vep->asExpr.value, ja));
+    ptrs[5] = KVJson("type", typeExprJson(vep->asExpr.type, ja));
     break;
   }
   case VEK_Break: {

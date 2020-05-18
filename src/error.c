@@ -9,21 +9,31 @@
 
 char *strDiagnosticKind(DiagnosticKind dk) {
   char *errmsg;
+
   switch (dk) {
+
   case DK_Ok: {
     errmsg = "Ok";
-    break;
-  }
-  case DK_EOF: {
-    errmsg = "EOF";
     break;
   }
   case DK_Unknown: {
     errmsg = "Unknown";
     break;
   }
+  case DK_EOF: {
+    errmsg = "EOF";
+    break;
+  }
   case DK_UnrecognizedCharacter: {
     errmsg = "UnrecognizedCharacter";
+    break;
+  }
+  case DK_BuiltinExpectedLeftParen: {
+    errmsg = "BuiltinExpectedLeftParen";
+    break;
+  }
+  case DK_BuiltinExpectedRightParen: {
+    errmsg = "BuiltinExpectedRightParen";
     break;
   }
   case DK_IntLiteralUnrecognizedRadixCode: {
@@ -36,6 +46,10 @@ char *strDiagnosticKind(DiagnosticKind dk) {
   }
   case DK_IntLiteralOverflow: {
     errmsg = "IntLiteralOverflow";
+    break;
+  }
+  case DK_IntLiteralUnknownCharacter: {
+    errmsg = "IntLiteralUnknownCharacter";
     break;
   }
   case DK_FloatLiteralDigitExceedsRadix: {
@@ -56,6 +70,10 @@ char *strDiagnosticKind(DiagnosticKind dk) {
   }
   case DK_CharLiteralUnrecognizedEscapeCode: {
     errmsg = "CharLiteralUnrecognizedEscapeCode";
+    break;
+  }
+  case DK_ConstExprUnrecognizedLiteral: {
+    errmsg = "ConstExprUnrecognizedLiteral";
     break;
   }
   case DK_StringLiteralTooLong: {
@@ -98,8 +116,16 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "StructMemberLiteralExpectedIdentifier";
     break;
   }
-  case DK_PatternGroupExpectedRightBrace: {
-    errmsg = "PatternGroupExpectedRightBrace";
+  case DK_FnValueExprExpectedRightParen: {
+    errmsg = "FnValueExprExpectedRightParen";
+    break;
+  }
+  case DK_FnValueExprExpectedLeftParen: {
+    errmsg = "FnValueExprExpectedLeftParen";
+    break;
+  }
+  case DK_FnValueExprExpectedArrow: {
+    errmsg = "FnValueExprExpectedArrow";
     break;
   }
   case DK_TypeExprUnexpectedToken: {
@@ -108,6 +134,26 @@ char *strDiagnosticKind(DiagnosticKind dk) {
   }
   case DK_TypeExprFieldAccessExpectedIdentifier: {
     errmsg = "TypeExprFieldAccessExpectedIdentifier";
+    break;
+  }
+  case DK_PatternGroupExpectedRightBrace: {
+    errmsg = "PatternGroupExpectedRightBrace";
+    break;
+  }
+  case DK_PatternStructExpectedRightBrace: {
+    errmsg = "PatternStructExpectedRightBrace";
+    break;
+  }
+  case DK_PatternStructExpectedIdentifier: {
+    errmsg = "PatternStructExpectedIdentifier";
+    break;
+  }
+  case DK_PatternStructUnexpectedAssignForValueRestriction: {
+    errmsg = "PatternStructUnexpectedAssignForValueRestriction";
+    break;
+  }
+  case DK_PatternStructExpectedAssignForNonValueRestriction: {
+    errmsg = "PatternStructExpectedAssignForNonValueRestriction";
     break;
   }
   case DK_ValDeclExpectedAssign: {
@@ -132,18 +178,6 @@ char *strDiagnosticKind(DiagnosticKind dk) {
   }
   case DK_StructExpectedRightBrace: {
     errmsg = "StructExpectedRightBrace";
-    break;
-  }
-  case DK_FnValueExprExpectedRightParen: {
-    errmsg = "FnValueExprExpectedRightParen";
-    break;
-  }
-  case DK_FnValueExprExpectedLeftParen: {
-    errmsg = "FnValueExprExpectedLeftParen";
-    break;
-  }
-  case DK_FnValueExprExpectedArrow: {
-    errmsg = "FnValueExprExpectedArrow";
     break;
   }
   case DK_FnTypeExprExpectedLeftParen: {

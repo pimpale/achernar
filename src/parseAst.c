@@ -2003,16 +2003,10 @@ static void parseStructPatternExpr(PatternExpr *spe, Parser *parser) {
   spe->kind = PEK_Struct;
   Token t;
   nextTokenParser(parser, &t);
-  switch (t.kind) {
-  case TK_Struct: {
-    spe->structExpr.kind = PESK_Struct;
-    break;
-  }
-  default: {
+  if(t.kind != TK_Struct) {
     INTERNAL_ERROR("called struct pattern expression parser where there was no "
                    "struct pattern declaration");
     PANIC();
-  }
   }
 
   LnCol start = t.span.start;

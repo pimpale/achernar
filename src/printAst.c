@@ -475,7 +475,7 @@ static JsonElem valueStructMemberExprJson(struct ValueStructMemberExpr_s *vsmep,
   return objDefJson(ptrs, ptrs_len);
 }
 
-static JsonElem patternStructMemberJson(struct PatternStructMemberExpr_s *psmep,
+static JsonElem patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep,
                                         Arena *ja) {
   if (psmep == NULL) {
     return nullJson();
@@ -488,16 +488,17 @@ static JsonElem patternStructMemberJson(struct PatternStructMemberExpr_s *psmep,
     ptrs_len = 6;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("PSMEK_Field"));
-    ptrs[4] = KVJson("field", strJson(internArena(ja, psmep->field.field)));
-    ptrs[5] = KVJson("pattern", patternExprJson(psmep->field.pattern, ja));
+    ptrs[5] = KVJson("field", strJson(internArena(ja, psmep->field.field)));
     break;
   }
   case PSMEK_Rest: {
-    ptrs_len = 4;
+    ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("PSMEK_Rest"));
   }
   }
+  ptrs[4] = KVJson("pattern", patternExprJson(psmep->pattern, ja));
+
   ptrs[1] = KVJson("span", spanJson(psmep->span, ja));
   ptrs[2] = KVJson("diagnostics", diagnosticsJson(psmep->diagnostics,
                                                   psmep->diagnostics_len, ja));
@@ -572,10 +573,17 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     break;
   }
   case VEK_StructLiteral: {
-    ptrs_len = 4;
+    ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_StructLiteral"));
-    // TODO
+
+    // Embed array
+    size_t len = vep->structExpr.members_len;
+    JsonElem *array = RALLOC_ARR(ja, len, JsonElem);
+    for (size_t i = 0; i < len; i++) {
+      array[i] = valueStructMemberExprJson(&vep->structExpr.members[i], ja);
+    }
+    ptrs[4] = KVJson("members", arrDefJson(array, len));
     break;
   }
   case VEK_BinaryOp: {

@@ -717,22 +717,15 @@ CLEANUP:
   return;
 }
 
-
 static void parseValueStructExpr(ValueExpr *sve, Parser *parser) {
   ZERO(sve);
-  sve->kind = TEK_Struct;
+  sve->kind = VEK_StructLiteral;
   Token t;
   nextTokenParser(parser, &t);
-  switch (t.kind) {
-  case TK_Struct: {
-    sve->structExpr.kind = TSEK_Struct;
-    break;
-  }
-  default: {
+  if (t.kind != TK_Struct) {
     INTERNAL_ERROR("called struct type expression parser where there was no "
                    "struct declaration");
     PANIC();
-  }
   }
 
   LnCol start = t.span.start;
@@ -749,18 +742,18 @@ static void parseValueStructExpr(ValueExpr *sve, Parser *parser) {
 
   LnCol end;
 
-  PARSE_LIST(&members,                      // members_vec_ptr
-             &diagnostics,                  // diagnostics_vec_ptr
-             parseValueStructExpr,     // member_parse_function
-             struct TypeStructMemberExpr_s, // member_kind
-             TK_BraceRight,                 // delimiting_token_kind
-             DK_StructExpectedRightBrace,   // missing_delimiter_error
-             end,                           // end_lncol
-             parser                         // parser
+  PARSE_LIST(&members,                       // members_vec_ptr
+             &diagnostics,                   // diagnostics_vec_ptr
+             parseValueStructMemberExpr,     // member_parse_function
+             struct ValueStructMemberExpr_s, // member_kind
+             TK_BraceRight,                  // delimiting_token_kind
+             DK_StructExpectedRightBrace,    // missing_delimiter_error
+             end,                            // end_lncol
+             parser                          // parser
   )
 
   sve->structExpr.members_len =
-      VEC_LEN(&members, struct TypeStructMemberExpr_s);
+      VEC_LEN(&members, struct ValueStructMemberExpr_s);
   sve->structExpr.members = manageMemArena(parser->ar, releaseVector(&members));
   sve->diagnostics_len = VEC_LEN(&diagnostics, Diagnostic);
   sve->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
@@ -821,7 +814,8 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
     break;
   }
   case TK_Struct: {
-    parseStructLiteralValueExpr(l1, parser);
+    parseValueStructExpr(l1, parser);
+    break;
   }
   case TK_If: {
     parseIfValueExpr(l1, parser);
@@ -1969,18 +1963,18 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
   } else {
     has_assign = false;
   }
-  psmep->field.pattern = RALLOC(parser->ar, PatternExpr);
-  parsePatternExpr(psmep->field.pattern, parser);
+  psmep->pattern = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(psmep->pattern, parser);
 
-  end = psmep->field.pattern->span.end;
+  end = psmep->pattern->span.end;
 
   nextTokenParser(parser, &t);
 
-  if (psmep->field.pattern->kind == PEK_ValueRestriction && has_assign) {
+  if (psmep->pattern->kind == PEK_ValueRestriction && has_assign) {
     diagnostic =
         DIAGNOSTIC(DK_PatternStructUnexpectedAssignForValueRestriction, t.span);
     goto CLEANUP;
-  } else if (psmep->field.pattern->kind != PEK_ValueRestriction &&
+  } else if (psmep->pattern->kind != PEK_ValueRestriction &&
              !has_assign) {
     diagnostic = DIAGNOSTIC(
         DK_PatternStructExpectedAssignForNonValueRestriction, t.span);

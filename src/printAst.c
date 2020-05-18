@@ -59,8 +59,8 @@ static JsonElem commentsJson(Comment *comments, size_t comments_len,
 static JsonElem stmntJson(Stmnt *s, Arena *ja);
 static JsonElem typeExprJson(TypeExpr *tep, Arena *ja);
 static JsonElem valueExprJson(ValueExpr *vep, Arena *ja);
-static JsonElem constExprJson(ConstExpr *cep, Arena *ja);     // TODO
-static JsonElem patternExprJson(PatternExpr *pep, Arena *ja); // TODO
+static JsonElem constExprJson(ConstExpr *cep, Arena *ja);
+static JsonElem patternExprJson(PatternExpr *pep, Arena *ja);
 static JsonElem builtinJson(Builtin *bp, Arena *ja);
 static JsonElem
 patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep, Arena *ja);
@@ -71,6 +71,9 @@ static JsonElem valueStructMemberExprJson(struct ValueStructMemberExpr_s *vsmep,
 static JsonElem matchCaseExprJson(struct MatchCaseExpr_s *mcep, Arena *ja);
 
 static JsonElem builtinJson(Builtin *bp, Arena *ja) {
+  if (bp == NULL) {
+    return nullJson();
+  }
   size_t ptrs_len = 5;
   JsonKV *ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
   ptrs[0] = KVJson("span", spanJson(bp->span, ja));
@@ -89,7 +92,151 @@ static JsonElem builtinJson(Builtin *bp, Arena *ja) {
   return objDefJson(ptrs, ptrs_len);
 }
 
+static JsonElem patternExprJson(PatternExpr *pp, Arena *ja) {
+  if (pp == NULL) {
+    return nullJson();
+  }
+  size_t ptrs_len = 0;
+  JsonKV *ptrs = NULL;
+  // 1 reserved for span
+  // 2 reserved for diagnostic
+  // 3 reserved for comments
+  switch (pp->kind) {
+  case PEK_None: {
+    ptrs_len = 4;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("PEK_None"));
+    break;
+  }
+  case PEK_ValueRestriction: {
+    ptrs_len = 6;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("PEK_ValueRestriction"));
+    char *pevrk;
+    switch (pp->valueRestriction.restriction) {
+    case PEVRK_CompEqual: {
+      pevrk = "PEVRK_CompGreaterEqual";
+      break;
+    }
+    case PEVRK_CompNotEqual: {
+      pevrk = "PEVRK_CompNotEqual";
+      break;
+    }
+    case PEVRK_CompLess: {
+      pevrk = "PEVRK_CompLess";
+      break;
+    }
+    case PEVRK_CompLessEqual: {
+      pevrk = "PEVRK_CompLessEqual";
+      break;
+    }
+    case PEVRK_CompGreater: {
+      pevrk = "PEVRK_CompGreater";
+      break;
+    }
+    case PEVRK_CompGreaterEqual: {
+      pevrk = "PEVRK_CompGreaterEqual";
+      break;
+    }
+    }
+    ptrs[4] = KVJson("restriction", strJson(pevrk));
+    ptrs[5] =
+        KVJson("value", constExprJson(pp->valueRestriction.constExpr, ja));
+    break;
+  }
+  case PEK_TypeRestriction: {
+    if (pp->typeRestriction.has_binding) {
+      ptrs_len = 7;
+      ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+      ptrs[6] = KVJson("binding",
+                       strJson(internArena(ja, pp->typeRestriction.binding)));
+    } else {
+      ptrs_len = 6;
+      ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    }
+
+    ptrs[0] = KVJson("kind", strJson("PEK_TypeRestriction"));
+    ptrs[4] = KVJson("type", typeExprJson(pp->typeRestriction.type, ja));
+    ptrs[5] = KVJson("has_binding", boolJson(pp->typeRestriction.has_binding));
+    break;
+  }
+  case PEK_UnaryOp: {
+    ptrs_len = 6;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("PEK_UnaryOp"));
+    char *peuok;
+    switch (pp->unaryOp.operator) {
+    case PEUOK_Posit: {
+      peuok = "PEUOK_Posit";
+      break;
+    }
+    case PEUOK_Negate: {
+      peuok = "PEUOK_Negate";
+      break;
+    }
+    case PEUOK_Not: {
+      peuok = "PEUOK_Not";
+      break;
+    }
+    }
+    ptrs[4] = KVJson("operator", strJson(peuok));
+    ptrs[5] = KVJson("operand", patternExprJson(pp->unaryOp.operand, ja));
+    break;
+  }
+  case PEK_BinaryOp: {
+    ptrs_len = 7;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("PEK_BinaryOp"));
+    char *pebok;
+    switch (pp->binaryOp.operator) {
+    case PEBOK_Tuple: {
+      pebok = "PEBOK_Tuple";
+      break;
+    }
+    case PEBOK_Union: {
+      pebok = "PEBOK_Union";
+      break;
+    }
+    case PEBOK_And: {
+      pebok = "PEBOK_And";
+      break;
+    }
+    case PEBOK_Or: {
+      pebok = "PEBOK_Or";
+      break;
+    }
+    }
+    ptrs[4] = KVJson("operator", strJson(pebok));
+    ptrs[5] = KVJson("left_operand", patternExprJson(pp->binaryOp.left_operand, ja));
+    ptrs[6] = KVJson("right_operand", patternExprJson(pp->binaryOp.right_operand, ja));
+    break;
+  }
+  case PEK_Struct: {
+    ptrs_len = 4;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("PEK_Struct"));
+    size_t members_len = pp->structExpr.members_len;
+    JsonElem *members = RALLOC_ARR(ja, members_len, JsonElem);
+    for(size_t i = 0; i < members_len; i++) {
+      members[i] = patternStructMemberExprJson(&pp->structExpr.members[i], ja);
+    }
+    ptrs[4] = KVJson("value", arrDefJson(members, members_len));
+    break;
+  }
+  }
+  ptrs[1] = KVJson("span", spanJson(pp->span, ja));
+  ptrs[2] = KVJson("diagnostics",
+                   diagnosticsJson(pp->diagnostics, pp->diagnostics_len, ja));
+  ptrs[3] =
+      KVJson("comments", commentsJson(pp->comments, pp->comments_len, ja));
+  return objDefJson(ptrs, ptrs_len);
+}
+
 static JsonElem pathJson(Path *pp, Arena *ja) {
+  if (pp == NULL) {
+    return nullJson();
+  }
+
   size_t ptrs_len = 4;
   JsonKV *ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
   ptrs[0] = KVJson("span", spanJson(pp->span, ja));
@@ -103,6 +250,66 @@ static JsonElem pathJson(Path *pp, Arena *ja) {
   }
   ptrs[3] =
       KVJson("path_segments", arrDefJson(path_ptrs, pp->pathSegments_len));
+  return objDefJson(ptrs, ptrs_len);
+}
+
+static JsonElem constExprJson(ConstExpr *cep, Arena *ja) {
+  if (cep == NULL) {
+    return nullJson();
+  }
+  size_t ptrs_len = 0;
+  JsonKV *ptrs = NULL;
+  // 1 reserved for span
+  // 2 reserved for diagnostic
+  // 3 reserved for comments
+  switch (cep->kind) {
+  case CEK_None: {
+    ptrs_len = 4;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("CEK_None"));
+    break;
+  }
+  case CEK_BoolLiteral: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("CEK_BoolLiteral"));
+    ptrs[4] = KVJson("value", boolJson(cep->boolLiteral.value));
+    break;
+  }
+  case CEK_IntLiteral: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("CEK_IntLiteral"));
+    ptrs[4] = KVJson("value", intJson(cep->intLiteral.value));
+    break;
+  }
+  case CEK_CharLiteral: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("CEK_CharLiteral"));
+    ptrs[4] = KVJson("value", intJson((uint64_t)cep->charLiteral.value));
+    break;
+  }
+  case CEK_FloatLiteral: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("CEK_FloatLiteral"));
+    ptrs[4] = KVJson("value", numJson(cep->floatLiteral.value));
+    break;
+  }
+  case CEK_ValueExpr: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("CEK_FloatLiteral"));
+    ptrs[4] = KVJson("value", valueExprJson(cep->valueExpr.expr, ja));
+    break;
+  }
+  }
+  ptrs[1] = KVJson("span", spanJson(cep->span, ja));
+  ptrs[2] = KVJson("diagnostics",
+                   diagnosticsJson(cep->diagnostics, cep->diagnostics_len, ja));
+  ptrs[3] =
+      KVJson("comments", commentsJson(cep->comments, cep->comments_len, ja));
   return objDefJson(ptrs, ptrs_len);
 }
 
@@ -655,7 +862,7 @@ JsonElem stmntJson(Stmnt *sp, Arena *ja) {
     ptrs[5] = KVJson("stmnt", stmntJson(sp->namespaceStmnt.stmnt, ja));
     break;
   }
-  case SK_Macro:  {
+  case SK_Macro: {
     ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("SK_Macro"));

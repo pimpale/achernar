@@ -68,7 +68,6 @@ typedef enum {
   PEK_ValueRestriction, // matches a constant value, and optionally binds it
   PEK_TypeRestriction,  // matches a type, and optionally binds it
   PEK_Struct,           // a container for struct based patterns
-  PEK_StructRest,       // (in struct) all values that were not matched
   PEK_UnaryOp,          // ()
   PEK_BinaryOp,         // , |
 } PatternExprKind;
@@ -155,9 +154,6 @@ typedef struct PatternExpr_s {
 
   union {
     struct {
-        Builtin* builtin;
-    } builtinExpr;
-    struct {
       PatternExprValueRestrictionKind restriction;
       ConstExpr *constExpr;
     } valueRestriction;
@@ -167,11 +163,6 @@ typedef struct PatternExpr_s {
       TypeExpr *type;
     } typeRestriction;
     struct {
-      enum PatternStructExprKind_e {
-        PESK_Struct,
-        PESK_Pack,
-        PESK_Union,
-      } kind;
       struct PatternStructMemberExpr_s {
         enum PatternStructMemberExprKind_e {
           PSMEK_Field,
@@ -183,17 +174,14 @@ typedef struct PatternExpr_s {
         // comments
         Comment *comments;
         size_t comments_len;
+
+        PatternExpr *pattern;
         struct {
           char *field;
-          PatternExpr *pattern;
         } field;
       } * members;
       size_t members_len;
     } structExpr;
-    struct {
-      bool has_bindings;
-      char *binding;
-    } structRest;
     struct {
       enum PatternExprUnaryOpKind_e {
         PEUOK_Posit,

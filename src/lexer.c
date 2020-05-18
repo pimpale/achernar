@@ -150,9 +150,10 @@ static void lexComment(Lexer *lexer, Token *token) {
 
     Vector data;
     createVector(&data);
-    while ((c = nextValueLexer(lexer)) != EOF) {
+    while ((c = peekValueLexer(lexer)) != EOF) {
       if (isalnum(c) || c == '/') {
         *VEC_PUSH(&data, char) = (char)c;
+        nextValueLexer(lexer);
       } else {
         break;
       }
@@ -634,7 +635,7 @@ static void lexWord(Lexer *lexer, Token *token) {
 
   int32_t c;
   while ((c = peekValueLexer(lexer)) != EOF) {
-    if (isalnum(c)) {
+    if (isalnum(c) || c == '_') {
       *VEC_PUSH(&data, char) = (char)c;
       nextValueLexer(lexer);
     } else if (c == '!') {
@@ -683,6 +684,8 @@ static void lexWord(Lexer *lexer, Token *token) {
     token->kind = TK_Namespace;
   } else if (!strcmp(string, "as")) {
     token->kind = TK_As;
+  } else if (!strcmp(string, "match")) {
+    token->kind = TK_Match;
   } else if (!strcmp(string, "defer")) {
     token->kind = TK_Defer;
   } else if (!strcmp(string, "break")) {

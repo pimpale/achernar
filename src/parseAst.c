@@ -952,15 +952,14 @@ static void parseCallValueExpr(ValueExpr *cvep, Parser *parser,
   cvep->span = SPAN(root->span.start, end);
 }
 
-static void parseAsValueExpr(ValueExpr *avep, Parser *parser,
-                             ValueExpr *root) {
+static void parseAsValueExpr(ValueExpr *avep, Parser *parser, ValueExpr *root) {
   ZERO(avep);
   avep->kind = VEK_As;
   avep->asExpr.value = root;
 
   Token t;
   nextTokenParser(parser, &t);
-  if(t.kind != TK_As) {
+  if (t.kind != TK_As) {
     INTERNAL_ERROR("called as value expression parser where there was none");
     PANIC();
   }
@@ -975,7 +974,7 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
 
-  ValueExpr *root= l2;
+  ValueExpr *root = l2;
   parseL1ValueExpr(root, parser);
 
   while (true) {
@@ -1957,6 +1956,12 @@ static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
     trpe->typeRestriction.type = RALLOC(parser->ar, TypeExpr);
     parseTypeExpr(trpe->typeRestriction.type, parser);
     end = t.span.end;
+  } else {
+    trpe->typeRestriction.type = RALLOC(parser->ar, TypeExpr);
+    trpe->typeRestriction.type->kind = TEK_Omitted;
+    trpe->typeRestriction.type->span = SPAN(start, end);
+    trpe->typeRestriction.type->diagnostics_len = 0;
+    trpe->typeRestriction.type->comments_len = 0;
   }
 
   trpe->span = SPAN(start, end);
@@ -2321,6 +2326,46 @@ CLEANUP:
   return;
 }
 
+static void parsePatternExprStmnt(Stmnt *pesp, Parser *parser) {
+  ZERO(pesp);
+  pesp->kind = SK_PatExpr;
+
+  Token t;
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_Pat) {
+    INTERNAL_ERROR(
+        "called pat expr stmnt parser where there was no pat expr stmnt");
+    PANIC();
+  }
+  LnCol start = t.span.start;
+
+  pesp->patExpr.pattern = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(pesp->patExpr.pattern, parser);
+  pesp->span = SPAN(start, pesp->patExpr.pattern->span.end);
+  pesp->diagnostics_len = 0;
+  return;
+}
+
+static void parseTypeExprStmnt(Stmnt *tesp, Parser *parser) {
+  ZERO(tesp);
+  tesp->kind = SK_TypeExpr;
+
+  Token t;
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_Type) {
+    INTERNAL_ERROR(
+        "called type expr stmnt parser where there was no type expr stmnt");
+    PANIC();
+  }
+  LnCol start = t.span.start;
+
+  tesp->typeExpr.type = RALLOC(parser->ar, TypeExpr);
+  parseTypeExpr(tesp->typeExpr.type, parser);
+  tesp->span = SPAN(start, tesp->typeExpr.type->span.end);
+  tesp->diagnostics_len = 0;
+  return;
+}
+
 static void parseStmnt(Stmnt *sp, Parser *parser) {
   pushCommentScopeParser(parser);
 
@@ -2379,23 +2424,11 @@ static void parseStmnt(Stmnt *sp, Parser *parser) {
   }
   // Expressions
   case TK_Type: {
-    // Type Expr
-    LnCol start = t.span.start;
-    sp->kind = SK_TypeExpr;
-    sp->typeExpr.type = RALLOC(parser->ar, TypeExpr);
-    parseTypeExpr(sp->typeExpr.type, parser);
-    sp->span = SPAN(start, sp->typeExpr.type->span.end);
-    sp->diagnostics_len = 0;
+    parseTypeExprStmnt(sp, parser);
     break;
   }
   case TK_Pat: {
-    // Pattern Expr
-    LnCol start = t.span.start;
-    sp->kind = SK_PatExpr;
-    sp->patExpr.pattern = RALLOC(parser->ar, PatternExpr);
-    parsePatternExpr(sp->patExpr.pattern, parser);
-    sp->span = SPAN(start, sp->patExpr.pattern->span.end);
-    sp->diagnostics_len = 0;
+    parsePatternExprStmnt(sp, parser);
     break;
   }
   default: {

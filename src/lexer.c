@@ -173,6 +173,9 @@ static void lexComment(Lexer *lexer, Token *token) {
     createVector(&data);
     size_t stackDepth = 1;
     char lastChar = '\0';
+
+    // Drop initial {
+    nextValueLexer(lexer);
     while ((c = nextValueLexer(lexer)) != EOF) {
       if (c == '#' && lastChar == '}') {
         // If we see a "# to pair off the starting #"

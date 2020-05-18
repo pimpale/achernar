@@ -974,53 +974,60 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
-  parseL1ValueExpr(l2, parser);
+
+  ValueExpr *root= l2;
+  parseL1ValueExpr(root, parser);
 
   while (true) {
     Token t;
-    // represents the new operation
+    // represents the old operation
     ValueExpr *v;
 
     peekTokenParser(parser, &t);
     switch (t.kind) {
     case TK_Ref: {
-      pushCommentScopeParser(parser);
       v = RALLOC(parser->ar, ValueExpr);
-      v->kind = VEK_UnaryOp;
-      v->unaryOp.operator= VEUOK_Ref;
-      v->unaryOp.operand = l2;
-      v->span = SPAN(l2->span.start, t.span.end);
-      v->diagnostics_len = 0;
+      *v = *root;
+      pushCommentScopeParser(parser);
+      root->kind = VEK_UnaryOp;
+      root->unaryOp.operator= VEUOK_Ref;
+      root->unaryOp.operand = v;
+      root->span = SPAN(v->span.start, t.span.end);
+      root->diagnostics_len = 0;
       nextTokenParser(parser, &t);
       break;
     }
     case TK_Deref: {
       pushCommentScopeParser(parser);
       v = RALLOC(parser->ar, ValueExpr);
-      v->kind = VEK_UnaryOp;
-      v->unaryOp.operator= VEUOK_Deref;
-      v->unaryOp.operand = l2;
-      v->span = SPAN(l2->span.start, t.span.end);
-      v->diagnostics_len = 0;
+      *v = *root;
+      root->kind = VEK_UnaryOp;
+      root->unaryOp.operator= VEUOK_Deref;
+      root->unaryOp.operand = v;
+      root->span = SPAN(v->span.start, t.span.end);
+      root->diagnostics_len = 0;
       nextTokenParser(parser, &t);
       break;
     }
     case TK_FieldAccess: {
       pushCommentScopeParser(parser);
       v = RALLOC(parser->ar, ValueExpr);
-      parseFieldAccessValueExpr(v, parser, l2);
+      *v = *root;
+      parseFieldAccessValueExpr(root, parser, v);
       break;
     }
     case TK_ParenLeft: {
       pushCommentScopeParser(parser);
       v = RALLOC(parser->ar, ValueExpr);
-      parseCallValueExpr(v, parser, l2);
+      *v = *root;
+      parseCallValueExpr(root, parser, v);
       break;
     }
     case TK_As: {
       pushCommentScopeParser(parser);
       v = RALLOC(parser->ar, ValueExpr);
-      parseAsValueExpr(v, parser, l2);
+      *v = *root;
+      parseAsValueExpr(root, parser, v);
       break;
     }
     default: {
@@ -1030,9 +1037,8 @@ static void parseL2ValueExpr(ValueExpr *l2, Parser *parser) {
     }
 
     Vector comments = popCommentScopeParser(parser);
-    v->comments_len = VEC_LEN(&comments, Comment);
-    v->comments = manageMemArena(parser->ar, releaseVector(&comments));
-    l2 = v;
+    root->comments_len = VEC_LEN(&comments, Comment);
+    root->comments = manageMemArena(parser->ar, releaseVector(&comments));
   }
 }
 

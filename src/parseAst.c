@@ -1117,7 +1117,7 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
                                                                                \
     /* now parse the rest of the expression */                                 \
     l##x->binaryOp.right_operand = RALLOC(parser->ar, type);                   \
-    lower_fn(l##x->binaryOp.right_operand, parser);                            \
+    parseL##x##type(l##x->binaryOp.right_operand, parser);                     \
                                                                                \
     /* calculate misc stuff */                                                 \
     l##x->span = SPAN(l##x->binaryOp.left_operand->span.start,                 \

@@ -1,0 +1,9 @@
+match MATCHABLE_VARIABLE {
+  pat ==4 => "four"
+  pat ==5 => "five"
+  pat n:float => "float bound to n"
+  pat :int => "int, no binding"
+  pat x,y => "compound match"
+  pat x, ==5, z => "coolmatch"
+  pat >2,<2 => "first elem >2 and next less than"
+}

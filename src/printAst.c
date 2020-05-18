@@ -115,7 +115,7 @@ static JsonElem patternExprJson(PatternExpr *pp, Arena *ja) {
     char *pevrk;
     switch (pp->valueRestriction.restriction) {
     case PEVRK_CompEqual: {
-      pevrk = "PEVRK_CompGreaterEqual";
+      pevrk = "PEVRK_CompEqual";
       break;
     }
     case PEVRK_CompNotEqual: {
@@ -537,7 +537,7 @@ static JsonElem matchCaseExprJson(struct MatchCaseExpr_s *mcep, Arena *ja) {
   ptrs[3] =
       KVJson("comments", commentsJson(mcep->comments, mcep->comments_len, ja));
   ptrs[4] = KVJson("pattern", patternExprJson(mcep->pattern, ja));
-  ptrs[5] = KVJson("name", valueExprJson(mcep->value, ja));
+  ptrs[5] = KVJson("value", valueExprJson(mcep->value, ja));
   return objDefJson(ptrs, ptrs_len);
 }
 

@@ -511,20 +511,54 @@ CLEANUP:
 }
 
 static void lexCharLiteral(Lexer *lexer, Token *token) {
-  LnCol start = lexer->position;
   // Skip first quote
   int32_t c = nextValueLexer(lexer);
+
   if (c != '\'') {
-    INTERNAL_ERROR("called char lexer where there wasn't a char");
+    INTERNAL_ERROR(
+        "called char or label lexer where there wasn't a char or label");
     PANIC();
   }
+
+  DiagnosticKind dk = DK_Ok;
 
   Vector data;
   createVector(&data);
 
+  // State of lexer
+  typedef enum {
+    LCS_Initial,     // the first character
+    LCS_ExpectEnd,   // expects the closing '
+    LCS_SpecialChar, // expects a character
+    LCS_Label,       // parsing a label
+  } LexCharState;
+
+  LexCharState state = LCS_Initial;
+
+  LnCol start = lexer->position;
+
   while ((c = nextValueLexer(lexer)) != EOF) {
-    if (c == '\\') {
-      c = nextValueLexer(lexer);
+    switch (state) {
+    case LCS_Initial: {
+      if (c == '\\') {
+        state = LCS_SpecialChar;
+      } else {
+        *VEC_PUSH(&data, char) = (char)c;
+        state = LCS_ExpectEnd;
+      }
+      break;
+    }
+    case LCS_ExpectEnd: {
+      if (c == '\'') {
+        // break out of loop, successful
+        goto EXIT_LOOP;
+      } else {
+        *VEC_PUSH(&data, char) = (char)c;
+        state = LCS_Label;
+      }
+      break;
+    }
+    case LCS_SpecialChar: {
       switch (c) {
       case '\\': {
         *VEC_PUSH(&data, char) = '\\';
@@ -567,58 +601,61 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
         break;
       }
       default: {
-        *token = (Token){.kind = TK_None,
-                         .span = SPAN(start, lexer->position),
-                         .error = DK_CharLiteralUnrecognizedEscapeCode};
-
-        // keep going till we hit an end single quote
-        while ((c = nextValueLexer(lexer)) != EOF) {
-          if (c == '\'') {
-            break;
-          }
-        }
-        destroyVector(&data);
-        return;
+        *VEC_PUSH(&data, char) = c;
+        dk = DK_CharLiteralUnrecognizedEscapeCode;
+        break;
       }
       }
-    } else if (c == '\'') {
+      state = LCS_ExpectEnd;
       break;
-    } else {
-      *VEC_PUSH(&data, char) = (char)c;
+    }
+    case LCS_Label: {
+      if (isalnum(c)) {
+        *VEC_PUSH(&data, char) = (char)c;
+      } else {
+        goto EXIT_LOOP;
+      }
+      break;
+    }
     }
   }
 
-  // get size and length + terminate string
-  size_t length = VEC_LEN(&data, char);
-  *VEC_PUSH(&data, char) = '\0';
-  char *string = releaseVector(&data);
+  // exit of loop
+EXIT_LOOP:;
 
-  switch (length) {
-  case 0: {
+  switch (state) {
+  case LCS_Initial:
+  case LCS_SpecialChar: {
     *token = (Token){.kind = TK_None,
                      .span = SPAN(start, lexer->position),
-                     .error = DK_CharLiteralEmpty};
-    goto CLEANUP;
+                     .error = DK_EOF};
+    destroyVector(&data);
   }
-  case 1: {
-    // We return the first character in the vector
-
+  case LCS_ExpectEnd: {
+      // all paths through the expectEnd will end up with something pushed
     *token = (Token){.kind = TK_CharLiteral,
-                     .char_literal = string[0],
+                     .char_literal = *VEC_GET(&data, 0, char),
                      .span = SPAN(start, lexer->position),
-                     .error = DK_Ok};
-    goto CLEANUP;
+                     .error = dk};
+    destroyVector(&data);
+    return;
   }
-  default: {
-    *token = (Token){.kind = TK_None,
+  case LCS_Label: {
+    size_t length = VEC_LEN(&data, char);
+    for (size_t i = 0; i < length; i++) {
+      if (!isalnum(VEC_GET(&data, i, char))) {
+        dk = DK_LabelUnknownCharacter;
+      }
+    }
+
+    *VEC_PUSH(&data, char) = '\0';
+    *token = (Token){.kind = TK_Label,
+                     .label = manageMemArena(lexer->ar, releaseVector(&data)),
                      .span = SPAN(start, lexer->position),
-                     .error = DK_CharLiteralTooLong};
-    goto CLEANUP;
+                     .error = dk};
+    break;
   }
   }
-CLEANUP:
-  free(string);
-  return;
 }
 
 // Parses an identifer or macro or builtin

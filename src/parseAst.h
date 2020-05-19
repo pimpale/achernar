@@ -6,10 +6,10 @@
 typedef struct Parser_s {
   Arena *ar;
   Lexer *lexer;
-  bool has_next_token;
-  Token next_token;
-  // Vector<Comment> vector of peeked comments
-  Vector next_comments;
+  // Vector<Token>
+  Vector next_tokens_stack;
+  // Vector<Vector<Comment>> vector of peeked comments for each peeked token
+  Vector next_comments_stack;
   // Vector<Vector<Comment>> (stack of vectors of comments)
   Vector comments;
   // list of nested scopes for breaking out of stuff

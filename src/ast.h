@@ -25,14 +25,13 @@ typedef enum {
   VEK_Builtin,
   VEK_ConstExpr,
   VEK_Fn,
+  VEK_Loop,
   VEK_As,
   VEK_StringLiteral,
   VEK_StructLiteral,
   VEK_BinaryOp,
   VEK_UnaryOp,
   VEK_Call,
-  VEK_If,
-  VEK_While,
   VEK_Defer,
   VEK_Break,
   VEK_Continue,
@@ -379,16 +378,6 @@ typedef struct ValueExpr_s {
       ValueExpr *left_operand;
       ValueExpr *right_operand;
     } binaryOp;
-    struct {
-      ValueExpr *condition;
-      ValueExpr *body;
-      bool has_else;
-      ValueExpr *else_body;
-    } ifExpr;
-    struct {
-      ValueExpr *condition;
-      ValueExpr *body;
-    } whileExpr;
     struct {
       ValueExpr *function;
       ValueExpr *parameters;

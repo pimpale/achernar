@@ -43,11 +43,11 @@
 
 // Parser
 void createParser(Parser *pp, Lexer *lp, Arena *ar) {
-  pp->has_next_token = false;
   pp->lexer = lp;
   pp->ar = ar;
   createVector(&pp->comments);
-  createVector(&pp->next_comments);
+  createVector(&pp->next_comments_stack);
+  createVector(&pp->next_tokens_stack);
   pp->paren_depth = 0;
   pp->brace_depth = 0;
   pp->bracket_depth = 0;
@@ -62,8 +62,8 @@ static void rawNextTokenParser(Parser *parser, Token *t, Vector *comments) {
     case TK_Comment: {
       *VEC_PUSH(comments, Comment) =
           (Comment){.span = c.span,
-                    .scope = internArena(parser->ar, c.comment.scope),
-                    .data = internArena(parser->ar, c.comment.comment)};
+                    .scope = c.comment.scope,
+                    .data =c.comment.comment};
       // keep reading
       break;
     }
@@ -100,33 +100,57 @@ RETURN:
   *t = c;
 }
 
+// If the peeked token stack is not empty:
+//    Return the top element of the top of the token
+//    Pop the top of the next_comments_stack
+//    For each element in the next comments stack, push it to the top of the
+//    current scope
 // If has an ungotten token, return that. Else return next in line, and cache it
 static void nextTokenParser(Parser *pp, Token *t) {
-  if (pp->has_next_token) {
+  if (VEC_LEN(&pp->next_tokens_stack, Token) != 0) {
     // set the token
-    *t = pp->next_token;
-    pp->has_next_token = false;
-    // merge the next comments
-    Vector *top = VEC_PEEK(&pp->comments, Vector);
-    size_t next_comments_len = lengthVector(&pp->next_comments);
-    popVector(&pp->next_comments, pushVector(top, next_comments_len),
-              next_comments_len);
+    VEC_POP(&pp->next_tokens_stack, t, Token);
 
+    // merge the next comments
+
+    // the current scope we aim to push the comments to
+    Vector *current_scope = VEC_PEEK(&pp->comments, Vector);
+
+    // Vector containing all tokens for the next one
+    Vector next_token_comments;
+    VEC_POP(&pp->next_comments_stack, &next_token_comments, Vector);
+
+    // pop everythin from next_token_comments into current_scope
+    size_t next_comments_len = lengthVector(&next_token_comments);
+    popVector(&next_token_comments,
+              pushVector(current_scope, next_comments_len), next_comments_len);
+
+    // free next_token_comments
+    destroyVector(&next_token_comments);
   } else {
     rawNextTokenParser(pp, t, VEC_PEEK(&pp->comments, Vector));
   }
 }
 
-// If token exists in line
-static void peekTokenParser(Parser *pp, Token *t) {
-  if (pp->has_next_token) {
-    *t = pp->next_token;
-  } else {
-    // set the next token
-    rawNextTokenParser(pp, &pp->next_token, &pp->next_comments);
-    pp->has_next_token = true;
-    *t = pp->next_token;
+// gets the k'th token
+// K must be greater than 0
+static void peekNthTokenParser(Parser *pp, Token *t, size_t k) {
+  for (size_t i = VEC_LEN(&pp->next_tokens_stack, Token); i < k; i++) {
+    // allocate mem for next token
+    Token *next_token = VEC_PUSH(&pp->next_tokens_stack, Token);
+    // Create vector to store any comments
+    Vector *next_token_comments = VEC_PUSH(&pp->next_comments_stack, Vector);
+    createWithCapacityVector(next_token_comments, 0);
+    // parse the token
+    rawNextTokenParser(pp, next_token, next_token_comments);
   }
+  // return token
+  *t = *VEC_GET(&pp->next_tokens_stack, k - 1, Token);
+}
+
+
+static void peekTokenParser(Parser *parser, Token *t) {
+  peekNthTokenParser(parser, t, 1);
 }
 
 // pops the top comment scope off the comment stack
@@ -152,7 +176,12 @@ static void pushCommentScopeParser(Parser *parser) {
 }
 
 Arena *releaseParser(Parser *pp) {
-  destroyVector(&pp->next_comments);
+  for(size_t i = 0; i < VEC_LEN(&pp->next_comments_stack, Vector); i++) {
+    destroyVector(VEC_GET(&pp->next_comments_stack, i, Vector));
+  }
+  destroyVector(&pp->next_comments_stack);
+  destroyVector(&pp->next_tokens_stack);
+
   // if vec len is not 0, then we internal error
   if (VEC_LEN(&pp->comments, Vector) != 0) {
     INTERNAL_ERROR("not all comment scopes were freed in the parser, memory "
@@ -214,7 +243,7 @@ static void parsePath(Path *pp, Parser *parser) {
   Vector pathSegments;
   createVector(&pathSegments);
 
-  *VEC_PUSH(&pathSegments, char *) = internArena(parser->ar, t.identifier);
+  *VEC_PUSH(&pathSegments, char *) = t.identifier;
 
   while (true) {
     peekTokenParser(parser, &t);
@@ -229,7 +258,7 @@ static void parsePath(Path *pp, Parser *parser) {
         goto CLEANUP;
       }
 
-      *VEC_PUSH(&pathSegments, char *) = internArena(parser->ar, t.identifier);
+      *VEC_PUSH(&pathSegments, char *) = t.identifier;
     } else {
       // we've reached the end of the path
       end = t.span.end;
@@ -271,7 +300,7 @@ static void parseStringValueExpr(ValueExpr *svep, Parser *parser) {
   nextTokenParser(parser, &t);
   EXPECT_TYPE(t, TK_StringLiteral, HANDLE_NO_STRING_LITERAL);
   svep->kind = VEK_StringLiteral;
-  svep->stringLiteral.value = internArena(parser->ar, t.string_literal);
+  svep->stringLiteral.value = t.string_literal;
   svep->span = t.span;
   svep->diagnostics_len = 0;
   return;
@@ -406,43 +435,6 @@ static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser) {
   return;
 }
 
-static void parseIfValueExpr(ValueExpr *ivep, Parser *parser) {
-  ZERO(ivep);
-  Token t;
-  nextTokenParser(parser, &t);
-  LnCol start = t.span.start;
-  EXPECT_TYPE(t, TK_If, HANDLE_NO_IF);
-  ivep->kind = VEK_If;
-
-  // parse condition
-  ivep->ifExpr.condition = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(ivep->ifExpr.condition, parser);
-
-  // parse body
-  ivep->ifExpr.body = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(ivep->ifExpr.body, parser);
-
-  // if the next value is else
-  peekTokenParser(parser, &t);
-  if (t.kind == TK_Else) {
-    // skip else
-    nextTokenParser(parser, &t);
-    // parse the else
-    ivep->ifExpr.has_else = true;
-    ivep->ifExpr.else_body = RALLOC(parser->ar, ValueExpr);
-    parseValueExpr(ivep->ifExpr.else_body, parser);
-    ivep->span = SPAN(start, ivep->ifExpr.else_body->span.end);
-  } else {
-    ivep->span = SPAN(start, ivep->ifExpr.body->span.end);
-  }
-  return;
-
-HANDLE_NO_IF:
-  INTERNAL_ERROR("called if expression parser where there was no "
-                 "if expression");
-  PANIC();
-}
-
 static void parseBuiltinValueExpr(ValueExpr *bvep, Parser *parser) {
   bvep->kind = VEK_Builtin;
   bvep->builtinExpr.builtin = RALLOC(parser->ar, Builtin);
@@ -512,8 +504,9 @@ HANDLE_NO_RETURN:
   PANIC();
 }
 
-static void parseWhileValueExpr(ValueExpr *wep, Parser *parser) {
-  wep->kind = VEK_While;
+static void parseLoopValueExpr(ValueExpr *wep, Parser *parser) {
+    // TODO
+  wep->kind = VEK_Loop;
   Token t;
   nextTokenParser(parser, &t);
   LnCol start = t.span.start;
@@ -693,7 +686,7 @@ static void parseValueStructMemberExpr(struct ValueStructMemberExpr_s *vsmep,
     goto CLEANUP;
   }
 
-  vsmep->name = internArena(parser->ar, t.identifier);
+  vsmep->name = t.identifier;
 
   // check if assign
   nextTokenParser(parser, &t);
@@ -906,7 +899,7 @@ static void parseFieldAccessValueExpr(ValueExpr *fave, Parser *parser,
     fave->diagnostics = RALLOC(parser->ar, Diagnostic);
     fave->diagnostics[0] = DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, t.span);
   } else {
-    fave->fieldAccess.field = internArena(parser->ar, t.identifier);
+    fave->fieldAccess.field = t.identifier;
     fave->diagnostics_len = 0;
   }
 
@@ -1253,7 +1246,7 @@ static inline bool opDetL9ValueExpr(TokenKind tk,
 FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr)
 
 static inline bool opDetL10ValueExpr(TokenKind tk,
-                                    enum ValueExprBinaryOpKind_e *val) {
+                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Tuple: {
     *val = VEBOK_Tuple;
@@ -1458,7 +1451,7 @@ static void parseTypeStructMemberExpr(struct TypeStructMemberExpr_s *tsmep,
     goto CLEANUP;
   }
 
-  tsmep->name = internArena(parser->ar, t.identifier);
+  tsmep->name = t.identifier;
 
   // check if colon
   peekTokenParser(parser, &t);
@@ -1604,7 +1597,7 @@ static void parseBuiltin(Builtin *bp, Parser *parser) {
                    "builtin");
     PANIC();
   }
-  bp->name = internArena(parser->ar, t.builtin);
+  bp->name = t.builtin;
   start = t.span.start;
 
   Vector diagnostics;
@@ -1768,7 +1761,7 @@ static void parseScopeResolutionTypeExpr(TypeExpr *srte, Parser *parser,
     srte->diagnostics[0] =
         DIAGNOSTIC(DK_TypeExprFieldAccessExpectedIdentifier, t.span);
   } else {
-    srte->fieldAccess.field = internArena(parser->ar, t.identifier);
+    srte->fieldAccess.field = t.identifier;
     srte->diagnostics_len = 0;
   }
 
@@ -1942,7 +1935,7 @@ static void parseTypeRestrictionPatternExpr(PatternExpr *trpe, Parser *parser) {
   // Create a binding
   case TK_Identifier: {
     trpe->typeRestriction.has_binding = true;
-    trpe->typeRestriction.binding = internArena(parser->ar, t.identifier);
+    trpe->typeRestriction.binding = t.identifier;
     end = t.span.end;
     peekTokenParser(parser, &t);
     if (t.kind == TK_Colon) {
@@ -1999,7 +1992,7 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
   case TK_Identifier: {
     // copy identifier
     psmep->kind = PSMEK_Field;
-    psmep->field.field = internArena(parser->ar, t.identifier);
+    psmep->field.field = t.identifier;
     break;
   }
   default: {
@@ -2205,7 +2198,7 @@ static inline bool opDetL3PatternExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 3, parseL2PatternExpr )
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 3, parseL2PatternExpr)
 
 static inline bool opDetL4PatternExpr(TokenKind tk,
                                       enum PatternExprBinaryOpKind_e *val) {
@@ -2309,7 +2302,7 @@ static void parseTypeDecl(Stmnt *tdp, Parser *parser) {
     goto CLEANUP;
   }
 
-  tdp->typeDecl.name = internArena(parser->ar, t.identifier);
+  tdp->typeDecl.name = t.identifier;
 
   // Now get equals sign
   nextTokenParser(parser, &t);
@@ -2381,7 +2374,7 @@ static void parseStmnt(Stmnt *sp, Parser *parser) {
     // Macros
   case TK_Macro: {
     sp->kind = SK_Macro;
-    sp->macroStmnt.name = internArena(parser->ar, t.macro_call);
+    sp->macroStmnt.name = t.macro_call;
     sp->diagnostics_len = 0;
     sp->span = t.span;
     break;

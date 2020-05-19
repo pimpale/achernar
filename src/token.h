@@ -13,10 +13,8 @@ typedef enum {
   // function, type, or variable
   TK_Identifier,
   // Keywords
-  TK_Void,      // is both type and value
-  TK_If,        // if
-  TK_Else,      // else
-  TK_While,     // while
+  TK_Unreachable,      // unreachable type for when a function does not return
+  TK_Loop,      // loop
   TK_Match,     // match
   TK_Break,     // break
   TK_Let,       // let
@@ -34,7 +32,6 @@ typedef enum {
   TK_Namespace, // namespace
   TK_Use,       // use
   // Literals and constants
-  TK_BoolLiteral,   // true | false
   TK_StringLiteral, // "string"
   TK_CharLiteral,   // 'a'
   TK_FloatLiteral,  // 0.7
@@ -90,6 +87,7 @@ typedef enum {
   TK_Dollar,       // $
   // Macros
   TK_Builtin,
+  TK_Label,
   TK_MacroCall, // macrocall!
   // Comments, and Attributes
   TK_Comment, // #{ comment }# and # comment
@@ -106,6 +104,7 @@ typedef struct Token_s {
     char *identifier;
     char *macro_call;
     char *builtin;
+    char *label;
     struct {
       char *comment;
       char *scope;
@@ -114,7 +113,6 @@ typedef struct Token_s {
     uint64_t int_literal;
     double float_literal;
     char char_literal;
-    bool bool_literal;
   };
   Span span; // position in the file
   DiagnosticKind error;

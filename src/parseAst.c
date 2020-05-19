@@ -783,13 +783,14 @@ HANDLE_NO_LEFTBRACE:
 // Level1ValueExpr parentheses, braces, literals
 // Level2ValueExpr as () [] & @ . -> (postfixes)
 // Level3ValueExpr - + ! (prefixes)
-// Level4ValueExpr * / % (multiplication and division)
-// Level5ValueExpr + - (addition and subtraction)
-// Level6ValueExpr < <= > >= == != (comparators)
-// Level7ValueExpr && (logical and)
-// Level8ValueExpr || (logical or)
-// Level9ValueExpr , (create tuple)
-// Level10ValueExpr = += -= *= /= %= (Assignment)
+// Level4ValueExpr -> (pipeline)
+// Level5ValueExpr * / % (multiplication and division)
+// Level6ValueExpr + - (addition and subtraction)
+// Level7ValueExpr < <= > >= == != (comparators)
+// Level8ValueExpr && (logical and)
+// Level9ValueExpr || (logical or)
+// Level10ValueExpr , (create tuple)
+// Level11ValueExpr = += -= *= /= %= (Assignment)
 
 static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
   pushCommentScopeParser(parser);
@@ -1091,14 +1092,14 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
 // and right op_det_fn is the name of the function that determines the binary
 // operator this function should take a pointer to the type and return a bool if
 // successful
-#define FN_BINOP_PARSE_LX_EXPR(type, type_shorthand, x, lower_fn, op_det_fn)   \
+#define FN_BINOP_PARSE_LX_EXPR(type, type_shorthand, x, lower_fn)              \
   static void parseL##x##type(type *l##x, Parser *parser) {                    \
     type v;                                                                    \
     lower_fn(&v, parser);                                                      \
                                                                                \
     Token t;                                                                   \
     peekTokenParser(parser, &t);                                               \
-    bool success = op_det_fn(t.kind, &l##x->binaryOp.operator);                \
+    bool success = opDetL##x##type(t.kind, &l##x->binaryOp.operator);          \
     if (!success) {                                                            \
       /* there is no level x expression */                                     \
       *l##x = v;                                                               \
@@ -1134,6 +1135,21 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
 static inline bool opDetL4ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
+  case TK_Pipe: {
+    *val = VEBOK_Pipeline;
+    return true;
+  }
+  default: {
+    return false;
+  }
+  }
+}
+
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 4, parseL3ValueExpr)
+
+static inline bool opDetL5ValueExpr(TokenKind tk,
+                                    enum ValueExprBinaryOpKind_e *val) {
+  switch (tk) {
   case TK_Mul: {
     *val = VEBOK_Mul;
     return true;
@@ -1147,15 +1163,14 @@ static inline bool opDetL4ValueExpr(TokenKind tk,
     return true;
   }
   default: {
-    // there is no level 4 expression
     return false;
   }
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 4, parseL3ValueExpr, opDetL4ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 5, parseL4ValueExpr)
 
-static inline bool opDetL5ValueExpr(TokenKind tk,
+static inline bool opDetL6ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Add: {
@@ -1167,15 +1182,14 @@ static inline bool opDetL5ValueExpr(TokenKind tk,
     return true;
   }
   default: {
-    // there is no level 5 expression
     return false;
   }
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 5, parseL4ValueExpr, opDetL5ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 6, parseL5ValueExpr)
 
-static inline bool opDetL6ValueExpr(TokenKind tk,
+static inline bool opDetL7ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_CompLess: {
@@ -1203,15 +1217,14 @@ static inline bool opDetL6ValueExpr(TokenKind tk,
     return true;
   }
   default: {
-    // there is no level 7 expression
     return false;
   }
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 6, parseL5ValueExpr, opDetL6ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 7, parseL6ValueExpr)
 
-static inline bool opDetL7ValueExpr(TokenKind tk,
+static inline bool opDetL8ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_And: {
@@ -1219,14 +1232,13 @@ static inline bool opDetL7ValueExpr(TokenKind tk,
     return true;
   }
   default: {
-    // there is no level 8 expression
     return false;
   }
   }
 }
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 7, parseL6ValueExpr, opDetL7ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 8, parseL7ValueExpr)
 
-static inline bool opDetL8ValueExpr(TokenKind tk,
+static inline bool opDetL9ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Or: {
@@ -1234,14 +1246,13 @@ static inline bool opDetL8ValueExpr(TokenKind tk,
     return true;
   }
   default: {
-    // there is no level 8 expression
     return false;
   }
   }
 }
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 8, parseL7ValueExpr, opDetL8ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr)
 
-static inline bool opDetL9ValueExpr(TokenKind tk,
+static inline bool opDetL10ValueExpr(TokenKind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Tuple: {
@@ -1249,14 +1260,13 @@ static inline bool opDetL9ValueExpr(TokenKind tk,
     return true;
   }
   default: {
-    // there is no level 9 expression
     return false;
   }
   }
 }
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 9, parseL8ValueExpr, opDetL9ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 10, parseL9ValueExpr)
 
-static bool opDetL10ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
+static bool opDetL11ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case TK_Assign: {
     *val = VEBOK_Assign;
@@ -1283,17 +1293,16 @@ static bool opDetL10ValueExpr(TokenKind tk, enum ValueExprBinaryOpKind_e *val) {
     return true;
   }
   default: {
-    // There is no level 10 expr
     return false;
   }
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 10, parseL9ValueExpr, opDetL10ValueExpr)
+FN_BINOP_PARSE_LX_EXPR(ValueExpr, VEK, 11, parseL10ValueExpr)
 
 // shim method
 static void parseValueExpr(ValueExpr *vep, Parser *parser) {
-  parseL10ValueExpr(vep, parser);
+  parseL11ValueExpr(vep, parser);
 }
 
 static void parseIntConstExpr(ConstExpr *icep, Parser *parser) {
@@ -1837,7 +1846,7 @@ static inline bool opDetL3TypeExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 3, parseL2TypeExpr, opDetL3TypeExpr)
+FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 3, parseL2TypeExpr)
 
 static inline bool opDetL4TypeExpr(TokenKind tk,
                                    enum TypeExprBinaryOpKind_e *val) {
@@ -1853,7 +1862,7 @@ static inline bool opDetL4TypeExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 4, parseL3TypeExpr, opDetL4TypeExpr)
+FN_BINOP_PARSE_LX_EXPR(TypeExpr, TEK, 4, parseL3TypeExpr)
 
 static void parseTypeExpr(TypeExpr *tep, Parser *parser) {
   parseL4TypeExpr(tep, parser);
@@ -2196,8 +2205,7 @@ static inline bool opDetL3PatternExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 3, parseL2PatternExpr,
-                       opDetL3PatternExpr)
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 3, parseL2PatternExpr )
 
 static inline bool opDetL4PatternExpr(TokenKind tk,
                                       enum PatternExprBinaryOpKind_e *val) {
@@ -2212,8 +2220,7 @@ static inline bool opDetL4PatternExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 4, parseL3PatternExpr,
-                       opDetL4PatternExpr)
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 4, parseL3PatternExpr)
 
 static inline bool opDetL5PatternExpr(TokenKind tk,
                                       enum PatternExprBinaryOpKind_e *val) {
@@ -2228,8 +2235,7 @@ static inline bool opDetL5PatternExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 5, parseL4PatternExpr,
-                       opDetL5PatternExpr)
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 5, parseL4PatternExpr)
 
 static inline bool opDetL6PatternExpr(TokenKind tk,
                                       enum PatternExprBinaryOpKind_e *val) {
@@ -2244,8 +2250,7 @@ static inline bool opDetL6PatternExpr(TokenKind tk,
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 6, parseL5PatternExpr,
-                       opDetL6PatternExpr)
+FN_BINOP_PARSE_LX_EXPR(PatternExpr, PEK, 6, parseL5PatternExpr)
 
 static void parsePatternExpr(PatternExpr *ppe, Parser *parser) {
   parseL6PatternExpr(ppe, parser);

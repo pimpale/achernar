@@ -921,21 +921,21 @@ JsonElem stmntJson(Stmnt *sp, Arena *ja) {
   case SK_ValExpr: {
     ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("SK_Expr"));
+    ptrs[0] = KVJson("kind", strJson("SK_ValExpr"));
     ptrs[4] = KVJson("value", valueExprJson(sp->valExpr.value, ja));
     break;
   }
   case SK_TypeExpr: {
     ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("SK_Expr"));
+    ptrs[0] = KVJson("kind", strJson("SK_TypeExpr"));
     ptrs[4] = KVJson("type", typeExprJson(sp->typeExpr.type, ja));
     break;
   }
   case SK_PatExpr: {
     ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("SK_Expr"));
+    ptrs[0] = KVJson("kind", strJson("SK_PatExpr"));
     ptrs[4] = KVJson("pat", patternExprJson(sp->patExpr.pattern, ja));
     break;
   }

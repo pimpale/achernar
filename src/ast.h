@@ -146,6 +146,13 @@ typedef struct PatternExpr_s {
       size_t members_len;
     } structExpr;
     struct {
+      enum PatternExprUnaryOpKind_e {
+        PEUOK_Not,
+      }
+      operator;
+      PatternExpr *operand;
+    } unaryOp;
+    struct {
       enum PatternExprBinaryOpKind_e {
         PEBOK_Tuple,
         PEBOK_Union,
@@ -358,17 +365,17 @@ typedef struct ValueExpr_s {
     } fnExpr;
     struct {
       ValueExpr *value;
-      char* label;
+      char *label;
     } returnExpr;
     struct {
-      char* label;
+      char *label;
     } continueExpr;
     struct {
       ValueExpr *value;
     } deferExpr;
     struct Match_s {
       bool has_label;
-      char* label;
+      char *label;
 
       ValueExpr *value;
       struct MatchCaseExpr_s {

@@ -699,20 +699,14 @@ static void lexWord(Lexer *lexer, Token *token) {
     return;
   }
 
-  // boolean literals
-  if (!strcmp(string, "true")) {
-    token->kind = TK_BoolLiteral;
-    token->bool_literal = true;
-  } else if (!strcmp(string, "false")) {
-    token->kind = TK_BoolLiteral;
-    token->bool_literal = false;
-    // keywords
-  } else if (!strcmp(string, "if")) {
-    token->kind = TK_If;
-  } else if (!strcmp(string, "else")) {
-    token->kind = TK_Else;
-  } else if (!strcmp(string, "while")) {
-    token->kind = TK_While;
+  if(!strcmp(string, "true")) {
+     token->kind = TK_Bool;
+     token->bool_literal = true;
+  } else if(!strcmp(string, "false")) {
+     token->kind = TK_Bool;
+     token->bool_literal = false;
+  } else if (!strcmp(string, "loop")) {
+    token->kind = TK_Loop;
   } else if (!strcmp(string, "let")) {
     token->kind = TK_Let;
   } else if (!strcmp(string, "use")) {
@@ -735,8 +729,8 @@ static void lexWord(Lexer *lexer, Token *token) {
     token->kind = TK_Fn;
   } else if (!strcmp(string, "pat")) {
     token->kind = TK_Pat;
-  } else if (!strcmp(string, "stmnt")) {
-    token->kind = TK_Stmnt;
+  } else if (!strcmp(string, "void")) {
+    token->kind = TK_Void;
   } else if (!strcmp(string, "struct")) {
     token->kind = TK_Struct;
   } else if (!strcmp(string, "enum")) {
@@ -745,8 +739,8 @@ static void lexWord(Lexer *lexer, Token *token) {
     token->kind = TK_Type;
   } else if (!strcmp(string, "macro")) {
     token->kind = TK_Macro;
-  } else if (!strcmp(string, "void")) {
-    token->kind = TK_Void;
+  } else if (!strcmp(string, "unreachable")) {
+    token->kind = TK_Unreachable;
   } else {
     // It is an identifier, and we need to keep the string
     token->kind = TK_Identifier;
@@ -760,46 +754,6 @@ static void lexWord(Lexer *lexer, Token *token) {
   free(string);
   return;
 }
-
-/*
-// Parses a builtin or an underscore token
-static void lexBackticked(Lexer *lexer, Token *token) {
-  LnCol start = lexer->position;
-  // Skip first quote
-  int32_t c = nextValueLexer(lexer);
-  if (c != '`') {
-    INTERNAL_ERROR(
-        "called backticked lexer where there wasn't a backtick");
-    PANIC();
-  }
-
-  Vector data;
-  createVector(&data);
-
-  while ((c = peekValueLexer(lexer)) != EOF) {
-    if (c != '`') {
-      *VEC_PUSH(&data, char) = (char)c;
-      nextValueLexer(lexer);
-    } else {
-      break;
-    }
-  }
-
-  token->span = SPAN(start, lexer->position);
-
-  // Note that string length does not incude the trailing null byte
-  // Push null byte
-  *VEC_PUSH(&data, char) = '\0';
-  char *string = manageMemArena(lexer->ar, releaseVector(&data));
-
-  // If it wasn't an identifier
-  token->error = DK_Ok;
-  token->backticked = string;
-  token->kind = TK_Backticked;
-  token->span = SPAN(start, lexer->position);
-  return;
-}
-*/
 
 // Parses a builtin or an underscore token
 static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {

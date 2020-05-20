@@ -1,0 +1,4 @@
+somethings
+  ->filter(fn(x) => x.count > 10)
+  ->sort(fn(a b) => a.count - b.count)
+  ->map(fn(x) => x.name)

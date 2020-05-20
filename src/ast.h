@@ -23,7 +23,12 @@ typedef enum {
 typedef enum {
   VEK_None,
   VEK_Builtin,
-  VEK_ConstExpr,
+  VEK_VoidLiteral,
+  VEK_BoolLiteral,
+  VEK_IntLiteral,
+  VEK_FloatLiteral,
+  VEK_CharLiteral,
+  VEK_ValueExpr,
   VEK_Fn,
   VEK_Loop,
   VEK_As,
@@ -33,7 +38,6 @@ typedef enum {
   VEK_UnaryOp,
   VEK_Call,
   VEK_Defer,
-  VEK_Break,
   VEK_Continue,
   VEK_Return,
   VEK_Match,
@@ -73,18 +77,8 @@ typedef enum {
   PEK_BinaryOp,         // , |
 } PatternExprKind;
 
-typedef enum ConstExprKind_e {
-  CEK_None,         // Error type
-  CEK_IntLiteral,   // 8
-  CEK_BoolLiteral,  // true
-  CEK_FloatLiteral, // 8.32
-  CEK_CharLiteral,  // 'a'
-  CEK_ValueExpr,    // ${ 1 + 2 }
-} ConstExprKind;
-
 typedef struct Builtin_s Builtin;
 typedef struct TypeExpr_s TypeExpr;
-typedef struct ConstExpr_s ConstExpr;
 typedef struct ValueExpr_s ValueExpr;
 typedef struct PatternExpr_s PatternExpr;
 typedef struct Stmnt_s Stmnt;
@@ -109,38 +103,6 @@ typedef struct Builtin_s {
   size_t parameters_len;
 } Builtin;
 
-typedef struct ConstExpr_s {
-
-  ConstExprKind kind;
-  Span span;
-
-  // diagnostics
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
-
-  // comments
-  Comment *comments;
-  size_t comments_len;
-  union {
-    struct {
-      uint64_t value;
-    } intLiteral;
-    struct {
-      bool value;
-    } boolLiteral;
-    struct {
-      double value;
-    } floatLiteral;
-    struct {
-      char value;
-    } charLiteral;
-    struct {
-      ValueExpr *expr;
-    } valueExpr;
-  };
-
-} ConstExpr;
-
 typedef struct PatternExpr_s {
   PatternExprKind kind;
   Span span;
@@ -156,7 +118,7 @@ typedef struct PatternExpr_s {
   union {
     struct {
       PatternExprValueRestrictionKind restriction;
-      ConstExpr *constExpr;
+      ValueExpr *valueExpr;
     } valueRestriction;
     struct {
       bool has_binding;
@@ -183,15 +145,6 @@ typedef struct PatternExpr_s {
       } * members;
       size_t members_len;
     } structExpr;
-    struct {
-      enum PatternExprUnaryOpKind_e {
-        PEUOK_Posit,
-        PEUOK_Negate,
-        PEUOK_Not,
-      }
-      operator;
-      PatternExpr *operand;
-    } unaryOp;
     struct {
       enum PatternExprBinaryOpKind_e {
         PEBOK_Tuple,
@@ -306,8 +259,17 @@ typedef struct ValueExpr_s {
       Builtin *builtin;
     } builtinExpr;
     struct {
-      ConstExpr *constExpr;
-    } constExpr;
+      bool value;
+    } boolLiteral;
+    struct {
+      uint64_t value;
+    } intLiteral;
+    struct {
+      double value;
+    } floatLiteral;
+    struct {
+      char value;
+    } charLiteral;
     struct {
       char *value;
       size_t value_len;
@@ -332,6 +294,11 @@ typedef struct ValueExpr_s {
       TypeExpr *type;
       char *field;
     } asExpr;
+    struct {
+      ValueExpr *value;
+      bool has_label;
+      char *label;
+    } loopExpr;
     struct {
       ValueExpr *value;
       char *field;
@@ -391,14 +358,18 @@ typedef struct ValueExpr_s {
     } fnExpr;
     struct {
       ValueExpr *value;
+      char* label;
     } returnExpr;
     struct {
-      ValueExpr *value;
-    } breakExpr;
+      char* label;
+    } continueExpr;
     struct {
       ValueExpr *value;
     } deferExpr;
     struct Match_s {
+      bool has_label;
+      char* label;
+
       ValueExpr *value;
       struct MatchCaseExpr_s {
         Span span;
@@ -417,6 +388,9 @@ typedef struct ValueExpr_s {
     struct Block_s {
       Stmnt *statements;
       size_t statements_len;
+
+      bool has_label;
+      char *label;
     } blockExpr;
   };
 } ValueExpr;

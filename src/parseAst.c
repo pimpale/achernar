@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "ast.h"
 #include "error.h"
@@ -12,7 +13,6 @@
 #include "vector.h"
 
 // convoluted function to save repetitive tasks
-
 #define PARSE_LIST(members_vec_ptr, diagnostics_vec_ptr,                       \
                    member_parse_function, member_kind, delimiting_token_kind,  \
                    missing_delimiter_error, end_lncol, parser)                 \
@@ -33,13 +33,6 @@
     /* if there wasn't an end delimiter, push the last token back */           \
     member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), parser);     \
   }
-
-#define EXPECT_TYPE(token, tokenType, onErrLabel)                              \
-  do {                                                                         \
-    if ((token).kind != (tokenType)) {                                         \
-      goto onErrLabel;                                                         \
-    }                                                                          \
-  } while (false)
 
 // Parser
 void createParser(Parser *pp, Lexer *lp, Arena *ar) {
@@ -135,6 +128,9 @@ static void nextTokenParser(Parser *pp, Token *t) {
 // gets the k'th token
 // K must be greater than 0
 static void peekNthTokenParser(Parser *pp, Token *t, size_t k) {
+
+  assert(k > 0);
+
   for (size_t i = VEC_LEN(&pp->next_tokens_stack, Token); i < k; i++) {
     // allocate mem for next token
     Token *next_token = VEC_PUSH(&pp->next_tokens_stack, Token);
@@ -159,6 +155,7 @@ static void peekTokenParser(Parser *parser, Token *t) {
 /// GUARANTEES: return value is the topmost element of the comment stack
 /// GUARANTEES: the topmost element fo the comment stack has been removed
 static Vector popCommentScopeParser(Parser *parser) {
+  assert(VEC_LEN(&parser->comments, Vector) > 1);
   Vector v;
   VEC_POP(&parser->comments, &v, Vector);
   return v;
@@ -183,11 +180,7 @@ Arena *releaseParser(Parser *pp) {
   destroyVector(&pp->next_tokens_stack);
 
   // if vec len is not 0, then we internal error
-  if (VEC_LEN(&pp->comments, Vector) != 0) {
-    INTERNAL_ERROR("not all comment scopes were freed in the parser, memory "
-                   "leak has occured");
-    PANIC();
-  }
+  assert(VEC_LEN(&pp->comments, Vector) == 0);
   destroyVector(&pp->comments);
   return pp->ar;
 }
@@ -219,7 +212,6 @@ static void parseBuiltin(Builtin *bp, Parser *parser);
 static void parseValueExpr(ValueExpr *vep, Parser *parser);
 static void parseTypeExpr(TypeExpr *tep, Parser *parser);
 static void parsePatternExpr(PatternExpr *pp, Parser *parser);
-static void parseConstExpr(ConstExpr *cep, Parser *parser);
 
 static void parsePath(Path *pp, Parser *parser) {
   // start comment scope
@@ -227,11 +219,6 @@ static void parsePath(Path *pp, Parser *parser) {
 
   Token t;
   nextTokenParser(parser, &t);
-  if (t.kind != TK_Identifier) {
-    INTERNAL_ERROR("called path parser where there was no path");
-    PANIC();
-  }
-
   // start and finish
   LnCol start = t.span.start;
   LnCol end;
@@ -242,6 +229,14 @@ static void parsePath(Path *pp, Parser *parser) {
 
   Vector pathSegments;
   createVector(&pathSegments);
+
+  // ensure that it is a valid path
+  if(t.kind != TK_Identifier) {
+    diagnostic = DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
 
   *VEC_PUSH(&pathSegments, char *) = t.identifier;
 
@@ -285,46 +280,70 @@ CLEANUP:
   pp->comments = manageMemArena(parser->ar, releaseVector(&comments));
 }
 
-static void parseConstValueExpr(ValueExpr *cvep, Parser *parser) {
-  ZERO(cvep);
-  cvep->kind = VEK_ConstExpr;
-  cvep->constExpr.constExpr = RALLOC(parser->ar, ConstExpr);
-  parseConstExpr(cvep->constExpr.constExpr, parser);
 
-  cvep->span = cvep->constExpr.constExpr->span;
-  cvep->diagnostics_len = 0;
-}
-
-static void parseStringValueExpr(ValueExpr *svep, Parser *parser) {
+static void certain_parseIntValueExpr(ValueExpr *vep, Parser *parser) {
   Token t;
   nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_StringLiteral, HANDLE_NO_STRING_LITERAL);
+  assert(t.kind == TK_Int);
+  vep->kind = VEK_IntLiteral;
+  vep->intLiteral.value = t.int_literal;
+  vep->span = t.span;
+  vep->diagnostics_len = 0;
+  return;
+}
+
+static void certain_parseBoolValueExpr(ValueExpr *vep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  assert(t.kind == TK_Bool);
+  vep->kind = VEK_BoolLiteral;
+  vep->boolLiteral.value = t.bool_literal;
+  vep->span = t.span;
+  vep->diagnostics_len = 0;
+  return; 
+}
+
+static void certain_parseFloatValueExpr(ValueExpr *vep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  assert(t.kind == TK_Float);
+  vep->kind = VEK_FloatLiteral;
+  vep->floatLiteral.value = t.float_literal;
+  vep->span = t.span;
+  vep->diagnostics_len = 0;
+  return; 
+}
+
+static void certain_parseCharValueExpr(ValueExpr *vep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  assert(t.kind == TK_Char);
+  vep->kind = VEK_CharLiteral;
+  vep->charLiteral.value = t.char_literal;
+  vep->span = t.span;
+  vep->diagnostics_len = 0;
+  return; 
+}
+
+static void certain_parseStringValueExpr(ValueExpr *svep, Parser *parser) {
+  Token t;
+  nextTokenParser(parser, &t);
+  assert(t.kind == TK_String);
   svep->kind = VEK_StringLiteral;
   svep->stringLiteral.value = t.string_literal;
   svep->span = t.span;
   svep->diagnostics_len = 0;
   return;
-
-HANDLE_NO_STRING_LITERAL:
-  INTERNAL_ERROR("called string literal parser where there was no "
-                 "string literal");
-  PANIC();
 }
 
-static void parseFnValueExpr(ValueExpr *fvep, Parser *parser) {
+static void certain_parseFnValueExpr(ValueExpr *fvep, Parser *parser) {
   ZERO(fvep);
 
   fvep->kind = VEK_Fn;
 
   Token t;
   nextTokenParser(parser, &t);
-
-  if (t.kind != TK_Fn) {
-    INTERNAL_ERROR("called function value expression parser where there was no "
-                   "function");
-    PANIC();
-  }
-
+  assert(t.kind == TK_Fn);
   LnCol start = t.span.start;
   LnCol end = t.span.end;
 
@@ -391,20 +410,25 @@ CLEANUP:
   fvep->span = SPAN(start, end);
 }
 
-static void parseBlockValueExpr(ValueExpr *bvep, Parser *parser) {
+static void certain_parseBlockValueExpr(ValueExpr *bvep, Parser *parser) {
   ZERO(bvep);
   bvep->kind = VEK_Block;
 
   Token t;
   nextTokenParser(parser, &t);
 
-  if (t.kind != TK_BraceLeft) {
-    INTERNAL_ERROR(
-        "called a block expresion parser where there was no leftbrace");
-    PANIC();
+  LnCol start = t.span.start;
+
+  // blocks may be labeled
+  if(t.kind == TK_Label) {
+    bvep->blockExpr.has_label = true;
+    bvep->blockExpr.label = t.label;
+    nextTokenParser(parser, &t);
+  } else {
+    bvep->blockExpr.has_label = false;
   }
 
-  LnCol start = t.span.start;
+  assert(t.kind == TK_BraceLeft);
 
   // Create list of statements
   Vector statements;
@@ -443,14 +467,11 @@ static void parseBuiltinValueExpr(ValueExpr *bvep, Parser *parser) {
   bvep->span = bvep->builtinExpr.builtin->span;
 }
 
-static void parseDeferValueExpr(ValueExpr *dep, Parser *parser) {
+static void certain_parseDeferValueExpr(ValueExpr *dep, Parser *parser) {
   dep->kind = VEK_Defer;
   Token t;
   nextTokenParser(parser, &t);
-  if (t.kind != TK_Defer) {
-    INTERNAL_ERROR("called break parser where there was no continue");
-    PANIC();
-  }
+  assert(t.kind == TK_Defer);
   dep->deferExpr.value = RALLOC(parser->ar, ValueExpr);
   parseValueExpr(dep->deferExpr.value, parser);
   dep->span = SPAN(t.span.start, dep->deferExpr.value->span.end);
@@ -458,73 +479,97 @@ static void parseDeferValueExpr(ValueExpr *dep, Parser *parser) {
   return;
 }
 
-static void parseBreakValueExpr(ValueExpr *bep, Parser *parser) {
-  bep->kind = VEK_Break;
-  Token t;
-  nextTokenParser(parser, &t);
-  bep->span = t.span;
-  EXPECT_TYPE(t, TK_Break, HANDLE_NO_BREAK);
-  bep->breakExpr.value = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(bep->breakExpr.value, parser);
-  bep->diagnostics_len = 0;
-  return;
-
-HANDLE_NO_BREAK:
-  INTERNAL_ERROR("called break parser where there was no continue");
-  PANIC();
-}
-
-static void parseContinueValueExpr(ValueExpr *cep, Parser *parser) {
-  cep->kind = VEK_Continue;
-  Token t;
-  nextTokenParser(parser, &t);
-  cep->span = t.span;
-  EXPECT_TYPE(t, TK_Continue, HANDLE_NO_CONTINUE);
-  cep->diagnostics_len = 0;
-  return;
-
-HANDLE_NO_CONTINUE:
-  INTERNAL_ERROR("called continue parser where there was no continue");
-  PANIC();
-}
-
-static void parseReturnValueExpr(ValueExpr *rep, Parser *parser) {
+static void certain_parseReturnValueExpr(ValueExpr *rep, Parser *parser) {
+  ZERO(rep);
   rep->kind = VEK_Return;
   Token t;
   nextTokenParser(parser, &t);
-  rep->span = t.span;
-  EXPECT_TYPE(t, TK_Return, HANDLE_NO_RETURN);
+  assert(t.kind == TK_Return);
+
+  LnCol start = t.span.start;
+  LnCol end;
+
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  nextTokenParser(parser, &t);
+  if(t.kind != TK_Label) {
+   diagnostic = DIAGNOSTIC(DK_ReturnExpectedLabel, t.span);
+   end = t.span.end;
+   goto CLEANUP;
+  }
+
   rep->returnExpr.value = RALLOC(parser->ar, ValueExpr);
   parseValueExpr(rep->returnExpr.value, parser);
-  rep->diagnostics_len = 0;
-  return;
+  end = rep->returnExpr.value->span.end;
 
-HANDLE_NO_RETURN:
-  INTERNAL_ERROR("called return parser where there was no continue");
-  PANIC();
+CLEANUP:
+  if(diagnostic.kind == DK_Ok) {
+    rep->diagnostics = RALLOC(parser->ar, Diagnostic);
+    rep->diagnostics[0] = diagnostic;
+    rep->diagnostics_len = 1;
+  } else {
+      rep->diagnostics_len = 0;
+  }
+  rep->span = SPAN(start, end);
+  return;
 }
 
-static void parseLoopValueExpr(ValueExpr *wep, Parser *parser) {
-    // TODO
-  wep->kind = VEK_Loop;
+static void certain_parseContinueValueExpr(ValueExpr *cep, Parser *parser) {
+  ZERO(cep);
+  cep->kind = VEK_Continue;
+  Token t;
+  nextTokenParser(parser, &t);
+  assert(t.kind == TK_Continue);
+
+  LnCol start = t.span.start;
+  LnCol end;
+
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  nextTokenParser(parser, &t);
+  end = t.span.end;
+
+  if(t.kind != TK_Label) {
+   diagnostic = DIAGNOSTIC(DK_ContinueExpectedLabel, t.span);
+   goto CLEANUP;
+  }
+
+CLEANUP:
+  if(diagnostic.kind == DK_Ok) {
+    cep->diagnostics = RALLOC(parser->ar, Diagnostic);
+    cep->diagnostics[0] = diagnostic;
+    cep->diagnostics_len = 1;
+  } else {
+      cep->diagnostics_len = 0;
+  }
+  cep->span = SPAN(start, end);
+  return;
+}
+
+static void certain_parseLoopValueExpr(ValueExpr *lep, Parser *parser) {
+  lep->kind = VEK_Loop;
   Token t;
   nextTokenParser(parser, &t);
   LnCol start = t.span.start;
-  EXPECT_TYPE(t, TK_While, HANDLE_NO_WHILE);
 
-  wep->whileExpr.condition = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(wep->whileExpr.condition, parser);
+  if(t.kind == TK_Label) {
+    lep->loopExpr.has_label = true;
+    lep->loopExpr.label = t.label;
+    nextTokenParser(parser, &t);
+  } else {
+    lep->loopExpr.has_label = false;
+  }
 
-  wep->whileExpr.body = RALLOC(parser->ar, ValueExpr);
-  parseValueExpr(wep->whileExpr.body, parser);
+  assert(t.kind == TK_Loop);
 
-  wep->span = SPAN(start, wep->whileExpr.body->span.end);
-  wep->diagnostics_len = 0;
+  lep->loopExpr.value = RALLOC(parser->ar, ValueExpr);
+  parseValueExpr(lep->loopExpr.value, parser);
+
+  lep->span = SPAN(start, lep->loopExpr.value->span.end);
+  lep->diagnostics_len = 0;
   return;
-
-HANDLE_NO_WHILE:
-  INTERNAL_ERROR("called continue parser where there was no continue");
-  PANIC();
 }
 
 // Pattern : Expr,
@@ -584,24 +629,27 @@ CLEANUP:
   return;
 }
 
-static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser) {
+static void certain_parseMatchValueExpr(ValueExpr *mvep, Parser *parser) {
   ZERO(mvep);
   mvep->kind = VEK_Match;
   Token t;
-  // Ensure match
   nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_Match, HANDLE_NO_MATCH);
-
   LnCol start = t.span.start;
+
+  if(t.kind == TK_Label) {
+    mvep->matchExpr.has_label = true;
+    mvep->matchExpr.label = t.label;
+    nextTokenParser(parser, &t);
+  } else {
+    mvep->matchExpr.has_label = false;
+  }
+
+  assert(t.kind == TK_Match);
 
   // Get expression to match against
   mvep->matchExpr.value = RALLOC(parser->ar, ValueExpr);
   parseValueExpr(mvep->matchExpr.value, parser);
   // now we must parse the block containing the cases
-
-  // Expect beginning brace
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
   Vector cases;
   createVector(&cases);
@@ -610,6 +658,15 @@ static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser) {
   createVector(&diagnostics);
 
   LnCol end;
+
+  // Expect beginning brace
+  nextTokenParser(parser, &t);
+
+  if(t.kind != TK_BraceLeft) {
+    *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_MatchNoLeftBrace, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
 
   PARSE_LIST(&cases,                 // members_vec_ptr
              &diagnostics,           // diagnostics_vec_ptr
@@ -621,6 +678,7 @@ static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser) {
              parser                  // parser
   )
 
+CLEANUP:
   // Get interior cases
   mvep->matchExpr.cases_len = VEC_LEN(&cases, struct MatchCaseExpr_s);
   mvep->matchExpr.cases = manageMemArena(parser->ar, releaseVector(&cases));
@@ -628,20 +686,6 @@ static void parseMatchValueExpr(ValueExpr *mvep, Parser *parser) {
   mvep->diagnostics_len = VEC_LEN(&diagnostics, Diagnostic);
   mvep->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
   mvep->span = SPAN(start, end);
-  return;
-
-HANDLE_NO_MATCH:
-  INTERNAL_ERROR("called match parser where there was no match");
-  PANIC();
-
-HANDLE_NO_LEFTBRACE:
-  mvep->diagnostics_len = 1;
-  mvep->diagnostics = RALLOC(parser->ar, Diagnostic);
-  mvep->diagnostics[0] = DIAGNOSTIC(DK_MatchNoLeftBrace, t.span);
-  mvep->span = SPAN(start, t.span.end);
-  mvep->matchExpr.cases_len = 0;
-  mvep->matchExpr.cases = NULL;
-  resyncParser(parser);
   return;
 }
 
@@ -720,22 +764,15 @@ CLEANUP:
   return;
 }
 
-static void parseValueStructExpr(ValueExpr *sve, Parser *parser) {
+static void certain_parseValueStructExpr(ValueExpr *sve, Parser *parser) {
   ZERO(sve);
   sve->kind = VEK_StructLiteral;
   Token t;
   nextTokenParser(parser, &t);
-  if (t.kind != TK_Struct) {
-    INTERNAL_ERROR("called struct type expression parser where there was no "
-                   "struct declaration");
-    PANIC();
-  }
+  assert(t.kind == TK_Struct);
 
   LnCol start = t.span.start;
 
-  nextTokenParser(parser, &t);
-
-  EXPECT_TYPE(t, TK_BraceLeft, HANDLE_NO_LEFTBRACE);
 
   Vector members;
   createVector(&members);
@@ -744,6 +781,13 @@ static void parseValueStructExpr(ValueExpr *sve, Parser *parser) {
   createVector(&diagnostics);
 
   LnCol end;
+
+  nextTokenParser(parser, &t);
+  if(t.kind != TK_BraceLeft) {
+    end = t.span.end;
+    *VEC_PUSH(&diagnostics, Diagnostic) = DIAGNOSTIC(DK_StructExpectedLeftBrace, t.span);
+    goto CLEANUP;
+  }
 
   PARSE_LIST(&members,                       // members_vec_ptr
              &diagnostics,                   // diagnostics_vec_ptr
@@ -755,21 +799,13 @@ static void parseValueStructExpr(ValueExpr *sve, Parser *parser) {
              parser                          // parser
   )
 
+CLEANUP:
   sve->structExpr.members_len =
       VEC_LEN(&members, struct ValueStructMemberExpr_s);
   sve->structExpr.members = manageMemArena(parser->ar, releaseVector(&members));
   sve->diagnostics_len = VEC_LEN(&diagnostics, Diagnostic);
   sve->diagnostics = manageMemArena(parser->ar, releaseVector(&diagnostics));
   sve->span = SPAN(start, end);
-  return;
-
-HANDLE_NO_LEFTBRACE:
-  sve->structExpr.members_len = 0;
-  sve->structExpr.members = NULL;
-  sve->span = SPAN(start, t.span.end);
-  sve->diagnostics_len = 1;
-  sve->diagnostics = RALLOC(parser->ar, Diagnostic);
-  sve->diagnostics[0] = DIAGNOSTIC(DK_StructExpectedLeftBrace, sve->span);
   return;
 }
 
@@ -793,60 +829,60 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
   // Decide which expression it is
   switch (t.kind) {
   // Literals
-  case TK_IntLiteral:
-  case TK_BoolLiteral:
-  case TK_FloatLiteral:
-  case TK_CharLiteral:
-  case TK_Dollar: {
-    parseConstValueExpr(l1, parser);
+  case TK_Int: {
+  certain_parseIntValueExpr(l1, parser);
+    break;
+  }
+  case TK_Bool: {
+  certain_parseBoolValueExpr(l1, parser);
+    break;
+  }
+  case TK_Float: {
+  certain_parseFloatValueExpr(l1, parser);
+    break;
+  }
+  case TK_Char: {
+  certain_parseCharValueExpr(l1, parser);
     break;
   }
   case TK_Builtin: {
     parseBuiltinValueExpr(l1, parser);
     break;
   }
-  case TK_StringLiteral: {
-    parseStringValueExpr(l1, parser);
+  case TK_String: {
+    certain_parseStringValueExpr(l1, parser);
     break;
   }
   case TK_BraceLeft: {
-    parseBlockValueExpr(l1, parser);
+    certain_parseBlockValueExpr(l1, parser);
     break;
   }
   case TK_Fn: {
-    parseFnValueExpr(l1, parser);
+    certain_parseFnValueExpr(l1, parser);
     break;
   }
   case TK_Struct: {
-    parseValueStructExpr(l1, parser);
-    break;
-  }
-  case TK_If: {
-    parseIfValueExpr(l1, parser);
+    certain_parseValueStructExpr(l1, parser);
     break;
   }
   case TK_Defer: {
-    parseDeferValueExpr(l1, parser);
-    break;
-  }
-  case TK_Break: {
-    parseBreakValueExpr(l1, parser);
+    certain_parseDeferValueExpr(l1, parser);
     break;
   }
   case TK_Continue: {
-    parseContinueValueExpr(l1, parser);
+    certain_parseContinueValueExpr(l1, parser);
     break;
   }
   case TK_Return: {
-    parseReturnValueExpr(l1, parser);
+    certain_parseReturnValueExpr(l1, parser);
     break;
   }
-  case TK_While: {
-    parseWhileValueExpr(l1, parser);
+  case TK_Loop: {
+    certain_parseLoopValueExpr(l1, parser);
     break;
   }
   case TK_Match: {
-    parseMatchValueExpr(l1, parser);
+    certain_parseMatchValueExpr(l1, parser);
     break;
   }
   case TK_Identifier: {
@@ -1298,129 +1334,6 @@ static void parseValueExpr(ValueExpr *vep, Parser *parser) {
   parseL11ValueExpr(vep, parser);
 }
 
-static void parseIntConstExpr(ConstExpr *icep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_IntLiteral, HANDLE_NO_INT_LITERAL);
-  icep->kind = CEK_IntLiteral;
-  icep->intLiteral.value = t.int_literal;
-  icep->span = t.span;
-  icep->diagnostics_len = 0;
-  return;
-
-HANDLE_NO_INT_LITERAL:
-  INTERNAL_ERROR("called int literal parser where there was no "
-                 "int literal");
-  PANIC();
-}
-
-static void parseBoolConstExpr(ConstExpr *bcep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_BoolLiteral, HANDLE_NO_BOOL_LITERAL);
-  bcep->kind = CEK_BoolLiteral;
-  bcep->boolLiteral.value = t.bool_literal;
-  bcep->span = t.span;
-  bcep->diagnostics_len = 0;
-  return;
-
-HANDLE_NO_BOOL_LITERAL:
-  INTERNAL_ERROR("called int literal parser where there was no "
-                 "int literal");
-  PANIC();
-}
-
-static void parseFloatConstExpr(ConstExpr *fcep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_FloatLiteral, HANDLE_NO_FLOAT_LITERAL);
-  fcep->kind = CEK_FloatLiteral;
-  fcep->floatLiteral.value = t.float_literal;
-  fcep->span = t.span;
-  fcep->diagnostics_len = 0;
-  return;
-
-HANDLE_NO_FLOAT_LITERAL:
-  INTERNAL_ERROR("called float literal parser where there was no "
-                 "float literal");
-  PANIC();
-}
-
-static void parseCharConstExpr(ConstExpr *ccep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  EXPECT_TYPE(t, TK_CharLiteral, HANDLE_NO_CHAR_LITERAL);
-  ccep->kind = CEK_CharLiteral;
-  ccep->charLiteral.value = t.char_literal;
-  ccep->span = t.span;
-  ccep->diagnostics_len = 0;
-  return;
-
-HANDLE_NO_CHAR_LITERAL:
-  INTERNAL_ERROR("called char literal parser where there was no "
-                 "char literal");
-  PANIC();
-}
-
-static void parseValueConstExpr(ConstExpr *vcep, Parser *parser) {
-  Token t;
-  nextTokenParser(parser, &t);
-  if (t.kind != TK_Dollar) {
-    INTERNAL_ERROR("called value const expr parser where there was no "
-                   "value const expr");
-    PANIC();
-  }
-  LnCol start = t.span.start;
-  vcep->kind = CEK_ValueExpr;
-  vcep->valueExpr.expr = RALLOC(parser->ar, ValueExpr);
-  parseL3ValueExpr(vcep->valueExpr.expr, parser);
-  vcep->span = SPAN(start, vcep->valueExpr.expr->span.end);
-  vcep->diagnostics_len = 0;
-}
-
-static void parseConstExpr(ConstExpr *cep, Parser *parser) {
-  pushCommentScopeParser(parser);
-
-  Token t;
-  peekTokenParser(parser, &t);
-  switch (t.kind) {
-  case TK_IntLiteral: {
-    parseIntConstExpr(cep, parser);
-    break;
-  }
-  case TK_BoolLiteral: {
-    parseBoolConstExpr(cep, parser);
-    break;
-  }
-  case TK_FloatLiteral: {
-    parseFloatConstExpr(cep, parser);
-    break;
-  }
-  case TK_CharLiteral: {
-    parseCharConstExpr(cep, parser);
-    break;
-  }
-  case TK_Dollar: {
-    parseValueConstExpr(cep, parser);
-    break;
-  }
-  default: {
-    // put the token error in the value expression.
-    ZERO(cep);
-    cep->kind = CEK_None;
-    cep->span = t.span;
-    cep->diagnostics_len = 1;
-    cep->diagnostics = RALLOC(parser->ar, Diagnostic);
-    cep->diagnostics[0] = DIAGNOSTIC(DK_ConstExprUnrecognizedLiteral, t.span);
-    // discard this token
-    nextTokenParser(parser, &t);
-    break;
-  }
-  }
-  Vector comments = popCommentScopeParser(parser);
-  cep->comments_len = VEC_LEN(&comments, Comment);
-  cep->comments = manageMemArena(parser->ar, releaseVector(&comments));
-}
 // field : Type,
 static void parseTypeStructMemberExpr(struct TypeStructMemberExpr_s *tsmep,
                                       Parser *parser) {

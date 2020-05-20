@@ -13,29 +13,30 @@ typedef enum {
   // function, type, or variable
   TK_Identifier,
   // Keywords
-  TK_Unreachable,      // unreachable type for when a function does not return
-  TK_Loop,      // loop
-  TK_Match,     // match
-  TK_Break,     // break
-  TK_Let,       // let
-  TK_Continue,  // continue
-  TK_Return,    // return
-  TK_Defer,     // defer
-  TK_Stmnt,     // stmnt
-  TK_Fn,        // fn
-  TK_Pat,       // pat
-  TK_As,        // as
-  TK_Struct,    // struct
-  TK_Enum,      // enum
-  TK_Type,      // type
-  TK_Macro,     // macro
-  TK_Namespace, // namespace
-  TK_Use,       // use
+  TK_Unreachable, // unreachable type for when a function does not return
+  TK_Loop,        // loop
+  TK_Match,       // match
+  TK_Break,       // break
+  TK_Continue,    // continue
+  TK_Let,         // let
+  TK_Return,      // return
+  TK_Defer,       // defer
+  TK_Fn,          // fn
+  TK_Pat,         // pat
+  TK_As,          // as
+  TK_Struct,      // struct
+  TK_Enum,        // enum
+  TK_Type,        // type
+  TK_Macro,       // macro
+  TK_Namespace,   // namespace
+  TK_Use,         // use
   // Literals and constants
-  TK_StringLiteral, // "string"
-  TK_CharLiteral,   // 'a'
-  TK_FloatLiteral,  // 0.7
-  TK_IntLiteral,    // 7
+  TK_Void,   // void
+  TK_Bool,   // true
+  TK_String, // "string"
+  TK_Char,   // 'a'
+  TK_Float,  // 0.7
+  TK_Int,    // 7
   // Math Operators
   TK_Add, // +
   TK_Sub, // -
@@ -86,8 +87,8 @@ typedef enum {
   TK_Rest,         // ..
   TK_Dollar,       // $
   // Macros
-  TK_Builtin,
-  TK_Label,
+  TK_Builtin,   // _builtin
+  TK_Label,     // 'label
   TK_MacroCall, // macrocall!
   // Comments, and Attributes
   TK_Comment, // #{ comment }# and # comment
@@ -109,6 +110,7 @@ typedef struct Token_s {
       char *comment;
       char *scope;
     } comment;
+    bool bool_literal;
     char *string_literal;
     uint64_t int_literal;
     double float_literal;

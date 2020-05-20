@@ -43,6 +43,10 @@ typedef enum {
   // Parsing Errors
   // Path
   DK_PathExpectedIdentifier,
+  // Return
+  DK_ReturnExpectedLabel,
+  // Continue
+  DK_ContinueExpectedLabel,
   // StructMemberExpr
   DK_StructMemberExpectedType,
   DK_StructMemberExpectedIdentifier,

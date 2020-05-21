@@ -73,7 +73,8 @@ typedef enum {
   PEK_ValueRestriction, // matches a constant value, and optionally binds it
   PEK_TypeRestriction,  // matches a type, and optionally binds it
   PEK_Struct,           // a container for struct based patterns
-  PEK_UnaryOp,          // ()
+  PEK_Group,            // ()
+  PEK_UnaryOp,          // !
   PEK_BinaryOp,         // , |
 } PatternExprKind;
 
@@ -145,6 +146,9 @@ typedef struct PatternExpr_s {
       } * members;
       size_t members_len;
     } structExpr;
+    struct {
+      PatternExpr* value;
+    } groupExpr;
     struct {
       enum PatternExprUnaryOpKind_e {
         PEUOK_Not,

@@ -327,7 +327,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   // Return data
   // clang-format off
   *token = (Token) {
-    .kind = TK_StringLiteral,
+    .kind = TK_String,
       .string_literal = string,
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
@@ -439,7 +439,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
       goto CLEANUP;
     } else {
       // Return data
-      *token = (Token){.kind = TK_IntLiteral,
+      *token = (Token){.kind = TK_Int,
                        .span = SPAN(start, lexer->position),
                        .int_literal = integer_value,
                        .error = DK_Ok};
@@ -498,7 +498,7 @@ static void lexNumberLiteral(Lexer *lexer, Token *token) {
     }
 
     // Return data
-    *token = (Token){.kind = TK_FloatLiteral,
+    *token = (Token){.kind = TK_Float,
                      .float_literal = result,
                      .span = SPAN(start, lexer->position),
                      .error = DK_Ok};
@@ -630,10 +630,11 @@ EXIT_LOOP:;
                      .span = SPAN(start, lexer->position),
                      .error = DK_EOF};
     destroyVector(&data);
+    break;
   }
   case LCS_ExpectEnd: {
       // all paths through the expectEnd will end up with something pushed
-    *token = (Token){.kind = TK_CharLiteral,
+    *token = (Token){.kind = TK_Char,
                      .char_literal = *VEC_GET(&data, 0, char),
                      .span = SPAN(start, lexer->position),
                      .error = dk};

@@ -59,7 +59,6 @@ static JsonElem commentsJson(Comment *comments, size_t comments_len,
 static JsonElem stmntJson(Stmnt *s, Arena *ja);
 static JsonElem typeExprJson(TypeExpr *tep, Arena *ja);
 static JsonElem valueExprJson(ValueExpr *vep, Arena *ja);
-static JsonElem constExprJson(ConstExpr *cep, Arena *ja);
 static JsonElem patternExprJson(PatternExpr *pep, Arena *ja);
 static JsonElem builtinJson(Builtin *bp, Arena *ja);
 static JsonElem
@@ -108,6 +107,13 @@ static JsonElem patternExprJson(PatternExpr *pp, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("PEK_None"));
     break;
   }
+  case PEK_Group: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("PEK_Group"));
+    ptrs[4] = KVJson("value", patternExprJson(pp->groupExpr.value, ja));
+    break;
+  }
   case PEK_ValueRestriction: {
     ptrs_len = 6;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
@@ -141,7 +147,7 @@ static JsonElem patternExprJson(PatternExpr *pp, Arena *ja) {
     }
     ptrs[4] = KVJson("restriction", strJson(pevrk));
     ptrs[5] =
-        KVJson("value", constExprJson(pp->valueRestriction.constExpr, ja));
+        KVJson("value", valueExprJson(pp->valueRestriction.valueExpr, ja));
     break;
   }
   case PEK_TypeRestriction: {
@@ -166,14 +172,6 @@ static JsonElem patternExprJson(PatternExpr *pp, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("PEK_UnaryOp"));
     char *peuok;
     switch (pp->unaryOp.operator) {
-    case PEUOK_Posit: {
-      peuok = "PEUOK_Posit";
-      break;
-    }
-    case PEUOK_Negate: {
-      peuok = "PEUOK_Negate";
-      break;
-    }
     case PEUOK_Not: {
       peuok = "PEUOK_Not";
       break;
@@ -250,66 +248,6 @@ static JsonElem pathJson(Path *pp, Arena *ja) {
   }
   ptrs[3] =
       KVJson("path_segments", arrDefJson(path_ptrs, pp->pathSegments_len));
-  return objDefJson(ptrs, ptrs_len);
-}
-
-static JsonElem constExprJson(ConstExpr *cep, Arena *ja) {
-  if (cep == NULL) {
-    return nullJson();
-  }
-  size_t ptrs_len = 0;
-  JsonKV *ptrs = NULL;
-  // 1 reserved for span
-  // 2 reserved for diagnostic
-  // 3 reserved for comments
-  switch (cep->kind) {
-  case CEK_None: {
-    ptrs_len = 4;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("CEK_None"));
-    break;
-  }
-  case CEK_BoolLiteral: {
-    ptrs_len = 5;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("CEK_BoolLiteral"));
-    ptrs[4] = KVJson("value", boolJson(cep->boolLiteral.value));
-    break;
-  }
-  case CEK_IntLiteral: {
-    ptrs_len = 5;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("CEK_IntLiteral"));
-    ptrs[4] = KVJson("value", intJson(cep->intLiteral.value));
-    break;
-  }
-  case CEK_CharLiteral: {
-    ptrs_len = 5;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("CEK_CharLiteral"));
-    ptrs[4] = KVJson("value", intJson((uint64_t)cep->charLiteral.value));
-    break;
-  }
-  case CEK_FloatLiteral: {
-    ptrs_len = 5;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("CEK_FloatLiteral"));
-    ptrs[4] = KVJson("value", numJson(cep->floatLiteral.value));
-    break;
-  }
-  case CEK_ValueExpr: {
-    ptrs_len = 5;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("CEK_FloatLiteral"));
-    ptrs[4] = KVJson("value", valueExprJson(cep->valueExpr.expr, ja));
-    break;
-  }
-  }
-  ptrs[1] = KVJson("span", spanJson(cep->span, ja));
-  ptrs[2] = KVJson("diagnostics",
-                   diagnosticsJson(cep->diagnostics, cep->diagnostics_len, ja));
-  ptrs[3] =
-      KVJson("comments", commentsJson(cep->comments, cep->comments_len, ja));
   return objDefJson(ptrs, ptrs_len);
 }
 
@@ -557,11 +495,38 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     ptrs[0] = KVJson("kind", strJson("VEK_None"));
     break;
   }
-  case VEK_ConstExpr: {
+  case VEK_VoidLiteral: {
+    ptrs_len = 4;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("VEK_VoidLiteral"));
+    break;
+  }
+  case VEK_BoolLiteral: {
     ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("VEK_ConstExpr"));
-    ptrs[4] = KVJson("value", constExprJson(vep->constExpr.constExpr, ja));
+    ptrs[0] = KVJson("kind", strJson("VEK_BoolLiteral"));
+    ptrs[4] = KVJson("value", boolJson(vep->boolLiteral.value));
+    break;
+  }
+  case VEK_IntLiteral: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("VEK_IntLiteral"));
+    ptrs[4] = KVJson("value", intJson(vep->intLiteral.value));
+    break;
+  }
+  case VEK_CharLiteral: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("VEK_CharLiteral"));
+    ptrs[4] = KVJson("value", intJson((uint64_t)vep->charLiteral.value));
+    break;
+  }
+  case VEK_FloatLiteral: {
+    ptrs_len = 5;
+    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
+    ptrs[0] = KVJson("kind", strJson("VEK_FloatLiteral"));
+    ptrs[4] = KVJson("value", numJson(vep->floatLiteral.value));
     break;
   }
   case VEK_StringLiteral: {
@@ -745,26 +710,17 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     ptrs[5] = KVJson("arguments", arrDefJson(array, len));
     break;
   }
-  case VEK_If: {
-    ptrs_len = 8;
+  case VEK_Loop: {
+    ptrs_len = 7;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("VEK_If"));
-    ptrs[4] = KVJson("condition", valueExprJson(vep->ifExpr.condition, ja));
-    ptrs[5] = KVJson("body", valueExprJson(vep->ifExpr.body, ja));
-    ptrs[6] = KVJson("has_else", boolJson(vep->ifExpr.has_else));
-    if (vep->ifExpr.has_else) {
-      ptrs[7] = KVJson("else_body", valueExprJson(vep->ifExpr.else_body, ja));
+    ptrs[0] = KVJson("kind", strJson("VEK_Loop"));
+    ptrs[4] = KVJson("value", valueExprJson(vep->loopExpr.value, ja));
+    ptrs[5] = KVJson("has_label", boolJson(vep->loopExpr.has_label));
+    if(vep->loopExpr.has_label) {
+      ptrs[6] = KVJson("label", strJson(internArena(ja, vep->loopExpr.label)));
     } else {
-      ptrs[7] = KVJson("else_body", nullJson());
+      ptrs[6] = KVJson("label", nullJson());
     }
-    break;
-  }
-  case VEK_While: {
-    ptrs_len = 6;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("VEK_While"));
-    ptrs[4] = KVJson("condition", valueExprJson(vep->ifExpr.condition, ja));
-    ptrs[5] = KVJson("body", valueExprJson(vep->ifExpr.body, ja));
     break;
   }
   case VEK_Builtin: {
@@ -789,28 +745,23 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
     ptrs[5] = KVJson("type", typeExprJson(vep->asExpr.type, ja));
     break;
   }
-  case VEK_Break: {
+  case VEK_Continue: {
     ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
-    ptrs[0] = KVJson("kind", strJson("VEK_Break"));
-    ptrs[4] = KVJson("value", valueExprJson(vep->breakExpr.value, ja));
-    break;
-  }
-  case VEK_Continue: {
-    ptrs_len = 4;
-    ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Continue"));
+    ptrs[4] = KVJson("label", strJson(internArena(ja, vep->continueExpr.label)));
     break;
   }
   case VEK_Return: {
-    ptrs_len = 5;
+    ptrs_len = 6;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Return"));
-    ptrs[4] = KVJson("value", valueExprJson(vep->returnExpr.value, ja));
+    ptrs[4] = KVJson("label", strJson(internArena(ja, vep->continueExpr.label)));
+    ptrs[5] = KVJson("value", valueExprJson(vep->returnExpr.value, ja));
     break;
   }
   case VEK_Match: {
-    ptrs_len = 6;
+    ptrs_len = 8;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Match"));
     ptrs[4] = KVJson("value", valueExprJson(vep->matchExpr.value, ja));
@@ -821,10 +772,17 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
       array[i] = matchCaseExprJson(&vep->matchExpr.cases[i], ja);
     }
     ptrs[5] = KVJson("cases", arrDefJson(array, len));
+    
+    ptrs[6] = KVJson("has_label", boolJson(vep->matchExpr.has_label));
+    if(vep->matchExpr.has_label) {
+      ptrs[7] = KVJson("label", strJson(internArena(ja, vep->matchExpr.label)));
+    } else {
+      ptrs[7] = KVJson("label", nullJson());
+    }
     break;
   }
   case VEK_Block: {
-    ptrs_len = 5;
+    ptrs_len = 7;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("VEK_Block"));
     // Embed array
@@ -834,6 +792,12 @@ static JsonElem valueExprJson(ValueExpr *vep, Arena *ja) {
       array[i] = stmntJson(&vep->blockExpr.statements[i], ja);
     }
     ptrs[4] = KVJson("statements", arrDefJson(array, len));
+    ptrs[5] = KVJson("has_label", boolJson(vep->blockExpr.has_label));
+    if(vep->matchExpr.has_label) {
+      ptrs[6] = KVJson("label", strJson(internArena(ja, vep->blockExpr.label)));
+    } else {
+      ptrs[6] = KVJson("label", nullJson());
+    }
     break;
   }
   case VEK_FieldAccess: {

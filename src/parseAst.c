@@ -894,6 +894,10 @@ static void parseL1ValueExpr(ValueExpr *l1, Parser *parser) {
     certain_parseCharValueExpr(l1, parser);
     break;
   }
+  case TK_Void: {
+    certain_parseVoidValueExpr(l1, parser);
+    break;
+  }
   case TK_Builtin: {
     certain_parseBuiltinValueExpr(l1, parser);
     break;
@@ -2000,7 +2004,36 @@ CLEANUP:
 }
 
 static void certain_parseGroupPatternExpr(PatternExpr *gpep, Parser *parser) {
+  ZERO(gpep);
+  gpep->kind = PEK_Group;
+  Token t;
+  nextTokenParser(parser, &t);
+  assert(t.kind == TK_BraceLeft);
+  LnCol start = t.span.start;
+  LnCol end;
 
+  gpep->groupExpr.value = RALLOC(parser->ar, PatternExpr);
+  parsePatternExpr(gpep->groupExpr.value, parser);
+
+  Diagnostic diagnostic;
+  diagnostic.kind = DK_Ok;
+
+  nextTokenParser(parser, &t);
+  if (t.kind != TK_BraceRight) {
+    diagnostic = DIAGNOSTIC(DK_PatternGroupExpectedRightBrace, t.span);
+    end = t.span.end;
+  } else {
+    end = gpep->groupExpr.value->span.end;
+  }
+
+  if (diagnostic.kind == DK_Ok) {
+    gpep->diagnostics_len = 0;
+  } else {
+    gpep->diagnostics_len = 1;
+    gpep->diagnostics = RALLOC(parser->ar, Diagnostic);
+    *gpep->diagnostics = diagnostic;
+  }
+  gpep->span = SPAN(start, end);
 }
 
 static void parseL1PatternExpr(PatternExpr *l1, Parser *parser) {

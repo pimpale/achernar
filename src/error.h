@@ -111,7 +111,7 @@ void logInternalError(uint32_t line, const char *func, const char *fmt, ...);
 
 #define UNUSED(x) (void)(x)
 #define ZERO(ptr) (memset(ptr, 0, sizeof(*ptr)))
-#define PANIC() exit(EXIT_FAILURE)
+#define PANIC() abort()
 #define INTERNAL_ERROR(msg) logInternalError(__LINE__, __func__, msg)
 
 #endif

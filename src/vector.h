@@ -105,9 +105,4 @@ size_t capacityVector(Vector *vec);
 #define VEC_POP(vector, data, type) popVector(vector, (data), sizeof(type))
 #define VEC_LEN(vector, type) (lengthVector(vector) / sizeof(type))
 
-/// REQUIRES: referentially transparent arguments ONLY (this macro evaluates its
-/// arguments multiple times) REQUIRES: there is at least one element of type
-/// `type` in `vector`
-#define VEC_PEEK(vector, type) VEC_GET(vector, VEC_LEN(vector, type) - 1, type)
-
 #endif

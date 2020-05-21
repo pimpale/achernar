@@ -98,15 +98,15 @@ RETURN:
 //    current scope
 // If has an ungotten token, return that. Else return next in line, and cache it
 static void nextTokenParser(Parser *pp, Token *t) {
+  // the current scope we aim to push the comments to
+  size_t top_index = VEC_LEN(&pp->comments, Vector);
+  assert(top_index > 0);
+  Vector *current_scope = VEC_GET(&pp->comments, top_index - 1, Vector);
   if (VEC_LEN(&pp->next_tokens_stack, Token) != 0) {
     // set the token
     VEC_POP(&pp->next_tokens_stack, t, Token);
 
-    // merge the next comments
-
-    // the current scope we aim to push the comments to
-    Vector *current_scope = VEC_PEEK(&pp->comments, Vector);
-
+    // now merge the next comments
     // Vector containing all tokens for the next one
     Vector next_token_comments;
     VEC_POP(&pp->next_comments_stack, &next_token_comments, Vector);
@@ -115,20 +115,17 @@ static void nextTokenParser(Parser *pp, Token *t) {
     size_t next_comments_len = lengthVector(&next_token_comments);
     popVector(&next_token_comments,
               pushVector(current_scope, next_comments_len), next_comments_len);
-
     // free next_token_comments
     destroyVector(&next_token_comments);
   } else {
-    rawNextTokenParser(pp, t, VEC_PEEK(&pp->comments, Vector));
+    rawNextTokenParser(pp, t, current_scope);
   }
 }
 
 // gets the k'th token
 // K must be greater than 0
 static void peekNthTokenParser(Parser *pp, Token *t, size_t k) {
-
   assert(k > 0);
-
   for (size_t i = VEC_LEN(&pp->next_tokens_stack, Token); i < k; i++) {
     // allocate mem for next token
     Token *next_token = VEC_PUSH(&pp->next_tokens_stack, Token);
@@ -152,7 +149,7 @@ static void peekTokenParser(Parser *parser, Token *t) {
 /// GUARANTEES: return value is the topmost element of the comment stack
 /// GUARANTEES: the topmost element fo the comment stack has been removed
 static Vector popCommentScopeParser(Parser *parser) {
-  assert(VEC_LEN(&parser->comments, Vector) > 1);
+  assert(VEC_LEN(&parser->comments, Vector) >= 1);
   Vector v;
   VEC_POP(&parser->comments, &v, Vector);
   return v;
@@ -1886,17 +1883,14 @@ static void certain_parseTypeRestrictionPatternExpr(PatternExpr *trpe,
 static void
 parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
                              Parser *parser) {
+  pushCommentScopeParser(parser);
   ZERO(psmep);
-
-  Token t;
-  nextTokenParser(parser, &t);
-
-  LnCol start = t.span.end;
-  LnCol end;
-
   Diagnostic diagnostic;
   diagnostic.kind = DK_Ok;
-
+  Token t;
+  nextTokenParser(parser, &t);
+  LnCol start = t.span.end;
+  LnCol end;
   switch (t.kind) {
   case TK_Rest: {
     psmep->kind = PSMEK_Rest;
@@ -1930,8 +1924,6 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
   parsePatternExpr(psmep->pattern, parser);
 
   end = psmep->pattern->span.end;
-
-  nextTokenParser(parser, &t);
 
   if (psmep->pattern->kind == PEK_ValueRestriction && has_assign) {
     diagnostic =

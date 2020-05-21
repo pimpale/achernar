@@ -28,7 +28,6 @@ typedef enum {
   VEK_IntLiteral,
   VEK_FloatLiteral,
   VEK_CharLiteral,
-  VEK_ValueExpr,
   VEK_Fn,
   VEK_Loop,
   VEK_As,

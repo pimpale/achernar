@@ -6,4 +6,10 @@ match MATCHABLE_VARIABLE {
   pat x,y => "compound match"
   pat x, ==5, z => "coolmatch"
   pat >2,<2 => "first elem >2 and next less than"
+  pat { TEST } => "grouped expr"
+  pat struct {
+    ELEM1 == 5
+    ELEM2 = :float
+    ELEM3 = x
+  } => dofunction(x)
 }

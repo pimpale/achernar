@@ -210,7 +210,7 @@ static JsonElem patternExprJson(PatternExpr *pp, Arena *ja) {
     break;
   }
   case PEK_Struct: {
-    ptrs_len = 4;
+    ptrs_len = 5;
     ptrs = RALLOC_ARR(ja, ptrs_len, JsonKV);
     ptrs[0] = KVJson("kind", strJson("PEK_Struct"));
     size_t members_len = pp->structExpr.members_len;

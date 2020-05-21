@@ -601,7 +601,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
         break;
       }
       default: {
-        *VEC_PUSH(&data, char) = c;
+        *VEC_PUSH(&data, char) = (char)c;
         dk = DK_CharLiteralUnrecognizedEscapeCode;
         break;
       }

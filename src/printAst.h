@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "ast.h"
-#include "parseAst.h"
+#include "parse.h"
 
 typedef struct {
   Parser *parser;

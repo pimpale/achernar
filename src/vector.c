@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "error.h"
 
@@ -57,10 +58,7 @@ void *releaseVector(Vector *vector) {
 }
 
 void *getVector(Vector *vector, size_t loc) {
-  if (loc > vector->length) {
-    INTERNAL_ERROR("out of bounds");
-    PANIC();
-  }
+  assert(loc < vector->length);
   uint8_t *data = vector->data;
   return data + loc;
 }
@@ -70,10 +68,7 @@ void *pushVector(Vector *vector, size_t len) {
 }
 
 void popVector(Vector *vector, void *data, size_t len) {
-  if (len > vector->length) {
-    INTERNAL_ERROR("vector underflow");
-    PANIC();
-  }
+  assert(len <= vector->length);
   removeVector(vector, data, vector->length - len, len);
 }
 
@@ -93,11 +88,7 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
 }
 
 void removeVector(Vector *vector, void *data, size_t loc, size_t len) {
-  if (len > vector->length - loc) {
-    INTERNAL_ERROR("vector underflow");
-    PANIC();
-  }
-
+  assert(len <= vector->length - loc);
   uint8_t *src = getVector(vector, loc + len);
   uint8_t *dest = getVector(vector, loc);
 

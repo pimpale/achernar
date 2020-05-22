@@ -1,0 +1,20 @@
+let counting_sort = fn[T](array:T&,usize min:T max:T): T&,usize => {
+  let count_arr = malloc[i32](max - min)
+  for! i in range(0 max-min){
+    {count_arr+i}@ = 0
+  }
+  for! x in arr->iter() {
+    {count_arr + x - min}@ += 1
+  }
+
+  let z = 0
+
+  for! i in range(min max) {
+    while! {count_arr + i - min}@ > 0 {
+      {array + z}@ = i
+      z += 1
+      {count + i - min}@ -= 1
+    }
+  }
+  array
+}

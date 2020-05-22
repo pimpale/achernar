@@ -2,7 +2,7 @@
 
 #include "arena.h"
 #include "lexer.h"
-#include "parseAst.h"
+#include "parse.h"
 #include "printAst.h"
 #include <stdio.h>
 

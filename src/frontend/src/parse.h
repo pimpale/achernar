@@ -1,7 +1,8 @@
-#ifndef PARSE_AST_H_
-#define PARSE_AST_H_
+#ifndef PARSE_H_
+#define PARSE_H_
 
 #include "ast.h"
+#include "lexer.h"
 
 typedef struct Parser_s {
   Arena *ar;

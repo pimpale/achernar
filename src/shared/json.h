@@ -53,4 +53,8 @@ JsonElem objDefJson(JsonKV *ptr, size_t len);
 
 char *toStringJsonElem(JsonElem *j);
 
+// Parse JSON
+
+bool 
+
 #endif

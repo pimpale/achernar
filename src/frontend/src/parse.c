@@ -8,7 +8,7 @@
 #include "ast.h"
 #include "error.h"
 #include "json.h"
-#include "lexer.h"
+#include "lex.h"
 #include "token.h"
 #include "vector.h"
 

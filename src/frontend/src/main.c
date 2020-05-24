@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "arena.h"
-#include "lexer.h"
+#include "lex.h"
 #include "parse.h"
 #include "printAst.h"
 #include <stdio.h>

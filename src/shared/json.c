@@ -42,6 +42,8 @@ JsonElem objDefJson(JsonKV *ptr, size_t len) {
                     .object = {.values = (ptr), .length = (len)}};
 }
 
+// JSON TO STRING
+
 static void pushCharJson(Vector *vptr, char c) { *VEC_PUSH(vptr, char) = c; }
 
 // Checks for special characters
@@ -177,3 +179,8 @@ char *toStringJsonElem(JsonElem *j) {
   pushCharJson(&data, '\0');
   return releaseVector(&data);
 }
+
+// Lexer to JSON
+
+char *
+

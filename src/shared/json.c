@@ -553,35 +553,54 @@ static void certain_parseArrayJson(JsonElem *je, Lexer *l, Vector *diagnostics) 
   Vector elems;
   createVector(&elems);
 
-  //parse first elem
-    skipWhitespace(l);
-    int32_t c = peekValueLexer(l);
-    switch(c) {
-        case ']': {
-            goto CLEANUP;
-    }
-    case ',': {
-        // no element
-        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = JSONPARSEDIAGNOSTIC(JPDK_JsonArrayExpectedJsonElem, l->position);
-        break;
-    }
-    default: {
-      JsonElem* elem = VEC_PUSH(&elems, JsonElem);
-      parseJsonElem(elem, l, diagnostics);
-      break;
-    }
+  typedef enum {
+      ArrayParseExpectCommaOrEnd,
+      ArrayParseExpectElem,
+  } ArrayParseState;
 
-  while (true) {
-    skipWhitespace(l);
-    int32_t c = peekValueLexer(l);
-    // if the next char is a comma, we know to expect another elem
-    if(c != ',') {
-      skipWhitespace(l);
-      JsonElem* elem = VEC_PUSH(&elems, JsonElem);
-      parseJsonElem(elem, l, diagnostics);
-    }
+  ArrayParseState state = ArrayParseExpectCommaOrEnd;
+
+  while(true) {
+      switch(state) {
+        case ArrayParseExpectCommaOrEnd: {
+        skipWhitespace(l);
+        int32_t c = peekValueLexer(l);
+        switch(c) {
+        case ',': {
+            nextValueLexer(l);
+          state = ArrayParseExpectElem;
+          break;
+        }
+        case ']': {
+            nextValueLexer(l);
+          goto CLEANUP;
+        }
+        case EOF: {
+            *VEC_PUSH(diagnostics, JsonParseDiagnostic) = 
+            JSONPARSEDIAGNOSTIC(JPDK_JsonArrayExpectedRightBracket, l->position);
+            goto CLEANUP;
+        }
+        default: {
+            *VEC_PUSH(diagnostics, JsonParseDiagnostic) = 
+            JSONPARSEDIAGNOSTIC(JPDK_JsonArrayExpectedRightBracket, l->position);
+            nextValueLexer(l);
+            break;
+        }
+      break;
+      }
+      case ArrayParseExpectElem: {
+          skipWhitespace(l);
+        JsonElem* elemptr = VEC_PUSH(elems, JsonElem)
+        parseJsonElem(elemptr, l, diagnostics);
+        state = ArrayParseExpectCommaOrEnd;
+        break;
+      }
+      }
   }
 
+  CLEANUP:
+   size_t len = VEC_LEN(elems, JsonElem);
+  *je = arrDefJson(manageMemArena(l->ar, releaseVector(elems)), len);
 }
 
 void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics) {

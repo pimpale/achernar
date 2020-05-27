@@ -35,4 +35,7 @@ void createLexerFile(Lexer *lexer, FILE *file, Arena *ar);
 void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Arena *ar);
 Arena *releaseLexer(Lexer *lexer);
 
+int32_t nextValueLexer(Lexer *lexer);
+int32_t peekValueLexer(Lexer *lexer);
+
 #endif

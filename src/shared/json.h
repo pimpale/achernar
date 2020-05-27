@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lexer.h"
+
 typedef enum {
   JE_boolean,
   JE_integer,
@@ -55,6 +57,6 @@ char *toStringJsonElem(JsonElem *j);
 
 // Parse JSON
 
-bool 
+void parseJsonElem(JsonElem *je, Lexer *l, Vector* diagnostics);
 
 #endif

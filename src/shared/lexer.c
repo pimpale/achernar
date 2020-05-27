@@ -1,5 +1,6 @@
 #include "lexer.h"
 
+#include <stdlib.h>
 #include <stdint.h>
 
 void createLexerFile(Lexer *lexer, FILE *file, Arena *ar) {

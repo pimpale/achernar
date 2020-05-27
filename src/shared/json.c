@@ -1,5 +1,6 @@
 #include "json.h"
 #include "arena.h"
+#include "error.h"
 #include "vector.h"
 
 #include <inttypes.h>
@@ -180,7 +181,65 @@ char *toStringJsonElem(JsonElem *j) {
   return releaseVector(&data);
 }
 
+// Parsing
+
+void parseJsonKV(JsonKV *jkv, Lexer *l, Vector *diagnostics) {}
+
 // Lexer to JSON
-
-char *
-
+void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics) {
+  while (true) {
+    int32_t c = peekValueLexer(l);
+    switch (c) {
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+    case '-': {
+      certain_parseNumberJson(je, l, diagnostics);
+      return;
+    }
+    case 't':
+    case 'f': {
+      certain_parseBoolJson(je, l, diagnostics);
+      return;
+    }
+    case 'n': {
+      certain_parseNullJson(je, l, diagnostics);
+      return;
+    }
+    case '\"': {
+      certain_parseString(je, l, diagnostics);
+      return;
+    }
+    case '[': {
+      certain_parseArrayJson(je, l, diagnostics);
+      return;
+    }
+    case '{': {
+      certain_parseObjectJson(je, l, diagnostics);
+      return;
+    }
+    case ' ':
+    case '\t':
+    case '\n': {
+      // discard whitespace
+      nextValueLexer(l);
+      break;
+    }
+    case EOF: {
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_Eof, SPAN(l->position, l->position));
+      return;
+    }
+    default: {
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_LabelUnknownCharacter, SPAN(l->position, l->position));
+      return;
+    }
+  }}

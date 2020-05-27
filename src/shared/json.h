@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lncol.h"
 #include "lexer.h"
 
 typedef enum {
@@ -26,7 +27,10 @@ typedef struct JsonElem_s {
     bool boolean;
     uint64_t integer;
     double number;
-    char *string;
+    struct {
+      char *string;
+      size_t length;
+    } string;
     struct {
       JsonElem *values;
       size_t length;
@@ -49,13 +53,32 @@ JsonElem nullJson(void);
 JsonElem boolJson(bool x);
 JsonElem intJson(uint64_t x);
 JsonElem numJson(double x);
-JsonElem strJson(char *x);
+JsonElem strJson(char *x, size_t len);
 JsonElem arrDefJson(JsonElem *ptr, size_t len);
 JsonElem objDefJson(JsonKV *ptr, size_t len);
 
 char *toStringJsonElem(JsonElem *j);
 
 // Parse JSON
+// JSON Parsing errors
+typedef enum JsonParseDiagnosticKind_e {
+  JPDK_JsonStringExpectedDoubleQuote,
+  JPDK_JsonStringInvalidControlChar,
+  JPDK_JsonStringInvalidUnicodeSpecifier,
+  JPDK_JsonMalformedLiteral,
+  JPDK_JsonNumberExponentExpectedSign,
+  JPDK_JsonArrayExpectedRightBracket,
+  JPDK_JsonArrayExpectedJsonElem,
+  JPDK_JsonObjExpectedRightBrace,
+  JPDK_JsonObjExpectedJsonKV,
+} JsonParseDiagnosticKind ;
+
+typedef struct JsonParseDiagnostic_s {
+  JsonParseDiagnosticKind kind;
+  LnCol loc;
+} JsonParseDiagnostic;
+
+#define JSONPARSEDIAGNOSTIC(k, l) ((JsonParseDiagnostic) { .kind=k, .loc=l})
 
 void parseJsonElem(JsonElem *je, Lexer *l, Vector* diagnostics);
 

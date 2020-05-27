@@ -13,235 +13,234 @@ char *strDiagnosticKind(DiagnosticKind dk) {
   switch (dk) {
 
   case DK_Ok: {
-      errmsg = "Ok";
-      break;
+    errmsg = "Ok";
+    break;
   }
   case DK_Unknown: {
-      errmsg = "Unknown";
-      break;
+    errmsg = "Unknown";
+    break;
   }
   case DK_EOF: {
-      errmsg = "EOF";
-      break;
+    errmsg = "EOF";
+    break;
   }
   case DK_UnrecognizedCharacter: {
-      errmsg = "UnrecognizedCharacter";
-      break;
+    errmsg = "UnrecognizedCharacter";
+    break;
   }
   case DK_BuiltinExpectedLeftParen: {
-      errmsg = "BuiltinExpectedLeftParen";
-      break;
+    errmsg = "BuiltinExpectedLeftParen";
+    break;
   }
   case DK_BuiltinExpectedRightParen: {
-      errmsg = "BuiltinExpectedRightParen";
-      break;
+    errmsg = "BuiltinExpectedRightParen";
+    break;
   }
   case DK_IntLiteralUnrecognizedRadixCode: {
-      errmsg = "IntLiteralUnrecognizedRadixCode";
-      break;
+    errmsg = "IntLiteralUnrecognizedRadixCode";
+    break;
   }
   case DK_IntLiteralDigitExceedsRadix: {
-      errmsg = "IntLiteralDigitExceedsRadix";
-      break;
+    errmsg = "IntLiteralDigitExceedsRadix";
+    break;
   }
   case DK_IntLiteralOverflow: {
-      errmsg = "IntLiteralOverflow";
-      break;
+    errmsg = "IntLiteralOverflow";
+    break;
   }
   case DK_IntLiteralUnknownCharacter: {
-      errmsg = "IntLiteralUnknownCharacter";
-      break;
+    errmsg = "IntLiteralUnknownCharacter";
+    break;
   }
   case DK_FloatLiteralDigitExceedsRadix: {
-      errmsg = "FloatLiteralDigitExceedsRadix";
-      break;
+    errmsg = "FloatLiteralDigitExceedsRadix";
+    break;
   }
   case DK_FloatLiteralExceedsMaxPrecision: {
-      errmsg = "FloatLiteralExceedsMaxPrecision";
-      break;
+    errmsg = "FloatLiteralExceedsMaxPrecision";
+    break;
   }
   case DK_CharLiteralUnrecognizedEscapeCode: {
-      errmsg = "CharLiteralUnrecognizedEscapeCode";
-      break;
+    errmsg = "CharLiteralUnrecognizedEscapeCode";
+    break;
   }
   case DK_LabelUnknownCharacter: {
-      errmsg = "LabelUnknownCharacter";
-      break;
+    errmsg = "LabelUnknownCharacter";
+    break;
   }
   case DK_ConstExprUnrecognizedLiteral: {
-      errmsg = "ConstExprUnrecognizedLiteral";
-      break;
+    errmsg = "ConstExprUnrecognizedLiteral";
+    break;
   }
   case DK_StringLiteralTooLong: {
-      errmsg = "StringLiteralTooLong";
-      break;
+    errmsg = "StringLiteralTooLong";
+    break;
   }
   case DK_StringLiteralUnrecognizedEscapeCode: {
-      errmsg = "StringLiteralUnrecognizedEscapeCode";
-      break;
+    errmsg = "StringLiteralUnrecognizedEscapeCode";
+    break;
   }
   case DK_StructLiteralExpectedEntry: {
-      errmsg = "StructLiteralExpectedEntry";
-      break;
+    errmsg = "StructLiteralExpectedEntry";
+    break;
   }
   case DK_StructLiteralExpectedRightBrace: {
-      errmsg = "StructLiteralExpectedRightBrace";
-      break;
+    errmsg = "StructLiteralExpectedRightBrace";
+    break;
   }
   case DK_StructLiteralExpectedLeftBrace: {
-      errmsg = "StructLiteralExpectedLeftBrace";
-      break;
+    errmsg = "StructLiteralExpectedLeftBrace";
+    break;
   }
   case DK_PathExpectedIdentifier: {
-      errmsg = "PathExpectedIdentifier";
-      break;
+    errmsg = "PathExpectedIdentifier";
+    break;
   }
   case DK_ReturnExpectedLabel: {
-      errmsg = "ReturnExpectedLabel";
-      break;
+    errmsg = "ReturnExpectedLabel";
+    break;
   }
   case DK_ContinueExpectedLabel: {
-      errmsg = "ContinueExpectedLabel";
-      break;
+    errmsg = "ContinueExpectedLabel";
+    break;
   }
   case DK_StructMemberExpectedType: {
-      errmsg = "StructMemberExpectedType";
-      break;
+    errmsg = "StructMemberExpectedType";
+    break;
   }
   case DK_StructMemberExpectedIdentifier: {
-      errmsg = "StructMemberExpectedIdentifier";
-      break;
+    errmsg = "StructMemberExpectedIdentifier";
+    break;
   }
   case DK_StructMemberLiteralExpectedValue: {
-      errmsg = "StructMemberLiteralExpectedValue";
-      break;
+    errmsg = "StructMemberLiteralExpectedValue";
+    break;
   }
   case DK_StructMemberLiteralExpectedIdentifier: {
-      errmsg = "StructMemberLiteralExpectedIdentifier";
-      break;
+    errmsg = "StructMemberLiteralExpectedIdentifier";
+    break;
   }
   case DK_FnValueExprExpectedRightParen: {
-      errmsg = "FnValueExprExpectedRightParen";
-      break;
+    errmsg = "FnValueExprExpectedRightParen";
+    break;
   }
   case DK_FnValueExprExpectedLeftParen: {
-      errmsg = "FnValueExprExpectedLeftParen";
-      break;
+    errmsg = "FnValueExprExpectedLeftParen";
+    break;
   }
   case DK_FnValueExprExpectedArrow: {
-      errmsg = "FnValueExprExpectedArrow";
-      break;
+    errmsg = "FnValueExprExpectedArrow";
+    break;
   }
   case DK_TypeExprUnexpectedToken: {
-      errmsg = "TypeExprUnexpectedToken";
-      break;
+    errmsg = "TypeExprUnexpectedToken";
+    break;
   }
   case DK_TypeExprFieldAccessExpectedIdentifier: {
-      errmsg = "TypeExprFieldAccessExpectedIdentifier";
-      break;
+    errmsg = "TypeExprFieldAccessExpectedIdentifier";
+    break;
   }
   case DK_PatternGroupExpectedLeftBrace: {
-      errmsg = "PatternGroupExpectedLeftBrace";
-      break;
+    errmsg = "PatternGroupExpectedLeftBrace";
+    break;
   }
   case DK_PatternGroupExpectedRightBrace: {
-      errmsg = "PatternGroupExpectedRightBrace";
-      break;
+    errmsg = "PatternGroupExpectedRightBrace";
+    break;
   }
   case DK_PatternStructExpectedLeftBrace: {
-      errmsg = "PatternStructExpectedLeftBrace";
-      break;
+    errmsg = "PatternStructExpectedLeftBrace";
+    break;
   }
   case DK_PatternStructExpectedRightBrace: {
-      errmsg = "PatternStructExpectedRightBrace";
-      break;
+    errmsg = "PatternStructExpectedRightBrace";
+    break;
   }
   case DK_PatternStructExpectedIdentifier: {
-      errmsg = "PatternStructExpectedIdentifier";
-      break;
+    errmsg = "PatternStructExpectedIdentifier";
+    break;
   }
   case DK_PatternStructUnexpectedAssignForValueRestriction: {
-      errmsg = "PatternStructUnexpectedAssignForValueRestriction";
-      break;
+    errmsg = "PatternStructUnexpectedAssignForValueRestriction";
+    break;
   }
   case DK_PatternStructExpectedAssignForNonValueRestriction: {
-      errmsg = "PatternStructExpectedAssignForNonValueRestriction";
-      break;
+    errmsg = "PatternStructExpectedAssignForNonValueRestriction";
+    break;
   }
   case DK_ValDeclExpectedAssign: {
-      errmsg = "ValDeclExpectedAssign";
-      break;
+    errmsg = "ValDeclExpectedAssign";
+    break;
   }
   case DK_ValDeclExpectedValue: {
-      errmsg = "ValDeclExpectedValue";
-      break;
+    errmsg = "ValDeclExpectedValue";
+    break;
   }
   case DK_TypeDeclExpectedIdentifier: {
-      errmsg = "TypeDeclExpectedIdentifier";
-      break;
+    errmsg = "TypeDeclExpectedIdentifier";
+    break;
   }
   case DK_TypeDeclExpectedAssign: {
-      errmsg = "TypeDeclExpectedAssign";
-      break;
+    errmsg = "TypeDeclExpectedAssign";
+    break;
   }
   case DK_StructExpectedLeftBrace: {
-      errmsg = "StructExpectedLeftBrace";
-      break;
+    errmsg = "StructExpectedLeftBrace";
+    break;
   }
   case DK_StructExpectedRightBrace: {
-      errmsg = "StructExpectedRightBrace";
-      break;
+    errmsg = "StructExpectedRightBrace";
+    break;
   }
   case DK_FnTypeExprExpectedLeftParen: {
-      errmsg = "FnTypeExprExpectedLeftParen";
-      break;
+    errmsg = "FnTypeExprExpectedLeftParen";
+    break;
   }
   case DK_FnTypeExprExpectedRightParen: {
-      errmsg = "FnTypeExprExpectedRightParen";
-      break;
+    errmsg = "FnTypeExprExpectedRightParen";
+    break;
   }
   case DK_FnTypeExprExpectedColon: {
-      errmsg = "FnTypeExprExpectedColon";
-      break;
+    errmsg = "FnTypeExprExpectedColon";
+    break;
   }
   case DK_MatchCaseNoArrow: {
-      errmsg = "MatchCaseNoArrow";
-      break;
+    errmsg = "MatchCaseNoArrow";
+    break;
   }
   case DK_MatchCaseNoPat: {
-      errmsg = "MatchCaseNoPat";
-      break;
+    errmsg = "MatchCaseNoPat";
+    break;
   }
   case DK_MatchNoLeftBrace: {
-      errmsg = "MatchNoLeftBrace";
-      break;
+    errmsg = "MatchNoLeftBrace";
+    break;
   }
   case DK_MatchNoRightBrace: {
-      errmsg = "MatchNoRightBrace";
-      break;
+    errmsg = "MatchNoRightBrace";
+    break;
   }
   case DK_MatchNoComma: {
-      errmsg = "MatchNoComma";
-      break;
+    errmsg = "MatchNoComma";
+    break;
   }
   case DK_BlockExpectedRightBrace: {
-      errmsg = "BlockExpectedRightBrace";
-      break;
+    errmsg = "BlockExpectedRightBrace";
+    break;
   }
   case DK_CallExpectedParen: {
-      errmsg = "CallExpectedParen";
-      break;
+    errmsg = "CallExpectedParen";
+    break;
   }
   case DK_UnexpectedToken: {
-      errmsg = "UnexpectedToken";
-      break;
+    errmsg = "UnexpectedToken";
+    break;
   }
   case DK_FieldAccessExpectedIdentifier: {
-      errmsg = "FieldAccessExpectedIdentifier";
-      break;
+    errmsg = "FieldAccessExpectedIdentifier";
+    break;
   }
-
- }
+  }
   return errmsg;
 }
 

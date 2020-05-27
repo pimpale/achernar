@@ -62,6 +62,8 @@ char *toStringJsonElem(JsonElem *j);
 // Parse JSON
 // JSON Parsing errors
 typedef enum JsonParseDiagnosticKind_e {
+  JPDK_JsonElemEof,
+  JPDK_JsonElemUnknownCharacter,
   JPDK_JsonStringExpectedDoubleQuote,
   JPDK_JsonStringInvalidControlChar,
   JPDK_JsonStringInvalidUnicodeSpecifier,

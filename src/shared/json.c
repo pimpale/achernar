@@ -112,6 +112,14 @@ static void emitNumberJson(Vector *vptr, double number) {
   unchecked_emitStrJson(vptr, str, strlen(str));
 }
 
+static char toHex(uint8_t x) {
+  if (x < 10) {
+    return '0' + x;
+  } else {
+    return 'a' + x;
+  }
+}
+
 // Checks for special characters
 static void emitStrJson(Vector *vptr, char *str, size_t len) {
   unchecked_emitCharJson(vptr, '\"');
@@ -162,15 +170,17 @@ static void emitStrJson(Vector *vptr, char *str, size_t len) {
     }
     default: {
       if (c <= 0x001F) {
-        char *ptr = pushVector(vptr, sizeof(char) * 4);
+        char *ptr = pushVector(vptr, sizeof(char) * 6);
         ptr[0] = '\\';
         ptr[1] = 'u';
         ptr[2] = '0';
         ptr[3] = '0';
-        ptr[4] = '0' + c / 16;
-        ptr[4] = '0' + c % 16;
+        ptr[4] = toHex(c / 16);
+        ptr[5] = toHex(c % 16);
+      } else {
+        *VEC_PUSH(vptr, char) = c;
       }
-      *VEC_PUSH(vptr, char) = c;
+      break;
     }
     }
   }
@@ -511,48 +521,16 @@ void certain_parseStringJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
     }
     }
   }
-  LOOPEND:
+LOOPEND:
   *VEC_PUSH(&data, char) = '\0';
   size_t len = VEC_LEN(&data, char) - 1;
   *je = strJson(manageMemArena(l->ar, releaseVector(&data)), len);
   return;
 }
-void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics) {
+
+static void skipWhitespace(Lexer *l) {
   while (true) {
-    int32_t c = peekValueLexer(l);
-    switch (c) {
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case '7':
-    case '8':
-    case '9':
-    case '-': {
-      certain_parseNumberJson(je, l, diagnostics);
-      return;
-    }
-    case 't':
-    case 'f': {
-    case 'n': {
-      certain_parseLiteralJson(je, l, diagnostics);
-      return;
-    }
-    case '\"': {
-      certain_parseStringJson(je, l, diagnostics);
-      return;
-    }
-    case '[': {
-      certain_parseArrayJson(je, l, diagnostics);
-      return;
-    }
-    case '{': {
-      certain_parseObjectJson(je, l, diagnostics);
-      return;
-    }
+    switch (peekValueLexer(l)) {
     case ' ':
     case '\t':
     case '\r':
@@ -561,16 +539,98 @@ void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics) {
       nextValueLexer(l);
       break;
     }
-    case EOF: {
-      *VEC_PUSH(&diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_Eof, SPAN(l->position, l->position));
+    default: {
       return;
+    }
+    }
+  }
+}
+
+static void certain_parseArrayJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
+  assert(nextValueLexer(l) == '[');
+
+  // vector of elements
+  Vector elems;
+  createVector(&elems);
+
+  //parse first elem
+    skipWhitespace(l);
+    int32_t c = peekValueLexer(l);
+    switch(c) {
+        case ']': {
+            goto CLEANUP;
+    }
+    case ',': {
+        // no element
+        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = JSONPARSEDIAGNOSTIC(JPDK_JsonArrayExpectedJsonElem, l->position);
+        break;
     }
     default: {
-      *VEC_PUSH(&diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_UnrecognizedCharacter, SPAN(l->position, l->position));
-      nextValueLexer(l);
-      return;
+      JsonElem* elem = VEC_PUSH(&elems, JsonElem);
+      parseJsonElem(elem, l, diagnostics);
+      break;
     }
+
+  while (true) {
+    skipWhitespace(l);
+    int32_t c = peekValueLexer(l);
+    // if the next char is a comma, we know to expect another elem
+    if(c != ',') {
+      skipWhitespace(l);
+      JsonElem* elem = VEC_PUSH(&elems, JsonElem);
+      parseJsonElem(elem, l, diagnostics);
     }
-    }
+  }
+
+}
+
+void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics) {
+    skipWhitespace(l);
+
+    int32_t c = peekValueLexer(l);
+    switch (c) {
+    case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+        case '-': {
+          certain_parseNumberJson(je, l, diagnostics);
+          return;
+        }
+        case 't':
+        case 'f':
+        case 'n': {
+          certain_parseLiteralJson(je, l, diagnostics);
+          return;
+        }
+        case '\"': {
+          certain_parseStringJson(je, l, diagnostics);
+          return;
+        }
+        case '[': {
+          certain_parseArrayJson(je, l, diagnostics);
+          return;
+        }
+        case '{': {
+          certain_parseObjectJson(je, l, diagnostics);
+          return;
+        }
+        case EOF: {
+          *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
+              JSONPARSEDIAGNOSTIC(JPDK_JsonElemEof, l->position);
+          return;
+        }
+        default: {
+          *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
+              JSONPARSEDIAGNOSTIC(JPDK_JsonElemUnknownCharacter, l->position);
+          nextValueLexer(l);
+          return;
+        }
+        }
+  }

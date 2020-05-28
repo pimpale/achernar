@@ -9,17 +9,22 @@
 #include "lexer.h"
 
 typedef enum {
-  JE_boolean,
-  JE_integer,
-  JE_number,
-  JE_string,
-  JE_array,
-  JE_object,
-  JE_null,
-} JsonElemKind;
+  j_boolean,
+  j_integer,
+  j_number,
+  j_string,
+  j_array,
+  j_object,
+  j_null,
+} j_JsonElemKind;
 
-typedef struct JsonElem_s JsonElem;
-typedef struct JsonKV_s JsonKV;
+typedef struct j_JsonElem_s j_JsonElem;
+typedef struct j_JsonKV_s JsonKV;
+
+typedef struct JsonStr_s {
+      char *string;
+      size_t length;
+} JsonStr;
 
 typedef struct JsonElem_s {
   JsonElemKind kind;
@@ -27,10 +32,7 @@ typedef struct JsonElem_s {
     bool boolean;
     uint64_t integer;
     double number;
-    struct {
-      char *string;
-      size_t length;
-    } string;
+    JsonStr string;
     struct {
       JsonElem *values;
       size_t length;
@@ -48,7 +50,9 @@ typedef struct JsonKV_s {
 } JsonKV;
 
 // Utility functions
+JsonElem j_jsonStrJson(char *x, size_t len);
 JsonKV KVJson(char *key, JsonElem value);
+
 JsonElem nullJson(void);
 JsonElem boolJson(bool x);
 JsonElem intJson(uint64_t x);
@@ -73,6 +77,9 @@ typedef enum JsonParseDiagnosticKind_e {
   JPDK_JsonArrayExpectedJsonElem,
   JPDK_JsonObjExpectedRightBrace,
   JPDK_JsonObjExpectedJsonKV,
+  JPDK_JsonKVExpectedQuoted,
+  JPDK_JsonKVExpectedColon,
+  JPDK_JsonKVExpectedValue,
 } JsonParseDiagnosticKind ;
 
 typedef struct JsonParseDiagnostic_s {

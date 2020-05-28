@@ -19,13 +19,13 @@ typedef struct Arena_s {
 /// REQUIRES: `mem` is a pointer to at least sizeof(Arena) bytes
 /// GUARANTEES: `mem` has been initialized to a valid Arena
 /// GUARANTEES: return value is `mem`
-Arena *createArena(Arena *mem);
+Arena *ar_create(Arena *mem);
 
 /// Destroys the arena and frees all memory associated with it
 /// REQUIRES: `ar` is a pointer to a valid Arena
 /// GUARANTEES: `ar` is no longer a valid Arena
 /// GUARANTEES: all memory held by `ar` is deallocated
-Arena *destroyArena(Arena *ar);
+Arena *ar_destroyArena(Arena *ar);
 
 /// Allocates `len` bytes from `ar`. This memory cannot be freed or reallocated
 /// REQUIRES: `ar` is a pointer to a valid Arena

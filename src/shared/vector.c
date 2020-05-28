@@ -14,72 +14,77 @@
 // Ex. 1.5 -> 50% expansion each time the limit is hit
 #define LOAD_FACTOR 2
 
-void setCapacityVector(Vector *vector, size_t size);
-void resizeVector(Vector *vector, size_t size);
+void vec_setCapacity(Vector *vector, size_t size);
+void vec_resize(Vector *vector, size_t size);
 
 // Sets the size of the vector
-void setCapacityVector(Vector *vector, size_t size) {
+void vec_setCapacity(Vector *vector, size_t size) {
   if (size == 0) {
-    free(vector->data);
+    // free vector data
+    a_dealloc(vector->allocator, vector->data);
     vector->data = NULL;
   } else {
-    vector->data = realloc(vector->data, size);
+    // realloc vector data
+    vector->data = a_realloc(vector->allocator, vector->data, size);
   }
   vector->capacity = size;
 }
 
 // Resizes the vector in order to fit an element of this size in
-void resizeVector(Vector *vector, size_t size) {
+void vec_resize(Vector *vector, size_t size) {
   // This is the new size of the vector if we used the loadFactor
   size_t newCapacity = (size_t)((vector->length + size) * LOAD_FACTOR);
-  setCapacityVector(vector, newCapacity);
+  vec_setCapacity(vector, newCapacity);
 }
 
-Vector *createWithCapacityVector(Vector *vector, size_t initialCapacity) {
+Vector *vec_createWithCapacity(Vector *vector, Allocator* allocator, size_t initialCapacity) {
+  assert(a_realloc_possible(allocator));
+
   vector->data = NULL;
   vector->length = 0;
-  setCapacityVector(vector, initialCapacity);
+  vector->allocator = allocator;
+  vec_setCapacity(vector, initialCapacity);
   return vector;
 }
 
-Vector *createVector(Vector *vector) {
-  return createWithCapacityVector(vector, DEFAULT_INITIAL_CAPACITY);
+Vector *vec_create(Vector *vector, Allocator* allocator) {
+  return vec_createWithCapacity(vector, allocator, DEFAULT_INITIAL_CAPACITY);
 }
 
-Vector *destroyVector(Vector *vector) {
-  setCapacityVector(vector, 0);
+Vector *vec_destroy(Vector *vector) {
+  vec_setCapacity(vector, 0);
   vector->length = 0;
   return vector;
 }
 
-void *releaseVector(Vector *vector) {
-  setCapacityVector(vector, vector->length);
+void *vec_release(Vector *vector) {
+  vec_setCapacity(vector, vector->length);
   return vector->data;
 }
 
-void *getVector(Vector *vector, size_t loc) {
+void *vec_get(Vector *vector, size_t loc) {
   assert(loc < vector->length);
   uint8_t *data = vector->data;
   return data + loc;
 }
 
-void *pushVector(Vector *vector, size_t len) {
-  return insertVector(vector, vector->length, len);
+void *vec_push(Vector *vector, size_t len) {
+  return vec_insert(vector, vector->length, len);
 }
 
-void popVector(Vector *vector, void *data, size_t len) {
+void vec_pop(Vector *vector, void *data, size_t len) {
   assert(len <= vector->length);
-  removeVector(vector, data, vector->length - len, len);
+  vec_remove(vector, data, vector->length - len, len);
 }
 
-void *insertVector(Vector *vector, size_t loc, size_t len) {
+void *vec_insert(Vector *vector, size_t loc, size_t len) {
   if (vector->length + len >= vector->capacity) {
-    resizeVector(vector, len);
+    vec_resize(vector, len);
   }
   vector->length += len;
   // copy data currently at loc back
-  uint8_t *src = getVector(vector, loc);
-  uint8_t *dest = getVector(vector, loc + len);
+  uint8_t *src = vec_get(vector, loc);
+  uint8_t *dest = vec_get(vector, loc + len);
   // Move memory from end of allocation back
   memmove(dest, src, vector->length - (loc + len));
   // Zero out new memory
@@ -87,10 +92,10 @@ void *insertVector(Vector *vector, size_t loc, size_t len) {
   return src;
 }
 
-void removeVector(Vector *vector, void *data, size_t loc, size_t len) {
+void vec_remove(Vector *vector, void *data, size_t loc, size_t len) {
   assert(len <= vector->length - loc);
-  uint8_t *src = getVector(vector, loc + len);
-  uint8_t *dest = getVector(vector, loc);
+  uint8_t *src = vec_get(vector, loc + len);
+  uint8_t *dest = vec_get(vector, loc);
 
   if (data != NULL) {
     memmove(data, dest, len);
@@ -100,5 +105,5 @@ void removeVector(Vector *vector, void *data, size_t loc, size_t len) {
   memmove(dest, src, vector->length - loc);
 }
 
-size_t lengthVector(Vector *vector) { return vector->length; }
-size_t capacityVector(Vector *vector) { return vector->capacity; }
+size_t vec_length(Vector *vector) { return vector->length; }
+size_t vec_capacity(Vector *vector) { return vector->capacity; }

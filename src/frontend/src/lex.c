@@ -12,6 +12,38 @@
 #include "error.h"
 #include "vector.h"
 
+// Parses integer with radix
+static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
+                                   uint64_t radix) {
+  uint64_t ret = 0;
+  for (size_t i = 0; i < len; i++) {
+    // First we must determine the value of this digit
+    char c = str[i];
+    uint64_t digit_value = 0;
+    if (c >= 'a' && c <= 'f') {
+      digit_value = (uint64_t)(c - 'a') + 10;
+    } else if (isdigit(c)) {
+      digit_value = (uint64_t)(c - '0');
+    } else {
+      return DK_IntLiteralUnknownCharacter;
+    }
+
+    // If you put something higher than is requested
+    if (digit_value >= radix) {
+      return DK_IntLiteralDigitExceedsRadix;
+    }
+
+    uint64_t oldret = ret;
+    ret = ret * radix + digit_value;
+    if (oldret > ret) {
+      return DK_IntLiteralOverflow;
+    }
+  }
+  *value = ret;
+  return DK_Ok;
+}
+
+
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes comments
@@ -32,7 +64,7 @@ static void lexComment(Lexer *lexer, Token *token) {
     nextValueLexer(lexer);
 
     Vector data;
-    createVector(&data);
+    vec_create(&data, lexer->a);
     while ((c = peekValueLexer(lexer)) != EOF) {
       if (isalnum(c) || c == '/') {
         *VEC_PUSH(&data, char) = (char)c;
@@ -42,7 +74,7 @@ static void lexComment(Lexer *lexer, Token *token) {
       }
     }
     *VEC_PUSH(&data, char) = '\0';
-    scope = manageMemArena(lexer->ar, releaseVector(&data));
+    scope = vec_release(&data);
   } else {
   }
 

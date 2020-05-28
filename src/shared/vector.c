@@ -25,7 +25,11 @@ void vec_setCapacity(Vector *vector, size_t size) {
     vector->data = NULL;
   } else {
     // realloc vector data
-    vector->data = a_realloc(vector->allocator, vector->data, size);
+    if(vector->data == NULL) {
+      vector->data = a_alloc_flags(vector->allocator, size, A_REALLOCABLE);
+    } else {
+      vector->data = a_realloc(vector->allocator, vector->data, size);
+    }
   }
   vector->capacity = size;
 }
@@ -38,8 +42,6 @@ void vec_resize(Vector *vector, size_t size) {
 }
 
 Vector *vec_createWithCapacity(Vector *vector, Allocator* allocator, size_t initialCapacity) {
-  assert(a_realloc_possible(allocator));
-
   vector->data = NULL;
   vector->length = 0;
   vector->allocator = allocator;

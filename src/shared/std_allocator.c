@@ -31,13 +31,10 @@ void std_a_create(Allocator *allocator) {
   // no state needs to be preserved
   allocator->allocator_backing = NULL;
   // we can realloc, but aligned malloc is disabled (TODO add it)
-  allocator->realloc_possible = true;
-  allocator->aligned_possible = false;
+  allocator->supported_flags = A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY;
   // set functions
   allocator->allocator_fn = std_allocator_fn;
   allocator->deallocator_fn = std_deallocator_fn;
   allocator->reallocator_fn = std_reallocator_fn;
   allocator->destroy_allocator_fn = std_destroy_allocator_fn;
-  // no support for aligned
-  allocator->aligned_allocator_fn = NULL;
 }

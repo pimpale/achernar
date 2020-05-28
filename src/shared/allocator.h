@@ -6,13 +6,27 @@
 #include <stdlib.h>
 #include <assert.h>
 
+typedef enum AllocatorFlag_e {
+  /// The size of this memory allocation can be grown by a call to `a_realloc`
+  A_REALLOCABLE = 1<<0,
+  /// The pointer address shall be a multiple of 4
+  A_ALIGN_4= 1<<1,
+  /// The pointer address shall be a multiple of 8
+  A_ALIGN_8= 1<<2,
+  /// The pointer address shall be a multiple of 16
+  A_ALIGN_16= 1<<3,
+  /// The memory will NOT be cleaned up when the allocator is destroyed (can cause resource leak)
+  /// You are responsible for cleaning up this memory, and the means of doing so will vary per implementation
+  A_CLEANUP_ON_DESTROY = 1<<4,
+} AllocatorFlag;
+
+typedef uint32_t AllocatorFlags;
+
 // Dynamic allocator for fun
 // ALLOCATORS ARE NOT THREAD SAFE
 typedef struct Allocator_s {
-  // is realloc valid?
-  bool realloc_possible;
-  // is aligned memory possible
-  bool aligned_possible;
+  AllocatorFlags default_flags;
+  AllocatorFlags supported_flags;
 
   // Opaque pointer to reallocator backend
   void* allocator_backing;
@@ -20,7 +34,7 @@ typedef struct Allocator_s {
   // void* allocate(void* backing, size_t size) 
   void *(*allocator_fn)(void*, size_t);
   // void* allocate(void* backing, size_t size, uint8_t alignment_power) 
-  void *(*aligned_allocator_fn)(void*, size_t, uint8_t);
+  void *(*allocator_flags_fn)(void*, size_t, AllocatorFlags);
   // void* deallocate(void* backing, void* ptr) 
   void (*deallocator_fn)(void*, void*);
   // void* realloc(void* backing, void* ptr, size_t size) 
@@ -29,20 +43,20 @@ typedef struct Allocator_s {
   void (*destroy_allocator_fn)(void*);
 } Allocator;
 
-/** determines if realloc is possible for this allocator
+/** flags that are enabled by default for an allocator (cannot be disabled)
  * REQUIRES: `a` is a valid pointer to an Allocator
- * GUARANTEES: returns if `a` supports reallocating pointers
+ * GUARANTEES: returns flags supported by default by `a`
  */
-static inline bool a_realloc_possible(Allocator* a) {
-  return a->realloc_possible;
+static inline AllocatorFlags a_defaults(Allocator* a) {
+  return a->supported_flags;
 }
 
-/** determines if aligned memory is possible for this allocator
+/** flags that are valid for `a` (may be enabled)
  * REQUIRES: `a` is a valid pointer to an Allocator
- * GUARANTEES: returns if `a` supports aligned pointers
+ * GUARANTEES: returns flags supported by default by `a`
  */
-static inline bool a_aligned_possible(Allocator *a) {
-  return a->realloc_possible;
+static inline AllocatorFlags a_supports(Allocator* a) {
+  return a->supported_flags;
 }
 
 /** allocate memory
@@ -51,25 +65,24 @@ static inline bool a_aligned_possible(Allocator *a) {
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned 
  * GUARANTEES: if allocation succeeds and `failed` is not null, failed will be false
  * GUARANTEES: if allocation fails, NULL will be returned
+ * GUARANTEES: the memory will be allocated with default properties of the implementing allocator
  */
 static inline void* a_alloc(Allocator* a, size_t size, bool* failed) {
   return a->allocator_fn(a->allocator_backing, size);
 }
 
-
 /** allocate aligned memory
  * REQUIRES: `a` is a valid pointer to an Allocator
- * REQUIRES: `a` must support aligned pointers (verify with `a_aligned_possible`)
- * REQUIRES: `alignment_power` is the power of two that the memory should be aligned to
- * REQUIRES: `failed` is a valid pointer to a bool or is NULL
+ * REQUIRES: all bits enabled in `flags` must be supported by `a`
  * GUARANTEES: if `size` is 0, NULL will be returned
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned
- * GUARANTEES: if allocation succeeds, the returned pointer will be a multiple of 2^`alignment_power`
+ * GUARANTEES: if allocation succeeds, the memory returned will have the properties specified by the flags
  * GUARANTEES: if allocation fails, NULL will be returned
  */
-static inline void* a_alloc_aligned(Allocator* a, size_t size, uint8_t alignment_power) {
-  assert(a_aligned_possible(a));
-  return a->aligned_allocator_fn(a->allocator_backing, size, alignment_power);
+static inline void* a_alloc_flags(Allocator* a, size_t size, AllocatorFlags flags) {
+  // guarantee all flags are supported by this allocator
+  assert((a_supports(a) & flags) == flags);
+  return a->allocator_flags_fn(a->allocator_backing, size, flags);
 }
 
 /** deallocate memory
@@ -83,15 +96,15 @@ static inline void a_dealloc(Allocator* a, void* ptr) {
 
 /** reallocate memory
  * REQUIRES: `a` is a valid pointer to an Allocator
- * REQUIRES: `ptr` is a memory location returned by a previous call to `a_alloc` or `a_aligned_alloc` using `a`
+ * REQUIRES: `ptr` is a memory location returned by a previous call to `a_alloc_flags` using `a` with the `A_REALLOCABLE` bit enabled
  * GUARANTEES: if `size` is 0, NULL will be returned
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned, preserving data
- * GUARANTEES: if allocation succeeds, the returned pointer will be of the same alignment as `ptr`
+ * GUARANTEES: if allocation succeeds, the returned pointer will have the same properties as `ptr` 
  * NOT GUARANTEED: it is explicitly not guaranteed that the returned value is the same as `ptr`
  * GUARANTEES: if allocation fails, NULL will be returned
  */
 static inline void* a_realloc(Allocator* a, void* ptr, size_t size) {
-  assert(a_realloc_possible(a));
+  assert(a_supports(a) & A_REALLOCABLE);
   return a->reallocator_fn(a->allocator_backing, ptr, size);
 }
 

@@ -1,23 +1,24 @@
 #include <stdio.h>
 
-#include "arena.h"
+#include "allocator.h"
+#include "arena_allocator.h"
 #include "lex.h"
 #include "parse.h"
 #include "printAst.h"
 #include <stdio.h>
 
 int main() {
-  Arena mem;
-  createArena(&mem);
+  Allocator pool;
+  arena_a_create(&pool);
 
   Lexer lexer;
-  createLexerFile(&lexer, stdin, &mem);
+  createLexerFile(&lexer, stdin, &pool);
 
   Parser parser;
-  createParser(&parser, &lexer, &mem);
+  createParser(&parser, &lexer, &pool);
 
   Printer printer;
-  createPrinter(&printer, &parser, &mem);
+  createPrinter(&printer, &parser, &pool);
 
   // Print
   printJsonPrinter(&printer, stdout);
@@ -26,5 +27,6 @@ int main() {
   releasePrinter(&printer);
   releaseParser(&parser);
   releaseLexer(&lexer);
-  destroyArena(&mem);
+
+  a_destroy(&pool);
 }

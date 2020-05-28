@@ -3,28 +3,27 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-void createLexerFile(Lexer *lexer, FILE *file, Arena *ar) {
+void createLexerFile(Lexer *lexer, FILE *file, Allocator *a) {
   lexer->position = LNCOL(1, 1);
-  lexer->ar = ar;
+  lexer->a= a;
 
   // Files
   lexer->file = file;
   lexer->backing = LBK_LexerBackingFile;
 }
 
-void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Arena *ar) {
+void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Allocator *a) {
   lexer->position = LNCOL(1, 1);
-  lexer->ar = ar;
+  lexer->a = a;
 
   // Copy memory
   lexer->backing = LBK_LexerBackingMemory;
   lexer->memory.len = len;
   lexer->memory.loc = 0;
-  lexer->memory.ptr = malloc(len);
-  memcpy(lexer->memory.ptr, ptr, len);
+  lexer->memory.ptr = ptr;
 }
 
-Arena *releaseLexer(Lexer *lexer) {
+void releaseLexer(Lexer *lexer) {
   switch (lexer->backing) {
   case LBK_LexerBackingMemory: {
     free(lexer->memory.ptr);
@@ -34,7 +33,6 @@ Arena *releaseLexer(Lexer *lexer) {
     break;
   }
   }
-  return lexer->ar;
 }
 
 int32_t nextValueLexer(Lexer *lexer) {

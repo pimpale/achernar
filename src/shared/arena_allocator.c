@@ -5,6 +5,7 @@
 #include "std_allocator.h"
 #include "error.h"
 #include "vector.h"
+#include "utils.h"
 
 #define DEFAULT_PAGE_SIZE 4095
 
@@ -74,14 +75,6 @@ void *allocArenaPage(ArenaPage *app, size_t len) {
   app->length += len;
   return dest;
 }
-
-// returns `value` rounded up to the nearest multiple of `multiple`
-// REQUIRES: multiple is a power of two
-// GUARANTEES: return value is a multiple of `roundTo` and >= value
-static inline size_t roundTo(size_t value, size_t roundTo) {
-  return (value + (roundTo - 1)) & ~(roundTo - 1);
-}
-
 typedef struct Arena_s {
   Allocator vec_allocator;
   // indices for aligned pages 
@@ -139,7 +132,7 @@ void *ar_aligned_allocator_fn(void *backing, size_t len, uint8_t alignment_power
   size_t alignment = 1<<alignment_power; 
 
   // ensure len is a multiple 
-  len = roundTo(len, alignment);
+  len = roundToMultipleofTwo(len, alignment);
 
   // if len is larger than the default page size, we create a page specially
   // allocated without touching the currently active page
@@ -211,6 +204,7 @@ void arena_a_create(Allocator* allocator) {
   // realloc is disabled but aligned is enabled
   allocator->realloc_possible = false;
   allocator->aligned_possible = true;
+  allocator->cleanup_possible = true;
 
   // set functions
   allocator->allocator_fn = ar_allocator_fn;

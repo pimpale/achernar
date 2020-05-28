@@ -1,10 +1,5 @@
-#ifndef ERRORS_H
-#define ERRORS_H
-
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#ifndef DIAGNOSTIC_H
+#define DIAGNOSTIC_H
 
 #include "lncol.h"
 
@@ -107,11 +102,6 @@ typedef struct Diagnostic_s {
 #define DIAGNOSTIC(type, span) ((Diagnostic){type, span})
 
 char *strDiagnosticKind(DiagnosticKind dk);
-void logInternalError(uint32_t line, const char *func, const char *fmt, ...);
 
-#define UNUSED(x) (void)(x)
-#define ZERO(ptr) (memset(ptr, 0, sizeof(*ptr)))
-#define PANIC() abort()
-#define INTERNAL_ERROR(msg) logInternalError(__LINE__, __func__, msg)
 
 #endif

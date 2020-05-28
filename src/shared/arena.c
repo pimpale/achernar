@@ -50,6 +50,7 @@ static bool canFitArenaPage(ArenaPage *app, size_t len);
 static void *allocArenaPage(ArenaPage *app, size_t len);
 
 ArenaPage *createArenaPage(ArenaPage *mem, size_t capacity, size_t alignment) {
+    // TODO replace aligned_alloc with malloc
   mem->data = aligned_alloc(alignment, capacity);
   mem->capacity = capacity;
   mem->length = 0;
@@ -119,55 +120,59 @@ Arena *ar_destroy(Arena *ar) {
 }
 
 
-/// Allocates `len` bytes from `ar`, aligned to the specified allocation
-/// REQUIRES: `ar` is a pointer to a valid Arena
-/// REQUIRES: `alignment` is one of 1, 2, 4, 8, or 16
-/// REQUIRES: `len` is a multiple of `alignment`
-/// GUARANTEES: return contains pointer to valid section of memory `len` bytes
-/// long GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be
-/// returned GUARANTEES: the returned pointer will be aligned to `alignment`
-void *ar_a_alloc_aligned_fn(void *ar, size_t len, uint8_t alignment_power, bool* failed) {
+/** allocate aligned memory
+ * REQUIRES: `a` is a valid pointer to an Allocator
+ * REQUIRES: `alignment_power` is the power of two that the memory should be aligned to
+ * REQUIRES: `failed` is a valid pointer to a bool or is NULL
+ * GUARANTEES: if `size` is 0, NULL will be returned
+ * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned
+ * GUARANTEES: if allocation succeeds, the returned pointer will be a multiple of 2^`alignment_power`
+ * GUARANTEES: if allocation succeeds and `failed` is not null, failed will be false
+ * GUARANTEES: if allocation fails, NULL will be returned
+ * GUARANTEES: if allocation fails and `failed` is not NULL, `failed` will be set to true;
+ */
+void *ar_a_alloc_aligned_fn(void *backing, size_t len, uint8_t alignment_power, bool* failed) {
+  Arena* ar = backing;
   assert(ar != NULL);
 
   if (len == 0) {
+    if(failed != NULL) {
+        *failed = false;
+    }
     return NULL;
-
   }
+  size_t alignment = 1<<alignment_power; 
+
+  len = roundTo(len, alignment);
 
   // if len is larger than the default page size, we create a page specially
   // allocated without touching the currently active page
   if (len >= DEFAULT_PAGE_SIZE) {
     ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
-    createArenaPage(newPage, len, alignment);
-    return allocArenaPage(newPage, len);
+    createArenaPage(newPage, len, 1<<alignment);
+    void* ptr = allocArenaPage(newPage, len);
+    if(failed != NULL) {
+      if(ptr == NULL) {
+          *failed = true;
+      } else {
+          *failed = false;
+      }
+    }
+    return ptr;
   }
 
-  size_t *index_ptr;
-  switch (alignment) {
-  case 1: {
-    index_ptr = &ar->current_1_index;
-    break;
+  size_t len_indices= VEC_LEN(&ar->indices, int64_t);
+  for(size_t i = len_indices; i < alignment_power; i++) {
+    // instantiate the array up to where we want
+    *VEC_PUSH(&ar->indices, int64_t) = -1;
   }
-  case 2: {
-    index_ptr = &ar->current_2_index;
-    break;
-  }
-  case 4: {
-    index_ptr = &ar->current_4_index;
-    break;
-  }
-  case 8: {
-    index_ptr = &ar->current_8_index;
-    break;
-  }
-  case 16: {
-    index_ptr = &ar->current_16_index;
-    break;
-  }
-  default: {
-    INTERNAL_ERROR("alignment is not one of 1, 2, 4, 8, or 16");
-    PANIC();
-  }
+
+  // pointer to index (could be -1)
+  int64_t *index_ptr = VEC_GET(&ar->indices, alignment_power, int64_t);
+
+  // if a page for this pointer doesn't yet exist, create it
+  if(*index_ptr == -1) {
+
   }
 
   ArenaPage *a = VEC_GET(&ar->pages, *index_ptr, ArenaPage);

@@ -1,5 +1,5 @@
-#ifndef STDALLOCATOR_H
-#define STDALLOCATOR_H
+#ifndef STD_ALLOCATOR_H
+#define STD_ALLOCATOR_H
 
 #include "allocator.h"
 

@@ -17,14 +17,14 @@ typedef struct Allocator_s {
   // Opaque pointer to reallocator backend
   void* allocator_backing;
 
-  // void* allocate(void* backing, size_t size, bool* failed) 
-  void *(*allocator_fn)(void*, size_t, bool*);
-  // void* allocate(void* backing, size_t size, uint8_t alignment_power, bool* failed) 
-  void *(*aligned_allocator_fn)(void*, size_t, uint8_t, bool*);
+  // void* allocate(void* backing, size_t size) 
+  void *(*allocator_fn)(void*, size_t);
+  // void* allocate(void* backing, size_t size, uint8_t alignment_power) 
+  void *(*aligned_allocator_fn)(void*, size_t, uint8_t);
   // void* deallocate(void* backing, void* ptr) 
   void (*deallocator_fn)(void*, void*);
-  // void* realloc(void* backing, void* ptr, size_t size, bool* failed) 
-  void *(*reallocator_fn)(void*, void*, size_t, bool*);
+  // void* realloc(void* backing, void* ptr, size_t size) 
+  void *(*reallocator_fn)(void*, void*, size_t);
   // void* destroy_allocator(void* backing)
   void (*destroy_allocator_fn)(void*);
 } Allocator;
@@ -47,15 +47,13 @@ static inline bool a_aligned_possible(Allocator *a) {
 
 /** allocate memory
  * REQUIRES: `a` is a valid pointer to an Allocator
- * REQUIRES: `failed` is a valid pointer to a bool or is NULL
  * GUARANTEES: if `size` is 0, NULL will be returned
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned 
  * GUARANTEES: if allocation succeeds and `failed` is not null, failed will be false
  * GUARANTEES: if allocation fails, NULL will be returned
- * GUARANTEES: if allocation fails and `failed` is not NULL, `failed` will be set to true;
  */
 static inline void* a_alloc(Allocator* a, size_t size, bool* failed) {
-  return a->allocator_fn(a->allocator_backing, size, failed);
+  return a->allocator_fn(a->allocator_backing, size);
 }
 
 
@@ -67,13 +65,11 @@ static inline void* a_alloc(Allocator* a, size_t size, bool* failed) {
  * GUARANTEES: if `size` is 0, NULL will be returned
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned
  * GUARANTEES: if allocation succeeds, the returned pointer will be a multiple of 2^`alignment_power`
- * GUARANTEES: if allocation succeeds and `failed` is not null, failed will be false
  * GUARANTEES: if allocation fails, NULL will be returned
- * GUARANTEES: if allocation fails and `failed` is not NULL, `failed` will be set to true;
  */
-static inline void* a_alloc_aligned(Allocator* a, size_t size, uint8_t alignment_power, bool* failed) {
+static inline void* a_alloc_aligned(Allocator* a, size_t size, uint8_t alignment_power) {
   assert(a_aligned_possible(a));
-  return a->aligned_allocator_fn(a->allocator_backing, size, alignment_power, failed);
+  return a->aligned_allocator_fn(a->allocator_backing, size, alignment_power);
 }
 
 /** deallocate memory
@@ -92,13 +88,11 @@ static inline void a_dealloc(Allocator* a, void* ptr) {
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned, preserving data
  * GUARANTEES: if allocation succeeds, the returned pointer will be of the same alignment as `ptr`
  * NOT GUARANTEED: it is explicitly not guaranteed that the returned value is the same as `ptr`
- * GUARANTEES: if allocation succeeds and `failed` is not null, failed will be false
  * GUARANTEES: if allocation fails, NULL will be returned
- * GUARANTEES: if allocation fails and `failed` is not NULL, `failed` will be set to true;
  */
-static inline void* a_realloc(Allocator* a, void* ptr, size_t size, bool* failed) {
+static inline void* a_realloc(Allocator* a, void* ptr, size_t size) {
   assert(a_realloc_possible(a));
-  return a->reallocator_fn(a->allocator_backing, ptr, size, failed);
+  return a->reallocator_fn(a->allocator_backing, ptr, size);
 }
 
 /** destroy allocator

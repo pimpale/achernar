@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "arena.h"
-#include "stdallocator.h"
+#include "arena_allocator.h"
+#include "std_allocator.h"
 #include "error.h"
 #include "vector.h"
 
@@ -123,42 +123,30 @@ Arena *ar_destroy(Arena *ar) {
 /** allocate aligned memory
  * REQUIRES: `a` is a valid pointer to an Allocator
  * REQUIRES: `alignment_power` is the power of two that the memory should be aligned to
- * REQUIRES: `failed` is a valid pointer to a bool or is NULL
  * GUARANTEES: if `size` is 0, NULL will be returned
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned
  * GUARANTEES: if allocation succeeds, the returned pointer will be a multiple of 2^`alignment_power`
- * GUARANTEES: if allocation succeeds and `failed` is not null, failed will be false
  * GUARANTEES: if allocation fails, NULL will be returned
- * GUARANTEES: if allocation fails and `failed` is not NULL, `failed` will be set to true;
  */
-void *ar_a_alloc_aligned_fn(void *backing, size_t len, uint8_t alignment_power, bool* failed) {
+void *ar_aligned_allocator_fn(void *backing, size_t len, uint8_t alignment_power) {
   Arena* ar = backing;
   assert(ar != NULL);
 
   if (len == 0) {
-    if(failed != NULL) {
-        *failed = false;
-    }
     return NULL;
   }
+
   size_t alignment = 1<<alignment_power; 
 
+  // ensure len is a multiple 
   len = roundTo(len, alignment);
 
   // if len is larger than the default page size, we create a page specially
   // allocated without touching the currently active page
   if (len >= DEFAULT_PAGE_SIZE) {
     ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
-    createArenaPage(newPage, len, 1<<alignment);
-    void* ptr = allocArenaPage(newPage, len);
-    if(failed != NULL) {
-      if(ptr == NULL) {
-          *failed = true;
-      } else {
-          *failed = false;
-      }
-    }
-    return ptr;
+    createArenaPage(newPage, len, alignment);
+    return allocArenaPage(newPage, len);
   }
 
   size_t len_indices= VEC_LEN(&ar->indices, int64_t);
@@ -172,27 +160,18 @@ void *ar_a_alloc_aligned_fn(void *backing, size_t len, uint8_t alignment_power, 
 
   // if a page for this pointer doesn't yet exist, create it
   if(*index_ptr == -1) {
-
+    ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
+    createArenaPage(newPage, DEFAULT_PAGE_SIZE, alignment);
+    *index_ptr = 0;
   }
 
   ArenaPage *a = VEC_GET(&ar->pages, *index_ptr, ArenaPage);
 
   if (!canFitArenaPage(a, len)) {
     a = VEC_PUSH(&ar->pages, ArenaPage);
-    size_t pageCapacity = DEFAULT_PAGE_SIZE;
-    createArenaPage(a, pageCapacity, alignment);
+    createArenaPage(a, DEFAULT_PAGE_SIZE, alignment);
     *index_ptr = VEC_LEN(&ar->pages, ArenaPage) - 1;
   }
-
-  if(failed != NULL)
-  {
-      if(len != 0 && ret == NULL) {
-          *failed = true;
-      }else {
-          *failed = false;
-      }
-  }
-  return ret;
 
   return allocArenaPage(a, len);
 }
@@ -203,18 +182,21 @@ void *ar_a_alloc_aligned_fn(void *backing, size_t len, uint8_t alignment_power, 
 /// GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be returned 
 /// GUARANTEES: if len is greater than 4, the pointer returned is 8-byte aligned 
 /// GUARANTEES: if len is greater than or equal to 2, the pointer returned is 4-byte aligned
-void *ar_a_allocator_fn(void *backing, size_t len, bool *failed) {
-  Arena* ar = backing;
+void *ar_allocator_fn(void *backing, size_t len) {
   if (len > 4) {
-    return ar_alloc_aligned(ar, , 3);
+    return ar_aligned_allocator_fn(backing, len, 3);
   } else if (len > 2) {
-    return ar_alloc_aligned(ar, roundTo(len, 4), 2);
+    return ar_aligned_allocator_fn(backing, len, 2);
   } else {
-    return ar_alloc_aligned(ar, len, 0);
+    return ar_aligned_allocator_fn(backing, len, 0);
   }
 }
 
-void ar_a_destroy_allocator_fn(void* backing) {
+void ar_deallocator_fn(void* backing, void* ptr) {
+  // no op
+}
+
+void ar_destroy_allocator_fn(void* backing) {
   Arena* a = (Arena*)backing;
   // destroy backing arena
   ar_destroy(a);
@@ -222,7 +204,7 @@ void ar_a_destroy_allocator_fn(void* backing) {
   free(backing);
 }
 
-void ar_a_create(Allocator* allocator) {
+void arena_a_create(Allocator* allocator) {
   // create arena as backing
   allocator->allocator_backing = malloc(sizeof(Arena));
   ar_create(allocator->allocator_backing);
@@ -231,6 +213,10 @@ void ar_a_create(Allocator* allocator) {
   allocator->aligned_possible = true;
 
   // set functions
-
-
+  allocator->allocator_fn = ar_allocator_fn;
+  allocator->aligned_allocator_fn = ar_aligned_allocator_fn;
+  allocator->deallocator_fn = ar_deallocator_fn;
+  allocator->destroy_allocator_fn = ar_destroy_allocator_fn;
+  // ignore realloc
+  allocator->reallocator_fn = NULL;
 }

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "arena.h"
+#include "stdallocator.h"
 #include "error.h"
 #include "vector.h"
 
@@ -80,34 +81,57 @@ static inline size_t roundTo(size_t value, size_t roundTo) {
   return (value + (roundTo - 1)) & ~(roundTo - 1);
 }
 
-Arena *createArena(Arena *mem) {
-  // initialize vector
-  createVector(&mem->pages);
-  // Push pages
-  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 1);
-  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 2);
-  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 4);
-  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 8);
-  createArenaPage(VEC_PUSH(&mem->pages, ArenaPage), DEFAULT_PAGE_SIZE, 16);
-  mem->current_1_index = 0;
-  mem->current_2_index = 1;
-  mem->current_4_index = 2;
-  mem->current_8_index = 3;
-  mem->current_16_index = 4;
+typedef struct Arena_s {
+  Allocator vec_allocator;
+  // indices for aligned pages 
+  // Vector<int64_t> (if the int64_t is negative, then it means that there are no pages allocated for that alignment)
+  Vector indices;
+  // Vector<ArenaPage>
+  Vector pages;
+} Arena;
+
+
+/// Creates a arena in a region of a memory
+/// REQUIRES: `mem` is a pointer to at least sizeof(Arena) bytes
+/// GUARANTEES: `mem` has been initialized to a valid Arena
+/// GUARANTEES: return value is `mem`
+Arena *ar_create(Arena *mem) {
+  // create allocator
+  std_a_create(&mem->vec_allocator);
+  // initialize vectors
+  vec_create(&mem->pages, &mem->vec_allocator);
+  vec_create(&mem->indices, &mem->vec_allocator);
   return mem;
 }
 
-Arena *destroyArena(Arena *ar) {
+/// Destroys the arena and frees all memory associated with it
+/// REQUIRES: `ar` is a pointer to a valid Arena
+/// GUARANTEES: `ar` is no longer a valid Arena
+/// GUARANTEES: all memory held by `ar` is deallocated
+Arena *ar_destroy(Arena *ar) {
   for (size_t i = 0; i < VEC_LEN(&ar->pages, ArenaPage); i++) {
     destroyArenaPage(VEC_GET(&ar->pages, i, ArenaPage));
   }
-  destroyVector(&ar->pages);
+  vec_destroy(&ar->pages);
+  vec_destroy(&ar->indices);
+  a_destroy(&ar->vec_allocator);
   return ar;
 }
 
-void *allocAlignedArena(Arena *ar, size_t len, size_t alignment) {
+
+/// Allocates `len` bytes from `ar`, aligned to the specified allocation
+/// REQUIRES: `ar` is a pointer to a valid Arena
+/// REQUIRES: `alignment` is one of 1, 2, 4, 8, or 16
+/// REQUIRES: `len` is a multiple of `alignment`
+/// GUARANTEES: return contains pointer to valid section of memory `len` bytes
+/// long GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be
+/// returned GUARANTEES: the returned pointer will be aligned to `alignment`
+void *ar_a_alloc_aligned_fn(void *ar, size_t len, uint8_t alignment_power, bool* failed) {
+  assert(ar != NULL);
+
   if (len == 0) {
     return NULL;
+
   }
 
   // if len is larger than the default page size, we create a page specially
@@ -155,36 +179,53 @@ void *allocAlignedArena(Arena *ar, size_t len, size_t alignment) {
     *index_ptr = VEC_LEN(&ar->pages, ArenaPage) - 1;
   }
 
+  if(failed != NULL)
+  {
+      if(len != 0 && ret == NULL) {
+          *failed = true;
+      }else {
+          *failed = false;
+      }
+  }
+  return ret;
+
   return allocArenaPage(a, len);
 }
 
-void *allocArena(Arena *ar, size_t len) {
+/// Allocates `len` bytes from `ar`. This memory cannot be freed or reallocated
+/// REQUIRES: `ar` is a pointer to a valid Arena
+/// GUARANTEES: return contains pointer to valid section of memory `len` bytes long 
+/// GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be returned 
+/// GUARANTEES: if len is greater than 4, the pointer returned is 8-byte aligned 
+/// GUARANTEES: if len is greater than or equal to 2, the pointer returned is 4-byte aligned
+void *ar_a_allocator_fn(void *backing, size_t len, bool *failed) {
+  Arena* ar = backing;
   if (len > 4) {
-    return allocAlignedArena(ar, roundTo(len, 8), 8);
+    return ar_alloc_aligned(ar, , 3);
   } else if (len > 2) {
-    return allocAlignedArena(ar, roundTo(len, 4), 4);
+    return ar_alloc_aligned(ar, roundTo(len, 4), 2);
   } else {
-    return allocAlignedArena(ar, len, 1);
+    return ar_alloc_aligned(ar, len, 0);
   }
 }
 
-void *manageMemArena(Arena *ar, void *ptr) {
-  if (ptr == NULL) {
-    return NULL;
-  }
-
-  *VEC_PUSH(&ar->pages, ArenaPage) = (ArenaPage){
-      .capacity = 0,
-      .length = 0,
-      .data = ptr,
-  };
-  return ptr;
+void ar_a_destroy_allocator_fn(void* backing) {
+  Arena* a = (Arena*)backing;
+  // destroy backing arena
+  ar_destroy(a);
+  // free memory holding arena
+  free(backing);
 }
 
-char *internArena(Arena *ar, char *str) {
-  if (str == NULL) {
-    return NULL;
-  } else {
-    return strcpy(allocAlignedArena(ar, strlen(str) + 1, 1), str);
-  }
+void ar_a_create(Allocator* allocator) {
+  // create arena as backing
+  allocator->allocator_backing = malloc(sizeof(Arena));
+  ar_create(allocator->allocator_backing);
+  // realloc is disabled but aligned is enabled
+  allocator->realloc_possible = false;
+  allocator->aligned_possible = true;
+
+  // set functions
+
+
 }

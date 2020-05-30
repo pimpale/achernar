@@ -2,10 +2,10 @@
 #include <string.h>
 
 #include "arena_allocator.h"
-#include "std_allocator.h"
 #include "error.h"
-#include "vector.h"
+#include "std_allocator.h"
 #include "utils.h"
+#include "vector.h"
 
 #define DEFAULT_PAGE_SIZE 4095
 
@@ -51,7 +51,7 @@ static bool canFitArenaPage(ArenaPage *app, size_t len);
 static void *allocArenaPage(ArenaPage *app, size_t len);
 
 ArenaPage *createArenaPage(ArenaPage *mem, size_t capacity, size_t alignment) {
-    // TODO replace aligned_alloc with malloc
+  // TODO replace aligned_alloc with malloc
   mem->data = aligned_alloc(alignment, capacity);
   mem->capacity = capacity;
   mem->length = 0;
@@ -77,13 +77,13 @@ void *allocArenaPage(ArenaPage *app, size_t len) {
 }
 typedef struct Arena_s {
   Allocator vec_allocator;
-  // indices for aligned pages 
-  // Vector<int64_t> (if the int64_t is negative, then it means that there are no pages allocated for that alignment)
+  // indices for aligned pages
+  // Vector<int64_t> (if the int64_t is negative, then it means that there are
+  // no pages allocated for that alignment)
   Vector indices;
   // Vector<ArenaPage>
   Vector pages;
 } Arena;
-
 
 /// Creates a arena in a region of a memory
 /// REQUIRES: `mem` is a pointer to at least sizeof(Arena) bytes
@@ -112,26 +112,18 @@ Arena *ar_destroy(Arena *ar) {
   return ar;
 }
 
-
 /** allocate aligned memory
  * REQUIRES: `a` is a valid pointer to an Allocator
- * REQUIRES: `alignment_power` is the power of two that the memory should be aligned to
  * GUARANTEES: if `size` is 0, NULL will be returned
- * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned
- * GUARANTEES: if allocation succeeds, the returned pointer will be a multiple of 2^`alignment_power`
- * GUARANTEES: if allocation fails, NULL will be returned
+ * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous
+ * memory will be returned, this pointer will be a multiple of the
+ * 2^alignment_power GUARANTEES: if allocation fails, NULL will be returned
  */
-void *ar_aligned_allocator_fn(void *backing, size_t len, uint8_t alignment_power) {
-  Arena* ar = backing;
-  assert(ar != NULL);
-
-  if (len == 0) {
-    return NULL;
-  }
-
-  size_t alignment = 1<<alignment_power; 
-
-  // ensure len is a multiple 
+inline static void *ar_alloc_aligned(Arena *ar, size_t len,
+                                     uint8_t alignment_power) {
+  // get alignment
+  size_t alignment = 1 << alignment_power;
+  // ensure len is a multiple
   len = roundToMultipleofTwo(len, alignment);
 
   // if len is larger than the default page size, we create a page specially
@@ -142,8 +134,8 @@ void *ar_aligned_allocator_fn(void *backing, size_t len, uint8_t alignment_power
     return allocArenaPage(newPage, len);
   }
 
-  size_t len_indices= VEC_LEN(&ar->indices, int64_t);
-  for(size_t i = len_indices; i < alignment_power; i++) {
+  size_t len_indices = VEC_LEN(&ar->indices, int64_t);
+  for (size_t i = len_indices; i < alignment_power; i++) {
     // instantiate the array up to where we want
     *VEC_PUSH(&ar->indices, int64_t) = -1;
   }
@@ -152,7 +144,7 @@ void *ar_aligned_allocator_fn(void *backing, size_t len, uint8_t alignment_power
   int64_t *index_ptr = VEC_GET(&ar->indices, alignment_power, int64_t);
 
   // if a page for this pointer doesn't yet exist, create it
-  if(*index_ptr == -1) {
+  if (*index_ptr == -1) {
     ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
     createArenaPage(newPage, DEFAULT_PAGE_SIZE, alignment);
     *index_ptr = 0;
@@ -169,46 +161,68 @@ void *ar_aligned_allocator_fn(void *backing, size_t len, uint8_t alignment_power
   return allocArenaPage(a, len);
 }
 
-/// Allocates `len` bytes from `ar`. This memory cannot be freed or reallocated
-/// REQUIRES: `ar` is a pointer to a valid Arena
-/// GUARANTEES: return contains pointer to valid section of memory `len` bytes long 
-/// GUARANTEES: if `len` is 0, no memory will be allocated, NULL will be returned 
-/// GUARANTEES: if len is greater than 4, the pointer returned is 8-byte aligned 
-/// GUARANTEES: if len is greater than or equal to 2, the pointer returned is 4-byte aligned
-void *ar_allocator_fn(void *backing, size_t len) {
-  if (len > 4) {
-    return ar_aligned_allocator_fn(backing, len, 3);
-  } else if (len > 2) {
-    return ar_aligned_allocator_fn(backing, len, 2);
+void *ar_allocator_flags_fn(void *backing, size_t len, AllocatorFlags flags) {
+  Arena *ar = backing;
+  assert(ar != NULL);
+
+  if (len == 0) {
+    return NULL;
+  }
+
+  // If it's reallocable it CANNOT be aligned, as realloc does not guarantee
+  // alignment solid TODO right here: write own aligned_realloc function to take
+  // care of this limitation
+  assert(!((flags & A_REALLOCABLE) &&
+           (flags & A_ALIGN_4 || flags & A_ALIGN_8 || flags & A_ALIGN_16)));
+
+  // If they want aligned memory, go to other method...
+  if (flags & A_ALIGN_16) {
+    return ar_alloc_aligned(backing, len, 4);
+  } else if (flags & A_ALIGN_8) {
+    return ar_alloc_aligned(backing, len, 3);
+  } else if (flags & A_ALIGN_4) {
+    return ar_alloc_aligned(backing, len, 2);
+  } else if (flags & A_REALLOCABLE) {
+    // If reallocable is requested, we need to give it its own page
+    ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
+    createArenaPage(newPage, len, 1);
+    return allocArenaPage(newPage, len);
   } else {
-    return ar_aligned_allocator_fn(backing, len, 0);
+    // If it's not reallocable, then we can allocate it out of the normal pool
+    return ar_alloc_aligned(backing, len, 0);
   }
 }
 
-void ar_deallocator_fn(void* backing, void* ptr) {
-  // no op
+// Shim method
+static void *ar_allocator_fn(void *backing, size_t len) {
+  // TODO fast path?
+  return ar_allocator_flags_fn(backing, len, A_NOFLAGS);
 }
 
-void ar_destroy_allocator_fn(void* backing) {
-  Arena* a = (Arena*)backing;
+// no op (memory can only be freed once deallocated
+static void ar_deallocator_fn(void *backing, void *ptr) {}
+
+/// Releases resources associated with arena
+static void ar_destroy_allocator_fn(void *backing) {
+  Arena *a = (Arena *)backing;
   // destroy backing arena
   ar_destroy(a);
   // free memory holding arena
   free(backing);
 }
 
-void arena_a_create(Allocator* allocator) {
+void arena_a_create(Allocator *allocator) {
   // create arena as backing
   allocator->allocator_backing = malloc(sizeof(Arena));
   ar_create(allocator->allocator_backing);
   // realloc is disabled but aligned is enabled
-  allocator->realloc_possible = false;
-  allocator->aligned_possible = true;
-  allocator->cleanup_possible = true;
+  allocator->default_flags = 0;
+  allocator->supported_flags =
+      A_ALIGN_4 | A_ALIGN_8 | A_ALIGN_16 | A_REALLOCABLE;
 
   // set functions
   allocator->allocator_fn = ar_allocator_fn;
-  allocator->aligned_allocator_fn = ar_aligned_allocator_fn;
+  allocator->allocator_flags_fn = ar_allocator_flags_fn;
   allocator->deallocator_fn = ar_deallocator_fn;
   allocator->destroy_allocator_fn = ar_destroy_allocator_fn;
   // ignore realloc

@@ -7,17 +7,18 @@
 #include <assert.h>
 
 typedef enum AllocatorFlag_e {
+  A_NOFLAGS = 0,
   /// The size of this memory allocation can be grown by a call to `a_realloc`
   A_REALLOCABLE = 1<<0,
   /// The pointer address shall be a multiple of 4
-  A_ALIGN_4= 1<<1,
+  A_ALIGN_4= 1<<2,
   /// The pointer address shall be a multiple of 8
-  A_ALIGN_8= 1<<2,
+  A_ALIGN_8= 1<<3,
   /// The pointer address shall be a multiple of 16
-  A_ALIGN_16= 1<<3,
+  A_ALIGN_16= 1<<4,
   /// The memory will NOT be cleaned up when the allocator is destroyed (can cause resource leak)
   /// You are responsible for cleaning up this memory, and the means of doing so will vary per implementation
-  A_CLEANUP_ON_DESTROY = 1<<4,
+  A_NO_CLEANUP_ON_DESTROY = 1<<5,
 } AllocatorFlag;
 
 typedef uint32_t AllocatorFlags;

@@ -5,90 +5,89 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "vector.h"
 #include "lncol.h"
 #include "lexer.h"
 
 typedef enum {
-  j_boolean,
-  j_integer,
-  j_number,
-  j_string,
-  j_array,
-  j_object,
-  j_null,
-} j_JsonElemKind;
+  j_NullKind = 0,
+  j_BoolKind,
+  j_IntKind,
+  j_NumKind,
+  j_StrKind,
+  j_ArrayKind,
+  j_ObjectKind,
+} j_ElemKind;
 
-typedef struct j_JsonElem_s j_JsonElem;
-typedef struct j_JsonKV_s JsonKV;
+typedef struct j_Elem_s j_Elem;
+typedef struct j_Prop_s j_Prop;
 
-typedef struct JsonStr_s {
+typedef struct j_Str_s {
       char *string;
       size_t length;
-} JsonStr;
+} j_Str;
 
-typedef struct JsonElem_s {
-  JsonElemKind kind;
+typedef struct j_Elem_s {
+  j_ElemKind kind;
   union {
     bool boolean;
-    uint64_t integer;
+    int64_t integer;
     double number;
-    JsonStr string;
+    j_Str string;
     struct {
-      JsonElem *values;
+      j_Elem *values;
       size_t length;
     } array;
     struct {
-      JsonKV *values;
+      j_Prop *props;
       size_t length;
     } object;
   };
-} JsonElem;
+} j_Elem;
 
-typedef struct JsonKV_s {
-  char *key;
-  JsonElem value;
-} JsonKV;
+typedef struct j_Prop_s {
+  j_Str key;
+  j_Elem value;
+} j_Prop;
 
-// Utility functions
-JsonElem j_jsonStrJson(char *x, size_t len);
-JsonKV KVJson(char *key, JsonElem value);
+// Utility macros to construct these types
 
-JsonElem nullJson(void);
-JsonElem boolJson(bool x);
-JsonElem intJson(uint64_t x);
-JsonElem numJson(double x);
-JsonElem strJson(char *x, size_t len);
-JsonElem arrDefJson(JsonElem *ptr, size_t len);
-JsonElem objDefJson(JsonKV *ptr, size_t len);
+#define J_STR(x, len) ((j_String){.string=(x), .length=(len)})
+#define J_PROP(k, v) ((j_Prop){.key=(k), .value=(v)})
 
-char *toStringJsonElem(JsonElem *j);
+#define J_NULL ((j_Elem){.kind=j_NullKind})
+#define J_BOOL(v) ((j_Elem){.kind=j_BoolKind, .boolean=(v)})
+#define J_INT(v) ((j_Elem){.kind=j_IntKind, .integer=(v)})
+#define J_NUM(v) ((j_Elem){.kind=j_NumKind, .number=(v)})
+#define J_ARRAY(v, len) ((j_Elem){.kind=j_ArrayKind, .array={.values=(v), .length=(len)}})
+#define J_OBJECT(v, len) ((j_Elem){.kind=j_ObjectKind, .array={.props=(v), .length=(len)}})
+
+char *j_stringify(j_Elem *j, Allocator *a);
 
 // Parse JSON
 // JSON Parsing errors
-typedef enum JsonParseDiagnosticKind_e {
-  JPDK_JsonElemEof,
-  JPDK_JsonElemUnknownCharacter,
-  JPDK_JsonStringExpectedDoubleQuote,
-  JPDK_JsonStringInvalidControlChar,
-  JPDK_JsonStringInvalidUnicodeSpecifier,
-  JPDK_JsonMalformedLiteral,
-  JPDK_JsonNumberExponentExpectedSign,
-  JPDK_JsonArrayExpectedRightBracket,
-  JPDK_JsonArrayExpectedJsonElem,
-  JPDK_JsonObjExpectedRightBrace,
-  JPDK_JsonObjExpectedJsonKV,
-  JPDK_JsonKVExpectedQuoted,
-  JPDK_JsonKVExpectedColon,
-  JPDK_JsonKVExpectedValue,
-} JsonParseDiagnosticKind ;
+typedef enum {
+  j_ElemEof,
+  j_ElemUnknownCharacter,
+  j_MalformedLiteral,
+  j_StrExpectedDoubleQuote,
+  j_StrInvalidControlChar,
+  j_StrInvalidUnicodeSpecifier,
+  j_NumExponentExpectedSign,
+  j_ArrayExpectedRightBracket,
+  j_ArrayExpectedJsonElem,
+  j_ObjectExpectedRightBrace,
+  j_ObjectExpectedJsonKV,
+  j_PropExpectedColon,
+  j_PropExpectedValue,
+} j_ErrorKind;
 
-typedef struct JsonParseDiagnostic_s {
-  JsonParseDiagnosticKind kind;
+typedef struct j_Error_s {
+  j_ErrorKind kind;
   LnCol loc;
-} JsonParseDiagnostic;
+} j_Error;
 
-#define JSONPARSEDIAGNOSTIC(k, l) ((JsonParseDiagnostic) { .kind=k, .loc=l})
 
-void parseJsonElem(JsonElem *je, Lexer *l, Vector* diagnostics);
+j_Elem j_parseElem(Lexer *l, Vector* diagnostics);
 
 #endif

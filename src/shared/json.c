@@ -6,32 +6,34 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "arena.h"
+#include "allocator.h"
 #include "error.h"
 #include "vector.h"
 
 // GLORIOUS UTILS
 
+#define ERROR(k, l) ((j_Error) { .kind=k, .loc=l})
+
 // Accepts Vector<char>, pushes as many chars points as needed to encode the
 // data
 void encodeUTFPoint(Vector *data, uint32_t utf) {
   if (utf <= 0x7F) { // Plain ASCII
-    char *out = pushVector(data, sizeof(char) * 1);
+    char *out = vec_push(data, sizeof(char) * 1);
     out[0] = (char)utf;
   } else if (utf <= 0x07FF) {
     // 2-byte unicode
-    char *out = pushVector(data, sizeof(char) * 2);
+    char *out = vec_push(data, sizeof(char) * 2);
     out[0] = (char)(((utf >> 6) & 0x1F) | 0xC0);
     out[1] = (char)(((utf >> 0) & 0x3F) | 0x80);
   } else if (utf <= 0xFFFF) {
     // 3-byte unicode
-    char *out = pushVector(data, sizeof(char) * 3);
+    char *out = vec_push(data, sizeof(char) * 3);
     out[0] = (char)(((utf >> 12) & 0x0F) | 0xE0);
     out[1] = (char)(((utf >> 6) & 0x3F) | 0x80);
     out[2] = (char)(((utf >> 0) & 0x3F) | 0x80);
   } else if (utf <= 0x10FFFF) {
     // 4-byte unicode
-    char *out = pushVector(data, sizeof(char) * 4);
+    char *out = vec_push(data, sizeof(char) * 4);
     out[0] = (char)(((utf >> 18) & 0x07) | 0xF0);
     out[1] = (char)(((utf >> 12) & 0x3F) | 0x80);
     out[2] = (char)(((utf >> 6) & 0x3F) | 0x80);
@@ -40,55 +42,18 @@ void encodeUTFPoint(Vector *data, uint32_t utf) {
   // TODO gracefully handle error
 }
 
-JsonKV KVJson(char *key, JsonElem value) {
-  return (JsonKV){.key = (key), .value = (value)};
-}
-
-JsonElem nullJson() { return (JsonElem){.kind = JE_null}; }
-
-JsonElem boolJson(bool x) {
-  return (JsonElem){.kind = JE_boolean, .boolean = (x)};
-}
-
-JsonElem intJson(uint64_t x) {
-  return (JsonElem){.kind = JE_integer, .integer = (x)};
-}
-
-JsonElem numJson(double x) {
-  return (JsonElem){.kind = JE_number, .number = (x)};
-}
-
-JsonElem strJson(char *x, size_t len) {
-  if (x != NULL) {
-    return (JsonElem){.kind = JE_string,
-                      .string = {.string = (x), .length = len}};
-  } else {
-    return nullJson();
-  }
-}
-
-JsonElem arrDefJson(JsonElem *ptr, size_t len) {
-  return (JsonElem){.kind = JE_array,
-                    .array = {.values = (ptr), .length = (len)}};
-}
-
-JsonElem objDefJson(JsonKV *ptr, size_t len) {
-  return (JsonElem){.kind = JE_object,
-                    .object = {.values = (ptr), .length = (len)}};
-}
-
 // JSON TO STRING
-static void unchecked_emitCharJson(Vector *vptr, char c) {
+static void j_unchecked_emitChar(Vector *vptr, char c) {
   *VEC_PUSH(vptr, char) = c;
 }
 
-static void unchecked_emitStrJson(Vector *vptr, char *str, size_t len) {
+static void j_unchecked_emitStr(Vector *vptr, char *str, size_t len) {
   // length of string in bytes
-  memcpy(pushVector(vptr, len), str, len);
+  memcpy(vec_push(vptr, len), str, len);
 }
 
 // Convert from int to string
-static void emitIntJson(Vector *vptr, int64_t digit) {
+static void j_emitInt(Vector *vptr, int64_t digit) {
   // handle negative numbers
   if (digit < 0) {
     *VEC_PUSH(vptr, char) = '-';
@@ -105,11 +70,11 @@ static void emitIntJson(Vector *vptr, int64_t digit) {
   }
 }
 
-static void emitNumberJson(Vector *vptr, double number) {
+static void j_emitNum(Vector *vptr, double number) {
   // up to 328 digits in a float
   char str[350];
   snprintf(str, 350, "%f", number);
-  unchecked_emitStrJson(vptr, str, strlen(str));
+  j_unchecked_emitStr(vptr, str, strlen(str));
 }
 
 static char toHex(uint8_t x) {
@@ -121,56 +86,42 @@ static char toHex(uint8_t x) {
 }
 
 // Checks for special characters
-static void emitStrJson(Vector *vptr, char *str, size_t len) {
-  unchecked_emitCharJson(vptr, '\"');
-  for (size_t i = 0; i < len; i++) {
-    char c = str[i];
+static void j_emitStr(Vector *vptr, j_Str str) {
+  j_unchecked_emitChar(vptr, '\"');
+  for (size_t i = 0; i < str.length; i++) {
+    char c = str.string[i];
     switch (c) {
     case '\b': {
-      char *ptr = pushVector(vptr, sizeof(char) * 2);
-      ptr[0] = '\\';
-      ptr[1] = 'b';
+      j_unchecked_emitStr(vptr, "\\b", 2);
       break;
     }
     case '\f': {
-      char *ptr = pushVector(vptr, sizeof(char) * 2);
-      ptr[0] = '\\';
-      ptr[1] = 'f';
+      j_unchecked_emitStr(vptr, "\\f", 2);
       break;
     }
     case '\n': {
-      char *ptr = pushVector(vptr, sizeof(char) * 2);
-      ptr[0] = '\\';
-      ptr[1] = 'n';
+      j_unchecked_emitStr(vptr, "\\n", 2);
       break;
     }
     case '\r': {
-      char *ptr = pushVector(vptr, sizeof(char) * 2);
-      ptr[0] = '\\';
-      ptr[1] = 'r';
+      j_unchecked_emitStr(vptr, "\\r", 2);
       break;
     }
     case '\t': {
-      char *ptr = pushVector(vptr, sizeof(char) * 2);
-      ptr[0] = '\\';
-      ptr[1] = 't';
+      j_unchecked_emitStr(vptr, "\\t", 2);
       break;
     }
     case '\"': {
-      char *ptr = pushVector(vptr, sizeof(char) * 2);
-      ptr[0] = '\\';
-      ptr[1] = '\"';
+      j_unchecked_emitStr(vptr, "\\\"", 2);
       break;
     }
     case '\\': {
-      char *ptr = pushVector(vptr, sizeof(char) * 2);
-      ptr[0] = '\\';
-      ptr[1] = '\\';
+      j_unchecked_emitStr(vptr, "\\\\", 2);
       break;
     }
     default: {
       if (c <= 0x001F) {
-        char *ptr = pushVector(vptr, sizeof(char) * 6);
+        char *ptr = vec_push(vptr, sizeof(char) * 6);
         ptr[0] = '\\';
         ptr[1] = 'u';
         ptr[2] = '0';
@@ -184,76 +135,79 @@ static void emitStrJson(Vector *vptr, char *str, size_t len) {
     }
     }
   }
-  unchecked_emitCharJson(vptr, '\"');
+  j_unchecked_emitChar(vptr, '\"');
 }
 
-static void emitJsonElem(JsonElem *j, Vector *data) {
+static void j_emitElem(Vector* data, j_Elem *j);
+
+static void j_emitProp(Vector* vptr, j_Prop *prop) {
+  j_emitStr(vptr, prop->key);
+  j_unchecked_emitChar(vptr, ':');
+  j_emitElem(vptr, &prop->value);
+}
+
+static void j_emitElem(Vector* data, j_Elem *j) {
   switch (j->kind) {
-  case JE_null: {
-    unchecked_emitStrJson(data, "null", 4);
+  case j_NullKind: {
+    j_unchecked_emitStr(data, "null", 4);
     break;
   }
-  case JE_string: {
-    emitStrJson(data, j->string.string, j->string.length);
+  case j_StrKind: {
+    j_emitStr(data, j->string);
     break;
   }
-  case JE_boolean: {
-    unchecked_emitStrJson(data, j->boolean ? "true" : "false",
+  case j_BoolKind: {
+    j_unchecked_emitStr(data, j->boolean ? "true" : "false",
                           j->boolean ? 4 : 5);
     break;
   }
-  case JE_integer: {
+  case j_IntKind: {
     // there are a max 20 digits in an integer
-    emitIntJson(data, j->integer);
+    j_emitInt(data, j->integer);
     break;
   }
-  case JE_number: {
-    emitNumberJson(data, j->number);
+  case j_NumKind: {
+    j_emitNum(data, j->number);
     break;
   }
-  case JE_array: {
-    unchecked_emitCharJson(data, '[');
+  case j_ArrayKind: {
+    j_unchecked_emitChar(data, '[');
     for (size_t i = 0; i < j->array.length; i++) {
-      emitJsonElem(&j->array.values[i], data);
+      j_emitElem(data, &j->array.values[i]);
       // if we are not on the ultimate element of the lsit
       if (i + 1 != j->array.length) {
-        unchecked_emitCharJson(data, ',');
+        j_unchecked_emitChar(data, ',');
       }
     }
-    unchecked_emitCharJson(data, ']');
+    j_unchecked_emitChar(data, ']');
     break;
   }
-  case JE_object: {
-    unchecked_emitCharJson(data, '{');
+  case j_ObjectKind: {
+    j_unchecked_emitChar(data, '{');
     for (size_t i = 0; i < j->object.length; i++) {
-      JsonKV jkv = j->object.values[i];
-      emitStrJson(data, jkv.key, strlen(jkv.key));
-      unchecked_emitCharJson(data, ':');
-      emitJsonElem(&jkv.value, data);
+      j_emitProp(data, &j->object.props[i]);
       if (i + 1 != j->object.length) {
-        unchecked_emitCharJson(data, ',');
+        j_unchecked_emitChar(data, ',');
       }
     }
-    unchecked_emitCharJson(data, '}');
+    j_unchecked_emitChar(data, '}');
     break;
   }
   }
 }
 
-char *toStringJsonElem(JsonElem *j) {
+char *j_stringify(j_Elem *j, Allocator* a) {
   Vector data;
-  createVector(&data);
-  emitJsonElem(j, &data);
+  vec_create(&data, a);
+  j_emitElem(&data, j);
   // terminate string
   *VEC_PUSH(&data, char) = '\0';
-  return releaseVector(&data);
+  return vec_release(&data);
 }
 
 // Parsing
 
-void parseJsonKV(JsonKV *jkv, Lexer *l, Vector *diagnostics) {}
-
-void certain_parseNumberJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
+void certain_parseNumberJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
   LnCol start = l->position;
 
   bool negative = false;
@@ -312,8 +266,8 @@ void certain_parseNumberJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
       break;
     }
     default: {
-      *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
-          JSONPARSEDIAGNOSTIC(JPDK_JsonNumberExponentExpectedSign, l->position);
+      *VEC_PUSH(diagnostics, j_Error) =
+          ERROR(j_NumExponentExpectedSign, l->position);
       break;
     }
     }
@@ -345,7 +299,7 @@ void certain_parseNumberJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
       }
     }
     je->number = num;
-    je->kind = JE_number;
+    je->kind = j_NumKind;
   } else {
     // Integer
     int64_t num = integer_value;
@@ -355,59 +309,65 @@ void certain_parseNumberJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
       }
     }
     je->integer = num;
-    je->kind = JE_integer;
+    je->kind = j_IntKind;
   }
 
   return;
 }
 
-void certain_parseLiteralJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
+void certain_parseLiteralJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
   LnCol start = l->position;
   Vector data;
-  createVector(&data);
-  int32_t c;
-  while ((c = peekValueLexer(l)) != EOF) {
+
+  // Fixed buffer size
+  char buffer[6];
+  size_t index = 0;
+  while (true) {
+    int32_t c = peekValueLexer(l);
     if (isalpha(c)) {
-      *VEC_PUSH(&data, char) = (char)c;
+      // Fill up buffer
+      if(index < 5) {
+         buffer[index] = (char)c;
+         index++;
+      }
+      // even if the buffer is finished we must continue on 
       nextValueLexer(l);
     } else {
       break;
     }
   }
+  // Terminate with string length
+  buffer[5] = '\0';
 
-  char *str_unterminated = VEC_GET(&data, 0, char);
-  char str_len = VEC_LEN(&data, char);
-
-  if (!strncmp("null", str_unterminated, str_len)) {
-    je->kind = JE_null;
-  } else if (!strncmp("true", str_unterminated, str_len)) {
-    je->kind = JE_boolean;
+  if (!strcmp("null", buffer)) {
+    je->kind = j_NullKind;
+  } else if (!strcmp("true", buffer)) {
+    je->kind = j_BoolKind;
     je->boolean = true;
-  } else if (!strncmp("false", str_unterminated, str_len)) {
-    je->kind = JE_boolean;
+  } else if (!strcmp("false", buffer)) {
+    je->kind = j_BoolKind;
     je->boolean = false;
   } else {
-    *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
-        JSONPARSEDIAGNOSTIC(JPDK_JsonMalformedLiteral, start);
-    je->kind = JE_null;
+    *VEC_PUSH(diagnostics, j_Error) = ERROR(j_MalformedLiteral, start);
+    je->kind = j_NullKind;
   }
   return;
 }
 
-void certain_parseStringJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
+void certain_parseStringJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
   LnCol start = l->position;
   int32_t c = nextValueLexer(l);
-  assert(c == '"');
+  assert(c == '\"');
 
   typedef enum {
     StringParserText,
     StringParserBackslash,
     StringParserUnicode,
-    StringParserFinished
+    StringParserFinished,
   } StringParserState;
 
   Vector data;
-  createVector(&data);
+  vec_create(&data, l->a);
 
   StringParserState state = StringParserText;
 
@@ -425,8 +385,8 @@ void certain_parseStringJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
         break;
       }
       case EOF: {
-        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = JSONPARSEDIAGNOSTIC(
-            JPDK_JsonStringExpectedDoubleQuote, l->position);
+        *VEC_PUSH(diagnostics, j_Error) = ERROR(
+            j_StrExpectedDoubleQuote, l->position);
         state = StringParserFinished;
         break;
       }
@@ -486,7 +446,7 @@ void certain_parseStringJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
       }
       default: {
         *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
-            JSONPARSEDIAGNOSTIC(JPDK_JsonStringInvalidControlChar, l->position);
+            ERROR(JPDK_JsonStringInvalidControlChar, l->position);
         state = StringParserText;
         break;
       }
@@ -506,7 +466,7 @@ void certain_parseStringJson(JsonElem *je, Lexer *l, Vector *diagnostics) {
         } else if (c >= 'A' && c <= 'F') {
           value = c - 'A';
         } else {
-          *VEC_PUSH(diagnostics, JsonParseDiagnostic) = JSONPARSEDIAGNOSTIC(
+          *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(
               JPDK_JsonStringInvalidUnicodeSpecifier, l->position);
           value = 0;
         }
@@ -546,9 +506,9 @@ static void skipWhitespace(Lexer *l) {
   }
 }
 
-void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics);
+void parsej_Elem(j_Elem *je, Lexer *l, Vector *diagnostics);
 
-static void certain_parseArrayJson(JsonElem *je, Lexer *l,
+static void certain_parseArrayJson(j_Elem *je, Lexer *l,
                                    Vector *diagnostics) {
   assert(nextValueLexer(l) == '[');
 
@@ -579,12 +539,12 @@ static void certain_parseArrayJson(JsonElem *je, Lexer *l,
         goto CLEANUP;
       }
       case EOF: {
-        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = JSONPARSEDIAGNOSTIC(
+        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(
             JPDK_JsonArrayExpectedRightBracket, l->position);
         goto CLEANUP;
       }
       default: {
-        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = JSONPARSEDIAGNOSTIC(
+        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(
             JPDK_JsonArrayExpectedRightBracket, l->position);
         nextValueLexer(l);
         break;
@@ -594,27 +554,27 @@ static void certain_parseArrayJson(JsonElem *je, Lexer *l,
     }
     case ArrayParseExpectElem: {
       skipWhitespace(l);
-      JsonElem *elemptr = VEC_PUSH(&elems, JsonElem);
-      parseJsonElem(elemptr, l, diagnostics);
+      j_Elem *elemptr = VEC_PUSH(&elems, j_Elem);
+      parsej_Elem(elemptr, l, diagnostics);
       state = ArrayParseExpectCommaOrEnd;
       break;
     }
     }
   }
 CLEANUP:;
-  size_t len = VEC_LEN(&elems, JsonElem);
+  size_t len = VEC_LEN(&elems, j_Elem);
   *je = arrDefJson(manageMemArena(l->ar, releaseVector(&elems)), len);
 }
 
 static void parseKVJson(JsonKV *kv, Lexer *l, Vector *diagnostics) {
-  JsonElem je;
+  j_Elem je;
   certain_parseStringJson(&je, l, diagnostics);
   if(je.kind != JE_string) {
-    *VEC_PUSH(diagnostics, JsonParseDiagnostic) = JSONPARSEDIAGNOSTIC(JPDK_JsonKVExpectedQuoted, l->position);
+    *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(JPDK_JsonKVExpectedQuoted, l->position);
   }
 }
 
-void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics) {
+void parsej_Elem(j_Elem *je, Lexer *l, Vector *diagnostics) {
   skipWhitespace(l);
 
   int32_t c = peekValueLexer(l);
@@ -653,12 +613,12 @@ void parseJsonElem(JsonElem *je, Lexer *l, Vector *diagnostics) {
   }
   case EOF: {
     *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
-        JSONPARSEDIAGNOSTIC(JPDK_JsonElemEof, l->position);
+        ERROR(j_ElemEof, l->position);
     return;
   }
   default: {
     *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
-        JSONPARSEDIAGNOSTIC(JPDK_JsonElemUnknownCharacter, l->position);
+        ERROR(j_ElemUnknownCharacter, l->position);
     nextValueLexer(l);
     return;
   }

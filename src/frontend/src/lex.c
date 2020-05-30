@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "utils.h"
-#include "error.h"
+#include "diagnostic.h"
 #include "vector.h"
 
 // Parses integer with radix
@@ -51,10 +51,7 @@ static void lexComment(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   int32_t c = nextValueLexer(lexer);
-  if (c != '#') {
-    INTERNAL_ERROR("called comment lexer when there wasn't a comment");
-    PANIC();
-  }
+  assert(c == '#');
 
   c = peekValueLexer(lexer);
 
@@ -86,7 +83,7 @@ static void lexComment(Lexer *lexer, Token *token) {
     // also nestable
     // #{ Comment }#
     Vector data;
-    createVector(&data);
+    vec_create(&data, lexer->a);
     size_t stackDepth = 1;
     char lastChar = '\0';
 
@@ -116,7 +113,7 @@ static void lexComment(Lexer *lexer, Token *token) {
         .comment =
             {
                 .scope = scope,
-                .comment = manageMemArena(lexer->ar, releaseVector(&data)),
+                .comment = vec_release(&data),
             },
         .span = SPAN(start, lexer->position),
         .error = DK_Ok};
@@ -127,7 +124,7 @@ static void lexComment(Lexer *lexer, Token *token) {
     // line comment. These are not nestable, and continue till the end of line.
     // # comment
     Vector data;
-    createVector(&data);
+    vec_create(&data, lexer->a);
     while ((c = nextValueLexer(lexer)) != EOF) {
       if (c != '\n') {
         *VEC_PUSH(&data, char) = (char)c;
@@ -143,7 +140,7 @@ static void lexComment(Lexer *lexer, Token *token) {
         .comment =
             {
                 .scope = scope,
-                .comment = manageMemArena(lexer->ar, releaseVector(&data)),
+                .comment = vec_release(&data),
             },
         .span = SPAN(start, lexer->position),
         .error = DK_Ok};
@@ -159,13 +156,10 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = nextValueLexer(lexer);
-  if (c != '\"') {
-    INTERNAL_ERROR("called string lexer where there wasn't a string");
-    PANIC();
-  }
+  assert(c == '\"');
 
   Vector data;
-  createVector(&data);
+  vec_create(&data, lexer->a);
 
   while ((c = nextValueLexer(lexer)) != EOF) {
     if (c == '\\') {

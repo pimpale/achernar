@@ -41,7 +41,7 @@ void vec_resize(Vector *vector, size_t size) {
   vec_setCapacity(vector, newCapacity);
 }
 
-Vector *vec_createWithCapacity(Vector *vector, Allocator* allocator, size_t initialCapacity) {
+Vector *vec_createWithCapacity(Vector *vector, const Allocator* allocator, size_t initialCapacity) {
   vector->data = NULL;
   vector->length = 0;
   vector->allocator = allocator;
@@ -49,7 +49,7 @@ Vector *vec_createWithCapacity(Vector *vector, Allocator* allocator, size_t init
   return vector;
 }
 
-Vector *vec_create(Vector *vector, Allocator* allocator) {
+Vector *vec_create(Vector *vector, const Allocator* allocator) {
   return vec_createWithCapacity(vector, allocator, DEFAULT_INITIAL_CAPACITY);
 }
 

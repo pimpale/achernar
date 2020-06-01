@@ -1,10 +1,10 @@
 #include "lexer.h"
 
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 void lex_fromFile(Lexer *lexer, FILE *file) {
-  lexer->position = LNCOL(1, 1);
+  lexer->position = LNCOL(LN(1), COL(1));
 
   // Files
   lexer->file = file;
@@ -12,7 +12,7 @@ void lex_fromFile(Lexer *lexer, FILE *file) {
 }
 
 void lex_fromMemory(Lexer *lexer, char *ptr, size_t len) {
-  lexer->position = LNCOL(1, 1);
+  lexer->position = LNCOL(LN(1), COL(1));
 
   // Copy memory
   lexer->backing = lex_BackingMemory;
@@ -43,27 +43,23 @@ int32_t lex_next(Lexer *lexer) {
       // Return the element at the location, and increment location
       nextValue = (lexer->memory.ptr[lexer->memory.loc]);
       lexer->memory.loc++;
-      if (nextValue == '\n') {
-        lexer->position.ln += 1;
-        lexer->position.col = 1;
-      } else {
-        lexer->position.col += 1;
-      }
     }
     break;
   }
   case lex_BackingFile: {
     nextValue = getc(lexer->file);
-    if (nextValue != EOF) {
-      if (nextValue == '\n') {
-        lexer->position.ln += 1;
-        lexer->position.col = 1;
-      } else {
-        lexer->position.col += 1;
-      }
-    }
     break;
   }
+  }
+
+  // Update our position in the file if we haven't encountered an EOF
+  if (nextValue != EOF) {
+    if (nextValue == '\n') {
+      lexer->position.ln = LN(lexer->position.ln.val + 1);
+      lexer->position.col = COL(1);
+    } else {
+      lexer->position.col = COL(lexer->position.col.val + 1);
+    }
   }
   return nextValue;
 }
@@ -83,6 +79,14 @@ int32_t lex_peek(Lexer *lexer) {
     ungetc(val, lexer->file);
     return val;
   }
+  }
+}
+
+Span lex_peekSpan(Lexer *lexer) {
+  if (lex_peek(lexer) == '\n') {
+    return SPAN(lexer->position, LNCOL(LN(lexer->position.ln.val + 1), COL(1)));
+  } else {
+    return SPAN(lexer->position, LNCOL(lexer->position.ln, COL(lexer->position.col.val + 1)));
   }
 }
 

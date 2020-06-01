@@ -26,11 +26,19 @@ typedef struct {
   LnCol position;
 } Lexer;
 
+// Creates new lexer from file
 void lex_fromFile(Lexer *lexer, FILE *file);
+// Creates new lexer from 
 void lex_fromMemory(Lexer *lexer, char *ptr, size_t len);
 void lex_destroy(Lexer *lexer);
 
+// returns the span of the peeked character
+Span lex_peekSpan(Lexer* lexer);
+
+// Returns the next char available
 int32_t lex_next(Lexer *lexer);
+
+// Peeks the next char from the lexer
 int32_t lex_peek(Lexer *lexer);
 
 #endif

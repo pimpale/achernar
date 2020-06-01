@@ -64,6 +64,10 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "CharLiteralUnrecognizedEscapeCode";
     break;
   }
+  case DK_CharLiteralExpectedCloseSingleQuote: {
+    errmsg = "CharLiteralExpectedCloseSingleQuote";
+    break;
+  }
   case DK_LabelUnknownCharacter: {
     errmsg = "LabelUnknownCharacter";
     break;

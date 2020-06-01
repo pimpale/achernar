@@ -857,7 +857,7 @@ CLEANUP:
 
 // Level1ValueExpr parentheses, braces, literals
 // Level2ValueExpr as () [] & @ . -> (postfixes)
-// Level3ValueExpr - + ! (prefixes)
+// Level3ValueExpr -- ++ ! (prefixes)
 // Level4ValueExpr -> (pipeline)
 // Level5ValueExpr * / % (multiplication and division)
 // Level6ValueExpr + - (addition and subtraction)
@@ -1125,11 +1125,11 @@ static void parseL3ValueExpr(ValueExpr *l3, Parser *parser) {
   Token t;
   peekTokenParser(parser, &t);
   switch (t.kind) {
-  case TK_Sub: {
+  case TK_Negate: {
     l3->unaryOp.operator= VEUOK_Negate;
     break;
   }
-  case TK_Add: {
+  case TK_Posit: {
     l3->unaryOp.operator= VEUOK_Posit;
     break;
   }

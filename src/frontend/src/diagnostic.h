@@ -24,6 +24,7 @@ typedef enum {
   DK_FloatLiteralExceedsMaxPrecision,
   // Character Literals
   DK_CharLiteralUnrecognizedEscapeCode,
+  DK_CharLiteralExpectedCloseSingleQuote,
   // Labels
   DK_LabelUnknownCharacter,
   // ConstExpr Errors

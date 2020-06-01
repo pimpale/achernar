@@ -48,7 +48,7 @@ typedef struct Allocator_s {
  * REQUIRES: `a` is a valid pointer to an Allocator
  * GUARANTEES: returns flags supported by default by `a`
  */
-static inline AllocatorFlags a_defaults(Allocator const* a) {
+static inline AllocatorFlags a_defaults(const Allocator * a) {
   return a->supported_flags;
 }
 
@@ -56,7 +56,7 @@ static inline AllocatorFlags a_defaults(Allocator const* a) {
  * REQUIRES: `a` is a valid pointer to an Allocator
  * GUARANTEES: returns flags supported by default by `a`
  */
-static inline AllocatorFlags a_supports(Allocator const* a) {
+static inline AllocatorFlags a_supports(const Allocator * a) {
   return a->supported_flags;
 }
 
@@ -68,7 +68,7 @@ static inline AllocatorFlags a_supports(Allocator const* a) {
  * GUARANTEES: if allocation fails, NULL will be returned
  * GUARANTEES: the memory will be allocated with default properties of the implementing allocator
  */
-static inline void* a_alloc(Allocator const* a, size_t size, bool* failed) {
+static inline void* a_alloc(const Allocator * a, size_t size, bool* failed) {
   return a->allocator_fn(a->allocator_backing, size);
 }
 
@@ -80,7 +80,7 @@ static inline void* a_alloc(Allocator const* a, size_t size, bool* failed) {
  * GUARANTEES: if allocation succeeds, the memory returned will have the properties specified by the flags
  * GUARANTEES: if allocation fails, NULL will be returned
  */
-static inline void* a_alloc_flags(Allocator const* a, size_t size, AllocatorFlags flags) {
+static inline void* a_alloc_flags(const Allocator * a, size_t size, AllocatorFlags flags) {
   // guarantee all flags are supported by this allocator
   assert((a_supports(a) & flags) == flags);
   return a->allocator_flags_fn(a->allocator_backing, size, flags);
@@ -91,7 +91,7 @@ static inline void* a_alloc_flags(Allocator const* a, size_t size, AllocatorFlag
  * REQUIRES: `ptr` is a memory location returned by a previous call to `a_alloc` or `a_aligned_alloc` using `a`
  * GUARANTEES: `ptr` will be freed if possible, with memory returning to the OS
  */
-static inline void a_dealloc(Allocator const* a, void* ptr) {
+static inline void a_dealloc(const Allocator * a, void* ptr) {
   a->deallocator_fn(a->allocator_backing, ptr);
 }
 
@@ -104,7 +104,7 @@ static inline void a_dealloc(Allocator const* a, void* ptr) {
  * NOT GUARANTEED: it is explicitly not guaranteed that the returned value is the same as `ptr`
  * GUARANTEES: if allocation fails, NULL will be returned
  */
-static inline void* a_realloc(Allocator const* a, void* ptr, size_t size) {
+static inline void* a_realloc(const Allocator * a, void* ptr, size_t size) {
   assert(a_supports(a) & A_REALLOCABLE);
   return a->reallocator_fn(a->allocator_backing, ptr, size);
 }

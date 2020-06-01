@@ -8,7 +8,7 @@
 
 // Do not manually modify this struct
 typedef struct Vector_s {
-  Allocator* allocator;
+  const Allocator* allocator;
   size_t length;
   size_t capacity;
   void *data;
@@ -18,14 +18,14 @@ typedef struct Vector_s {
 /// REQUIRES: `mem` is a pointer to a valid section of memory
 /// REQUIRES: `allocator` is a pointer to a valid Allocator
 /// GUARANTEES: returns a pointer to a valid Vector
-Vector *vec_create(Vector *mem, Allocator* allocator);
+Vector *vec_create(Vector *mem, const Allocator* allocator);
 
 /// Creates a vector with capacity
 /// REQUIRES: `mem` is a pointer to a valid section of memory
 /// REQUIRES: `allocator` is a pointer to a valid Allocator
 /// GUARANTEES: returns a pointer to a valid Vector
 /// GUARANTEES: returned vector will have a capacity >= initialCapacity
-Vector *vec_createWithCapacity(Vector *mem, Allocator* allocator, size_t initialCapacity);
+Vector *vec_createWithCapacity(Vector *mem, const Allocator* allocator, size_t initialCapacity);
 
 /// Frees `vec`'s data
 /// REQUIRES: `vec` is a pointer to a valid Vector

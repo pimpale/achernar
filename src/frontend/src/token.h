@@ -40,6 +40,9 @@ typedef enum {
   tk_Float,  // 0.7
   tk_Int,    // 7
   // Math Operators
+  // Unary
+  tk_Negate, // --
+  tk_Posit,  // ++
   tk_Add, // +
   tk_Sub, // -
   tk_Mul, // *

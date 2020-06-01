@@ -464,7 +464,6 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
         break;
       }
       }
-      state = StringParserText;
       break;
     }
     case StringParserUnicode: {

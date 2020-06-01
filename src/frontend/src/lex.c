@@ -8,15 +8,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "utils.h"
-#include "diagnostic.h"
-#include "vector.h"
 
+#include "std_allocator.h"
+#include "diagnostic.h"
+#include "utils.h"
+#include "vector.h"
 
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes comments
-static Token lexComment(Lexer *lexer, Allocator *a) {
+static Token lexComment(Lexer *lexer, Vector *diagnostics, Allocator *a) {
+  UNUSED(diagnostics);
+
   LnCol start = lexer->position;
 
   int32_t c = lex_next(lexer);
@@ -85,7 +88,7 @@ static Token lexComment(Lexer *lexer, Allocator *a) {
                 .comment = vec_release(&data),
             },
         .span = SPAN(start, lexer->position),
-      };
+    };
   }
   default: {
     // If we don't recognize any of these characters, it's just a normal single
@@ -111,7 +114,7 @@ static Token lexComment(Lexer *lexer, Allocator *a) {
                 .comment = vec_release(&data),
             },
         .span = SPAN(start, lexer->position),
-        };
+    };
   }
   }
 }
@@ -119,7 +122,7 @@ static Token lexComment(Lexer *lexer, Allocator *a) {
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
-static void lexStringLiteral(Lexer *lexer, Allocator *a) {
+static Token lexStringLiteral(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = lex_next(lexer);
@@ -179,13 +182,12 @@ static void lexStringLiteral(Lexer *lexer, Allocator *a) {
             break;
           }
         }
-
-        *token = (Token){.kind = tk_String,
-                         .span = SPAN(start, lexer->position),
-                         .error = DK_StringLiteralUnrecognizedEscapeCode,
-                         .string_literal = vec_release(&data)};
-        // once we've hit the end, we release the data
-        return;
+        *VEC_PUSH(diagnostics, Diagnostic) =
+            DIAGNOSTIC(DK_StringLiteralUnrecognizedEscapeCode,
+                       SPAN(start, lexer->position));
+        return (Token){.kind = tk_String,
+                       .span = SPAN(start, lexer->position),
+                       .string_literal = vec_release(&data)};
       }
       }
     } else if (c == '\"') {
@@ -199,96 +201,150 @@ static void lexStringLiteral(Lexer *lexer, Allocator *a) {
   *VEC_PUSH(&data, char) = '\0';
 
   // Return data
-  // clang-format off
-  *token = (Token) {
-    .kind = tk_String,
+  return (Token){
+      .kind = tk_String,
       .string_literal = vec_release(&data),
       .span = SPAN(start, lexer->position),
-      .error = DK_Ok
   };
-  // clang-format on
-  return;
 }
 
 // Parses integer with radix
-static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
-                                   uint64_t radix) {
-  uint64_t ret = 0;
-  for (size_t i = 0; i < len; i++) {
-    // First we must determine the value of this digit
-    char c = str[i];
-    uint64_t digit_value = 0;
-    if (c >= 'a' && c <= 'f') {
-      digit_value = (uint64_t)(c - 'a') + 10;
-    } else if (isdigit(c)) {
-      digit_value = (uint64_t)(c - '0');
+static uint64_t parseNumBaseComponent(Lexer *l, Vector *diagnostics,
+                                      uint8_t radix) {
+  uint64_t integer_value = 0;
+  int32_t c;
+  while ((c = lex_peek(l)) != EOF) {
+    uint8_t digit_val;
+    if (c >= '0' && c <= '9') {
+      digit_val = (uint8_t)(c - '0');
+    } else if (c >= 'A' && c <= 'F') {
+      digit_val = (uint8_t)(c - 'A');
+    } else if (c == '_') {
+      // skip it
+      lex_next(l);
+      continue;
+    } else if (!isalnum(c)) {
+      // this component of the integer is finished processing
+      break;
     } else {
-      return DK_IntLiteralUnknownCharacter;
+      // means an alphabetical character out of this range
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_IntLiteralUnknownCharacter, lex_peekSpan(l));
+      digit_val = 0;
     }
 
-    // If you put something higher than is requested
-    if (digit_value >= radix) {
-      return DK_IntLiteralDigitExceedsRadix;
+    if (digit_val >= radix) {
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_IntLiteralDigitExceedsRadix, lex_peekSpan(l));
+      // correct the radix value
+      digit_val = radix - 1;
     }
 
-    uint64_t oldret = ret;
-    ret = ret * radix + digit_value;
-    if (oldret > ret) {
-      return DK_IntLiteralOverflow;
+    // now we can
+    uint64_t old_integer_value = integer_value;
+    integer_value = integer_value * radix + digit_val;
+    if (old_integer_value > integer_value) {
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_IntLiteralOverflow, lex_peekSpan(l));
     }
+
+    // we can finally move past this char
+    lex_next(l);
   }
-  *value = ret;
-  return DK_Ok;
+  return integer_value;
 }
 
+static double parseNumFractionalComponent(Lexer *l, Vector *diagnostics,
+                                          uint8_t radix) {
+  // reused character variable
+  int32_t c;
 
+  // the reciprocal of the current decimal place
+  // EX: at 0.1 will be 10 when parsing the 1
+  // EX: at 0.005 will be 1000 when parsing the 5
+  // This is because representing decimals is lossy
+  double place = 1;
+
+  // fractional component being computed
+  double fractional_value = 0;
+
+  while ((c = lex_peek(l)) != EOF) {
+    uint8_t digit_val;
+    if (c >= '0' && c <= '9') {
+      digit_val = (uint8_t)(c - '0');
+    } else if (c >= 'A' && c <= 'F') {
+      digit_val = (uint8_t)(c - 'A');
+    } else if (c == '_') {
+      // skip it
+      lex_next(l);
+      continue;
+    } else if (!isalnum(c)) {
+      // this component of the number is finished processing
+      break;
+    } else {
+      // means an alphabetical character out of this range
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_IntLiteralUnknownCharacter, lex_peekSpan(l));
+      digit_val = 0;
+    }
+
+    if (digit_val >= radix) {
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_IntLiteralDigitExceedsRadix, lex_peekSpan(l));
+      // correct the radix value
+      digit_val = radix - 1;
+    }
+
+    place *= radix;
+    fractional_value += digit_val / place;
+
+    // we can finally move past this char
+    lex_next(l);
+  }
+  return fractional_value;
+}
 
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static void lexNumberLiteral(Lexer *l, Allocator *a, Vector* diagnostics) {
+static Token lexNumberLiteral(Lexer *l, Vector *diagnostics, Allocator *a) {
+  UNUSED(a);
+
   LnCol start = l->position;
 
   uint8_t radix;
 
-  if(lex_peek(l) == '0') {
+  if (lex_peek(l) == '0') {
     lex_next(l);
     int32_t radixCode = lex_next(l);
-    switch(radixCode) {
-      case 'b': {
-                  radix = 2;
-                  break;
-                }
-      case 'o': {
-                  radix = 8;
-                  break;
-                }
-      case 'd': {
-                  radix = 10;
-                  break;
-                }
-      case 'x': {
-                  radix =16;
-                  break;
-                }
-                default: {
-
-                         }
-    }
-  }
-  
-
-  int64_t integer_value = 0;
-  int32_t c;
-  while ((c = lex_peek(l)) != EOF) {
-    if (isdigit(c)) {
-      integer_value = integer_value * 10 + (c - '0');
-      lex_next(l);
-    } else {
+    switch (radixCode) {
+    case 'b': {
+      radix = 2;
       break;
     }
+    case 'o': {
+      radix = 8;
+      break;
+    }
+    case 'd': {
+      radix = 10;
+      break;
+    }
+    case 'x': {
+      radix = 16;
+      break;
+    }
+    default: {
+      radix = 10;
+      *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
+          DK_IntLiteralUnrecognizedRadixCode, SPAN(start, l->position));
+    }
+    }
+  } else {
+    radix = 10;
   }
 
+  uint64_t base_component = parseNumBaseComponent(l, diagnostics, radix);
 
   bool fractional = false;
   if (lex_peek(l) == '.') {
@@ -296,95 +352,24 @@ static void lexNumberLiteral(Lexer *l, Allocator *a, Vector* diagnostics) {
     lex_next(l);
   }
 
-  double fractional_component = 0;
   if (fractional) {
-    double place = 0.1;
-    while ((c = lex_peek(l)) != EOF) {
-      if (isdigit(c)) {
-        fractional_component += place * (c - '0');
-        place /= 10;
-        lex_next(l);
-      } else {
-        break;
-      }
-    }
-  }
-
-  bool positive_exponent = false;
-  bool negative_exponent = false;
-  c = lex_peek(l);
-  if (c == 'E' || c == 'e') {
-    lex_next(l);
-    switch (lex_next(l)) {
-    case '+': {
-      positive_exponent = true;
-      break;
-    }
-    case '-': {
-      negative_exponent = true;
-      break;
-    }
-    default: {
-      *VEC_PUSH(diagnostics, j_Error) =
-          ERROR(j_NumExponentExpectedSign, l->position);
-      break;
-    }
-    }
-  }
-
-  uint32_t exponential_integer = 0;
-  if (positive_exponent || negative_exponent) {
-    while ((c = lex_peek(l)) != EOF) {
-      if (isdigit(c)) {
-        exponential_integer = exponential_integer * 10 + (c - '0');
-        lex_next(l);
-      } else {
-        break;
-      }
-    }
-  }
-
-  if (fractional || negative_exponent) {
-    // Decimalish
-    double num = integer_value + fractional_component;
-    if (positive_exponent) {
-      for (int i = 0; i < exponential_integer; i++) {
-        num *= 10;
-      }
-    }
-    if (negative_exponent) {
-      for (int i = 0; i < exponential_integer; i++) {
-        num /= 10;
-      }
-    }
-    return J_NUM_ELEM(num);
+    double fractional_component =
+        parseNumFractionalComponent(l, diagnostics, radix);
+    return (Token){.kind = tk_Float,
+                   .float_literal =
+                       (fractional_component + (double)base_component),
+                   .span = SPAN(start, l->position)};
   } else {
-    // Integer
-    int64_t num = integer_value;
-    if (positive_exponent) {
-      for (int i = 0; i < exponential_integer; i++) {
-        num *= 10;
-      }
-    }
-    return J_INT_ELEM(num);
+    return (Token){.kind = tk_Int,
+                   .int_literal = base_component,
+                   .span = SPAN(start, l->position)};
   }
 }
-}
 
-static void lexCharLiteral(Lexer *lexer, Allocator *a) {
+static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics, Allocator *a) {
+  LnCol start = lexer->position;
   // Skip first quote
-  int32_t c = lex_next(lexer);
-
-  if (c != '\'') {
-    INTERNAL_ERROR(
-        "called char or label lexer where there wasn't a char or label");
-    PANIC();
-  }
-
-  DiagnosticKind dk = DK_Ok;
-
-  Vector data;
-  createVector(&data);
+  assert(lex_next(lexer)== '\'');
 
   // State of lexer
   typedef enum {
@@ -394,85 +379,112 @@ static void lexCharLiteral(Lexer *lexer, Allocator *a) {
     LCS_Label,       // parsing a label
   } LexCharState;
 
+  // if true then it is a label
+  bool label = false;
+  // if it is a char literal, only this variable will be used
+  char char_literal = 'a';
+  // label data will be uninitialized unless it is a label
+  Vector label_data;
   LexCharState state = LCS_Initial;
 
-  LnCol start = lexer->position;
-
-  while ((c = lex_next(lexer)) != EOF) {
+  // reused char variable
+  while (true) {
     switch (state) {
     case LCS_Initial: {
+      int32_t c = lex_next(lexer);
       if (c == '\\') {
         state = LCS_SpecialChar;
       } else {
-        *VEC_PUSH(&data, char) = (char)c;
+        char_literal = (char)c;
         state = LCS_ExpectEnd;
       }
       break;
     }
-    case LCS_ExpectEnd: {
-      if (c == '\'') {
-        // break out of loop, successful
-        goto EXIT_LOOP;
-      } else {
-        *VEC_PUSH(&data, char) = (char)c;
-        state = LCS_Label;
-      }
-      break;
-    }
     case LCS_SpecialChar: {
+      int32_t c = lex_peek(lexer);
       switch (c) {
       case '\\': {
-        *VEC_PUSH(&data, char) = '\\';
+        char_literal = '\\';
         break;
       }
       case '\'': {
-        *VEC_PUSH(&data, char) = '\'';
+        char_literal = '\'';
         break;
       }
       case '\"': {
-        *VEC_PUSH(&data, char) = '\"';
+        char_literal = '\"';
         break;
       }
       case 'a': {
-        *VEC_PUSH(&data, char) = '\a';
+        char_literal = '\a';
         break;
       }
       case 'b': {
-        *VEC_PUSH(&data, char) = '\b';
+        char_literal = '\b';
         break;
       }
       case 'f': {
-        *VEC_PUSH(&data, char) = '\f';
+        char_literal = '\f';
         break;
       }
       case 'n': {
-        *VEC_PUSH(&data, char) = '\n';
+        char_literal = '\n';
         break;
       }
       case 'r': {
-        *VEC_PUSH(&data, char) = '\r';
+        char_literal = '\r';
         break;
       }
       case 't': {
-        *VEC_PUSH(&data, char) = '\t';
+        char_literal = '\t';
         break;
       }
       case 'v': {
-        *VEC_PUSH(&data, char) = '\v';
+        char_literal = '\v';
         break;
       }
       default: {
-        *VEC_PUSH(&data, char) = (char)c;
-        dk = DK_CharLiteralUnrecognizedEscapeCode;
+        char_literal = (char)c;
+        *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_CharLiteralUnrecognizedEscapeCode, lex_peekSpan(lexer));
         break;
       }
       }
+      // now go past this char
+      lex_next(lexer);
       state = LCS_ExpectEnd;
       break;
     }
+    case LCS_ExpectEnd: {
+      int32_t c = lex_peek(lexer);
+      if (c == '\'') {
+        label = false;
+        // skip this single quote
+        lex_next(lexer);
+        // break out of loop, successful
+        goto EXIT_LOOP;
+      } else {
+        if(isalnum(char_literal) || char_literal == '_') {
+          // we are dealing with a label
+          label = true;
+          // initialize label data vector
+          vec_create(&label_data, a);
+          // push first char into vec
+          *VEC_PUSH(&label_data, char) = char_literal;
+          // set state
+          state= LCS_Label;
+        } else {
+          // we are dealing with a bad char literal
+          *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_CharLiteralExpectedCloseSingleQuote, lex_peekSpan(lexer));
+          label = false;
+          goto EXIT_LOOP;
+        }
+      }
+      break;
+    }
     case LCS_Label: {
-      if (isalnum(c)) {
-        *VEC_PUSH(&data, char) = (char)c;
+      int32_t c = lex_peek(lexer);
+      if (isalnum(c) || c == '_') {
+        *VEC_PUSH(&label_data, char) = (char)lex_next(lexer);
       } else {
         goto EXIT_LOOP;
       }
@@ -484,49 +496,30 @@ static void lexCharLiteral(Lexer *lexer, Allocator *a) {
   // exit of loop
 EXIT_LOOP:;
 
-  switch (state) {
-  case LCS_Initial:
-  case LCS_SpecialChar: {
-    *token = (Token){.kind = tk_None,
-                     .span = SPAN(start, lexer->position),
-                     .error = DK_EOF};
-    destroyVector(&data);
-    break;
-  }
-  case LCS_ExpectEnd: {
-      // all paths through the expectEnd will end up with something pushed
-    *token = (Token){.kind = tk_Char,
-                     .char_literal = *VEC_GET(&data, 0, char),
-                     .span = SPAN(start, lexer->position),
-                     .error = dk};
-    destroyVector(&data);
-    return;
-  }
-  case LCS_Label: {
-    size_t length = VEC_LEN(&data, char);
-    for (size_t i = 0; i < length; i++) {
-      if (!isalnum(VEC_GET(&data, i, char))) {
-        dk = DK_LabelUnknownCharacter;
-      }
-    }
-
-    *VEC_PUSH(&data, char) = '\0';
-    *token = (Token){.kind = tk_Label,
-                     .label = manageMemArena(ar, releaseVector(&data)),
-                     .span = SPAN(start, lexer->position),
-                     .error = dk};
-    break;
-  }
+  if(label) {
+    // ensure null byte
+    *VEC_PUSH(&label_data, char) = '\0';
+    return (Token) {
+        .kind = tk_Label,
+        .label = vec_release(&label_data),
+        .span = SPAN(start, lexer->position),
+    };
+  } else {
+    return (Token) {
+        .kind = tk_Char,
+        .char_literal = char_literal,
+        .span = SPAN(start, lexer->position),
+    };
   }
 }
 
 // Parses an identifer or macro or builtin
-static void lexWord(Lexer *lexer, Allocator *a) {
+static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   LnCol start = lexer->position;
 
   Vector data;
-  createVector(&data);
+  vec_create(&data, &std_allocator);
 
   bool macro = false;
 
@@ -546,79 +539,79 @@ static void lexWord(Lexer *lexer, Allocator *a) {
     }
   }
 
-  token->span = SPAN(start, lexer->position);
+  Token token;
+
+  token.span = SPAN(start, lexer->position);
 
   // Note that string length does not incude the trailing null byte
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-  char *string = releaseVector(&data);
+  char *string = vec_release(&data);
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    token->kind = tk_MacroCall;
-    token->macro_call = manageMemArena(ar, string);
-    token->error = DK_Ok;
+    token.kind = tk_MacroCall;
+    token.macro_call = manageMemArena(ar, string);
     return;
   }
 
-  if(!strcmp(string, "true")) {
-     token->kind = tk_Bool;
-     token->bool_literal = true;
-  } else if(!strcmp(string, "false")) {
-     token->kind = tk_Bool;
-     token->bool_literal = false;
+  if (!strcmp(string, "true")) {
+    token.kind = tk_Bool;
+    token.bool_literal = true;
+  } else if (!strcmp(string, "false")) {
+    token.kind = tk_Bool;
+    token.bool_literal = false;
   } else if (!strcmp(string, "loop")) {
-    token->kind = tk_Loop;
+    token.kind = tk_Loop;
   } else if (!strcmp(string, "let")) {
-    token->kind = tk_Let;
+    token.kind = tk_Let;
   } else if (!strcmp(string, "use")) {
-    token->kind = tk_Use;
+    token.kind = tk_Use;
   } else if (!strcmp(string, "namespace")) {
-    token->kind = tk_Namespace;
+    token.kind = tk_Namespace;
   } else if (!strcmp(string, "as")) {
-    token->kind = tk_As;
+    token.kind = tk_As;
   } else if (!strcmp(string, "match")) {
-    token->kind = tk_Match;
+    token.kind = tk_Match;
   } else if (!strcmp(string, "defer")) {
-    token->kind = tk_Defer;
+    token.kind = tk_Defer;
   } else if (!strcmp(string, "break")) {
-    token->kind = tk_Break;
+    token.kind = tk_Break;
   } else if (!strcmp(string, "continue")) {
-    token->kind = tk_Continue;
+    token.kind = tk_Continue;
   } else if (!strcmp(string, "return")) {
-    token->kind = tk_Return;
+    token.kind = tk_Return;
   } else if (!strcmp(string, "fn")) {
-    token->kind = tk_Fn;
+    token.kind = tk_Fn;
   } else if (!strcmp(string, "pat")) {
-    token->kind = tk_Pat;
+    token.kind = tk_Pat;
   } else if (!strcmp(string, "void")) {
-    token->kind = tk_Void;
+    token.kind = tk_Void;
   } else if (!strcmp(string, "struct")) {
-    token->kind = tk_Struct;
+    token.kind = tk_Struct;
   } else if (!strcmp(string, "enum")) {
-    token->kind = tk_Enum;
+    token.kind = tk_Enum;
   } else if (!strcmp(string, "type")) {
-    token->kind = tk_Type;
+    token.kind = tk_Type;
   } else if (!strcmp(string, "macro")) {
-    token->kind = tk_Macro;
+    token.kind = tk_Macro;
   } else if (!strcmp(string, "unreachable")) {
-    token->kind = tk_Unreachable;
+    token.kind = tk_Unreachable;
   } else {
     // It is an identifier, and we need to keep the string
-    token->kind = tk_Identifier;
-    token->identifier = manageMemArena(ar, string);
-    token->error = DK_Ok;
+    token.kind = tk_Identifier;
+    token.identifier = manageMemArena(ar, string);
     return;
   }
 
   // If it wasn't an identifier or macro
-  token->error = DK_Ok;
   free(string);
-  return;
+  return token;
 }
 
 // Parses a builtin or an underscore token
-static void lexBuiltinOrUnderscore(Lexer *lexer, Allocator *a) {
+static void lexBuiltinOrUnderscore(Lexer *lexer, Vector *diagnostics,
+                                   Allocator *a) {
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = lex_next(lexer);
@@ -678,7 +671,7 @@ static void lexBuiltinOrUnderscore(Lexer *lexer, Allocator *a) {
   RETURN_RESULT_TOKEN(tokenType)
 /* clang-format on */
 
-Token lexNextToken(Lexer *lexer, Allocator *a) {
+Token lexNextToken(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   int32_t c;
 
   // Set c to first nonblank character
@@ -693,27 +686,27 @@ Token lexNextToken(Lexer *lexer, Allocator *a) {
   LnCol start = lexer->position;
 
   if (isalpha(c)) {
-    lexWord(lexer, a);
+    lexWord(lexer, diagnostics, a);
     return;
   } else if (isdigit(c)) {
-    lexNumberLiteral(lexer, a);
+    lexNumberLiteral(lexer, diagnostics, a);
     return;
   } else {
     switch (c) {
     case '\'': {
-      lexCharLiteral(lexer, a);
+      lexCharLiteral(lexer, diagnostics, a);
       return;
     }
     case '\"': {
-      lexStringLiteral(lexer, a);
+      lexStringLiteral(lexer, diagnostics, a);
       return;
     }
     case '_': {
-      lexBuiltinOrUnderscore(lexer, a);
+      lexBuiltinOrUnderscore(lexer, diagnostics, a);
       return;
     }
     case '#': {
-      lexComment(lexer, a);
+      lexComment(lexer, diagnostics, a);
       return;
     }
     case '&': {
@@ -791,6 +784,9 @@ Token lexNextToken(Lexer *lexer, Allocator *a) {
     case '+': {
       lex_next(lexer);
       switch (lex_peek(lexer)) {
+      case '+': {
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Posit)
+      }
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignAdd)
       }
@@ -802,6 +798,9 @@ Token lexNextToken(Lexer *lexer, Allocator *a) {
     case '-': {
       lex_next(lexer);
       switch (lex_peek(lexer)) {
+      case '-': {
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Negate)
+      }
       case '>': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Pipe)
       }

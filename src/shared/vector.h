@@ -92,12 +92,12 @@ void vec_pop(Vector *vec, void *data, size_t len);
 /// Returns the length of `vec`
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// GUARANTEES: returns the current length of the vector in bytes
-size_t vec_length(Vector *vec);
+size_t vec_length(const Vector *vec);
 
 /// Returns the capacity of `vec`
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// GUARANTEES: returns the current capacity of `vec` in bytes
-size_t vec_capacity(Vector *vec);
+size_t vec_capacity(const Vector *vec);
 
 // Macros to help work with vectors
 #define VEC_GET(vector, index, type)                                           \

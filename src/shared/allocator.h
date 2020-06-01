@@ -64,11 +64,10 @@ static inline AllocatorFlags a_supports(const Allocator * a) {
  * REQUIRES: `a` is a valid pointer to an Allocator
  * GUARANTEES: if `size` is 0, NULL will be returned
  * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned 
- * GUARANTEES: if allocation succeeds and `failed` is not null, failed will be false
  * GUARANTEES: if allocation fails, NULL will be returned
  * GUARANTEES: the memory will be allocated with default properties of the implementing allocator
  */
-static inline void* a_alloc(const Allocator * a, size_t size, bool* failed) {
+static inline void* a_alloc(const Allocator * a, size_t size) {
   return a->allocator_fn(a->allocator_backing, size);
 }
 

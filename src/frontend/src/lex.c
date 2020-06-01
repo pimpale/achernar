@@ -8,9 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-#include "std_allocator.h"
 #include "diagnostic.h"
+#include "std_allocator.h"
 #include "utils.h"
 #include "vector.h"
 
@@ -366,10 +365,11 @@ static Token lexNumberLiteral(Lexer *l, Vector *diagnostics, Allocator *a) {
   }
 }
 
-static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics, Allocator *a) {
+static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics,
+                                   Allocator *a) {
   LnCol start = lexer->position;
   // Skip first quote
-  assert(lex_next(lexer)== '\'');
+  assert(lex_next(lexer) == '\'');
 
   // State of lexer
   typedef enum {
@@ -445,7 +445,8 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics, Allocator 
       }
       default: {
         char_literal = (char)c;
-        *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_CharLiteralUnrecognizedEscapeCode, lex_peekSpan(lexer));
+        *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
+            DK_CharLiteralUnrecognizedEscapeCode, lex_peekSpan(lexer));
         break;
       }
       }
@@ -463,7 +464,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics, Allocator 
         // break out of loop, successful
         goto EXIT_LOOP;
       } else {
-        if(isalnum(char_literal) || char_literal == '_') {
+        if (isalnum(char_literal) || char_literal == '_') {
           // we are dealing with a label
           label = true;
           // initialize label data vector
@@ -471,10 +472,11 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics, Allocator 
           // push first char into vec
           *VEC_PUSH(&label_data, char) = char_literal;
           // set state
-          state= LCS_Label;
+          state = LCS_Label;
         } else {
           // we are dealing with a bad char literal
-          *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_CharLiteralExpectedCloseSingleQuote, lex_peekSpan(lexer));
+          *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
+              DK_CharLiteralExpectedCloseSingleQuote, lex_peekSpan(lexer));
           label = false;
           goto EXIT_LOOP;
         }
@@ -496,16 +498,16 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics, Allocator 
   // exit of loop
 EXIT_LOOP:;
 
-  if(label) {
+  if (label) {
     // ensure null byte
     *VEC_PUSH(&label_data, char) = '\0';
-    return (Token) {
+    return (Token){
         .kind = tk_Label,
         .label = vec_release(&label_data),
         .span = SPAN(start, lexer->position),
     };
   } else {
-    return (Token) {
+    return (Token){
         .kind = tk_Char,
         .char_literal = char_literal,
         .span = SPAN(start, lexer->position),
@@ -515,6 +517,7 @@ EXIT_LOOP:;
 
 // Parses an identifer or macro or builtin
 static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
+  UNUSED(diagnostics);
 
   LnCol start = lexer->position;
 
@@ -522,8 +525,6 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   vec_create(&data, &std_allocator);
 
   bool macro = false;
-
-  lex_peek(lexer);
 
   int32_t c;
   while ((c = lex_peek(lexer)) != EOF) {
@@ -539,29 +540,29 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     }
   }
 
-  Token token;
-
-  token.span = SPAN(start, lexer->position);
+  Span span = SPAN(start, lexer->position);
 
   // Note that string length does not incude the trailing null byte
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-  char *string = vec_release(&data);
+  char *string = vec_get(&data, 0);
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    token.kind = tk_MacroCall;
-    token.macro_call = manageMemArena(ar, string);
-    return;
+    return (Token){.kind = tk_MacroCall,
+                   .macro_call = strcpy(a_alloc(a, strlen(string)), string),
+                   .span = span};
   }
 
   if (!strcmp(string, "true")) {
-    token.kind = tk_Bool;
-    token.bool_literal = true;
+    return (Token){.kind = tk_Bool, .bool_literal = true, .span = span};
   } else if (!strcmp(string, "false")) {
-    token.kind = tk_Bool;
-    token.bool_literal = false;
-  } else if (!strcmp(string, "loop")) {
+    return (Token){.kind = tk_Bool, .bool_literal = false, .span = span};
+  }
+
+  Token token;
+  token.span = span;
+  if (!strcmp(string, "loop")) {
     token.kind = tk_Loop;
   } else if (!strcmp(string, "let")) {
     token.kind = tk_Let;
@@ -600,35 +601,35 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
-    token.identifier = manageMemArena(ar, string);
-    return;
+    token.identifier = strcpy(a_alloc(a, strlen(string)), string);
+    return token;
   }
 
   // If it wasn't an identifier or macro
-  free(string);
+  vec_destroy(&data);
   return token;
 }
 
 // Parses a builtin or an underscore token
-static void lexBuiltinOrUnderscore(Lexer *lexer, Vector *diagnostics,
-                                   Allocator *a) {
+static Token lexBuiltinOrUnderscore(Lexer *lexer, Vector *diagnostics,
+                                    Allocator *a) {
+  UNUSED(diagnostics);
+
   LnCol start = lexer->position;
   // Skip first quote
   int32_t c = lex_next(lexer);
   assert(lex_next(lexer) == '_');
 
-  int32_t c = lex_peek(lexer);
+  c = lex_peek(lexer);
   if (!isalpha(c)) {
-    *token = (Token){
+    return (Token){
         .kind = tk_Underscore,
         .span = SPAN(start, lexer->position),
-        .error = DK_Ok,
     };
-    return;
   }
 
   Vector data;
-  createVector(&data);
+  vec_create(&data, a);
 
   while ((c = lex_peek(lexer)) != EOF) {
     if (isalnum(c)) {
@@ -639,39 +640,27 @@ static void lexBuiltinOrUnderscore(Lexer *lexer, Vector *diagnostics,
     }
   }
 
-  token->span = SPAN(start, lexer->position);
+  Span span = SPAN(start, lexer->position);
 
   // Note that string length does not incude the trailing null byte
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-  char *string = manageMemArena(ar, releaseVector(&data));
+  char *string = vec_release(&data);
 
   // If it wasn't an identifier
-  token->error = DK_Ok;
-  token->builtin = string;
-  token->kind = tk_Builtin;
-  token->span = SPAN(start, lexer->position);
-  return;
+  return (Token){.builtin = string, .kind = tk_Builtin, .span = span};
 }
 
-/* clang-format off */
-#define RESULT_TOKEN( tokenType, errorType)                                    \
-  *token = (Token){                                                            \
-    .kind = tokenType,                                                         \
-    .span = SPAN(start, lexer->position),                                      \
-    .error = errorType                                                         \
-  };                                                                           \
+#define RESULT_TOKEN(tokenType)                                                \
+  (Token) { .kind = tokenType, .span = SPAN(start, lexer->position) }
 
-#define RETURN_RESULT_TOKEN( tokenType)                                        \
-  RESULT_TOKEN(tokenType, DK_Ok)                                               \
-  return;
+#define RETURN_RESULT_TOKEN(tokenType) return RESULT_TOKEN(tokenType);
 
 #define NEXT_AND_RETURN_RESULT_TOKEN(tokenType)                                \
-  lex_next(lexer);                                                       \
+  lex_next(lexer);                                                             \
   RETURN_RESULT_TOKEN(tokenType)
-/* clang-format on */
 
-Token lexNextToken(Lexer *lexer, Vector *diagnostics, Allocator *a) {
+Token tk_next(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   int32_t c;
 
   // Set c to first nonblank character
@@ -686,28 +675,22 @@ Token lexNextToken(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   LnCol start = lexer->position;
 
   if (isalpha(c)) {
-    lexWord(lexer, diagnostics, a);
-    return;
+    return lexWord(lexer, diagnostics, a);
   } else if (isdigit(c)) {
-    lexNumberLiteral(lexer, diagnostics, a);
-    return;
+    return lexNumberLiteral(lexer, diagnostics, a);
   } else {
     switch (c) {
     case '\'': {
-      lexCharLiteral(lexer, diagnostics, a);
-      return;
+      return lexCharLiteralOrLabel(lexer, diagnostics, a);
     }
     case '\"': {
-      lexStringLiteral(lexer, diagnostics, a);
-      return;
+      return lexStringLiteral(lexer, diagnostics, a);
     }
     case '_': {
-      lexBuiltinOrUnderscore(lexer, diagnostics, a);
-      return;
+      return lexBuiltinOrUnderscore(lexer, diagnostics, a);
     }
     case '#': {
-      lexComment(lexer, diagnostics, a);
-      return;
+      return lexComment(lexer, diagnostics, a);
     }
     case '&': {
       lex_next(lexer);
@@ -901,13 +884,12 @@ Token lexNextToken(Lexer *lexer, Vector *diagnostics, Allocator *a) {
       NEXT_AND_RETURN_RESULT_TOKEN(tk_Backtick)
     }
     case EOF: {
-      RESULT_TOKEN(tk_None, DK_EOF)
-      return;
+      RETURN_RESULT_TOKEN(tk_Eof)
     }
     default: {
-      RESULT_TOKEN(tk_None, DK_UnrecognizedCharacter)
-      lex_next(lexer);
-      return;
+      *VEC_PUSH(diagnostics, Diagnostic) =
+          DIAGNOSTIC(DK_UnrecognizedCharacter, lex_peekSpan(lexer));
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_None)
     }
     }
   }

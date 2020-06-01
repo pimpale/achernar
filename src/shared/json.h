@@ -52,15 +52,16 @@ typedef struct j_Prop_s {
 
 // Utility macros to construct these types
 
-#define J_STR(x, len) ((j_String){.string=(x), .length=(len)})
+#define J_STR(x, len) ((j_Str){.string=(x), .length=(len)})
 #define J_PROP(k, v) ((j_Prop){.key=(k), .value=(v)})
 
-#define J_NULL ((j_Elem){.kind=j_NullKind})
-#define J_BOOL(v) ((j_Elem){.kind=j_BoolKind, .boolean=(v)})
-#define J_INT(v) ((j_Elem){.kind=j_IntKind, .integer=(v)})
-#define J_NUM(v) ((j_Elem){.kind=j_NumKind, .number=(v)})
-#define J_ARRAY(v, len) ((j_Elem){.kind=j_ArrayKind, .array={.values=(v), .length=(len)}})
-#define J_OBJECT(v, len) ((j_Elem){.kind=j_ObjectKind, .array={.props=(v), .length=(len)}})
+#define J_NULL_ELEM ((j_Elem){.kind=j_NullKind})
+#define J_BOOL_ELEM(v) ((j_Elem){.kind=j_BoolKind, .boolean=(v)})
+#define J_INT_ELEM(v) ((j_Elem){.kind=j_IntKind, .integer=(v)})
+#define J_STR_ELEM(v) ((j_Elem){.kind=j_StrKind, .string=(v)})
+#define J_NUM_ELEM(v) ((j_Elem){.kind=j_NumKind, .number=(v)})
+#define J_ARRAY_ELEM(v, len) ((j_Elem){.kind=j_ArrayKind, .array={.values=(v), .length=(len)}})
+#define J_OBJECT_ELEM(v, len) ((j_Elem){.kind=j_ObjectKind, .object={.props=(v), .length=(len)}})
 
 char *j_stringify(j_Elem *j, Allocator *a);
 

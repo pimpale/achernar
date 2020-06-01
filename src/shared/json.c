@@ -12,7 +12,7 @@
 
 // GLORIOUS UTILS
 
-#define ERROR(k, l) ((j_Error) { .kind=k, .loc=l})
+#define ERROR(k, l) ((j_Error){.kind = k, .loc = l})
 
 // Accepts Vector<char>, pushes as many chars points as needed to encode the
 // data
@@ -138,15 +138,15 @@ static void j_emitStr(Vector *vptr, j_Str str) {
   j_unchecked_emitChar(vptr, '\"');
 }
 
-static void j_emitElem(Vector* data, j_Elem *j);
+static void j_emitElem(Vector *data, j_Elem *j);
 
-static void j_emitProp(Vector* vptr, j_Prop *prop) {
+static void j_emitProp(Vector *vptr, j_Prop *prop) {
   j_emitStr(vptr, prop->key);
   j_unchecked_emitChar(vptr, ':');
   j_emitElem(vptr, &prop->value);
 }
 
-static void j_emitElem(Vector* data, j_Elem *j) {
+static void j_emitElem(Vector *data, j_Elem *j) {
   switch (j->kind) {
   case j_NullKind: {
     j_unchecked_emitStr(data, "null", 4);
@@ -158,7 +158,7 @@ static void j_emitElem(Vector* data, j_Elem *j) {
   }
   case j_BoolKind: {
     j_unchecked_emitStr(data, j->boolean ? "true" : "false",
-                          j->boolean ? 4 : 5);
+                        j->boolean ? 4 : 5);
     break;
   }
   case j_IntKind: {
@@ -196,7 +196,7 @@ static void j_emitElem(Vector* data, j_Elem *j) {
   }
 }
 
-char *j_stringify(j_Elem *j, Allocator* a) {
+char *j_stringify(j_Elem *j, Allocator *a) {
   Vector data;
   vec_create(&data, a);
   j_emitElem(&data, j);
@@ -206,8 +206,25 @@ char *j_stringify(j_Elem *j, Allocator* a) {
 }
 
 // Parsing
+static void skipWhitespace(Lexer *l) {
+  while (true) {
+    switch (peekValueLexer(l)) {
+    case ' ':
+    case '\t':
+    case '\r':
+    case '\n': {
+      // discard whitespace
+      nextValueLexer(l);
+      break;
+    }
+    default: {
+      return;
+    }
+    }
+  }
+}
 
-void certain_parseNumberJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
+j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics) {
   LnCol start = l->position;
 
   bool negative = false;
@@ -298,8 +315,7 @@ void certain_parseNumberJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
         num /= 10;
       }
     }
-    je->number = num;
-    je->kind = j_NumKind;
+    return J_NUM_ELEM(num);
   } else {
     // Integer
     int64_t num = integer_value;
@@ -308,14 +324,11 @@ void certain_parseNumberJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
         num *= 10;
       }
     }
-    je->integer = num;
-    je->kind = j_IntKind;
+    return J_INT_ELEM(num);
   }
-
-  return;
 }
 
-void certain_parseLiteralJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
+j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics) {
   LnCol start = l->position;
   Vector data;
 
@@ -326,11 +339,11 @@ void certain_parseLiteralJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
     int32_t c = peekValueLexer(l);
     if (isalpha(c)) {
       // Fill up buffer
-      if(index < 5) {
-         buffer[index] = (char)c;
-         index++;
+      if (index < 5) {
+        buffer[index] = (char)c;
+        index++;
       }
-      // even if the buffer is finished we must continue on 
+      // even if the buffer is finished we must continue on
       nextValueLexer(l);
     } else {
       break;
@@ -340,24 +353,24 @@ void certain_parseLiteralJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
   buffer[5] = '\0';
 
   if (!strcmp("null", buffer)) {
-    je->kind = j_NullKind;
+    return J_NULL_ELEM;
   } else if (!strcmp("true", buffer)) {
-    je->kind = j_BoolKind;
-    je->boolean = true;
+    return J_BOOL_ELEM(true);
   } else if (!strcmp("false", buffer)) {
-    je->kind = j_BoolKind;
-    je->boolean = false;
+    return J_BOOL_ELEM(false);
   } else {
     *VEC_PUSH(diagnostics, j_Error) = ERROR(j_MalformedLiteral, start);
-    je->kind = j_NullKind;
+    return J_NULL_ELEM;
   }
-  return;
 }
 
-void certain_parseStringJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
+j_Str j_parseStr(Lexer *l, Vector *diagnostics) {
   LnCol start = l->position;
+  skipWhitespace(l);
   int32_t c = nextValueLexer(l);
-  assert(c == '\"');
+  if (c != '\"') {
+    *VEC_PUSH(diagnostics, j_Error) = ERROR(j_StrExpectedDoubleQuote, start);
+  }
 
   typedef enum {
     StringParserText,
@@ -385,8 +398,8 @@ void certain_parseStringJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
         break;
       }
       case EOF: {
-        *VEC_PUSH(diagnostics, j_Error) = ERROR(
-            j_StrExpectedDoubleQuote, l->position);
+        *VEC_PUSH(diagnostics, j_Error) =
+            ERROR(j_StrExpectedDoubleQuote, l->position);
         state = StringParserFinished;
         break;
       }
@@ -445,8 +458,8 @@ void certain_parseStringJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
         break;
       }
       default: {
-        *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
-            ERROR(JPDK_JsonStringInvalidControlChar, l->position);
+        *VEC_PUSH(diagnostics, j_Error) =
+            ERROR(j_StrInvalidControlChar, l->position);
         state = StringParserText;
         break;
       }
@@ -466,8 +479,8 @@ void certain_parseStringJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
         } else if (c >= 'A' && c <= 'F') {
           value = c - 'A';
         } else {
-          *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(
-              JPDK_JsonStringInvalidUnicodeSpecifier, l->position);
+          *VEC_PUSH(diagnostics, j_Error) =
+              ERROR(j_StrInvalidUnicodeSpecifier, l->position);
           value = 0;
         }
         code_point += code_point * 16 + value;
@@ -481,50 +494,41 @@ void certain_parseStringJson(j_Elem *je, Lexer *l, Vector *diagnostics) {
     }
     }
   }
-LOOPEND:
+
+LOOPEND:;
+  size_t len = VEC_LEN(&data, char);
   *VEC_PUSH(&data, char) = '\0';
-  size_t len = VEC_LEN(&data, char) - 1;
-  *je = strJson(manageMemArena(l->ar, releaseVector(&data)), len);
-  return;
+  return J_STR(vec_release(&data), len);
 }
 
-static void skipWhitespace(Lexer *l) {
-  while (true) {
-    switch (peekValueLexer(l)) {
-    case ' ':
-    case '\t':
-    case '\r':
-    case '\n': {
-      // discard whitespace
-      nextValueLexer(l);
-      break;
-    }
-    default: {
-      return;
-    }
-    }
-  }
-}
+static j_Prop j_parseProp(Lexer *l, Vector *diagnostics);
 
-void parsej_Elem(j_Elem *je, Lexer *l, Vector *diagnostics);
-
-static void certain_parseArrayJson(j_Elem *je, Lexer *l,
-                                   Vector *diagnostics) {
+static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics) {
   assert(nextValueLexer(l) == '[');
 
   // vector of elements
   Vector elems;
-  createVector(&elems);
+  vec_create(&elems, l->a);
 
   typedef enum {
+    ArrayParseStart,
     ArrayParseExpectCommaOrEnd,
     ArrayParseExpectElem,
   } ArrayParseState;
 
-  ArrayParseState state = ArrayParseExpectCommaOrEnd;
+  ArrayParseState state = ArrayParseStart;
 
   while (true) {
     switch (state) {
+    case ArrayParseStart: {
+      skipWhitespace(l);
+      if (peekValueLexer(l) == ']') {
+        goto CLEANUP;
+      } else {
+        state = ArrayParseExpectElem;
+      }
+      break;
+    }
     case ArrayParseExpectCommaOrEnd: {
       skipWhitespace(l);
       int32_t c = peekValueLexer(l);
@@ -539,13 +543,13 @@ static void certain_parseArrayJson(j_Elem *je, Lexer *l,
         goto CLEANUP;
       }
       case EOF: {
-        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(
-            JPDK_JsonArrayExpectedRightBracket, l->position);
+        *VEC_PUSH(diagnostics, j_Error) =
+            ERROR(j_ArrayExpectedJsonElem, l->position);
         goto CLEANUP;
       }
       default: {
-        *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(
-            JPDK_JsonArrayExpectedRightBracket, l->position);
+        *VEC_PUSH(diagnostics, j_Error) =
+            ERROR(j_ArrayExpectedRightBracket, l->position);
         nextValueLexer(l);
         break;
       }
@@ -553,9 +557,7 @@ static void certain_parseArrayJson(j_Elem *je, Lexer *l,
       break;
     }
     case ArrayParseExpectElem: {
-      skipWhitespace(l);
-      j_Elem *elemptr = VEC_PUSH(&elems, j_Elem);
-      parsej_Elem(elemptr, l, diagnostics);
+      *VEC_PUSH(&elems, j_Elem) = j_parseElem(l, diagnostics);
       state = ArrayParseExpectCommaOrEnd;
       break;
     }
@@ -563,18 +565,89 @@ static void certain_parseArrayJson(j_Elem *je, Lexer *l,
   }
 CLEANUP:;
   size_t len = VEC_LEN(&elems, j_Elem);
-  *je = arrDefJson(manageMemArena(l->ar, releaseVector(&elems)), len);
+  return J_ARRAY_ELEM(vec_release(&elems), len);
 }
 
-static void parseKVJson(JsonKV *kv, Lexer *l, Vector *diagnostics) {
-  j_Elem je;
-  certain_parseStringJson(&je, l, diagnostics);
-  if(je.kind != JE_string) {
-    *VEC_PUSH(diagnostics, JsonParseDiagnostic) = ERROR(JPDK_JsonKVExpectedQuoted, l->position);
+static j_Elem j_certain_parseStrElem(Lexer *l, Vector *diagnostics) {
+  assert(peekValueLexer(l) == '\"');
+  return J_STR_ELEM(j_parseStr(l, diagnostics));
+}
+
+static j_Prop j_parseProp(Lexer *l, Vector *diagnostics) {
+  j_Str key = j_parseStr(l, diagnostics);
+  skipWhitespace(l);
+  if (nextValueLexer(l) != ':') {
+    *VEC_PUSH(diagnostics, j_Error) = ERROR(j_PropExpectedColon, l->position);
   }
+  j_Elem value = j_parseElem(l, diagnostics);
+  return J_PROP(key, value);
 }
 
-void parsej_Elem(j_Elem *je, Lexer *l, Vector *diagnostics) {
+static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics) {
+  assert(nextValueLexer(l) == '{');
+
+  // vector of properties
+  Vector props;
+  vec_create(&props, l->a);
+
+  typedef enum {
+    ObjectParseStart,
+    ObjectParseExpectCommaOrEnd,
+    ObjectParseExpectProp,
+  } ObjectParseState;
+
+  ObjectParseState state = ObjectParseStart;
+
+  while (true) {
+    switch (state) {
+    case ObjectParseStart: {
+      skipWhitespace(l);
+      if (peekValueLexer(l) == '}') {
+        goto CLEANUP;
+      } else {
+        state = ObjectParseExpectProp;
+      }
+      break;
+    }
+    case ObjectParseExpectCommaOrEnd: {
+      skipWhitespace(l);
+      switch (peekValueLexer(l)) {
+      case ',': {
+        nextValueLexer(l);
+        state = ObjectParseExpectProp;
+        break;
+      }
+      case '}': {
+        nextValueLexer(l);
+        goto CLEANUP;
+      }
+      case EOF: {
+        *VEC_PUSH(diagnostics, j_Error) =
+            ERROR(j_ArrayExpectedJsonElem, l->position);
+        goto CLEANUP;
+      }
+      default: {
+        *VEC_PUSH(diagnostics, j_Error) =
+            ERROR(j_ArrayExpectedRightBracket, l->position);
+        nextValueLexer(l);
+        break;
+      }
+      }
+      break;
+    }
+    case ObjectParseExpectProp: {
+      *VEC_PUSH(&props, j_Prop) = j_parseProp(l, diagnostics);
+      state = ObjectParseExpectCommaOrEnd;
+      break;
+    }
+    }
+  }
+CLEANUP:;
+  size_t len = VEC_LEN(&props, j_Prop);
+  return J_OBJECT_ELEM(vec_release(&props), len);
+}
+
+j_Elem j_parseElem(Lexer *l, Vector *diagnostics) {
   skipWhitespace(l);
 
   int32_t c = peekValueLexer(l);
@@ -590,36 +663,31 @@ void parsej_Elem(j_Elem *je, Lexer *l, Vector *diagnostics) {
   case '8':
   case '9':
   case '-': {
-    certain_parseNumberJson(je, l, diagnostics);
-    return;
+    return j_certain_parseNumberElem(l, diagnostics);
   }
   case 't':
   case 'f':
   case 'n': {
-    certain_parseLiteralJson(je, l, diagnostics);
-    return;
+    return j_certain_parseLiteralElem(l, diagnostics);
   }
   case '\"': {
-    certain_parseStringJson(je, l, diagnostics);
-    return;
+    return j_certain_parseStrElem(l, diagnostics);
   }
   case '[': {
-    certain_parseArrayJson(je, l, diagnostics);
-    return;
+    return j_certain_parseArrayElem(l, diagnostics);
   }
   case '{': {
-    certain_parseObjectJson(je, l, diagnostics);
-    return;
+    return j_certain_parseObjectElem(l, diagnostics);
   }
   case EOF: {
-    *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
-        ERROR(j_ElemEof, l->position);
-    return;
+    *VEC_PUSH(diagnostics, j_Error) = ERROR(j_ElemEof, l->position);
+    return J_NULL_ELEM;
   }
   default: {
-    *VEC_PUSH(diagnostics, JsonParseDiagnostic) =
+    *VEC_PUSH(diagnostics, j_Error) =
         ERROR(j_ElemUnknownCharacter, l->position);
     nextValueLexer(l);
-    return;
+    return J_NULL_ELEM;
   }
-  }}
+  }
+}

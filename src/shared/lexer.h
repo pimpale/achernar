@@ -4,18 +4,15 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "allocator.h"
 #include "lncol.h"
-
-typedef enum {
-  LBK_LexerBackingMemory,
-  LBK_LexerBackingFile,
-} LexerBackingKind;
 
 // Do not manually modify or access any of these values
 typedef struct {
   // The backing data structure
-  LexerBackingKind backing;
+  enum {
+    lex_BackingMemory,
+    lex_BackingFile,
+  } backing;
   // Can either be a File ptr or a memory with location and length
   union {
     FILE *file;
@@ -27,15 +24,13 @@ typedef struct {
   };
   // Caches the current location in file
   LnCol position;
-  // Stores the data of each token
-  Allocator *a;
 } Lexer;
 
-void createLexerFile(Lexer *lexer, FILE *file, Allocator *a);
-void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Allocator *a);
-void releaseLexer(Lexer *lexer);
+void lex_fromFile(Lexer *lexer, FILE *file);
+void lex_fromMemory(Lexer *lexer, char *ptr, size_t len);
+void lex_destroy(Lexer *lexer);
 
-int32_t nextValueLexer(Lexer *lexer);
-int32_t peekValueLexer(Lexer *lexer);
+int32_t lex_next(Lexer *lexer);
+int32_t lex_peek(Lexer *lexer);
 
 #endif

@@ -208,13 +208,13 @@ char *j_stringify(j_Elem *j, Allocator *a) {
 // Parsing
 static void skipWhitespace(Lexer *l) {
   while (true) {
-    switch (peekValueLexer(l)) {
+    switch (lex_peek(l)) {
     case ' ':
     case '\t':
     case '\r':
     case '\n': {
       // discard whitespace
-      nextValueLexer(l);
+      lex_next(l);
       break;
     }
     default: {
@@ -224,21 +224,21 @@ static void skipWhitespace(Lexer *l) {
   }
 }
 
-j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics) {
+j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
   LnCol start = l->position;
 
   bool negative = false;
-  if (peekValueLexer(l) == '-') {
+  if (lex_peek(l) == '-') {
     negative = true;
-    nextValueLexer(l);
+    lex_next(l);
   }
 
   int64_t integer_value = 0;
   int32_t c;
-  while ((c = peekValueLexer(l)) != EOF) {
+  while ((c = lex_peek(l)) != EOF) {
     if (isdigit(c)) {
       integer_value = integer_value * 10 + (c - '0');
-      nextValueLexer(l);
+      lex_next(l);
     } else {
       break;
     }
@@ -249,19 +249,19 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics) {
   }
 
   bool fractional = false;
-  if (peekValueLexer(l) == '.') {
+  if (lex_peek(l) == '.') {
     fractional = true;
-    nextValueLexer(l);
+    lex_next(l);
   }
 
   double fractional_component = 0;
   if (fractional) {
     double place = 0.1;
-    while ((c = peekValueLexer(l)) != EOF) {
+    while ((c = lex_peek(l)) != EOF) {
       if (isdigit(c)) {
         fractional_component += place * (c - '0');
         place /= 10;
-        nextValueLexer(l);
+        lex_next(l);
       } else {
         break;
       }
@@ -270,10 +270,10 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics) {
 
   bool positive_exponent = false;
   bool negative_exponent = false;
-  c = peekValueLexer(l);
+  c = lex_peek(l);
   if (c == 'E' || c == 'e') {
-    nextValueLexer(l);
-    switch (nextValueLexer(l)) {
+    lex_next(l);
+    switch (lex_next(l)) {
     case '+': {
       positive_exponent = true;
       break;
@@ -292,10 +292,10 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics) {
 
   uint32_t exponential_integer = 0;
   if (positive_exponent || negative_exponent) {
-    while ((c = peekValueLexer(l)) != EOF) {
+    while ((c = lex_peek(l)) != EOF) {
       if (isdigit(c)) {
         exponential_integer = exponential_integer * 10 + (c - '0');
-        nextValueLexer(l);
+        lex_next(l);
       } else {
         break;
       }
@@ -328,7 +328,7 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics) {
   }
 }
 
-j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics) {
+j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocator *a) {
   LnCol start = l->position;
   Vector data;
 
@@ -336,7 +336,7 @@ j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics) {
   char buffer[6];
   size_t index = 0;
   while (true) {
-    int32_t c = peekValueLexer(l);
+    int32_t c = lex_peek(l);
     if (isalpha(c)) {
       // Fill up buffer
       if (index < 5) {
@@ -344,7 +344,7 @@ j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics) {
         index++;
       }
       // even if the buffer is finished we must continue on
-      nextValueLexer(l);
+      lex_next(l);
     } else {
       break;
     }
@@ -364,10 +364,10 @@ j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics) {
   }
 }
 
-j_Str j_parseStr(Lexer *l, Vector *diagnostics) {
+j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
   LnCol start = l->position;
   skipWhitespace(l);
-  int32_t c = nextValueLexer(l);
+  int32_t c = lex_next(l);
   if (c != '\"') {
     *VEC_PUSH(diagnostics, j_Error) = ERROR(j_StrExpectedDoubleQuote, start);
   }
@@ -380,14 +380,14 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics) {
   } StringParserState;
 
   Vector data;
-  vec_create(&data, l->a);
+  vec_create(&data, a);
 
   StringParserState state = StringParserText;
 
   while (true) {
     switch (state) {
     case StringParserText: {
-      c = nextValueLexer(l);
+      c = lex_next(l);
       switch (c) {
       case '\\': {
         state = StringParserBackslash;
@@ -411,7 +411,7 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics) {
       break;
     }
     case StringParserBackslash: {
-      c = nextValueLexer(l);
+      c = lex_next(l);
       switch (c) {
       case '\"': {
         *VEC_PUSH(&data, char) = '\"';
@@ -470,7 +470,7 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics) {
     case StringParserUnicode: {
       uint16_t code_point;
       for (int i = 0; i < 4; i++) {
-        c = nextValueLexer(l);
+        c = lex_next(l);
         uint8_t value;
         if (c >= '0' && c <= '9') {
           value = c - '0';
@@ -501,14 +501,14 @@ LOOPEND:;
   return J_STR(vec_release(&data), len);
 }
 
-static j_Prop j_parseProp(Lexer *l, Vector *diagnostics);
+static j_Prop j_parseProp(Lexer *l, Vector *diagnostics, Allocator *a);
 
-static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics) {
-  assert(nextValueLexer(l) == '[');
+static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+  assert(lex_next(l) == '[');
 
   // vector of elements
   Vector elems;
-  vec_create(&elems, l->a);
+  vec_create(&elems, a);
 
   typedef enum {
     ArrayParseStart,
@@ -522,7 +522,7 @@ static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics) {
     switch (state) {
     case ArrayParseStart: {
       skipWhitespace(l);
-      if (peekValueLexer(l) == ']') {
+      if (lex_peek(l) == ']') {
         goto CLEANUP;
       } else {
         state = ArrayParseExpectElem;
@@ -531,15 +531,15 @@ static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics) {
     }
     case ArrayParseExpectCommaOrEnd: {
       skipWhitespace(l);
-      int32_t c = peekValueLexer(l);
+      int32_t c = lex_peek(l);
       switch (c) {
       case ',': {
-        nextValueLexer(l);
+        lex_next(l);
         state = ArrayParseExpectElem;
         break;
       }
       case ']': {
-        nextValueLexer(l);
+        lex_next(l);
         goto CLEANUP;
       }
       case EOF: {
@@ -550,14 +550,14 @@ static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics) {
       default: {
         *VEC_PUSH(diagnostics, j_Error) =
             ERROR(j_ArrayExpectedRightBracket, l->position);
-        nextValueLexer(l);
+        lex_next(l);
         break;
       }
       }
       break;
     }
     case ArrayParseExpectElem: {
-      *VEC_PUSH(&elems, j_Elem) = j_parseElem(l, diagnostics);
+      *VEC_PUSH(&elems, j_Elem) = j_parseElem(l, diagnostics, a);
       state = ArrayParseExpectCommaOrEnd;
       break;
     }
@@ -568,27 +568,27 @@ CLEANUP:;
   return J_ARRAY_ELEM(vec_release(&elems), len);
 }
 
-static j_Elem j_certain_parseStrElem(Lexer *l, Vector *diagnostics) {
-  assert(peekValueLexer(l) == '\"');
-  return J_STR_ELEM(j_parseStr(l, diagnostics));
+static j_Elem j_certain_parseStrElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+  assert(lex_peek(l) == '\"');
+  return J_STR_ELEM(j_parseStr(l, diagnostics, a));
 }
 
-static j_Prop j_parseProp(Lexer *l, Vector *diagnostics) {
-  j_Str key = j_parseStr(l, diagnostics);
+static j_Prop j_parseProp(Lexer *l, Vector *diagnostics, Allocator *a) {
+  j_Str key = j_parseStr(l, diagnostics, a);
   skipWhitespace(l);
-  if (nextValueLexer(l) != ':') {
+  if (lex_next(l) != ':') {
     *VEC_PUSH(diagnostics, j_Error) = ERROR(j_PropExpectedColon, l->position);
   }
-  j_Elem value = j_parseElem(l, diagnostics);
+  j_Elem value = j_parseElem(l, diagnostics, a);
   return J_PROP(key, value);
 }
 
-static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics) {
-  assert(nextValueLexer(l) == '{');
+static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+  assert(lex_next(l) == '{');
 
   // vector of properties
   Vector props;
-  vec_create(&props, l->a);
+  vec_create(&props, a);
 
   typedef enum {
     ObjectParseStart,
@@ -602,7 +602,7 @@ static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics) {
     switch (state) {
     case ObjectParseStart: {
       skipWhitespace(l);
-      if (peekValueLexer(l) == '}') {
+      if (lex_peek(l) == '}') {
         goto CLEANUP;
       } else {
         state = ObjectParseExpectProp;
@@ -611,14 +611,14 @@ static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics) {
     }
     case ObjectParseExpectCommaOrEnd: {
       skipWhitespace(l);
-      switch (peekValueLexer(l)) {
+      switch (lex_peek(l)) {
       case ',': {
-        nextValueLexer(l);
+        lex_next(l);
         state = ObjectParseExpectProp;
         break;
       }
       case '}': {
-        nextValueLexer(l);
+        lex_next(l);
         goto CLEANUP;
       }
       case EOF: {
@@ -629,14 +629,14 @@ static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics) {
       default: {
         *VEC_PUSH(diagnostics, j_Error) =
             ERROR(j_ArrayExpectedRightBracket, l->position);
-        nextValueLexer(l);
+        lex_next(l);
         break;
       }
       }
       break;
     }
     case ObjectParseExpectProp: {
-      *VEC_PUSH(&props, j_Prop) = j_parseProp(l, diagnostics);
+      *VEC_PUSH(&props, j_Prop) = j_parseProp(l, diagnostics, a);
       state = ObjectParseExpectCommaOrEnd;
       break;
     }
@@ -647,10 +647,10 @@ CLEANUP:;
   return J_OBJECT_ELEM(vec_release(&props), len);
 }
 
-j_Elem j_parseElem(Lexer *l, Vector *diagnostics) {
+j_Elem j_parseElem(Lexer *l, Vector *diagnostics, Allocator *a) {
   skipWhitespace(l);
 
-  int32_t c = peekValueLexer(l);
+  int32_t c = lex_peek(l);
   switch (c) {
   case '0':
   case '1':
@@ -663,21 +663,21 @@ j_Elem j_parseElem(Lexer *l, Vector *diagnostics) {
   case '8':
   case '9':
   case '-': {
-    return j_certain_parseNumberElem(l, diagnostics);
+    return j_certain_parseNumberElem(l, diagnostics, a);
   }
   case 't':
   case 'f':
   case 'n': {
-    return j_certain_parseLiteralElem(l, diagnostics);
+    return j_certain_parseLiteralElem(l, diagnostics, a);
   }
   case '\"': {
-    return j_certain_parseStrElem(l, diagnostics);
+    return j_certain_parseStrElem(l, diagnostics, a);
   }
   case '[': {
-    return j_certain_parseArrayElem(l, diagnostics);
+    return j_certain_parseArrayElem(l, diagnostics, a);
   }
   case '{': {
-    return j_certain_parseObjectElem(l, diagnostics);
+    return j_certain_parseObjectElem(l, diagnostics, a);
   }
   case EOF: {
     *VEC_PUSH(diagnostics, j_Error) = ERROR(j_ElemEof, l->position);
@@ -686,7 +686,7 @@ j_Elem j_parseElem(Lexer *l, Vector *diagnostics) {
   default: {
     *VEC_PUSH(diagnostics, j_Error) =
         ERROR(j_ElemUnknownCharacter, l->position);
-    nextValueLexer(l);
+    lex_next(l);
     return J_NULL_ELEM;
   }
   }

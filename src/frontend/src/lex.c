@@ -16,25 +16,25 @@
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes comments
-static void lexComment(Lexer *lexer, Token *token) {
+static Token lexComment(Lexer *lexer, Allocator *a) {
   LnCol start = lexer->position;
 
-  int32_t c = nextValueLexer(lexer);
+  int32_t c = lex_next(lexer);
   assert(c == '#');
 
-  c = peekValueLexer(lexer);
+  c = lex_peek(lexer);
 
   // Determine the scope of the
   char *scope = "";
   if (c == '@') {
-    nextValueLexer(lexer);
+    lex_next(lexer);
 
     Vector data;
-    vec_create(&data, lexer->a);
-    while ((c = peekValueLexer(lexer)) != EOF) {
+    vec_create(&data, a);
+    while ((c = lex_peek(lexer)) != EOF) {
       if (isalnum(c) || c == '/') {
         *VEC_PUSH(&data, char) = (char)c;
-        nextValueLexer(lexer);
+        lex_next(lexer);
       } else {
         break;
       }
@@ -52,13 +52,13 @@ static void lexComment(Lexer *lexer, Token *token) {
     // also nestable
     // #{ Comment }#
     Vector data;
-    vec_create(&data, lexer->a);
+    vec_create(&data, a);
     size_t stackDepth = 1;
     char lastChar = '\0';
 
     // Drop initial {
-    nextValueLexer(lexer);
-    while ((c = nextValueLexer(lexer)) != EOF) {
+    lex_next(lexer);
+    while ((c = lex_next(lexer)) != EOF) {
       if (c == '#' && lastChar == '}') {
         // If we see a "# to pair off the starting #"
         stackDepth--;
@@ -77,24 +77,23 @@ static void lexComment(Lexer *lexer, Token *token) {
     *VEC_PUSH(&data, char) = '\0';
 
     // Return data
-    *token = (Token){
-        .kind = TK_Comment,
+    return (Token){
+        .kind = tk_Comment,
         .comment =
             {
                 .scope = scope,
                 .comment = vec_release(&data),
             },
         .span = SPAN(start, lexer->position),
-        .error = DK_Ok};
-    return;
+      };
   }
   default: {
     // If we don't recognize any of these characters, it's just a normal single
     // line comment. These are not nestable, and continue till the end of line.
     // # comment
     Vector data;
-    vec_create(&data, lexer->a);
-    while ((c = nextValueLexer(lexer)) != EOF) {
+    vec_create(&data, a);
+    while ((c = lex_next(lexer)) != EOF) {
       if (c != '\n') {
         *VEC_PUSH(&data, char) = (char)c;
       } else {
@@ -104,16 +103,15 @@ static void lexComment(Lexer *lexer, Token *token) {
     *VEC_PUSH(&data, char) = '\0';
 
     // Return data
-    *token = (Token){
-        .kind = TK_Comment,
+    return (Token){
+        .kind = tk_Comment,
         .comment =
             {
                 .scope = scope,
                 .comment = vec_release(&data),
             },
         .span = SPAN(start, lexer->position),
-        .error = DK_Ok};
-    return;
+        };
   }
   }
 }
@@ -121,18 +119,18 @@ static void lexComment(Lexer *lexer, Token *token) {
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
-static void lexStringLiteral(Lexer *lexer, Token *token) {
+static void lexStringLiteral(Lexer *lexer, Allocator *a) {
   LnCol start = lexer->position;
   // Skip first quote
-  int32_t c = nextValueLexer(lexer);
+  int32_t c = lex_next(lexer);
   assert(c == '\"');
 
   Vector data;
-  vec_create(&data, lexer->a);
+  vec_create(&data, a);
 
-  while ((c = nextValueLexer(lexer)) != EOF) {
+  while ((c = lex_next(lexer)) != EOF) {
     if (c == '\\') {
-      c = nextValueLexer(lexer);
+      c = lex_next(lexer);
       switch (c) {
       case '\\': {
         *VEC_PUSH(&data, char) = '\\';
@@ -176,13 +174,13 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
       }
       default: {
         // keep going till we hit an end double quote
-        while ((c = nextValueLexer(lexer)) != EOF) {
+        while ((c = lex_next(lexer)) != EOF) {
           if (c == '\"') {
             break;
           }
         }
 
-        *token = (Token){.kind = TK_String,
+        *token = (Token){.kind = tk_String,
                          .span = SPAN(start, lexer->position),
                          .error = DK_StringLiteralUnrecognizedEscapeCode,
                          .string_literal = vec_release(&data)};
@@ -203,7 +201,7 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   // Return data
   // clang-format off
   *token = (Token) {
-    .kind = TK_String,
+    .kind = tk_String,
       .string_literal = vec_release(&data),
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
@@ -248,14 +246,14 @@ static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static void lexNumberLiteral(Lexer *l, Token *token, Vector* diagnostics) {
+static void lexNumberLiteral(Lexer *l, Allocator *a, Vector* diagnostics) {
   LnCol start = l->position;
 
   uint8_t radix;
 
-  if(peekValueLexer(l) == '0') {
-    nextValueLexer(l);
-    int32_t radixCode = nextValueLexer(l);
+  if(lex_peek(l) == '0') {
+    lex_next(l);
+    int32_t radixCode = lex_next(l);
     switch(radixCode) {
       case 'b': {
                   radix = 2;
@@ -282,10 +280,10 @@ static void lexNumberLiteral(Lexer *l, Token *token, Vector* diagnostics) {
 
   int64_t integer_value = 0;
   int32_t c;
-  while ((c = peekValueLexer(l)) != EOF) {
+  while ((c = lex_peek(l)) != EOF) {
     if (isdigit(c)) {
       integer_value = integer_value * 10 + (c - '0');
-      nextValueLexer(l);
+      lex_next(l);
     } else {
       break;
     }
@@ -293,19 +291,19 @@ static void lexNumberLiteral(Lexer *l, Token *token, Vector* diagnostics) {
 
 
   bool fractional = false;
-  if (peekValueLexer(l) == '.') {
+  if (lex_peek(l) == '.') {
     fractional = true;
-    nextValueLexer(l);
+    lex_next(l);
   }
 
   double fractional_component = 0;
   if (fractional) {
     double place = 0.1;
-    while ((c = peekValueLexer(l)) != EOF) {
+    while ((c = lex_peek(l)) != EOF) {
       if (isdigit(c)) {
         fractional_component += place * (c - '0');
         place /= 10;
-        nextValueLexer(l);
+        lex_next(l);
       } else {
         break;
       }
@@ -314,10 +312,10 @@ static void lexNumberLiteral(Lexer *l, Token *token, Vector* diagnostics) {
 
   bool positive_exponent = false;
   bool negative_exponent = false;
-  c = peekValueLexer(l);
+  c = lex_peek(l);
   if (c == 'E' || c == 'e') {
-    nextValueLexer(l);
-    switch (nextValueLexer(l)) {
+    lex_next(l);
+    switch (lex_next(l)) {
     case '+': {
       positive_exponent = true;
       break;
@@ -336,10 +334,10 @@ static void lexNumberLiteral(Lexer *l, Token *token, Vector* diagnostics) {
 
   uint32_t exponential_integer = 0;
   if (positive_exponent || negative_exponent) {
-    while ((c = peekValueLexer(l)) != EOF) {
+    while ((c = lex_peek(l)) != EOF) {
       if (isdigit(c)) {
         exponential_integer = exponential_integer * 10 + (c - '0');
-        nextValueLexer(l);
+        lex_next(l);
       } else {
         break;
       }
@@ -373,9 +371,9 @@ static void lexNumberLiteral(Lexer *l, Token *token, Vector* diagnostics) {
 }
 }
 
-static void lexCharLiteral(Lexer *lexer, Token *token) {
+static void lexCharLiteral(Lexer *lexer, Allocator *a) {
   // Skip first quote
-  int32_t c = nextValueLexer(lexer);
+  int32_t c = lex_next(lexer);
 
   if (c != '\'') {
     INTERNAL_ERROR(
@@ -400,7 +398,7 @@ static void lexCharLiteral(Lexer *lexer, Token *token) {
 
   LnCol start = lexer->position;
 
-  while ((c = nextValueLexer(lexer)) != EOF) {
+  while ((c = lex_next(lexer)) != EOF) {
     switch (state) {
     case LCS_Initial: {
       if (c == '\\') {
@@ -489,7 +487,7 @@ EXIT_LOOP:;
   switch (state) {
   case LCS_Initial:
   case LCS_SpecialChar: {
-    *token = (Token){.kind = TK_None,
+    *token = (Token){.kind = tk_None,
                      .span = SPAN(start, lexer->position),
                      .error = DK_EOF};
     destroyVector(&data);
@@ -497,7 +495,7 @@ EXIT_LOOP:;
   }
   case LCS_ExpectEnd: {
       // all paths through the expectEnd will end up with something pushed
-    *token = (Token){.kind = TK_Char,
+    *token = (Token){.kind = tk_Char,
                      .char_literal = *VEC_GET(&data, 0, char),
                      .span = SPAN(start, lexer->position),
                      .error = dk};
@@ -513,8 +511,8 @@ EXIT_LOOP:;
     }
 
     *VEC_PUSH(&data, char) = '\0';
-    *token = (Token){.kind = TK_Label,
-                     .label = manageMemArena(lexer->ar, releaseVector(&data)),
+    *token = (Token){.kind = tk_Label,
+                     .label = manageMemArena(ar, releaseVector(&data)),
                      .span = SPAN(start, lexer->position),
                      .error = dk};
     break;
@@ -523,7 +521,7 @@ EXIT_LOOP:;
 }
 
 // Parses an identifer or macro or builtin
-static void lexWord(Lexer *lexer, Token *token) {
+static void lexWord(Lexer *lexer, Allocator *a) {
 
   LnCol start = lexer->position;
 
@@ -532,15 +530,15 @@ static void lexWord(Lexer *lexer, Token *token) {
 
   bool macro = false;
 
-  peekValueLexer(lexer);
+  lex_peek(lexer);
 
   int32_t c;
-  while ((c = peekValueLexer(lexer)) != EOF) {
+  while ((c = lex_peek(lexer)) != EOF) {
     if (isalnum(c) || c == '_') {
       *VEC_PUSH(&data, char) = (char)c;
-      nextValueLexer(lexer);
+      lex_next(lexer);
     } else if (c == '!') {
-      nextValueLexer(lexer);
+      lex_next(lexer);
       macro = true;
       break;
     } else {
@@ -557,58 +555,58 @@ static void lexWord(Lexer *lexer, Token *token) {
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    token->kind = TK_MacroCall;
-    token->macro_call = manageMemArena(lexer->ar, string);
+    token->kind = tk_MacroCall;
+    token->macro_call = manageMemArena(ar, string);
     token->error = DK_Ok;
     return;
   }
 
   if(!strcmp(string, "true")) {
-     token->kind = TK_Bool;
+     token->kind = tk_Bool;
      token->bool_literal = true;
   } else if(!strcmp(string, "false")) {
-     token->kind = TK_Bool;
+     token->kind = tk_Bool;
      token->bool_literal = false;
   } else if (!strcmp(string, "loop")) {
-    token->kind = TK_Loop;
+    token->kind = tk_Loop;
   } else if (!strcmp(string, "let")) {
-    token->kind = TK_Let;
+    token->kind = tk_Let;
   } else if (!strcmp(string, "use")) {
-    token->kind = TK_Use;
+    token->kind = tk_Use;
   } else if (!strcmp(string, "namespace")) {
-    token->kind = TK_Namespace;
+    token->kind = tk_Namespace;
   } else if (!strcmp(string, "as")) {
-    token->kind = TK_As;
+    token->kind = tk_As;
   } else if (!strcmp(string, "match")) {
-    token->kind = TK_Match;
+    token->kind = tk_Match;
   } else if (!strcmp(string, "defer")) {
-    token->kind = TK_Defer;
+    token->kind = tk_Defer;
   } else if (!strcmp(string, "break")) {
-    token->kind = TK_Break;
+    token->kind = tk_Break;
   } else if (!strcmp(string, "continue")) {
-    token->kind = TK_Continue;
+    token->kind = tk_Continue;
   } else if (!strcmp(string, "return")) {
-    token->kind = TK_Return;
+    token->kind = tk_Return;
   } else if (!strcmp(string, "fn")) {
-    token->kind = TK_Fn;
+    token->kind = tk_Fn;
   } else if (!strcmp(string, "pat")) {
-    token->kind = TK_Pat;
+    token->kind = tk_Pat;
   } else if (!strcmp(string, "void")) {
-    token->kind = TK_Void;
+    token->kind = tk_Void;
   } else if (!strcmp(string, "struct")) {
-    token->kind = TK_Struct;
+    token->kind = tk_Struct;
   } else if (!strcmp(string, "enum")) {
-    token->kind = TK_Enum;
+    token->kind = tk_Enum;
   } else if (!strcmp(string, "type")) {
-    token->kind = TK_Type;
+    token->kind = tk_Type;
   } else if (!strcmp(string, "macro")) {
-    token->kind = TK_Macro;
+    token->kind = tk_Macro;
   } else if (!strcmp(string, "unreachable")) {
-    token->kind = TK_Unreachable;
+    token->kind = tk_Unreachable;
   } else {
     // It is an identifier, and we need to keep the string
-    token->kind = TK_Identifier;
-    token->identifier = manageMemArena(lexer->ar, string);
+    token->kind = tk_Identifier;
+    token->identifier = manageMemArena(ar, string);
     token->error = DK_Ok;
     return;
   }
@@ -620,20 +618,16 @@ static void lexWord(Lexer *lexer, Token *token) {
 }
 
 // Parses a builtin or an underscore token
-static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {
+static void lexBuiltinOrUnderscore(Lexer *lexer, Allocator *a) {
   LnCol start = lexer->position;
   // Skip first quote
-  int32_t c = nextValueLexer(lexer);
-  if (c != '_') {
-    INTERNAL_ERROR(
-        "called builtin or underscore lexer where there wasn't an underscore");
-    PANIC();
-  }
+  int32_t c = lex_next(lexer);
+  assert(lex_next(lexer) == '_');
 
-  c = peekValueLexer(lexer);
+  int32_t c = lex_peek(lexer);
   if (!isalpha(c)) {
     *token = (Token){
-        .kind = TK_Underscore,
+        .kind = tk_Underscore,
         .span = SPAN(start, lexer->position),
         .error = DK_Ok,
     };
@@ -643,10 +637,10 @@ static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {
   Vector data;
   createVector(&data);
 
-  while ((c = peekValueLexer(lexer)) != EOF) {
+  while ((c = lex_peek(lexer)) != EOF) {
     if (isalnum(c)) {
       *VEC_PUSH(&data, char) = (char)c;
-      nextValueLexer(lexer);
+      lex_next(lexer);
     } else {
       break;
     }
@@ -657,12 +651,12 @@ static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {
   // Note that string length does not incude the trailing null byte
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
-  char *string = manageMemArena(lexer->ar, releaseVector(&data));
+  char *string = manageMemArena(ar, releaseVector(&data));
 
   // If it wasn't an identifier
   token->error = DK_Ok;
   token->builtin = string;
-  token->kind = TK_Builtin;
+  token->kind = tk_Builtin;
   token->span = SPAN(start, lexer->position);
   return;
 }
@@ -680,17 +674,17 @@ static void lexBuiltinOrUnderscore(Lexer *lexer, Token *token) {
   return;
 
 #define NEXT_AND_RETURN_RESULT_TOKEN(tokenType)                                \
-  nextValueLexer(lexer);                                                       \
+  lex_next(lexer);                                                       \
   RETURN_RESULT_TOKEN(tokenType)
 /* clang-format on */
 
-void lexNextToken(Lexer *lexer, Token *token) {
+Token lexNextToken(Lexer *lexer, Allocator *a) {
   int32_t c;
 
   // Set c to first nonblank character
-  while ((c = peekValueLexer(lexer)) != EOF) {
+  while ((c = lex_peek(lexer)) != EOF) {
     if (isblank(c) || c == '\n') {
-      nextValueLexer(lexer);
+      lex_next(lexer);
     } else {
       break;
     }
@@ -699,221 +693,221 @@ void lexNextToken(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
   if (isalpha(c)) {
-    lexWord(lexer, token);
+    lexWord(lexer, a);
     return;
   } else if (isdigit(c)) {
-    lexNumberLiteral(lexer, token);
+    lexNumberLiteral(lexer, a);
     return;
   } else {
     switch (c) {
     case '\'': {
-      lexCharLiteral(lexer, token);
+      lexCharLiteral(lexer, a);
       return;
     }
     case '\"': {
-      lexStringLiteral(lexer, token);
+      lexStringLiteral(lexer, a);
       return;
     }
     case '_': {
-      lexBuiltinOrUnderscore(lexer, token);
+      lexBuiltinOrUnderscore(lexer, a);
       return;
     }
     case '#': {
-      lexComment(lexer, token);
+      lexComment(lexer, a);
       return;
     }
     case '&': {
-      nextValueLexer(lexer);
+      lex_next(lexer);
       // && or &
-      switch (peekValueLexer(lexer)) {
+      switch (lex_peek(lexer)) {
       case '&': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_And)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_And)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Ref)
+        RETURN_RESULT_TOKEN(tk_Ref)
       }
       }
     }
     case '|': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '|': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_Or)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Or)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Union)
+        RETURN_RESULT_TOKEN(tk_Union)
       }
       }
     }
     case '!': {
-      nextValueLexer(lexer);
+      lex_next(lexer);
       // ! or !=
-      switch (peekValueLexer(lexer)) {
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_CompNotEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompNotEqual)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Not)
+        RETURN_RESULT_TOKEN(tk_Not)
       }
       }
     }
     case '=': {
-      nextValueLexer(lexer);
+      lex_next(lexer);
       // = or == or =>
-      switch (peekValueLexer(lexer)) {
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_CompEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompEqual)
       }
       case '>': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_Arrow)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Arrow)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Assign)
+        RETURN_RESULT_TOKEN(tk_Assign)
       }
       }
     }
     case '<': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_CompLessEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompLessEqual)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_CompLess)
+        RETURN_RESULT_TOKEN(tk_CompLess)
       }
       }
     }
     case '>': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_CompGreaterEqual)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompGreaterEqual)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_CompGreater)
+        RETURN_RESULT_TOKEN(tk_CompGreater)
       }
       }
     }
     case '+': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignAdd)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignAdd)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Add)
+        RETURN_RESULT_TOKEN(tk_Add)
       }
       }
     }
     case '-': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '>': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_Pipe)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Pipe)
       }
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignSub)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignSub)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Sub)
+        RETURN_RESULT_TOKEN(tk_Sub)
       }
       }
     }
     case '*': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignMul)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignMul)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Mul)
+        RETURN_RESULT_TOKEN(tk_Mul)
       }
       }
     }
     case '/': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignDiv)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignDiv)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Div)
+        RETURN_RESULT_TOKEN(tk_Div)
       }
       }
     }
     case '%': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_AssignMod)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignMod)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Mod)
+        RETURN_RESULT_TOKEN(tk_Mod)
       }
       }
     }
     case ':': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case ':': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_ScopeResolution)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_ScopeResolution)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_Colon)
+        RETURN_RESULT_TOKEN(tk_Colon)
       }
       }
     }
     case '.': {
-      nextValueLexer(lexer);
-      switch (peekValueLexer(lexer)) {
+      lex_next(lexer);
+      switch (lex_peek(lexer)) {
       case '.': {
-        NEXT_AND_RETURN_RESULT_TOKEN(TK_Rest)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Rest)
       }
       default: {
-        RETURN_RESULT_TOKEN(TK_FieldAccess)
+        RETURN_RESULT_TOKEN(tk_FieldAccess)
       }
       }
     }
     case '[': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_BracketLeft)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_BracketLeft)
     }
     case ']': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_BracketRight)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_BracketRight)
     }
     case '@': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Deref)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_Deref)
     }
     case '(': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_ParenLeft)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_ParenLeft)
     }
     case ')': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_ParenRight)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_ParenRight)
     }
     case '{': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_BraceLeft)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_BraceLeft)
     }
     case '}': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_BraceRight)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_BraceRight)
     }
     case ',': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Tuple)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_Tuple)
     }
     case ';': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Semicolon)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_Semicolon)
     }
     case '$': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Dollar)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_Dollar)
     }
     case '`': {
-      NEXT_AND_RETURN_RESULT_TOKEN(TK_Backtick)
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_Backtick)
     }
     case EOF: {
-      RESULT_TOKEN(TK_None, DK_EOF)
+      RESULT_TOKEN(tk_None, DK_EOF)
       return;
     }
     default: {
-      RESULT_TOKEN(TK_None, DK_UnrecognizedCharacter)
-      nextValueLexer(lexer);
+      RESULT_TOKEN(tk_None, DK_UnrecognizedCharacter)
+      lex_next(lexer);
       return;
     }
     }

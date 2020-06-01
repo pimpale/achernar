@@ -8,6 +8,6 @@
 // Initializes Token to the value of the next token if there has not been an
 // error. Otherwise the token will have the type TokenNone and will contain a
 // diagnostic. Tokens will be deallocated when the lexer is deallocated.
-void lexNextToken(Lexer *lexer, Token *token, Vector* diagnostics);
+Token tk_next(Lexer *lexer, Vector* diagnostics, Allocator* a);
 
 #endif

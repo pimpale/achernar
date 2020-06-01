@@ -3,42 +3,40 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-void createLexerFile(Lexer *lexer, FILE *file, Allocator *a) {
+void lex_fromFile(Lexer *lexer, FILE *file) {
   lexer->position = LNCOL(1, 1);
-  lexer->a= a;
 
   // Files
   lexer->file = file;
-  lexer->backing = LBK_LexerBackingFile;
+  lexer->backing = lex_BackingFile;
 }
 
-void createLexerMemory(Lexer *lexer, char *ptr, size_t len, Allocator *a) {
+void lex_fromMemory(Lexer *lexer, char *ptr, size_t len) {
   lexer->position = LNCOL(1, 1);
-  lexer->a = a;
 
   // Copy memory
-  lexer->backing = LBK_LexerBackingMemory;
+  lexer->backing = lex_BackingMemory;
   lexer->memory.len = len;
   lexer->memory.loc = 0;
   lexer->memory.ptr = ptr;
 }
 
-void releaseLexer(Lexer *lexer) {
+void lex_destroy(Lexer *lexer) {
   switch (lexer->backing) {
-  case LBK_LexerBackingMemory: {
+  case lex_BackingMemory: {
     free(lexer->memory.ptr);
     break;
   }
-  case LBK_LexerBackingFile: {
+  case lex_BackingFile: {
     break;
   }
   }
 }
 
-int32_t nextValueLexer(Lexer *lexer) {
+int32_t lex_next(Lexer *lexer) {
   int32_t nextValue;
   switch (lexer->backing) {
-  case LBK_LexerBackingMemory: {
+  case lex_BackingMemory: {
     if (lexer->memory.loc + 1 >= lexer->memory.len) {
       nextValue = EOF;
     } else {
@@ -54,7 +52,7 @@ int32_t nextValueLexer(Lexer *lexer) {
     }
     break;
   }
-  case LBK_LexerBackingFile: {
+  case lex_BackingFile: {
     nextValue = getc(lexer->file);
     if (nextValue != EOF) {
       if (nextValue == '\n') {
@@ -70,9 +68,9 @@ int32_t nextValueLexer(Lexer *lexer) {
   return nextValue;
 }
 
-int32_t peekValueLexer(Lexer *lexer) {
+int32_t lex_peek(Lexer *lexer) {
   switch (lexer->backing) {
-  case LBK_LexerBackingMemory: {
+  case lex_BackingMemory: {
     // If it's within the bounds, return the value ahead of us
     if (lexer->memory.loc + 2 < lexer->memory.len) {
       return (lexer->memory.ptr[lexer->memory.loc + 1]);
@@ -80,7 +78,7 @@ int32_t peekValueLexer(Lexer *lexer) {
       return EOF;
     }
   }
-  case LBK_LexerBackingFile: {
+  case lex_BackingFile: {
     int32_t val = getc(lexer->file);
     ungetc(val, lexer->file);
     return val;

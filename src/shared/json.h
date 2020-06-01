@@ -88,7 +88,6 @@ typedef struct j_Error_s {
   LnCol loc;
 } j_Error;
 
-
-j_Elem j_parseElem(Lexer *l, Vector* diagnostics);
+j_Elem j_parseElem(Lexer *l, Vector* diagnostics, Allocator* a);
 
 #endif

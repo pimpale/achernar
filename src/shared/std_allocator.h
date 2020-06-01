@@ -3,6 +3,9 @@
 
 #include "allocator.h"
 
-void std_a_create(Allocator* allocator);
+#include <stdlib.h>
+
+// Variable that always stays constant and can be reused
+extern const Allocator std_allocator;
 
 #endif

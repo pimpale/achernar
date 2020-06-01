@@ -206,18 +206,18 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
         break;
       }
       default: {
-        *token = (Token){.kind = TK_None,
-                         .span = SPAN(start, lexer->position),
-                         .error = DK_StringLiteralUnrecognizedEscapeCode};
-
         // keep going till we hit an end double quote
         while ((c = nextValueLexer(lexer)) != EOF) {
           if (c == '\"') {
             break;
           }
         }
+
+        *token = (Token){.kind = TK_String,
+                         .span = SPAN(start, lexer->position),
+                         .error = DK_StringLiteralUnrecognizedEscapeCode,
+                         .string_literal = vec_release(&data)};
         // once we've hit the end, we release the data
-        destroyVector(&data);
         return;
       }
       }
@@ -231,13 +231,11 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   // Push null byte
   *VEC_PUSH(&data, char) = '\0';
 
-  char *string = manageMemArena(lexer->ar, releaseVector(&data));
-
   // Return data
   // clang-format off
   *token = (Token) {
     .kind = TK_String,
-      .string_literal = string,
+      .string_literal = vec_release(&data),
       .span = SPAN(start, lexer->position),
       .error = DK_Ok
   };
@@ -251,172 +249,100 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
 static void lexNumberLiteral(Lexer *lexer, Token *token) {
   LnCol start = lexer->position;
 
-  Vector data;
-  createVector(&data);
+  uint8_t radix;
+  switch(
 
-  // Used to determine if float or not
-  // decimalPointIndex will only be defined if hasDecimalPoint is true
-  bool hasDecimalPoint = false;
-  size_t decimalPointIndex = 0;
-
+  int64_t integer_value = 0;
   int32_t c;
-  while ((c = peekValueLexer(lexer)) != EOF) {
-    if (isalnum(c) || c == '.') {
-      // If there's a decimal point we note the location
-      // If this is the second time we've seen it, then it's probably
-      if (c == '.') {
-        if (hasDecimalPoint) {
-          break;
-        } else {
-          hasDecimalPoint = true;
-          // Since we haven't appended the new dot yet, it's the previous
-          // value
-          decimalPointIndex = VEC_LEN(&data, char);
-        }
-      }
-      *VEC_PUSH(&data, char) = (char)c;
-      // consume digit
-      nextValueLexer(lexer);
-    } else if (c == '_') {
-      // silently consume underscore
-      nextValueLexer(lexer);
+  while ((c = peekValueLexer(l)) != EOF) {
+    if (isdigit(c)) {
+      integer_value = integer_value * 10 + (c - '0');
+      nextValueLexer(l);
     } else {
       break;
     }
   }
 
-  // The definition of string length doesn't include the \0
-  size_t length = VEC_LEN(&data, char);
-  *VEC_PUSH(&data, char) = '\0';
-  char *string = releaseVector(&data);
 
-  // If it's an integer
-  if (!hasDecimalPoint) {
-    uint64_t radix;
-    // this is the null terminated string storing the text of the number
-    char *intStr;
-    size_t intStrLen;
-
-    // Special Radix
-    // More than 2 characters and first character is 0 and second character
-    // is not digit
-    if (length > 2 && string[0] == '0' && !isdigit(string[1])) {
-      // Set radix to what it has to be
-      // Switch on the second character aka x, or b or whatever comes after
-      // 0
-      switch (string[1]) {
-      case 'b': {
-        radix = 2;
-        break;
-      }
-      case 'd': {
-        radix = 10;
-        break;
-      }
-      case 'o': {
-        radix = 8;
-        break;
-      }
-      case 'x': {
-        radix = 16;
-        break;
-      }
-      default: {
-        *token = (Token){.kind = TK_None,
-                         .span = SPAN(start, lexer->position),
-                         .error = DK_IntLiteralUnrecognizedRadixCode
-
-        };
-        goto CLEANUP;
-      }
-      }
-      // Basically take the string after 0x or whatever
-      intStr = string + 2;
-      intStrLen = length - 2;
-    } else {
-      radix = 10;
-      intStr = string;
-      intStrLen = length;
-    }
-
-    // Now we get on to parsing the integer
-    uint64_t integer_value;
-    DiagnosticKind ret = parseInteger(&integer_value, intStr, intStrLen, radix);
-    if (ret != DK_Ok) {
-      *token = (Token){
-          .kind = TK_None, .span = SPAN(start, lexer->position), .error = ret};
-      goto CLEANUP;
-    } else {
-      // Return data
-      *token = (Token){.kind = TK_Int,
-                       .span = SPAN(start, lexer->position),
-                       .int_literal = integer_value,
-                       .error = DK_Ok};
-      goto CLEANUP;
-    }
-  } else {
-    // If it has a decimal point, it must be a float
-    // We have already guaranteed that the string only has one decimal
-    // point, at decimalPointIndex Floats are always in decimal notation
-
-    // We parse the float as an integer above decimal point, and one below
-
-    // Represents the portion of the float literal prior to the decimal
-    // point
-    char *initialPortion = string;
-    size_t initialPortionLen = decimalPointIndex;
-
-    // Represents the portion of the float literal after the decimal point
-    char *finalPortion = string + decimalPointIndex + 1;
-    size_t finalPortionLen = length - decimalPointIndex - 1;
-
-    // the thing we'll return
-    double result = 0;
-
-    // Parse the part ahead of the decimal point
-    uint64_t initial_integer = 0;
-    DiagnosticKind initial_err =
-        parseInteger(&initial_integer, initialPortion, initialPortionLen, 10);
-    if (initial_err == DK_Ok) {
-      result += (double)initial_integer;
-    } else {
-      *token = (Token){.kind = TK_None,
-                       .span = SPAN(start, lexer->position),
-                       .error = initial_err};
-      goto CLEANUP;
-    }
-    // If there's a bit after the inital part, then we must add it
-    if (finalPortionLen > 0) {
-      uint64_t final_integer = 0;
-      DiagnosticKind final_err =
-          parseInteger(&final_integer, finalPortion, finalPortionLen, 10);
-      if (final_err == DK_Ok) {
-        // don't want to include math.h, so we'll repeatedly divide by 10
-        // this is probably dumb
-        double decimalResult = (double)final_integer;
-        for (size_t i = 0; i < finalPortionLen; i++) {
-          decimalResult /= 10;
-        }
-        result += decimalResult;
-      } else {
-        *token = (Token){.kind = TK_None,
-                         .span = SPAN(start, lexer->position),
-                         .error = final_err};
-        goto CLEANUP;
-      }
-    }
-
-    // Return data
-    *token = (Token){.kind = TK_Float,
-                     .float_literal = result,
-                     .span = SPAN(start, lexer->position),
-                     .error = DK_Ok};
-    goto CLEANUP;
+  bool fractional = false;
+  if (peekValueLexer(l) == '.') {
+    fractional = true;
+    nextValueLexer(l);
   }
 
-CLEANUP:
-  free(string);
-  return;
+  double fractional_component = 0;
+  if (fractional) {
+    double place = 0.1;
+    while ((c = peekValueLexer(l)) != EOF) {
+      if (isdigit(c)) {
+        fractional_component += place * (c - '0');
+        place /= 10;
+        nextValueLexer(l);
+      } else {
+        break;
+      }
+    }
+  }
+
+  bool positive_exponent = false;
+  bool negative_exponent = false;
+  c = peekValueLexer(l);
+  if (c == 'E' || c == 'e') {
+    nextValueLexer(l);
+    switch (nextValueLexer(l)) {
+    case '+': {
+      positive_exponent = true;
+      break;
+    }
+    case '-': {
+      negative_exponent = true;
+      break;
+    }
+    default: {
+      *VEC_PUSH(diagnostics, j_Error) =
+          ERROR(j_NumExponentExpectedSign, l->position);
+      break;
+    }
+    }
+  }
+
+  uint32_t exponential_integer = 0;
+  if (positive_exponent || negative_exponent) {
+    while ((c = peekValueLexer(l)) != EOF) {
+      if (isdigit(c)) {
+        exponential_integer = exponential_integer * 10 + (c - '0');
+        nextValueLexer(l);
+      } else {
+        break;
+      }
+    }
+  }
+
+  if (fractional || negative_exponent) {
+    // Decimalish
+    double num = integer_value + fractional_component;
+    if (positive_exponent) {
+      for (int i = 0; i < exponential_integer; i++) {
+        num *= 10;
+      }
+    }
+    if (negative_exponent) {
+      for (int i = 0; i < exponential_integer; i++) {
+        num /= 10;
+      }
+    }
+    return J_NUM_ELEM(num);
+  } else {
+    // Integer
+    int64_t num = integer_value;
+    if (positive_exponent) {
+      for (int i = 0; i < exponential_integer; i++) {
+        num *= 10;
+      }
+    }
+    return J_INT_ELEM(num);
+  }
+}
 }
 
 static void lexCharLiteral(Lexer *lexer, Token *token) {

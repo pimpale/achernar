@@ -12,7 +12,8 @@ static void *std_allocator_fn(void *backing, size_t size) {
   return malloc(size);
 }
 
-static void* std_allocator_flags_fn(void* backing, size_t size, AllocatorFlags flags) {
+static void *std_allocator_flags_fn(void *backing, size_t size,
+                                    AllocatorFlags flags) {
   assert(flags == (A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY));
   return std_allocator_fn(backing, size);
 }
@@ -31,16 +32,15 @@ static void std_destroy_allocator_fn(void *backing) {
   // nothing
 }
 
-void std_a_create(Allocator *allocator) {
-  // no state needs to be preserved
-  allocator->allocator_backing = NULL;
-  // we can realloc, but aligned malloc is disabled (TODO add it)
-  allocator->default_flags = A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY;
-  allocator->supported_flags = A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY;
-  // set functions
-  allocator->allocator_fn = std_allocator_fn;
-  allocator->allocator_flags_fn = std_allocator_flags_fn;
-  allocator->deallocator_fn = std_deallocator_fn;
-  allocator->reallocator_fn = std_reallocator_fn;
-  allocator->destroy_allocator_fn = std_destroy_allocator_fn;
-}
+// Allocator constant struct variable
+const Allocator std_allocator =
+    (Allocator){// just use the system malloc and free funcs
+                .default_flags = A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY,
+                .supported_flags = A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY,
+                // No state needs to be preserved
+                .allocator_backing = NULL,
+                // Set functions
+                .allocator_fn = std_allocator_fn,
+                .allocator_flags_fn = std_allocator_flags_fn,
+                .deallocator_fn = std_deallocator_fn,
+                .destroy_allocator_fn = std_destroy_allocator_fn};

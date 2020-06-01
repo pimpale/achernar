@@ -3,10 +3,11 @@
 
 #include "token.h"
 #include "lexer.h"
+#include "vector.h"
 
 // Initializes Token to the value of the next token if there has not been an
 // error. Otherwise the token will have the type TokenNone and will contain a
 // diagnostic. Tokens will be deallocated when the lexer is deallocated.
-void lexNextToken(Lexer *lexer, Token *token);
+void lexNextToken(Lexer *lexer, Token *token, Vector* diagnostics);
 
 #endif

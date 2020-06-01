@@ -9,98 +9,99 @@
 #include "lncol.h"
 
 typedef enum {
-  // This is not a token, and does not contain token data
-  TK_None,
+  // These are not tokens, and do not contain token data
+  tk_Eof,
+  tk_None,
   // function, type, or variable
-  TK_Identifier,
+  tk_Identifier,
   // Keywords
-  TK_Unreachable, // unreachable type for when a function does not return
-  TK_Loop,        // loop
-  TK_Match,       // match
-  TK_Break,       // break
-  TK_Continue,    // continue
-  TK_Let,         // let
-  TK_Return,      // return
-  TK_Defer,       // defer
-  TK_Fn,          // fn
-  TK_Pat,         // pat
-  TK_As,          // as
-  TK_Struct,      // struct
-  TK_Enum,        // enum
-  TK_Type,        // type
-  TK_Macro,       // macro
-  TK_Namespace,   // namespace
-  TK_Use,         // use
+  tk_Unreachable, // unreachable type for when a function does not return
+  tk_Loop,        // loop
+  tk_Match,       // match
+  tk_Break,       // break
+  tk_Continue,    // continue
+  tk_Let,         // let
+  tk_Return,      // return
+  tk_Defer,       // defer
+  tk_Fn,          // fn
+  tk_Pat,         // pat
+  tk_As,          // as
+  tk_Struct,      // struct
+  tk_Enum,        // enum
+  tk_Type,        // type
+  tk_Macro,       // macro
+  tk_Namespace,   // namespace
+  tk_Use,         // use
   // Literals and constants
-  TK_Void,   // void
-  TK_Bool,   // true
-  TK_String, // "string"
-  TK_Char,   // 'a'
-  TK_Float,  // 0.7
-  TK_Int,    // 7
+  tk_Void,   // void
+  tk_Bool,   // true
+  tk_String, // "string"
+  tk_Char,   // 'a'
+  tk_Float,  // 0.7
+  tk_Int,    // 7
   // Math Operators
-  TK_Add, // +
-  TK_Sub, // -
-  TK_Mul, // *
-  TK_Div, // /
-  TK_Mod, // %
+  tk_Add, // +
+  tk_Sub, // -
+  tk_Mul, // *
+  tk_Div, // /
+  tk_Mod, // %
   // Logical Operators
-  TK_And, // &&
-  TK_Or,  // ||
-  TK_Not, // !
+  tk_And, // &&
+  tk_Or,  // ||
+  tk_Not, // !
   // Comparison and Equality
-  TK_CompEqual,        // ==
-  TK_CompNotEqual,     // !=
-  TK_CompLess,         // <
-  TK_CompLessEqual,    // <=
-  TK_CompGreater,      // >
-  TK_CompGreaterEqual, // >=
+  tk_CompEqual,        // ==
+  tk_CompNotEqual,     // !=
+  tk_CompLess,         // <
+  tk_CompLessEqual,    // <=
+  tk_CompGreater,      // >
+  tk_CompGreaterEqual, // >=
   // Type Modifiers
-  TK_Ref,   // &
-  TK_Deref, // @
+  tk_Ref,   // &
+  tk_Deref, // @
   // Assignment
-  TK_Assign,    // =
-  TK_AssignAdd, // +=
-  TK_AssignSub, // -=
-  TK_AssignMul, // *=
-  TK_AssignDiv, // /=
-  TK_AssignMod, // %=
+  tk_Assign,    // =
+  tk_AssignAdd, // +=
+  tk_AssignSub, // -=
+  tk_AssignMul, // *=
+  tk_AssignDiv, // /=
+  tk_AssignMod, // %=
   // Arrows
-  TK_Pipe,  // ->
-  TK_Arrow, // =>
+  tk_Pipe,  // ->
+  tk_Arrow, // =>
   // Scope resolution
-  TK_ScopeResolution, // ::
+  tk_ScopeResolution, // ::
   // Types
-  TK_Tuple, // ,
-  TK_Union, // |
+  tk_Tuple, // ,
+  tk_Union, // |
   // Other Miscellaneous Operator Things
-  TK_ParenLeft,    // (
-  TK_ParenRight,   // )
-  TK_BracketLeft,  // [
-  TK_BracketRight, // ]
-  TK_BraceLeft,    // {
-  TK_BraceRight,   // }
-  TK_FieldAccess,  // .
-  TK_Colon,        // :
-  TK_Semicolon,    // ;
-  TK_Underscore,   // _
-  TK_Backtick,     // `
-  TK_Rest,         // ..
-  TK_Dollar,       // $
+  tk_ParenLeft,    // (
+  tk_ParenRight,   // )
+  tk_BracketLeft,  // [
+  tk_BracketRight, // ]
+  tk_BraceLeft,    // {
+  tk_BraceRight,   // }
+  tk_FieldAccess,  // .
+  tk_Colon,        // :
+  tk_Semicolon,    // ;
+  tk_Underscore,   // _
+  tk_Backtick,     // `
+  tk_Rest,         // ..
+  tk_Dollar,       // $
   // Macros
-  TK_Builtin,   // _builtin
-  TK_Label,     // 'label
-  TK_MacroCall, // macrocall!
+  tk_Builtin,   // _builtin
+  tk_Label,     // 'label
+  tk_MacroCall, // macrocall!
   // Comments, and Attributes
-  TK_Comment, // #{ comment }# and # comment
-} TokenKind;
+  tk_Comment, // #{ comment }# and # comment
+} tk_Kind;
 
 typedef struct Token_s {
-  TokenKind kind; // The type of this token
+  tk_Kind kind; // The type of this token
   // This points to
-  // null terminated string in case of identifier, TK_StringLiteral,
-  // TK_Comment, TK_Documentation, or TK_Annotation uint64_t in case of
-  // TK_IntLiteral double double in case of TK_FloatLiteral Otherwise must
+  // null terminated string in case of identifier, tk_StringLiteral,
+  // tk_Comment, tk_Documentation, or tk_Annotation uint64_t in case of
+  // tk_IntLiteral double double in case of tk_FloatLiteral Otherwise must
   // be null
   union {
     char *identifier;
@@ -118,7 +119,6 @@ typedef struct Token_s {
     char char_literal;
   };
   Span span; // position in the file
-  DiagnosticKind error;
 } Token;
 
 #endif

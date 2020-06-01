@@ -12,37 +12,6 @@
 #include "diagnostic.h"
 #include "vector.h"
 
-// Parses integer with radix
-static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
-                                   uint64_t radix) {
-  uint64_t ret = 0;
-  for (size_t i = 0; i < len; i++) {
-    // First we must determine the value of this digit
-    char c = str[i];
-    uint64_t digit_value = 0;
-    if (c >= 'a' && c <= 'f') {
-      digit_value = (uint64_t)(c - 'a') + 10;
-    } else if (isdigit(c)) {
-      digit_value = (uint64_t)(c - '0');
-    } else {
-      return DK_IntLiteralUnknownCharacter;
-    }
-
-    // If you put something higher than is requested
-    if (digit_value >= radix) {
-      return DK_IntLiteralDigitExceedsRadix;
-    }
-
-    uint64_t oldret = ret;
-    ret = ret * radix + digit_value;
-    if (oldret > ret) {
-      return DK_IntLiteralOverflow;
-    }
-  }
-  *value = ret;
-  return DK_Ok;
-}
-
 
 // Call this function right before the first hash
 // Returns control at the first noncomment area
@@ -243,14 +212,73 @@ static void lexStringLiteral(Lexer *lexer, Token *token) {
   return;
 }
 
+// Parses integer with radix
+static DiagnosticKind parseInteger(uint64_t *value, char *str, size_t len,
+                                   uint64_t radix) {
+  uint64_t ret = 0;
+  for (size_t i = 0; i < len; i++) {
+    // First we must determine the value of this digit
+    char c = str[i];
+    uint64_t digit_value = 0;
+    if (c >= 'a' && c <= 'f') {
+      digit_value = (uint64_t)(c - 'a') + 10;
+    } else if (isdigit(c)) {
+      digit_value = (uint64_t)(c - '0');
+    } else {
+      return DK_IntLiteralUnknownCharacter;
+    }
+
+    // If you put something higher than is requested
+    if (digit_value >= radix) {
+      return DK_IntLiteralDigitExceedsRadix;
+    }
+
+    uint64_t oldret = ret;
+    ret = ret * radix + digit_value;
+    if (oldret > ret) {
+      return DK_IntLiteralOverflow;
+    }
+  }
+  *value = ret;
+  return DK_Ok;
+}
+
+
+
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static void lexNumberLiteral(Lexer *lexer, Token *token) {
-  LnCol start = lexer->position;
+static void lexNumberLiteral(Lexer *l, Token *token, Vector* diagnostics) {
+  LnCol start = l->position;
 
   uint8_t radix;
-  switch(
+
+  if(peekValueLexer(l) == '0') {
+    nextValueLexer(l);
+    int32_t radixCode = nextValueLexer(l);
+    switch(radixCode) {
+      case 'b': {
+                  radix = 2;
+                  break;
+                }
+      case 'o': {
+                  radix = 8;
+                  break;
+                }
+      case 'd': {
+                  radix = 10;
+                  break;
+                }
+      case 'x': {
+                  radix =16;
+                  break;
+                }
+                default: {
+
+                         }
+    }
+  }
+  
 
   int64_t integer_value = 0;
   int32_t c;

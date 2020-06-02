@@ -26,6 +26,7 @@ typedef enum {
   DK_CharLiteralUnrecognizedEscapeCode,
   DK_CharLiteralExpectedCloseSingleQuote,
   // Labels
+  DK_UnexpectedLabel,
   DK_LabelUnknownCharacter,
   // ConstExpr Errors
   DK_ConstExprUnrecognizedLiteral,

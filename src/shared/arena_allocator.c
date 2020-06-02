@@ -76,7 +76,6 @@ void *allocArenaPage(ArenaPage *app, size_t len) {
   return dest;
 }
 typedef struct Arena_s {
-  Allocator vec_allocator;
   // indices for aligned pages
   // Vector<int64_t> (if the int64_t is negative, then it means that there are
   // no pages allocated for that alignment)
@@ -90,11 +89,9 @@ typedef struct Arena_s {
 /// GUARANTEES: `mem` has been initialized to a valid Arena
 /// GUARANTEES: return value is `mem`
 Arena *ar_create(Arena *mem) {
-  // create allocator
-  std_a_create(&mem->vec_allocator);
   // initialize vectors
-  vec_create(&mem->pages, &mem->vec_allocator);
-  vec_create(&mem->indices, &mem->vec_allocator);
+  mem->pages = vec_create(&std_allocator);
+  mem->indices = vec_create(&std_allocator);
   return mem;
 }
 
@@ -108,7 +105,6 @@ Arena *ar_destroy(Arena *ar) {
   }
   vec_destroy(&ar->pages);
   vec_destroy(&ar->indices);
-  a_destroy(&ar->vec_allocator);
   return ar;
 }
 

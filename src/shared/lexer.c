@@ -3,28 +3,25 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-void lex_fromFile(Lexer *lexer, FILE *file) {
-  lexer->position = LNCOL(LN(1), COL(1));
-
-  // Files
-  lexer->file = file;
-  lexer->backing = lex_BackingFile;
+Lexer lex_fromFile(FILE *file) {
+  return (Lexer){.position = LNCOL(LN(1), COL(1)),
+                 .file = file,
+                 .backing = lex_BackingFile};
 }
 
-void lex_fromMemory(Lexer *lexer, char *ptr, size_t len) {
-  lexer->position = LNCOL(LN(1), COL(1));
-
-  // Copy memory
-  lexer->backing = lex_BackingMemory;
-  lexer->memory.len = len;
-  lexer->memory.loc = 0;
-  lexer->memory.ptr = ptr;
+Lexer lex_fromMemory(char *ptr, size_t len) {
+  return (Lexer){
+      .position = LNCOL(LN(1), COL(1)),
+      .backing = lex_BackingMemory,
+      .memory.len = len,
+      .memory.loc = 0,
+      .memory.ptr = ptr,
+  };
 }
 
 void lex_destroy(Lexer *lexer) {
   switch (lexer->backing) {
   case lex_BackingMemory: {
-    free(lexer->memory.ptr);
     break;
   }
   case lex_BackingFile: {
@@ -86,7 +83,7 @@ Span lex_peekSpan(Lexer *lexer) {
   if (lex_peek(lexer) == '\n') {
     return SPAN(lexer->position, LNCOL(LN(lexer->position.ln.val + 1), COL(1)));
   } else {
-    return SPAN(lexer->position, LNCOL(lexer->position.ln, COL(lexer->position.col.val + 1)));
+    return SPAN(lexer->position,
+                LNCOL(lexer->position.ln, COL(lexer->position.col.val + 1)));
   }
 }
-

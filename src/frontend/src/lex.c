@@ -31,8 +31,7 @@ static Token lexComment(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   if (c == '@') {
     lex_next(lexer);
 
-    Vector data;
-    vec_create(&data, a);
+    Vector data = vec_create(a);
     while ((c = lex_peek(lexer)) != EOF) {
       if (isalnum(c) || c == '/') {
         *VEC_PUSH(&data, char) = (char)c;
@@ -53,8 +52,7 @@ static Token lexComment(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     // These strings are preserved in the AST. They are nestable
     // also nestable
     // #{ Comment }#
-    Vector data;
-    vec_create(&data, a);
+    Vector data = vec_create(a);
     size_t stackDepth = 1;
     char lastChar = '\0';
 
@@ -93,8 +91,7 @@ static Token lexComment(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     // If we don't recognize any of these characters, it's just a normal single
     // line comment. These are not nestable, and continue till the end of line.
     // # comment
-    Vector data;
-    vec_create(&data, a);
+    Vector data =  vec_create(a);
     while ((c = lex_next(lexer)) != EOF) {
       if (c != '\n') {
         *VEC_PUSH(&data, char) = (char)c;
@@ -127,8 +124,7 @@ static Token lexStringLiteral(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   int32_t c = lex_next(lexer);
   assert(c == '\"');
 
-  Vector data;
-  vec_create(&data, a);
+  Vector data = vec_create(a);
 
   while ((c = lex_next(lexer)) != EOF) {
     if (c == '\\') {
@@ -468,7 +464,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics,
           // we are dealing with a label
           label = true;
           // initialize label data vector
-          vec_create(&label_data, a);
+          label_data = vec_create(a);
           // push first char into vec
           *VEC_PUSH(&label_data, char) = char_literal;
           // set state
@@ -521,8 +517,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   LnCol start = lexer->position;
 
-  Vector data;
-  vec_create(&data, &std_allocator);
+  Vector data =  vec_create(&std_allocator);
 
   bool macro = false;
 
@@ -628,8 +623,7 @@ static Token lexBuiltinOrUnderscore(Lexer *lexer, Vector *diagnostics,
     };
   }
 
-  Vector data;
-  vec_create(&data, a);
+  Vector data =  vec_create(a);
 
   while ((c = lex_peek(lexer)) != EOF) {
     if (isalnum(c)) {

@@ -197,8 +197,7 @@ static void j_emitElem(Vector *data, j_Elem *j) {
 }
 
 char *j_stringify(j_Elem *j, Allocator *a) {
-  Vector data;
-  vec_create(&data, a);
+  Vector data = vec_create(a);
   j_emitElem(&data, j);
   // terminate string
   *VEC_PUSH(&data, char) = '\0';
@@ -379,8 +378,7 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
     StringParserFinished,
   } StringParserState;
 
-  Vector data;
-  vec_create(&data, a);
+  Vector data = vec_create(a);
 
   StringParserState state = StringParserText;
 
@@ -502,12 +500,12 @@ LOOPEND:;
 
 static j_Prop j_parseProp(Lexer *l, Vector *diagnostics, Allocator *a);
 
-static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+static j_Elem j_certain_parseArrayElem(Lexer *l, Vector *diagnostics,
+                                       Allocator *a) {
   assert(lex_next(l) == '[');
 
   // vector of elements
-  Vector elems;
-  vec_create(&elems, a);
+  Vector elems = vec_create(a);
 
   typedef enum {
     ArrayParseStart,
@@ -567,7 +565,8 @@ CLEANUP:;
   return J_ARRAY_ELEM(vec_release(&elems), len);
 }
 
-static j_Elem j_certain_parseStrElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+static j_Elem j_certain_parseStrElem(Lexer *l, Vector *diagnostics,
+                                     Allocator *a) {
   assert(lex_peek(l) == '\"');
   return J_STR_ELEM(j_parseStr(l, diagnostics, a));
 }
@@ -582,12 +581,12 @@ static j_Prop j_parseProp(Lexer *l, Vector *diagnostics, Allocator *a) {
   return J_PROP(key, value);
 }
 
-static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+static j_Elem j_certain_parseObjectElem(Lexer *l, Vector *diagnostics,
+                                        Allocator *a) {
   assert(lex_next(l) == '{');
 
   // vector of properties
-  Vector props;
-  vec_create(&props, a);
+  Vector props = vec_create(a);
 
   typedef enum {
     ObjectParseStart,

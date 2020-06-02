@@ -119,8 +119,8 @@ static inline void a_destroy(Allocator *a) {
 }
 
 // Created this macro for type safety
-#define ALLOC(allocator, type) ALLOC_ARR((allocator), 1, (type))
+#define ALLOC(allocator, type) ((type *)a_alloc((allocator), sizeof(type)))
 #define ALLOC_ARR(allocator, n, type)                                             \
-  (type *)a_alloc((allocator), ((n) * sizeof(type)))
+  ((type *)a_alloc((allocator), (n) * sizeof(type)))
 
 #endif

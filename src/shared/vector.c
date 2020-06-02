@@ -14,6 +14,9 @@
 // Ex. 1.5 -> 50% expansion each time the limit is hit
 #define LOAD_FACTOR 2
 
+size_t vec_length(const Vector *vector) { return vector->length; }
+size_t vec_capacity(const Vector *vector) { return vector->capacity; }
+
 void vec_setCapacity(Vector *vector, size_t size);
 void vec_resize(Vector *vector, size_t size);
 
@@ -41,16 +44,17 @@ void vec_resize(Vector *vector, size_t size) {
   vec_setCapacity(vector, newCapacity);
 }
 
-Vector *vec_createWithCapacity(Vector *vector, const Allocator* allocator, size_t initialCapacity) {
-  vector->data = NULL;
-  vector->length = 0;
-  vector->allocator = allocator;
-  vec_setCapacity(vector, initialCapacity);
+Vector vec_createWithCapacity(const Allocator* allocator, size_t initialCapacity) {
+  Vector vector;
+  vector.data = NULL;
+  vector.length = 0;
+  vector.allocator = allocator;
+  vec_setCapacity(&vector, initialCapacity);
   return vector;
 }
 
-Vector *vec_create(Vector *vector, const Allocator* allocator) {
-  return vec_createWithCapacity(vector, allocator, DEFAULT_INITIAL_CAPACITY);
+Vector vec_create(const Allocator* allocator) {
+  return vec_createWithCapacity(allocator, DEFAULT_INITIAL_CAPACITY);
 }
 
 Vector *vec_destroy(Vector *vector) {
@@ -107,5 +111,9 @@ void vec_remove(Vector *vector, void *data, size_t loc, size_t len) {
   memmove(dest, src, vector->length - loc);
 }
 
-size_t vec_length(Vector *vector) { return vector->length; }
-size_t vec_capacity(Vector *vector) { return vector->capacity; }
+void vec_append(Vector *dest, Vector *src) {
+  size_t len = vec_length(src);
+  vec_pop(src, vec_push(dest, len), len);
+  vec_destroy(src);
+}
+

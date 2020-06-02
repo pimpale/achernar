@@ -1,14 +1,18 @@
 #ifndef PARSE_H_
 #define PARSE_H_
 
+#include "allocator.h"
 #include "ast.h"
+#include "vector.h"
 #include "lexer.h"
 
 typedef struct Parser_s {
-  Arena *ar;
+  Allocator *a;
   Lexer *lexer;
   // Vector<Token>
   Vector next_tokens_stack;
+  // Vector<Vector<Diagnostic>> vector of peeked diagnostics for each peeked token
+  Vector next_diagnostics_stack;
   // Vector<Vector<Comment>> vector of peeked comments for each peeked token
   Vector next_comments_stack;
   // Vector<Vector<Comment>> (stack of vectors of comments)
@@ -19,8 +23,13 @@ typedef struct Parser_s {
   int64_t bracket_depth;
 } Parser;
 
-void createParser(Parser *pp, Lexer *lp, Arena *ar);
-void parseTranslationUnitParser(Parser *pp, TranslationUnit *tu);
-Arena *releaseParser(Parser *pp);
+// Uses memory allocated from a to build a parser with the source as lp
+Parser parse_create(Lexer *lp, Allocator* a);
+
+// Constructs a translationUnit
+void parse_TranslationUnit(TranslationUnit *tu, Parser *pp);
+
+// Frees memory associated with the parser and cleans up
+Allocator* parse_release(Parser *pp);
 
 #endif

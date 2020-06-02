@@ -27,9 +27,9 @@ typedef struct {
 } Lexer;
 
 // Creates new lexer from file
-void lex_fromFile(Lexer *lexer, FILE *file);
+Lexer lex_fromFile(FILE *file);
 // Creates new lexer from 
-void lex_fromMemory(Lexer *lexer, char *ptr, size_t len);
+Lexer lex_fromMemory(char *ptr, size_t len);
 void lex_destroy(Lexer *lexer);
 
 // returns the span of the peeked character

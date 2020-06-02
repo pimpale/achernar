@@ -15,17 +15,15 @@ typedef struct Vector_s {
 } Vector;
 
 /// Creates a vector (10 is default initial capacity)
-/// REQUIRES: `mem` is a pointer to a valid section of memory
 /// REQUIRES: `allocator` is a pointer to a valid Allocator
-/// GUARANTEES: returns a pointer to a valid Vector
-Vector *vec_create(Vector *mem, const Allocator* allocator);
+/// GUARANTEES: returns a valid Vector
+Vector vec_create(const Allocator* allocator);
 
 /// Creates a vector with capacity
-/// REQUIRES: `mem` is a pointer to a valid section of memory
 /// REQUIRES: `allocator` is a pointer to a valid Allocator
-/// GUARANTEES: returns a pointer to a valid Vector
+/// GUARANTEES: returns a valid Vector
 /// GUARANTEES: returned vector will have a capacity >= initialCapacity
-Vector *vec_createWithCapacity(Vector *mem, const Allocator* allocator, size_t initialCapacity);
+Vector vec_createWithCapacity(const Allocator* allocator, size_t initialCapacity);
 
 /// Frees `vec`'s data
 /// REQUIRES: `vec` is a pointer to a valid Vector
@@ -98,6 +96,14 @@ size_t vec_length(const Vector *vec);
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// GUARANTEES: returns the current capacity of `vec` in bytes
 size_t vec_capacity(const Vector *vec);
+
+// Appends the contents of src to dest and destroys src
+/// REQUIRES: `dest` is a valid pointer to a valid Vector
+/// REQUIRES: `src` is a valid pointer to a valid Vector
+/// GUARANTEES: `src` is no longer valid
+/// GUARANTEES: `dest`'s length is now `dest`'s length + `src`'s length
+/// GUARANTEES: the contents of `src` are appended to `dest`
+void vec_append(Vector* dest, Vector* src);
 
 // Macros to help work with vectors
 #define VEC_GET(vector, index, type)                                           \

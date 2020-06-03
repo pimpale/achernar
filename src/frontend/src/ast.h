@@ -95,9 +95,6 @@ typedef struct Builtin_s {
   Comment *comments;
   size_t comments_len;
 
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
-
   char *name;
   Stmnt *parameters;
   size_t parameters_len;
@@ -106,10 +103,6 @@ typedef struct Builtin_s {
 typedef struct PatternExpr_s {
   PatternExprKind kind;
   Span span;
-
-  // diagnostics
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
 
   // comments
   Comment *comments;
@@ -132,8 +125,7 @@ typedef struct PatternExpr_s {
           PSMEK_Rest,
         } kind;
         Span span;
-        Diagnostic *diagnostics;
-        size_t diagnostics_len;
+
         // comments
         Comment *comments;
         size_t comments_len;
@@ -171,9 +163,6 @@ typedef struct PatternExpr_s {
 
 typedef struct Path_s {
   Span span;
-  // diagnostics
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
 
   // comments
   Comment *comments;
@@ -187,10 +176,6 @@ typedef struct Path_s {
 typedef struct TypeExpr_s {
   TypeExprKind kind;
   Span span;
-
-  // diagnostics
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
 
   // comments
   Comment *comments;
@@ -211,8 +196,6 @@ typedef struct TypeExpr_s {
 
       struct TypeStructMemberExpr_s {
         Span span;
-        Diagnostic *diagnostics;
-        size_t diagnostics_len;
 
         // comments
         Comment *comments;
@@ -256,10 +239,6 @@ typedef struct ValueExpr_s {
   ValueExprKind kind;
   Span span;
 
-  // diagnostics
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
-
   // comments
   Comment *comments;
   size_t comments_len;
@@ -287,8 +266,6 @@ typedef struct ValueExpr_s {
     struct {
       struct ValueStructMemberExpr_s {
         Span span;
-        Diagnostic *diagnostics;
-        size_t diagnostics_len;
 
         // comments
         Comment *comments;
@@ -383,9 +360,6 @@ typedef struct ValueExpr_s {
       ValueExpr *value;
       struct MatchCaseExpr_s {
         Span span;
-        Diagnostic *diagnostics;
-        size_t diagnostics_len;
-
         // comments
         Comment *comments;
         size_t comments_len;
@@ -408,9 +382,6 @@ typedef struct ValueExpr_s {
 typedef struct Stmnt_s {
   StmntKind kind;
   Span span;
-  // diagnostics
-  Diagnostic *diagnostics;
-  size_t diagnostics_len;
 
   // comments
   Comment *comments;
@@ -449,19 +420,5 @@ typedef struct Stmnt_s {
     } patExpr;
   };
 } Stmnt;
-
-typedef struct TranslationUnit_s {
-  Span span; // span of the translation unit
-
-  Diagnostic *diagnostics; // any errors that occur during parsing
-  size_t diagnostics_len;
-
-  Stmnt *statements;     // The top level is just a series of statements
-  size_t statements_len; // The number of statements
-
-  Comment *comments;   // top level comments
-  size_t comments_len; // number of comments
-
-} TranslationUnit;
 
 #endif

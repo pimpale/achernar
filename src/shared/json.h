@@ -63,6 +63,7 @@ typedef struct j_Prop_s {
 #define J_ARRAY_ELEM(v, len) ((j_Elem){.kind=j_ArrayKind, .array={.values=(v), .length=(len)}})
 #define J_OBJECT_ELEM(v, len) ((j_Elem){.kind=j_ObjectKind, .object={.props=(v), .length=(len)}})
 
+
 char *j_stringify(j_Elem *j, Allocator *a);
 
 // Parse JSON
@@ -88,6 +89,7 @@ typedef struct j_Error_s {
   LnCol loc;
 } j_Error;
 
+// Json DOM
 j_Elem j_parseElem(Lexer *l, Vector* diagnostics, Allocator* a);
 
 #endif

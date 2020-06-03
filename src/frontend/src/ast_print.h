@@ -4,16 +4,17 @@
 #include <stdio.h>
 
 #include "ast.h"
-#include "parse.h"
+#include "ast_parse.h"
+#include "allocator.h"
 
 typedef struct {
   Parser *parser;
-  Arena *arena;
+  Allocator *a;
 } Printer;
 
-void createPrinter(Printer *printer, Parser *parser, Arena *arena);
+void createPrinter(Printer *printer, Parser *parser, Allocator *allocator);
 
 void printJsonPrinter(Printer *printer, FILE *file);
-Arena *releasePrinter(Printer *printer);
+Allocator *releasePrinter(Printer *printer);
 
 #endif

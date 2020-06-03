@@ -1,4 +1,4 @@
-#include "parse.h"
+#include "ast_parse.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -2139,9 +2139,8 @@ static void parseTypeExprStmnt(Stmnt *tesp, Vector *diagnostics,
   return;
 }
 
-static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
+void parse_nextStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   pushCommentScopeParser(parser);
-
   
   // peek next token
   Token t = parse_peek(parser);

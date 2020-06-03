@@ -207,20 +207,22 @@ static void ar_destroy_allocator_fn(void *backing) {
   free(backing);
 }
 
-void arena_a_create(Allocator *allocator) {
+Allocator arena_a_create() {
+  Allocator allocator;
   // create arena as backing
-  allocator->allocator_backing = malloc(sizeof(Arena));
-  ar_create(allocator->allocator_backing);
+  allocator.allocator_backing = malloc(sizeof(Arena));
+  ar_create(allocator.allocator_backing);
   // realloc is disabled but aligned is enabled
-  allocator->default_flags = 0;
-  allocator->supported_flags =
+  allocator.default_flags = 0;
+  allocator.supported_flags =
       A_ALIGN_4 | A_ALIGN_8 | A_ALIGN_16 | A_REALLOCABLE;
 
   // set functions
-  allocator->allocator_fn = ar_allocator_fn;
-  allocator->allocator_flags_fn = ar_allocator_flags_fn;
-  allocator->deallocator_fn = ar_deallocator_fn;
-  allocator->destroy_allocator_fn = ar_destroy_allocator_fn;
+  allocator.allocator_fn = ar_allocator_fn;
+  allocator.allocator_flags_fn = ar_allocator_flags_fn;
+  allocator.deallocator_fn = ar_deallocator_fn;
+  allocator.destroy_allocator_fn = ar_destroy_allocator_fn;
   // ignore realloc
-  allocator->reallocator_fn = NULL;
+  allocator.reallocator_fn = NULL;
+  return allocator;
 }

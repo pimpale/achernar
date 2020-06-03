@@ -4,10 +4,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
-#include "vector.h"
-#include "lncol.h"
 #include "lexer.h"
+#include "utils.h"
+#include "lncol.h"
+#include "vector.h"
 
 typedef enum {
   j_NullKind = 0,
@@ -22,17 +24,22 @@ typedef enum {
 typedef struct j_Elem_s j_Elem;
 typedef struct j_Prop_s j_Prop;
 
+typedef struct j_Int_s {
+  bool negative;
+  uint64_t integer;
+} j_Int;
+
 typedef struct j_Str_s {
-      char *string;
-      size_t length;
+  char *string;
+  size_t length;
 } j_Str;
 
 typedef struct j_Elem_s {
   j_ElemKind kind;
   union {
     bool boolean;
-    int64_t integer;
     double number;
+    j_Int integer;
     j_Str string;
     struct {
       j_Elem *values;
@@ -51,18 +58,23 @@ typedef struct j_Prop_s {
 } j_Prop;
 
 // Utility macros to construct these types
+#define J_ASCIZ(x) J_STR((x), strlen((x)))
+#define J_STR(x, len) ((j_Str){.string = (x), .length = (len)})
 
-#define J_STR(x, len) ((j_Str){.string=(x), .length=(len)})
-#define J_PROP(k, v) ((j_Prop){.key=(k), .value=(v)})
+#define J_UINT(x) ((j_Int){.negative=false, .integer=(x)})
+#define J_INT(x) ((j_Int){.negative=(x < 0), .integer=safe_abs(x)})
 
-#define J_NULL_ELEM ((j_Elem){.kind=j_NullKind})
-#define J_BOOL_ELEM(v) ((j_Elem){.kind=j_BoolKind, .boolean=(v)})
-#define J_INT_ELEM(v) ((j_Elem){.kind=j_IntKind, .integer=(v)})
-#define J_STR_ELEM(v) ((j_Elem){.kind=j_StrKind, .string=(v)})
-#define J_NUM_ELEM(v) ((j_Elem){.kind=j_NumKind, .number=(v)})
-#define J_ARRAY_ELEM(v, len) ((j_Elem){.kind=j_ArrayKind, .array={.values=(v), .length=(len)}})
-#define J_OBJECT_ELEM(v, len) ((j_Elem){.kind=j_ObjectKind, .object={.props=(v), .length=(len)}})
+#define J_PROP(k, v) ((j_Prop){.key = (k), .value = (v)})
 
+#define J_NULL_ELEM ((j_Elem){.kind = j_NullKind})
+#define J_BOOL_ELEM(v) ((j_Elem){.kind = j_BoolKind, .boolean = (v)})
+#define J_INT_ELEM(v) ((j_Elem){.kind = j_IntKind, .integer = (v)})
+#define J_STR_ELEM(v) ((j_Elem){.kind = j_StrKind, .string = (v)})
+#define J_NUM_ELEM(v) ((j_Elem){.kind = j_NumKind, .number = (v)})
+#define J_ARRAY_ELEM(v, len)                                                   \
+  ((j_Elem){.kind = j_ArrayKind, .array = {.values = (v), .length = (len)}})
+#define J_OBJECT_ELEM(v, len)                                                  \
+  ((j_Elem){.kind = j_ObjectKind, .object = {.props = (v), .length = (len)}})
 
 char *j_stringify(j_Elem *j, Allocator *a);
 
@@ -90,6 +102,6 @@ typedef struct j_Error_s {
 } j_Error;
 
 // Json DOM
-j_Elem j_parseElem(Lexer *l, Vector* diagnostics, Allocator* a);
+j_Elem j_parseElem(Lexer *l, Vector *diagnostics, Allocator *a);
 
 #endif

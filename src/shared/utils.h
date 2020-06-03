@@ -13,6 +13,15 @@ static inline size_t roundToMultipleofTwo(size_t value, size_t roundTo) {
   return (value + (roundTo - 1)) & ~(roundTo - 1);
 }
 
+// defined behavior for all values of val
+static inline uint64_t safe_abs(int64_t val) {
+  if(val < 0) {
+    return -val;
+  } else {
+    return val;
+  }
+}
+
 
 #define UNUSED(x) (void)(x)
 #define ZERO(ptr) (memset(ptr, 0, sizeof(*ptr)))

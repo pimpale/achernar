@@ -19,8 +19,8 @@ typedef uint32_t AllocatorFlags;
 
 // Handle to allocation, this remains constant over the allocation's life
 typedef struct AllocId_t {
-  size_t alloc_id;
-  void* ptr;
+  size_t id;
+  bool valid;
 } AllocId;
 
 // Dynamic allocator for fun
@@ -66,11 +66,11 @@ static inline AllocatorFlags a_supports(const Allocator * a) {
 /** allocate memory
  * REQUIRES: `a` is a valid pointer to an Allocator
  * GUARANTEES: if `size` is 0, NULL will be returned
- * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned 
+ * GUARANTEES: if allocation succeeds, `size` bytes of contiguous memory will be allocated
  * GUARANTEES: if allocation fails, NULL will be returned
  * GUARANTEES: the memory will be allocated with default properties of the implementing allocator
  */
-static inline MemHandle a_alloc(const Allocator * a, size_t size) {
+static inline AllocId a_alloc(const Allocator * a, size_t size) {
   return a->allocator_fn(a->allocator_backing, size);
 }
 
@@ -82,7 +82,7 @@ static inline MemHandle a_alloc(const Allocator * a, size_t size) {
  * GUARANTEES: if allocation succeeds, the memory returned will have the properties specified by the flags
  * GUARANTEES: if allocation fails, NULL will be returned
  */
-static inline MemHandle a_alloc_flags(const Allocator * a, size_t size, AllocatorFlags flags) {
+static inline AllocId a_alloc_flags(const Allocator * a, size_t size, AllocatorFlags flags) {
   // guarantee all flags are supported by this allocator
   assert((a_supports(a) & flags) == flags);
   return a->allocator_flags_fn(a->allocator_backing, size, flags);
@@ -90,25 +90,37 @@ static inline MemHandle a_alloc_flags(const Allocator * a, size_t size, Allocato
 
 /** deallocate memory
  * REQUIRES: `a` is a valid pointer to an Allocator
- * REQUIRES: `ptr` is a memory location returned by a previous call to `a_alloc` or `a_alloc_flags` using `a`
- * GUARANTEES: `ptr` will be freed if possible, with memory returning to the OS
+ * REQUIRES: `id` is a valid AllocId returned by a previous call to `a_alloc`, `a_realloc`  or `a_alloc_flags` using `a`
+ * GUARANTEES: the memory represented by `id` will be freed if possible, with memory returning to the OS
  */
-static inline void a_dealloc(const Allocator * a, MemHandle h) {
-  a->deallocator_fn(a->allocator_backing, h);
+static inline void a_dealloc(const Allocator * a, AllocId id) {
+  a->deallocator_fn(a->allocator_backing, id);
 }
 
 /** reallocate memory
  * REQUIRES: `a` is a valid pointer to an Allocator
- * REQUIRES: `ptr` is a memory location returned by a previous call to `a_alloc_flags` using `a` with the `A_REALLOCABLE` bit enabled
- * GUARANTEES: if `size` is 0, NULL will be returned
- * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be returned, preserving data
- * GUARANTEES: if allocation succeeds, the returned pointer will have the same properties as `ptr` 
- * NOT GUARANTEED: it is explicitly not guaranteed that the returned value is the same as `ptr`
- * GUARANTEES: if allocation fails, NULL will be returned
+ * REQUIRES: `id` is a valid AllocId returned by a previous call to `a_alloc_flags` using `a` with the `A_REALLOCABLE` bit enabled
+ * GUARANTEES: if `size` is 0, the allocation represented by `id` will be deallocated
+ * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be allocated, preserving data
+ * GUARANTEES: if allocation succeeds, allocated memory will have the same properties as `ptr` 
+ * GUARANTEES: all pointers previously got from `id` are invalidated
+ * GUARANTEES: if allocation fails, an invalid AllocId will be returned
  */
-static inline MemHandle a_realloc(const Allocator * a, MemHandle h, size_t size) {
+static inline AllocId a_realloc(const Allocator * a, AllocId id, size_t size) {
   assert(a_supports(a) & A_REALLOCABLE);
-  return a->reallocator_fn(a->allocator_backing, h, size);
+  return a->reallocator_fn(a->allocator_backing, id, size);
+}
+
+/** get memory
+ * REQUIRES: `a` is a valid pointer to an Allocator
+ * REQUIRES: `id` is a valid AllocId returned by a previous call to `a_alloc_flags`, `a_alloc`, or `a_realloc` using `a`
+ * GUARANTEES: the returned value will be a pointer to the start of a block of contiguous memory represented by `id`
+ * GUARANTEES: this memory is valid till a subsequent call to `a_dealloc` or `a_realloc` with the `id` as an argument
+ * GUARANTEES: this memory may be invalidated if `a` is destroyed
+ */
+static inline void* a_get(const Allocator *a, AllocId id) {
+  assert(id.valid);
+  return a->get_fn(a->allocator_backing, id);
 }
 
 /** destroy allocator

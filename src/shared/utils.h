@@ -16,9 +16,9 @@ static inline size_t roundToMultipleofTwo(size_t value, size_t roundTo) {
 // defined behavior for all values of val
 static inline uint64_t safe_abs(int64_t val) {
   if(val < 0) {
-    return -val;
+    return (uint64_t) -val;
   } else {
-    return val;
+    return (uint64_t) val;
   }
 }
 

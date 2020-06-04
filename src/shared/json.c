@@ -16,7 +16,7 @@
 
 // Accepts Vector<char>, pushes as many chars points as needed to encode the
 // data
-void encodeUTFPoint(Vector *data, uint32_t utf) {
+static void encodeUTFPoint(Vector *data, uint32_t utf) {
   if (utf <= 0x7F) { // Plain ASCII
     char *out = vec_push(data, sizeof(char) * 1);
     out[0] = (char)utf;
@@ -53,15 +53,14 @@ static void j_unchecked_emitStr(Vector *vptr, char *str, size_t len) {
 }
 
 // Convert from int to string
-static void j_emitInt(Vector *vptr, int64_t digit) {
+static void j_emitInt(Vector *vptr, j_Int val) {
   // handle negative numbers
-  if (digit < 0) {
+  if (val.negative) {
     *VEC_PUSH(vptr, char) = '-';
-    digit = -digit;
   }
-
+  uint64_t digit = val.integer;
   while (true) {
-    uint8_t rem = digit % 10;
+    int8_t rem = digit % 10;
     digit /= 10;
     *VEC_PUSH(vptr, char) = '0' + rem;
     if (digit == 0) {
@@ -79,9 +78,9 @@ static void j_emitNum(Vector *vptr, double number) {
 
 static char toHex(uint8_t x) {
   if (x < 10) {
-    return '0' + x;
+    return '0' + (char)x;
   } else {
-    return 'a' + x;
+    return 'a' + (char)x;
   }
 }
 
@@ -126,8 +125,8 @@ static void j_emitStr(Vector *vptr, j_Str str) {
         ptr[1] = 'u';
         ptr[2] = '0';
         ptr[3] = '0';
-        ptr[4] = toHex(c / 16);
-        ptr[5] = toHex(c % 16);
+        ptr[4] = toHex((uint8_t)c / 16);
+        ptr[5] = toHex((uint8_t)c % 16);
       } else {
         *VEC_PUSH(vptr, char) = c;
       }
@@ -232,19 +231,15 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
     lex_next(l);
   }
 
-  int64_t integer_value = 0;
+  uint64_t integer_value = 0;
   int32_t c;
   while ((c = lex_peek(l)) != EOF) {
     if (isdigit(c)) {
-      integer_value = integer_value * 10 + (c - '0');
+      integer_value = integer_value * 10 + (uint64_t)(c - '0');
       lex_next(l);
     } else {
       break;
     }
-  }
-
-  if (negative) {
-    integer_value = -integer_value;
   }
 
   bool fractional = false;
@@ -323,7 +318,7 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
         num *= 10;
       }
     }
-    return J_INT_ELEM(num);
+    return J_INT_ELEM(J_INT(negative, num));
   }
 }
 

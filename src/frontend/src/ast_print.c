@@ -508,7 +508,7 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_CharLiteral")));
-    ptrs[4] = J_PROP(J_ASCIZ("value"), J_INT_ELEM(J_INT(vep->charLiteral.value)));
+    ptrs[4] = J_PROP(J_ASCIZ("value"), J_INT_ELEM(J_SINT(vep->charLiteral.value)));
     break;
   }
   case VEK_FloatLiteral: {
@@ -900,10 +900,20 @@ j_Elem stmntJson(Stmnt *sp, Allocator *a) {
 }
 
 void print_stream(Parser *parser, FILE *file) {
-  Allocator a = arena_a_create();
+  while(true) {
+    Allocator a = arena_a_create();
 
-  j_Elem jsonElem = jsonTranslationUnit(&tu, printer->arena);
-  char *str = toStringj_Elem(&jsonElem);
-  fputs(str, file);
-  free(str);
+    // Parse the next statment
+    Stmnt stmnt;
+    Vector diagnostics =  vec_create(&a);
+    parse_nextStmnt(&stmnt, &diagnostics, parser);
+
+    // print the json
+    j_Elem sjson = stmntJson(&stmnt, &a);
+    fputs(j_stringify(&sjson, &a), file);
+
+    // Clean up
+    vec_destroy(&diagnostics);
+    a_destroy(&a);
+  }
 }

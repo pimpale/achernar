@@ -7,7 +7,7 @@
 
 #define MAX_PRINT_LENGTH 4096
 
-void logInternalError(char* appname, uint32_t line,  char *func, const char *fmt, ...) {
+void logInternalError(const char* appname, uint32_t line,  const char *func, const char *fmt, ...) {
   char macro_message_formatted[MAX_PRINT_LENGTH];
   va_list args;
   va_start(args, fmt);

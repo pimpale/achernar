@@ -1,10 +1,10 @@
 #include "vector.h"
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "error.h"
 
@@ -20,19 +20,16 @@ void vec_resize(Vector *vector, size_t size);
 
 // Sets the size of the vector
 void vec_setCapacity(Vector *vector, size_t size) {
-  if (size == 0) {
-    // free vector data
-    a_dealloc(vector->allocator, vector->data);
-    vector->data = NULL;
+  MemHandle new;
+  MemHandle old = (MemHandle){.alloc_id=vector->alloc_id, .ptr=vector->data};
+  if (vector->data == NULL) {
+    new = a_alloc_flags(vector->allocator, size, vector->mflags);
   } else {
-    // realloc vector data
-    if(vector->data == NULL) {
-      vector->data = a_alloc_flags(vector->allocator, size, vector->mflags);
-    } else {
-      vector->data = a_realloc(vector->allocator, vector->data, size);
-    }
+    new = a_realloc(vector->allocator, old, size);
   }
   vector->capacity = size;
+  vector->data = new.ptr;
+  vector->alloc_id = new.alloc_id;
 }
 
 // Resizes the vector in order to fit an element of this size in
@@ -42,7 +39,8 @@ void vec_resize(Vector *vector, size_t size) {
   vec_setCapacity(vector, newCapacity);
 }
 
-Vector vec_createOptions(const Allocator* allocator, size_t initialCapacity, AllocatorFlags mflags) {
+Vector vec_createOptions(const Allocator *allocator, size_t initialCapacity,
+                         AllocatorFlags mflags) {
   Vector vector;
   vector.data = NULL;
   vector.length = 0;
@@ -52,7 +50,7 @@ Vector vec_createOptions(const Allocator* allocator, size_t initialCapacity, All
   return vector;
 }
 
-Vector vec_create(const Allocator* allocator) {
+Vector vec_create(const Allocator *allocator) {
   return vec_createOptions(allocator, 0, A_REALLOCABLE);
 }
 
@@ -115,4 +113,3 @@ void vec_append(Vector *dest, Vector *src) {
   vec_pop(src, vec_push(dest, len), len);
   vec_destroy(src);
 }
-

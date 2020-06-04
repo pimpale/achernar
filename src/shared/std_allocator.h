@@ -5,7 +5,6 @@
 
 #include <stdlib.h>
 
-// Variable that always stays constant and can be reused
-extern const Allocator std_allocator;
+Allocator std_allocator(void);
 
 #endif

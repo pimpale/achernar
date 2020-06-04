@@ -9,21 +9,24 @@
 // Do not manually modify this struct
 typedef struct Vector_s {
   const Allocator* allocator;
+  AllocatorFlags mflags;
   size_t length;
   size_t capacity;
   void *data;
 } Vector;
 
-/// Creates a vector (10 is default initial capacity)
+/// Creates a vector (0 is default initial capacity)
 /// REQUIRES: `allocator` is a pointer to a valid Allocator
 /// GUARANTEES: returns a valid Vector
 Vector vec_create(const Allocator* allocator);
 
-/// Creates a vector with capacity
+/// Creates a vector with capacity and additional flags
 /// REQUIRES: `allocator` is a pointer to a valid Allocator
+/// REQUIRES: `mflags` is a set of allocator flags
 /// GUARANTEES: returns a valid Vector
 /// GUARANTEES: returned vector will have a capacity >= initialCapacity
-Vector vec_createWithCapacity(const Allocator* allocator, size_t initialCapacity);
+/// GUARANTEES: memory allocated for this vector will be allocated using `mflags`
+Vector vec_createOptions(const Allocator* allocator, size_t initialCapacity, AllocatorFlags mflags);
 
 /// Frees `vec`'s data
 /// REQUIRES: `vec` is a pointer to a valid Vector

@@ -58,6 +58,14 @@ ArenaPage *createArenaPage(ArenaPage *mem, size_t capacity, size_t alignment) {
   return mem;
 }
 
+// TODO write description
+ArenaPage *fromMemoryArenaPage(ArenaPage *mem, void* ptr) {
+    mem->data = ptr;
+    mem->capacity = 0;
+    mem->length = 0;
+    return mem;
+}
+
 ArenaPage *destroyArenaPage(ArenaPage *app) {
   free(app->data);
   app->capacity = 0;
@@ -90,8 +98,8 @@ typedef struct Arena_s {
 /// GUARANTEES: return value is `mem`
 static Arena *ar_create(Arena *mem) {
   // initialize vectors
-  mem->pages = vec_create(&std_allocator);
-  mem->indices = vec_create(&std_allocator);
+  mem->pages = vec_createOptions(&std_allocator, 0, A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY);
+  mem->indices = vec_createOptions(&std_allocator, 0, A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY);
   return mem;
 }
 
@@ -131,7 +139,7 @@ inline static void *ar_alloc_aligned(Arena *ar, size_t len,
   }
 
   size_t len_indices = VEC_LEN(&ar->indices, int64_t);
-  for (size_t i = len_indices; i < alignment_power; i++) {
+  for (size_t i = len_indices; i <= alignment_power; i++) {
     // instantiate the array up to where we want
     *VEC_PUSH(&ar->indices, int64_t) = -1;
   }
@@ -183,7 +191,7 @@ static void *ar_allocator_flags_fn(void *backing, size_t len, AllocatorFlags fla
   } else if (flags & A_REALLOCABLE) {
     // If reallocable is requested, we need to give it its own page
     ArenaPage *newPage = VEC_PUSH(&ar->pages, ArenaPage);
-    createArenaPage(newPage, len, 1);
+    fromMemoryArenaPage(newPage, malloc(len));
     return allocArenaPage(newPage, len);
   } else {
     // If it's not reallocable, then we can allocate it out of the normal pool
@@ -201,6 +209,12 @@ static void *ar_allocator_fn(void *backing, size_t len) {
 static void ar_deallocator_fn(void *backing, void *ptr) {
   UNUSED(backing);
   UNUSED(ptr);
+}
+
+// reallocates memory for memory allocated with A_REALLOCABLE bit
+static void* ar_reallocator_fn(void* backing, void* ptr, size_t len) {
+    UNUSED(backing);
+  return realloc(ptr, len);
 }
 
 /// Releases resources associated with arena
@@ -228,6 +242,6 @@ Allocator arena_a_create() {
   allocator.deallocator_fn = ar_deallocator_fn;
   allocator.destroy_allocator_fn = ar_destroy_allocator_fn;
   // ignore realloc
-  allocator.reallocator_fn = NULL;
+  allocator.reallocator_fn = ar_reallocator_fn;
   return allocator;
 }

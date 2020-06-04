@@ -8,8 +8,6 @@
 
 #include "error.h"
 
-// The initial capacity of the vector
-#define DEFAULT_INITIAL_CAPACITY 10
 // The percent it will increase when out of room MUST BE POSITIVE
 // Ex. 1.5 -> 50% expansion each time the limit is hit
 #define LOAD_FACTOR 2
@@ -29,7 +27,7 @@ void vec_setCapacity(Vector *vector, size_t size) {
   } else {
     // realloc vector data
     if(vector->data == NULL) {
-      vector->data = a_alloc_flags(vector->allocator, size, A_REALLOCABLE);
+      vector->data = a_alloc_flags(vector->allocator, size, vector->mflags);
     } else {
       vector->data = a_realloc(vector->allocator, vector->data, size);
     }
@@ -44,17 +42,18 @@ void vec_resize(Vector *vector, size_t size) {
   vec_setCapacity(vector, newCapacity);
 }
 
-Vector vec_createWithCapacity(const Allocator* allocator, size_t initialCapacity) {
+Vector vec_createOptions(const Allocator* allocator, size_t initialCapacity, AllocatorFlags mflags) {
   Vector vector;
   vector.data = NULL;
   vector.length = 0;
   vector.allocator = allocator;
+  vector.mflags = mflags;
   vec_setCapacity(&vector, initialCapacity);
   return vector;
 }
 
 Vector vec_create(const Allocator* allocator) {
-  return vec_createWithCapacity(allocator, DEFAULT_INITIAL_CAPACITY);
+  return vec_createOptions(allocator, 0, A_REALLOCABLE);
 }
 
 Vector *vec_destroy(Vector *vector) {
@@ -69,7 +68,7 @@ void *vec_release(Vector *vector) {
 }
 
 void *vec_get(Vector *vector, size_t loc) {
-  assert(loc < vector->length);
+  assert(loc <= vector->length);
   uint8_t *data = vector->data;
   return data + loc;
 }

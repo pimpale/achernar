@@ -141,12 +141,12 @@ static Token parse_peekNth(Parser *pp, size_t k) {
   for (size_t i = VEC_LEN(&pp->next_tokens_stack, Token); i < k; i++) {
     // Create vector to store any comments
     Vector *next_token_comments = VEC_PUSH(&pp->next_comments_stack, Vector);
-    *next_token_comments = vec_createWithCapacity(pp->a, 0);
+    *next_token_comments = vec_create(pp->a);
 
     // Create vector to store any diagnostics
     Vector *next_token_diagnostics =
         VEC_PUSH(&pp->next_diagnostics_stack, Vector);
-    *next_token_diagnostics = vec_createWithCapacity(pp->a, 0);
+    *next_token_diagnostics = vec_create(pp->a);
 
     // parse the token and add it to the top of the stack
     *VEC_PUSH(&pp->next_tokens_stack, Token) =
@@ -177,7 +177,7 @@ static void pushCommentScopeParser(Parser *parser) {
   // We create the vector with zero capacity initially so that
   // allocation is deferred until we actually encounter a comment
   // Most scopes will not have a comment
-  *VEC_PUSH(&parser->comments, Vector) = vec_createWithCapacity(parser->a, 0);
+  *VEC_PUSH(&parser->comments, Vector) = vec_create(parser->a);
 }
 
 Allocator *parse_release(Parser *pp) {

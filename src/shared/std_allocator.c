@@ -50,4 +50,5 @@ const Allocator std_allocator =
                 .allocator_fn = std_allocator_fn,
                 .allocator_flags_fn = std_allocator_flags_fn,
                 .deallocator_fn = std_deallocator_fn,
+                .reallocator_fn = std_reallocator_fn,
                 .destroy_allocator_fn = std_destroy_allocator_fn};

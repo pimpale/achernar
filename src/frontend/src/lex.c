@@ -517,7 +517,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   LnCol start = lexer->position;
 
-  Vector data =  vec_create(&std_allocator);
+  Vector data =  vec_createOptions(&std_allocator, 10, A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY);
 
   bool macro = false;
 

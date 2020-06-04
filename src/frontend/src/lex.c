@@ -611,8 +611,8 @@ static Token lexBuiltinOrUnderscore(Lexer *lexer, Vector *diagnostics,
   UNUSED(diagnostics);
 
   LnCol start = lexer->position;
-  // Skip first quote
-  int32_t c = lex_next(lexer);
+
+  int32_t c;
   assert(lex_next(lexer) == '_');
 
   c = lex_peek(lexer);

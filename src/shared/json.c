@@ -84,6 +84,80 @@ static char toHex(uint8_t x) {
   }
 }
 
+static int8_t fromHex(char c) {
+  switch (c) {
+  case '0': {
+    return 0x0;
+  }
+  case '1': {
+    return 0x1;
+  }
+  case '2': {
+    return 0x2;
+  }
+  case '3': {
+    return 0x3;
+  }
+  case '4': {
+    return 0x4;
+  }
+  case '5': {
+    return 0x5;
+  }
+  case '6': {
+    return 0x6;
+  }
+  case '7': {
+    return 0x7;
+  }
+  case '8': {
+    return 0x8;
+  }
+  case '9': {
+    return 0x9;
+  }
+  case 'a': {
+    return 0xa;
+  }
+  case 'A': {
+    return 0xA;
+  }
+  case 'b': {
+    return 0xb;
+  }
+  case 'B': {
+    return 0xB;
+  }
+  case 'c': {
+    return 0xc;
+  }
+  case 'C': {
+    return 0xC;
+  }
+  case 'd': {
+    return 0xd;
+  }
+  case 'D': {
+    return 0xD;
+  }
+  case 'e': {
+    return 0xe;
+  }
+  case 'E': {
+    return 0xE;
+  }
+  case 'f': {
+    return 0xf;
+  }
+  case 'F': {
+    return 0xF;
+  }
+  default: {
+    return -1;
+  }
+  }
+}
+
 // Checks for special characters
 static void j_emitStr(Vector *vptr, j_Str str) {
   j_unchecked_emitChar(vptr, '\"');
@@ -222,7 +296,8 @@ static void skipWhitespace(Lexer *l) {
   }
 }
 
-static j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+static j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics,
+                                        Allocator *a) {
   UNUSED(a);
   bool negative = false;
   if (lex_peek(l) == '-') {
@@ -316,11 +391,13 @@ static j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator
   }
 }
 
-static j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+static j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics,
+                                         Allocator *a) {
+  UNUSED(a);
   LnCol start = l->position;
 
   // Fixed buffer size
-  char buffer[6]; //this is long enough to hold false\0
+  char buffer[6]; // this is long enough to hold false\0
   bool toolong = false;
   size_t index = 0;
   while (true) {
@@ -333,7 +410,8 @@ static j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocato
       } else {
         toolong = true;
       }
-      // even if the buffer is finished we must continue on (but mark it as (toolong)
+      // even if the buffer is finished we must continue on (but mark it as
+      // (toolong)
       lex_next(l);
     } else {
       break;
@@ -354,7 +432,7 @@ static j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocato
   }
 }
 
-j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
+static j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
   LnCol start = l->position;
   skipWhitespace(l);
   int32_t c = lex_next(l);
@@ -366,7 +444,6 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
     StringParserText,
     StringParserBackslash,
     StringParserUnicode,
-    StringParserFinished,
   } StringParserState;
 
   Vector data = vec_create(a);
@@ -383,14 +460,12 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
         break;
       }
       case '\"': {
-        state = StringParserFinished;
-        break;
+        goto LOOPEND;
       }
       case EOF: {
         *VEC_PUSH(diagnostics, j_Error) =
             ERROR(j_StrExpectedDoubleQuote, l->position);
-        state = StringParserFinished;
-        break;
+        goto LOOPEND;
       }
       default: {
         *VEC_PUSH(&data, char) = (char)c;
@@ -459,26 +534,22 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
       uint32_t code_point = 0;
       for (int i = 0; i < 4; i++) {
         c = lex_next(l);
-        int value;
-        if (c >= '0' && c <= '9') {
-          value = c - '0';
-        } else if (c >= 'a' && c <= 'f') {
-          value = c - 'a';
-        } else if (c >= 'A' && c <= 'F') {
-          value = c - 'A';
-        } else {
+        if (c == EOF) {
+          *VEC_PUSH(diagnostics, j_Error) =
+              ERROR(j_StrExpectedDoubleQuote, l->position);
+          goto LOOPEND;
+        }
+        int8_t value = fromHex((char)c);
+        if (value < 0) {
           *VEC_PUSH(diagnostics, j_Error) =
               ERROR(j_StrInvalidUnicodeSpecifier, l->position);
           value = 0;
         }
-        code_point += code_point * 16 + value;
+        code_point += code_point * 16 + (uint8_t)value;
       }
       encodeUTFPoint(&data, code_point);
       state = StringParserText;
       break;
-    }
-    case StringParserFinished: {
-      goto LOOPEND;
     }
     }
   }

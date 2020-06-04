@@ -68,6 +68,10 @@ char *strDiagnosticKind(DiagnosticKind dk) {
     errmsg = "CharLiteralExpectedCloseSingleQuote";
     break;
   }
+  case DK_UnexpectedLabel: {
+    errmsg = "UnexpectedLabel";
+    break;
+  }
   case DK_LabelUnknownCharacter: {
     errmsg = "LabelUnknownCharacter";
     break;
@@ -247,4 +251,3 @@ char *strDiagnosticKind(DiagnosticKind dk) {
   }
   return errmsg;
 }
-

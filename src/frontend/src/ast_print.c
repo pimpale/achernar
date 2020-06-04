@@ -1,7 +1,7 @@
 #include "ast_print.h"
 
 #include "allocator.h"
-#include "arena_allocator.h"
+#include "std_allocator.h"
 #include "ast.h"
 #include "json.h"
 #include "token.h"
@@ -887,7 +887,7 @@ j_Elem stmntJson(Stmnt *sp, Allocator *a) {
 void print_stream(Parser *parser, FILE *file) {
   bool eof = false;
   while(!eof) {
-    Allocator a = arena_a_create();
+    Allocator a = std_allocator();
 
     // Parse the next statment
     Stmnt stmnt;

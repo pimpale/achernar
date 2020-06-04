@@ -114,8 +114,8 @@ void vec_append(Vector* dest, Vector* src);
   ((type *)vec_get(vector, (index) * sizeof(type)))
 #define VEC_INS(vector, index, type)                                           \
   ((type *)vec_insert((vector), (index) * sizeof(type), sizeof(type)))
-#define VEC_REMOVE(vector, data, index, type)                                     \
-  removeVector((vector), (data), (index) * sizeof(type), sizeof(type))
+#define VEC_REM(vector, data, index, type)                                     \
+  vec_remove((vector), (data), (index) * sizeof(type), sizeof(type))
 #define VEC_PUSH(vector, type) ((type *)vec_push((vector), sizeof(type)))
 #define VEC_POP(vector, data, type) vec_pop(vector, (data), sizeof(type))
 #define VEC_LEN(vector, type) (vec_length(vector) / sizeof(type))

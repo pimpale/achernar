@@ -6,90 +6,91 @@
 #include "utils.h"
 
 typedef struct {
-  void* ptr;
+  void *ptr;
   bool valid;
 } AllocEntry;
 
 typedef struct StdAllocator_s {
-  AllocEntry* ptrs;
+  AllocEntry *ptrs;
   size_t ptrs_len;
   size_t ptrs_cap;
 } StdAllocator;
 
-static size_t push_entry(StdAllocator* b,void* entry) {
+static size_t push_entry(StdAllocator *b, void *entry) {
   // The system has a null zero range
   assert(b->ptrs_cap > 0);
-  // Ensure that there is enough room for the allocation 
-  if(b->ptrs_len + 1 >= b->ptrs_cap) {
-    b->ptrs = realloc(b->ptrs, b->ptrs_cap*2*sizeof(AllocEntry));
+  // Ensure that there is enough room for the allocation
+  if (b->ptrs_len + 1 >= b->ptrs_cap) {
+    b->ptrs_cap = b->ptrs_cap * 2;
+    b->ptrs = realloc(b->ptrs, b->ptrs_cap * sizeof(AllocEntry));
   }
   // Add to the top of the stack
   size_t index = b->ptrs_len;
+  b->ptrs_len++;
   b->ptrs[index] = (AllocEntry){
-      .valid=true,
-      .ptr=entry,
+      .valid = true,
+      .ptr = entry,
   };
   // Increment the length pointer
-  b->ptrs_len++;
   return index;
 }
 
-static inline AllocId std_allocate(StdAllocator* backing, size_t size) {
+static inline AllocId std_allocate(StdAllocator *backing, size_t size) {
   if (size == 0) {
-    return (AllocId) {.id=0, .valid=true};
+    return (AllocId){.id = 0, .valid = true};
   }
-  void* ptr = malloc(size);
+  void *ptr = malloc(size);
   size_t index = push_entry(backing, ptr);
-  return (AllocId) {.id=index,.valid=true};
+  return (AllocId){.id = index, .valid = true};
 }
 
-static inline void std_deallocate(StdAllocator* backing, AllocId id) {
+static inline void std_deallocate(StdAllocator *backing, AllocId id) {
   assert(id.valid);
   AllocEntry *ae = &backing->ptrs[id.id];
-  ae->valid=false;
+  ae->valid = false;
   free(ae->ptr);
 }
 
 // TODO errors??
-static inline AllocId std_reallocate(StdAllocator*backing, AllocId id, size_t size) {
+static inline AllocId std_reallocate(StdAllocator *backing, AllocId id,
+                                     size_t size) {
   if (size == 0) {
     std_deallocate(backing, id);
-    return (AllocId) {.id=0, .valid=true};
-  } else if(id.id == 0) {
+    return (AllocId){.id = 0, .valid = true};
+  } else if (id.id == 0) {
     return std_allocate(backing, size);
   }
 
   AllocEntry *ae = &backing->ptrs[id.id];
-  void* ret = realloc(ae->ptr, size);
+  void *ret = realloc(ae->ptr, size);
   ae->ptr = ret;
   assert(ae->ptr != NULL);
-  return (AllocId) {.id=id.id, .valid=true};
+  return (AllocId){.id = id.id, .valid = true};
 }
 
-static inline void* std_get(StdAllocator*backing, AllocId id) {
-    assert(id.id < backing->ptrs_len);
-    assert(id.valid);
-    return backing->ptrs[id.id].ptr;
+static inline void *std_get(StdAllocator *backing, AllocId id) {
+  assert(id.id < backing->ptrs_len);
+  assert(id.valid);
+  return backing->ptrs[id.id].ptr;
 }
 
-static inline StdAllocator* std_create() {
-  StdAllocator* sa = malloc(sizeof(StdAllocator));
+static inline StdAllocator *std_create() {
+  StdAllocator *sa = malloc(sizeof(StdAllocator));
 
   // allocate once to form the standard allocator
-  sa->ptrs = malloc(2*sizeof(AllocEntry));
+  sa->ptrs = malloc(2 * sizeof(AllocEntry));
   sa->ptrs_cap = 2;
   sa->ptrs_len = 1;
   // the null pointer
-  sa->ptrs[0] = (AllocEntry){.ptr=NULL, .valid=true};
+  sa->ptrs[0] = (AllocEntry){.ptr = NULL, .valid = true};
   return sa;
 }
 
-
 static inline void std_destroy(StdAllocator *backing) {
   // free all unfreed things
-  for(size_t i = 0; i < backing->ptrs_len; i++) {
-    if(backing->ptrs[i].valid) {
-        free(backing->ptrs[i].ptr);
+  for (size_t i = 0; i < backing->ptrs_len; i++) {
+    if (backing->ptrs[i].valid) {
+      free(backing->ptrs[i].ptr);
     }
   }
   // free the array
@@ -100,28 +101,29 @@ static inline void std_destroy(StdAllocator *backing) {
 
 // Shim methods
 static AllocId std_allocator_fn(void *backing, size_t size) {
-    return std_allocate((StdAllocator*)backing, size);
+  return std_allocate((StdAllocator *)backing, size);
 }
 static AllocId std_allocator_flags_fn(void *backing, size_t size,
-                                    AllocatorFlags flags) {
+                                      AllocatorFlags flags) {
+  UNUSED(flags);
   return std_allocate(backing, size);
 }
 
 static void std_deallocator_fn(void *backing, AllocId id) {
-    std_deallocate((StdAllocator*)backing, id);
+  std_deallocate((StdAllocator *)backing, id);
 }
 
 // normalize realloc behavior
 static AllocId std_reallocator_fn(void *backing, AllocId id, size_t size) {
-    return std_reallocate((StdAllocator*)backing, id, size);
+  return std_reallocate((StdAllocator *)backing, id, size);
 }
 
-static void* std_get_fn(void* backing, AllocId id) {
-  return std_get((StdAllocator*)backing, id);
+static void *std_get_fn(void *backing, AllocId id) {
+  return std_get((StdAllocator *)backing, id);
 }
 
 static void std_destroy_allocator_fn(void *backing) {
-    std_destroy((StdAllocator*)backing);
+  std_destroy((StdAllocator *)backing);
 }
 
 // Allocator constant struct variable
@@ -136,6 +138,6 @@ Allocator std_allocator(void) {
                      .allocator_flags_fn = std_allocator_flags_fn,
                      .deallocator_fn = std_deallocator_fn,
                      .reallocator_fn = std_reallocator_fn,
-                     .get_fn= std_get_fn,
+                     .get_fn = std_get_fn,
                      .destroy_allocator_fn = std_destroy_allocator_fn};
 }

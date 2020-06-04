@@ -96,11 +96,11 @@ static Token parse_rawNext(Parser *parser, Vector *comments,
 }
 
 // If the peeked token stack is not empty:
-//    Return the top element of the top of the token
-//    Pop the top of the next_comments_stack
+//    Return the first element of the top of the token
+//    Pop the first element of the next_comments_stack
 //    For each element in the next comments stack, push it to the top of the
 //    current scope
-// If has an ungotten token, return that. Else return next in line, and cache it
+// Else fetch next raw token
 static Token parse_next(Parser *pp, Vector *diagnostics) {
   // the current scope we aim to push the comments to
   size_t top_index = VEC_LEN(&pp->comments, Vector);
@@ -113,21 +113,21 @@ static Token parse_next(Parser *pp, Vector *diagnostics) {
     // Vector containing all comments for the next token
     Vector next_token_comments;
     // pop a vector off the stack and assign it to next_token_comments
-    VEC_POP(&pp->next_comments_stack, &next_token_comments, Vector);
+    VEC_REM(&pp->next_comments_stack, &next_token_comments, 0, Vector);
 
     // append next_token_comments to the current scope
     vec_append(current_scope, &next_token_comments);
 
     // Vector containing all diagnostics for the next
     Vector next_token_diagnostics;
-    VEC_POP(&pp->next_diagnostics_stack, &next_token_diagnostics, Vector);
+    VEC_REM(&pp->next_diagnostics_stack, &next_token_diagnostics, 0, Vector);
 
     // append next_token_diagnostics to the diagnostics vector
     vec_append(diagnostics, &next_token_diagnostics);
 
     // set the token
     Token ret;
-    VEC_POP(&pp->next_tokens_stack, &ret, Token);
+    VEC_REM(&pp->next_tokens_stack, &ret, 0, Token);
     return ret;
   } else {
     return parse_rawNext(pp, current_scope, diagnostics);
@@ -200,19 +200,17 @@ Allocator *parse_release(Parser *pp) {
 // group discards any comments and tokens found
 // Will store any lexer errors into the diagnostics
 static void resyncParser(Parser *parser, Vector *diagnostics) {
-  
-  Vector comments = vec_create(&std_allocator);
+  Vector comments = vec_create(parser->a);
   int64_t initial_paren_depth = parser->paren_depth;
   int64_t initial_brace_depth = parser->brace_depth;
   int64_t initial_bracket_depth = parser->bracket_depth;
-  Token t;
   while (true) {
-    if (initial_brace_depth <= parser->brace_depth &&
-        initial_paren_depth <= parser->paren_depth &&
-        initial_bracket_depth <= parser->bracket_depth) {
+    if (initial_brace_depth > parser->brace_depth &&
+        initial_paren_depth > parser->paren_depth &&
+        initial_bracket_depth > parser->bracket_depth) {
       break;
     }
-    t = parse_rawNext(parser, &comments, diagnostics);
+    parse_rawNext(parser, &comments, diagnostics);
   }
   vec_destroy(&comments);
 }
@@ -287,7 +285,7 @@ static void parsePath(Path *pp, Vector *diagnostics, Parser *parser) {
     t = parse_peek(parser);
     if (t.kind == tk_ScopeResolution) {
       // discard the scope resolution
-      t = parse_next(parser, diagnostics);
+      parse_next(parser, diagnostics);
       // now check if we have an issue
       t = parse_next(parser, diagnostics);
       if (t.kind != tk_Identifier) {
@@ -1586,7 +1584,6 @@ static void parseL2TypeExpr(TypeExpr *l2, Vector *diagnostics, Parser *parser) {
   parseL1TypeExpr(root,diagnostics, parser);
 
   while (true) {
-    
     // represents the new operation
     TypeExpr *ty;
 
@@ -1600,7 +1597,8 @@ static void parseL2TypeExpr(TypeExpr *l2, Vector *diagnostics, Parser *parser) {
       root->unaryOp.operator= TEUOK_Ref;
       root->unaryOp.operand = ty;
       root->span = SPAN(ty->span.start, t.span.end);
-      t = parse_next(parser, diagnostics);
+      // discard token
+      parse_next(parser, diagnostics);
       break;
     }
     case tk_Deref: {
@@ -1611,7 +1609,8 @@ static void parseL2TypeExpr(TypeExpr *l2, Vector *diagnostics, Parser *parser) {
       root->unaryOp.operator= TEUOK_Deref;
       root->unaryOp.operand = ty;
       root->span = SPAN(ty->span.start, t.span.end);
-      t = parse_next(parser, diagnostics);
+      // discard token
+      parse_next(parser, diagnostics);
       break;
     }
     case tk_ScopeResolution: {
@@ -1781,8 +1780,6 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep, Vector* di
                              Parser *parser) {
   pushCommentScopeParser(parser);
   ZERO(psmep);
-  Diagnostic diagnostic;
-  diagnostic.kind = DK_Ok;
   
   Token t = parse_next(parser, diagnostics);
   LnCol start = t.span.end;
@@ -1799,7 +1796,7 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep, Vector* di
     break;
   }
   default: {
-    diagnostic = DIAGNOSTIC(DK_PatternStructExpectedIdentifier, t.span);
+    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_PatternStructExpectedIdentifier, t.span);
     end = t.span.end;
     goto CLEANUP;
   }
@@ -1822,11 +1819,11 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep, Vector* di
   end = psmep->pattern->span.end;
 
   if (psmep->pattern->kind == PEK_ValueRestriction && has_assign) {
-    diagnostic =
+    *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_PatternStructUnexpectedAssignForValueRestriction, t.span);
     goto CLEANUP;
   } else if (psmep->pattern->kind != PEK_ValueRestriction && !has_assign) {
-    diagnostic = DIAGNOSTIC(
+    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
         DK_PatternStructExpectedAssignForNonValueRestriction, t.span);
     goto CLEANUP;
   }
@@ -1845,7 +1842,7 @@ static void certain_parseStructPatternExpr(PatternExpr *spe,
                                            Parser *parser) {
   ZERO(spe);
   spe->kind = PEK_Struct;
-  
+
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Struct);
 
@@ -2051,21 +2048,22 @@ static void parseValDecl(Stmnt *vdsp, Vector *diagnostics, Parser *parser) {
   // zero-initialize vdsp
   ZERO(vdsp);
   vdsp->kind = SK_ValDecl;
-  // these variables will be reused
-  
+
+  Token t = parse_next(parser, diagnostics);
+  assert(t.kind == tk_Let);
+  LnCol start = t.span.start;
 
   // Get Binding
   vdsp->valDecl.pattern = ALLOC(parser->a, PatternExpr);
   parsePatternExpr(vdsp->valDecl.pattern,diagnostics, parser);
 
-  LnCol start = vdsp->valDecl.pattern->span.start;
   LnCol end;
 
   // Expect Equal Sign
-  Token t = parse_peek(parser);
+  t = parse_peek(parser);
   if (t.kind == tk_Assign) {
-    // accept the equal sign
-    t = parse_next(parser, diagnostics);
+    // accept the equal sign token
+    parse_next(parser, diagnostics);
 
     vdsp->valDecl.has_value = true;
     vdsp->valDecl.value = ALLOC(parser->a, ValueExpr);
@@ -2082,14 +2080,17 @@ static void parseValDecl(Stmnt *vdsp, Vector *diagnostics, Parser *parser) {
 static void parseTypeDecl(Stmnt *tdp, Vector *diagnostics, Parser *parser) {
   ZERO(tdp);
   tdp->kind = SK_TypeDecl;
-  
+  Token t = parse_next(parser, diagnostics);
+  assert(t.kind == tk_Let);
+  LnCol start = t.span.start;
+
+  // enforce that next token is type
+  assert(parse_next(parser, diagnostics).kind == tk_Type);
 
   LnCol end;
 
-  Token t = parse_next(parser, diagnostics);
-
-  LnCol start = t.span.start;
-
+  // get identifier of type decl
+  t = parse_next(parser, diagnostics);
   if (t.kind != tk_Identifier) {
     tdp->typeDecl.name = NULL;
     *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_TypeDeclExpectedIdentifier, t.span);
@@ -2121,7 +2122,6 @@ static void parsePatternExprStmnt(Stmnt *pesp, Vector *diagnostics,
   ZERO(pesp);
   pesp->kind = SK_PatExpr;
 
-  
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Pat);
   LnCol start = t.span.start;
@@ -2137,7 +2137,6 @@ static void parseTypeExprStmnt(Stmnt *tesp, Vector *diagnostics,
   ZERO(tesp);
   tesp->kind = SK_TypeExpr;
 
-  
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Type);
   LnCol start = t.span.start;
@@ -2163,7 +2162,7 @@ void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   }
   case tk_Use: {
     LnCol start = t.span.start;
-    t = parse_next(parser, diagnostics); // drop use token
+    parse_next(parser, diagnostics); // drop use token
     sp->kind = SK_Use;
     sp->useStmnt.path = ALLOC(parser->a, Path);
     parsePath(sp->useStmnt.path,diagnostics, parser);
@@ -2172,7 +2171,7 @@ void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   }
   case tk_Namespace: {
     LnCol start = t.span.start;
-    t = parse_next(parser, diagnostics); // drop namespace token
+    parse_next(parser, diagnostics); // drop namespace token
     sp->kind = SK_Namespace;
     sp->namespaceStmnt.path = ALLOC(parser->a, Path);
     parsePath(sp->namespaceStmnt.path,diagnostics, parser);
@@ -2183,12 +2182,9 @@ void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   }
   // Let Stmnt (Decl)
   case tk_Let: {
-    LnCol start = t.span.start;
-    parse_next(parser, diagnostics);
-    t = parse_peek(parser);
+    t = parse_peekNth(parser, 2);
     switch (t.kind) {
     case tk_Type: {
-      t = parse_next(parser, diagnostics);
       parseTypeDecl(sp,diagnostics, parser);
       break;
     }
@@ -2197,7 +2193,6 @@ void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
       break;
     }
     }
-    sp->span = SPAN(start, sp->span.end);
     break;
   }
   // Expressions

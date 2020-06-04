@@ -12,7 +12,7 @@ typedef struct Vector_s {
   AllocatorFlags mflags;
   size_t length;
   size_t capacity;
-  size_t alloc_id;
+  AllocId alloc_id;
   void *data;
 } Vector;
 

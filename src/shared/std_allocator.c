@@ -34,13 +34,13 @@ static size_t push_entry(StdAllocator* b,void* entry) {
   return index;
 }
 
-static inline MemHandle std_allocate(StdAllocator* backing, size_t size) {
+static inline AllocId std_allocate(StdAllocator* backing, size_t size) {
   if (size == 0) {
-    return (MemHandle) {.id={.id=0, .valid=false}, .ptr=NULL};
+    return (AllocId) {.id=0, .valid=true};
   }
   void* ptr = malloc(size);
   size_t index = push_entry(backing, ptr);
-  return (MemHandle) {.id={.id=index,.valid=true}, .ptr=ptr};
+  return (AllocId) {.id=index,.valid=true};
 }
 
 static inline void std_deallocate(StdAllocator* backing, AllocId id) {
@@ -48,31 +48,42 @@ static inline void std_deallocate(StdAllocator* backing, AllocId id) {
   AllocEntry *ae = &backing->ptrs[id.id];
   ae->valid=false;
   free(ae->ptr);
-  ae->ptr= NULL;
 }
 
-static inline MemHandle std_reallocate(StdAllocator*backing, AllocId id, size_t size) {
+// TODO errors??
+static inline AllocId std_reallocate(StdAllocator*backing, AllocId id, size_t size) {
   if (size == 0) {
     std_deallocate(backing, id);
-    return (MemHandle) {.id={.id=0, .valid=false}, .ptr=NULL};
+    return (AllocId) {.id=0, .valid=true};
+  } else if(id.id == 0) {
+    return std_allocate(backing, size);
   }
 
   AllocEntry *ae = &backing->ptrs[id.id];
   void* ret = realloc(ae->ptr, size);
-  assert(ret != NULL);
   ae->ptr = ret;
-  return (MemHandle) {.id=id, .ptr=ret};
+  assert(ae->ptr != NULL);
+  return (AllocId) {.id=id.id, .valid=true};
+}
+
+static inline void* std_get(StdAllocator*backing, AllocId id) {
+    assert(id.id < backing->ptrs_len);
+    assert(id.valid);
+    return backing->ptrs[id.id].ptr;
 }
 
 static inline StdAllocator* std_create() {
   StdAllocator* sa = malloc(sizeof(StdAllocator));
 
   // allocate once to form the standard allocator
-  sa->ptrs = malloc(sizeof(AllocEntry));
-  sa->ptrs_cap = 1;
-  sa->ptrs_len = 0;
+  sa->ptrs = malloc(2*sizeof(AllocEntry));
+  sa->ptrs_cap = 2;
+  sa->ptrs_len = 1;
+  // the null pointer
+  sa->ptrs[0] = (AllocEntry){.ptr=NULL, .valid=true};
   return sa;
 }
+
 
 static inline void std_destroy(StdAllocator *backing) {
   // free all unfreed things
@@ -88,10 +99,10 @@ static inline void std_destroy(StdAllocator *backing) {
 }
 
 // Shim methods
-static MemHandle std_allocator_fn(void *backing, size_t size) {
+static AllocId std_allocator_fn(void *backing, size_t size) {
     return std_allocate((StdAllocator*)backing, size);
 }
-static MemHandle std_allocator_flags_fn(void *backing, size_t size,
+static AllocId std_allocator_flags_fn(void *backing, size_t size,
                                     AllocatorFlags flags) {
   return std_allocate(backing, size);
 }
@@ -101,8 +112,12 @@ static void std_deallocator_fn(void *backing, AllocId id) {
 }
 
 // normalize realloc behavior
-static MemHandle std_reallocator_fn(void *backing, AllocId id, size_t size) {
+static AllocId std_reallocator_fn(void *backing, AllocId id, size_t size) {
     return std_reallocate((StdAllocator*)backing, id, size);
+}
+
+static void* std_get_fn(void* backing, AllocId id) {
+  return std_get((StdAllocator*)backing, id);
 }
 
 static void std_destroy_allocator_fn(void *backing) {
@@ -121,5 +136,6 @@ Allocator std_allocator(void) {
                      .allocator_flags_fn = std_allocator_flags_fn,
                      .deallocator_fn = std_deallocator_fn,
                      .reallocator_fn = std_reallocator_fn,
+                     .get_fn= std_get_fn,
                      .destroy_allocator_fn = std_destroy_allocator_fn};
 }

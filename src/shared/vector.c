@@ -20,16 +20,16 @@ void vec_resize(Vector *vector, size_t size);
 
 // Sets the size of the vector
 void vec_setCapacity(Vector *vector, size_t size) {
-  MemHandle new;
-  MemHandle old = (MemHandle){.alloc_id=vector->alloc_id, .ptr=vector->data};
   if (vector->data == NULL) {
-    new = a_alloc_flags(vector->allocator, size, vector->mflags);
+    vector->alloc_id = a_alloc_flags(vector->allocator, size, vector->mflags);
   } else {
-    new = a_realloc(vector->allocator, old, size);
+    vector->alloc_id = a_realloc(vector->allocator, vector->alloc_id, size);
+    // Vector fails on allocation failure
+    assert(vector->alloc_id.valid);
   }
   vector->capacity = size;
-  vector->data = new.ptr;
-  vector->alloc_id = new.alloc_id;
+  // the vector's base pointer may change durin this operation
+  vector->data = a_get(vector->allocator, vector->alloc_id);
 }
 
 // Resizes the vector in order to fit an element of this size in

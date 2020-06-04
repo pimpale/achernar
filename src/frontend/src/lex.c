@@ -517,7 +517,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   LnCol start = lexer->position;
 
-  Vector data =  vec_createOptions(&std_allocator, 10, A_REALLOCABLE | A_NO_CLEANUP_ON_DESTROY);
+  Vector data =  vec_create(a);
 
   bool macro = false;
 
@@ -545,7 +545,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   if (macro) {
     // It is an identifier, and we need to keep the string
     return (Token){.kind = tk_MacroCall,
-                   .macro_call = strcpy(a_alloc(a, strlen(string)), string),
+                   .macro_call = vec_release(&data),
                    .span = span};
   }
 
@@ -596,7 +596,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
-    token.identifier = strcpy(a_alloc(a, strlen(string)+1), string);
+    token.identifier = vec_release(&data);
     return token;
   }
 

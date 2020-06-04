@@ -596,7 +596,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
-    token.identifier = strcpy(a_alloc(a, strlen(string)), string);
+    token.identifier = strcpy(a_alloc(a, strlen(string)+1), string);
     return token;
   }
 

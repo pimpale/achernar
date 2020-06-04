@@ -898,17 +898,27 @@ static void parseL1ValueExpr(ValueExpr *l1, Vector *diagnostics,
     }
     break;
   }
+  case tk_Eof: {
+    // throw error for whatever was wrong with the piece
+    l1->kind = VEK_None;
+    l1->span = t.span;
+    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_EOF, t.span);
+    break;
+  }
   case tk_None: {
     // throw error for whatever was wrong with the piece
+    ZERO(l1);
     l1->kind = VEK_None;
     l1->span = t.span;
     parse_next(parser, diagnostics);
     break;
   }
   default: {
-    logInternalError(APPNAME, __LINE__, __func__, "unimplemented: %d at %d, %d",
-                     t.kind, t.span.start.ln.val, t.span.start.col.val);
-    PANIC();
+    ZERO(l1);
+    l1->kind = VEK_None;
+    l1->span = t.span;
+    parse_next(parser, diagnostics);
+    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_UnexpectedToken, t.span);
   }
   }
   Vector comments = popCommentScopeParser(parser);

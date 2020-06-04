@@ -222,9 +222,8 @@ static void skipWhitespace(Lexer *l) {
   }
 }
 
-j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
-  LnCol start = l->position;
-
+static j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+  UNUSED(a);
   bool negative = false;
   if (lex_peek(l) == '-') {
     negative = true;
@@ -288,7 +287,7 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
   if (positive_exponent || negative_exponent) {
     while ((c = lex_peek(l)) != EOF) {
       if (isdigit(c)) {
-        exponential_integer = exponential_integer * 10 + (c - '0');
+        exponential_integer = exponential_integer * 10 + (uint8_t)(c - '0');
         lex_next(l);
       } else {
         break;
@@ -296,38 +295,33 @@ j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics, Allocator *a) {
     }
   }
 
-  if (fractional || negative_exponent) {
+  if (fractional || negative_exponent || positive_exponent) {
     // Decimalish
-    double num = integer_value + fractional_component;
+    double num = (double)integer_value + fractional_component;
     if (positive_exponent) {
-      for (int i = 0; i < exponential_integer; i++) {
+      for (size_t i = 0; i < exponential_integer; i++) {
         num *= 10;
       }
     }
     if (negative_exponent) {
-      for (int i = 0; i < exponential_integer; i++) {
+      for (size_t i = 0; i < exponential_integer; i++) {
         num /= 10;
       }
     }
     return J_NUM_ELEM(num);
   } else {
     // Integer
-    int64_t num = integer_value;
-    if (positive_exponent) {
-      for (int i = 0; i < exponential_integer; i++) {
-        num *= 10;
-      }
-    }
+    uint64_t num = integer_value;
     return J_INT_ELEM(J_INT(negative, num));
   }
 }
 
-j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocator *a) {
+static j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocator *a) {
   LnCol start = l->position;
-  Vector data;
 
   // Fixed buffer size
-  char buffer[6];
+  char buffer[6]; //this is long enough to hold false\0
+  bool toolong = false;
   size_t index = 0;
   while (true) {
     int32_t c = lex_peek(l);
@@ -336,8 +330,10 @@ j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocator *a) {
       if (index < 5) {
         buffer[index] = (char)c;
         index++;
+      } else {
+        toolong = true;
       }
-      // even if the buffer is finished we must continue on
+      // even if the buffer is finished we must continue on (but mark it as (toolong)
       lex_next(l);
     } else {
       break;
@@ -346,11 +342,11 @@ j_Elem j_certain_parseLiteralElem(Lexer *l, Vector *diagnostics, Allocator *a) {
   // Terminate with string length
   buffer[5] = '\0';
 
-  if (!strcmp("null", buffer)) {
+  if (!toolong && !strcmp("null", buffer)) {
     return J_NULL_ELEM;
-  } else if (!strcmp("true", buffer)) {
+  } else if (!toolong && !strcmp("true", buffer)) {
     return J_BOOL_ELEM(true);
-  } else if (!strcmp("false", buffer)) {
+  } else if (!toolong && !strcmp("false", buffer)) {
     return J_BOOL_ELEM(false);
   } else {
     *VEC_PUSH(diagnostics, j_Error) = ERROR(j_MalformedLiteral, start);
@@ -460,10 +456,10 @@ j_Str j_parseStr(Lexer *l, Vector *diagnostics, Allocator *a) {
       break;
     }
     case StringParserUnicode: {
-      uint16_t code_point;
+      uint32_t code_point = 0;
       for (int i = 0; i < 4; i++) {
         c = lex_next(l);
-        uint8_t value;
+        int value;
         if (c >= '0' && c <= '9') {
           value = c - '0';
         } else if (c >= 'a' && c <= 'f') {

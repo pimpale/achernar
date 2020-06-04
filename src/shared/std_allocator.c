@@ -3,9 +3,11 @@
 #include <stdbool.h>
 
 #include "allocator.h"
+#include "utils.h"
 
 // normalize alloc behavior
 static void *std_allocator_fn(void *backing, size_t size) {
+  UNUSED(backing);
   if (size == 0) {
     return NULL;
   }
@@ -18,10 +20,14 @@ static void *std_allocator_flags_fn(void *backing, size_t size,
   return std_allocator_fn(backing, size);
 }
 
-static void std_deallocator_fn(void *backing, void *ptr) { free(ptr); }
+static void std_deallocator_fn(void *backing, void *ptr) {
+  UNUSED(backing);
+  free(ptr);
+}
 
 // normalize realloc behavior
 static void *std_reallocator_fn(void *backing, void *ptr, size_t size) {
+  UNUSED(backing);
   if (size == 0) {
     return NULL;
   }
@@ -29,6 +35,7 @@ static void *std_reallocator_fn(void *backing, void *ptr, size_t size) {
 }
 
 static void std_destroy_allocator_fn(void *backing) {
+  UNUSED(backing);
   // nothing
 }
 

@@ -218,7 +218,6 @@ static void resyncParser(Parser *parser, Vector *diagnostics) {
 }
 
 // Note that all errors resync at the statement level
-static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser);
 static void parseValueExpr(ValueExpr *vep, Vector *diagnostics, Parser *parser);
 static void parseTypeExpr(TypeExpr *tep, Vector *diagnostics, Parser *parser);
 static void parsePatternExpr(PatternExpr *pp, Vector *diagnostics,
@@ -2139,7 +2138,7 @@ static void parseTypeExprStmnt(Stmnt *tesp, Vector *diagnostics,
   return;
 }
 
-void parse_nextStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
+void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   pushCommentScopeParser(parser);
   
   // peek next token

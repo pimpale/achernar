@@ -4,6 +4,6 @@
 #include "allocator.h"
 
 // Initializes an arena allocator
-Allocator arena_a_create();
+Allocator arena_a_create(void);
 
 #endif

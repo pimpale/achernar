@@ -88,7 +88,7 @@ typedef struct Arena_s {
 /// REQUIRES: `mem` is a pointer to at least sizeof(Arena) bytes
 /// GUARANTEES: `mem` has been initialized to a valid Arena
 /// GUARANTEES: return value is `mem`
-Arena *ar_create(Arena *mem) {
+static Arena *ar_create(Arena *mem) {
   // initialize vectors
   mem->pages = vec_create(&std_allocator);
   mem->indices = vec_create(&std_allocator);
@@ -99,7 +99,7 @@ Arena *ar_create(Arena *mem) {
 /// REQUIRES: `ar` is a pointer to a valid Arena
 /// GUARANTEES: `ar` is no longer a valid Arena
 /// GUARANTEES: all memory held by `ar` is deallocated
-Arena *ar_destroy(Arena *ar) {
+static Arena *ar_destroy(Arena *ar) {
   for (size_t i = 0; i < VEC_LEN(&ar->pages, ArenaPage); i++) {
     destroyArenaPage(VEC_GET(&ar->pages, i, ArenaPage));
   }
@@ -146,7 +146,9 @@ inline static void *ar_alloc_aligned(Arena *ar, size_t len,
     *index_ptr = 0;
   }
 
-  ArenaPage *a = VEC_GET(&ar->pages, *index_ptr, ArenaPage);
+  assert(*index_ptr >= 0);
+  uint64_t index = (uint64_t) *index_ptr;
+  ArenaPage *a = VEC_GET(&ar->pages, index, ArenaPage);
 
   if (!canFitArenaPage(a, len)) {
     a = VEC_PUSH(&ar->pages, ArenaPage);
@@ -157,7 +159,7 @@ inline static void *ar_alloc_aligned(Arena *ar, size_t len,
   return allocArenaPage(a, len);
 }
 
-void *ar_allocator_flags_fn(void *backing, size_t len, AllocatorFlags flags) {
+static void *ar_allocator_flags_fn(void *backing, size_t len, AllocatorFlags flags) {
   Arena *ar = backing;
   assert(ar != NULL);
 
@@ -195,8 +197,11 @@ static void *ar_allocator_fn(void *backing, size_t len) {
   return ar_allocator_flags_fn(backing, len, A_NOFLAGS);
 }
 
-// no op (memory can only be freed once deallocated
-static void ar_deallocator_fn(void *backing, void *ptr) {}
+// no op (memory can only be freed once the whole arena is deallocated)
+static void ar_deallocator_fn(void *backing, void *ptr) {
+  UNUSED(backing);
+  UNUSED(ptr);
+}
 
 /// Releases resources associated with arena
 static void ar_destroy_allocator_fn(void *backing) {

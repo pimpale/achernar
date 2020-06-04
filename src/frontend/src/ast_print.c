@@ -6,11 +6,6 @@
 #include "json.h"
 #include "token.h"
 
-static inline j_Elem propVectorToObject(Vector* props) {
-  size_t len = VEC_LEN(props, j_Prop);
-  return J_OBJECT_ELEM(vec_release(props), len);
-}
-
 static j_Elem lnColJson(LnCol lncol, Allocator *a) {
   j_Prop *ptrs = ALLOC_ARR(a, 2, j_Prop);
   ptrs[0] = J_PROP(J_ASCIZ("ln"), J_INT_ELEM(J_UINT(lncol.ln.val)));
@@ -33,16 +28,6 @@ static j_Elem diagnosticJson(Diagnostic diagnostic, Allocator *a) {
   ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ(strDiagnosticKind(diagnostic.kind))));
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(diagnostic.span, a));
   return J_OBJECT_ELEM(ptrs, 2);
-}
-
-static j_Elem diagnosticsJson(Diagnostic *diagnostics, size_t diagnostics_len,
-                                Allocator *a) {
-  j_Elem *ptrs = ALLOC_ARR(a, diagnostics_len, j_Elem);
-
-  for (size_t i = 0; i < diagnostics_len; i++) {
-    ptrs[i] = diagnosticJson(diagnostics[i], a);
-  }
-  return J_ARRAY_ELEM(ptrs, diagnostics_len);
 }
 
 static j_Elem commentJson(Comment comment, Allocator *a) {
@@ -906,11 +891,16 @@ void print_stream(Parser *parser, FILE *file) {
     // Parse the next statment
     Stmnt stmnt;
     Vector diagnostics =  vec_create(&a);
-    parse_nextStmnt(&stmnt, &diagnostics, parser);
+    parseStmnt(&stmnt, &diagnostics, parser);
 
     // print the json
     j_Elem sjson = stmntJson(&stmnt, &a);
     fputs(j_stringify(&sjson, &a), file);
+
+    for(size_t i = 0; i < VEC_LEN(&diagnostics, Diagnostic); i--) {
+        j_Elem djson = diagnosticJson(*VEC_GET(&diagnostics, i, Diagnostic), &a);
+        fputs(j_stringify(&djson, &a), file);
+    }
 
     // Clean up
     vec_destroy(&diagnostics);

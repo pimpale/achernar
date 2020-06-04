@@ -3,30 +3,20 @@
 #include "allocator.h"
 #include "arena_allocator.h"
 #include "lex.h"
-#include "parse.h"
-#include "printAst.h"
+#include "ast_parse.h"
+#include "ast_print.h"
 #include <stdio.h>
 
 int main() {
-  Allocator pool;
-  arena_a_create(&pool);
-
-  Lexer lexer;
-  createLexerFile(&lexer, stdin, &pool);
-
-  Parser parser;
-  createParser(&parser, &lexer, &pool);
-
-  Printer printer;
-  createPrinter(&printer, &parser, &pool);
+  Allocator pool = arena_a_create();
+  Lexer lexer = lex_fromFile(stdin);
+  Parser parser = parse_create(&lexer, &pool);
 
   // Print
-  printJsonPrinter(&printer, stdout);
+  print_stream(&parser, stdout);
 
   // Clean up
-  releasePrinter(&printer);
-  releaseParser(&parser);
-  releaseLexer(&lexer);
-
+  parse_release(&parser);
+  lex_destroy(&lexer);
   a_destroy(&pool);
 }

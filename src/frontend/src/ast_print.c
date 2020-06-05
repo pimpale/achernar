@@ -1,9 +1,9 @@
 #include "ast_print.h"
 
 #include "allocator.h"
-#include "std_allocator.h"
 #include "ast.h"
 #include "json.h"
+#include "std_allocator.h"
 #include "token.h"
 
 static j_Elem lnColJson(LnCol lncol, Allocator *a) {
@@ -25,7 +25,8 @@ static j_Elem spanJson(Span span, Allocator *a) {
 static j_Elem diagnosticJson(Diagnostic diagnostic, Allocator *a) {
   j_Prop *ptrs = ALLOC_ARR(a, 2, j_Prop);
 
-  ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ(strDiagnosticKind(diagnostic.kind))));
+  ptrs[0] = J_PROP(J_ASCIZ("kind"),
+                   J_STR_ELEM(J_ASCIZ(strDiagnosticKind(diagnostic.kind))));
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(diagnostic.span, a));
   return J_OBJECT_ELEM(ptrs, 2);
 }
@@ -39,7 +40,7 @@ static j_Elem commentJson(Comment comment, Allocator *a) {
 }
 
 static j_Elem commentsJson(Comment *comments, size_t comments_len,
-                             Allocator *a) {
+                           Allocator *a) {
   j_Elem *ptrs = ALLOC_ARR(a, comments_len, j_Elem);
   for (size_t i = 0; i < comments_len; i++) {
     ptrs[i] = commentJson(comments[i], a);
@@ -53,11 +54,12 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a);
 static j_Elem patternExprJson(PatternExpr *pep, Allocator *a);
 static j_Elem builtinJson(Builtin *bp, Allocator *a);
 static j_Elem
-patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep, Allocator *a);
+patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep,
+                            Allocator *a);
 static j_Elem typeStructMemberExprJson(struct TypeStructMemberExpr_s *tsmep,
-                                         Allocator *a);
+                                       Allocator *a);
 static j_Elem valueStructMemberExprJson(struct ValueStructMemberExpr_s *vsmep,
-                                          Allocator *a);
+                                        Allocator *a);
 static j_Elem matchCaseExprJson(struct MatchCaseExpr_s *mcep, Allocator *a);
 
 static j_Elem builtinJson(Builtin *bp, Allocator *a) {
@@ -67,16 +69,16 @@ static j_Elem builtinJson(Builtin *bp, Allocator *a) {
   size_t ptrs_len = 4;
   j_Prop *ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
   ptrs[0] = J_PROP(J_ASCIZ("span"), spanJson(bp->span, a));
-  ptrs[1] =
-      J_PROP(J_ASCIZ("comments"), commentsJson(bp->comments, bp->comments_len, a));
+  ptrs[1] = J_PROP(J_ASCIZ("comments"),
+                   commentsJson(bp->comments, bp->comments_len, a));
   ptrs[2] = J_PROP(J_ASCIZ("name"), J_STR_ELEM(J_ASCIZ(bp->name)));
 
   j_Elem *parameter_ptrs = ALLOC_ARR(a, bp->parameters_len, j_Elem);
   for (size_t i = 0; i < bp->parameters_len; i++) {
     parameter_ptrs[i] = stmntJson(&bp->parameters[i], a);
   }
-  ptrs[3] =
-      J_PROP(J_ASCIZ("parameters"), J_ARRAY_ELEM(parameter_ptrs, bp->parameters_len));
+  ptrs[3] = J_PROP(J_ASCIZ("parameters"),
+                   J_ARRAY_ELEM(parameter_ptrs, bp->parameters_len));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 
@@ -106,7 +108,8 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
   case PEK_ValueRestriction: {
     ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_ValueRestriction")));
+    ptrs[0] =
+        J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_ValueRestriction")));
     char *pevrk;
     switch (pp->valueRestriction.restriction) {
     case PEVRK_CompEqual: {
@@ -135,8 +138,8 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
     }
     }
     ptrs[3] = J_PROP(J_ASCIZ("restriction"), J_STR_ELEM(J_ASCIZ(pevrk)));
-    ptrs[4] =
-        J_PROP(J_ASCIZ("value"), valueExprJson(pp->valueRestriction.valueExpr, a));
+    ptrs[4] = J_PROP(J_ASCIZ("value"),
+                     valueExprJson(pp->valueRestriction.valueExpr, a));
     break;
   }
   case PEK_TypeRestriction: {
@@ -150,9 +153,12 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
       ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     }
 
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_TypeRestriction")));
-    ptrs[3] = J_PROP(J_ASCIZ("type"), typeExprJson(pp->typeRestriction.type, a));
-    ptrs[4] = J_PROP(J_ASCIZ("has_binding"), J_BOOL_ELEM(pp->typeRestriction.has_binding));
+    ptrs[0] =
+        J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_TypeRestriction")));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("type"), typeExprJson(pp->typeRestriction.type, a));
+    ptrs[4] = J_PROP(J_ASCIZ("has_binding"),
+                     J_BOOL_ELEM(pp->typeRestriction.has_binding));
     break;
   }
   case PEK_UnaryOp: {
@@ -167,7 +173,8 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
     }
     }
     ptrs[3] = J_PROP(J_ASCIZ("operator"), J_STR_ELEM(J_ASCIZ(peuok)));
-    ptrs[4] = J_PROP(J_ASCIZ("operand"), patternExprJson(pp->unaryOp.operand, a));
+    ptrs[4] =
+        J_PROP(J_ASCIZ("operand"), patternExprJson(pp->unaryOp.operand, a));
     break;
   }
   case PEK_BinaryOp: {
@@ -194,8 +201,10 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
     }
     }
     ptrs[3] = J_PROP(J_ASCIZ("operator"), J_STR_ELEM(J_ASCIZ(pebok)));
-    ptrs[4] = J_PROP(J_ASCIZ("left_operand"), patternExprJson(pp->binaryOp.left_operand, a));
-    ptrs[5] = J_PROP(J_ASCIZ("right_operand"), patternExprJson(pp->binaryOp.right_operand, a));
+    ptrs[4] = J_PROP(J_ASCIZ("left_operand"),
+                     patternExprJson(pp->binaryOp.left_operand, a));
+    ptrs[5] = J_PROP(J_ASCIZ("right_operand"),
+                     patternExprJson(pp->binaryOp.right_operand, a));
     break;
   }
   case PEK_Struct: {
@@ -204,7 +213,7 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_Struct")));
     size_t members_len = pp->structExpr.members_len;
     j_Elem *members = ALLOC_ARR(a, members_len, j_Elem);
-    for(size_t i = 0; i < members_len; i++) {
+    for (size_t i = 0; i < members_len; i++) {
       members[i] = patternStructMemberExprJson(&pp->structExpr.members[i], a);
     }
     ptrs[3] = J_PROP(J_ASCIZ("value"), J_ARRAY_ELEM(members, members_len));
@@ -212,8 +221,8 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
   }
   }
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(pp->span, a));
-  ptrs[2] =
-      J_PROP(J_ASCIZ("comments"), commentsJson(pp->comments, pp->comments_len, a));
+  ptrs[2] = J_PROP(J_ASCIZ("comments"),
+                   commentsJson(pp->comments, pp->comments_len, a));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 
@@ -225,14 +234,14 @@ static j_Elem pathJson(Path *pp, Allocator *a) {
   size_t ptrs_len = 3;
   j_Prop *ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
   ptrs[0] = J_PROP(J_ASCIZ("span"), spanJson(pp->span, a));
-  ptrs[1] =
-      J_PROP(J_ASCIZ("comments"), commentsJson(pp->comments, pp->comments_len, a));
+  ptrs[1] = J_PROP(J_ASCIZ("comments"),
+                   commentsJson(pp->comments, pp->comments_len, a));
   j_Elem *path_ptrs = ALLOC_ARR(a, pp->pathSegments_len, j_Elem);
   for (size_t i = 0; i < pp->pathSegments_len; i++) {
     path_ptrs[i] = J_STR_ELEM(J_ASCIZ(pp->pathSegments[i]));
   }
-  ptrs[2] =
-      J_PROP(J_ASCIZ("path_segments"), J_ARRAY_ELEM(path_ptrs, pp->pathSegments_len));
+  ptrs[2] = J_PROP(J_ASCIZ("path_segments"),
+                   J_ARRAY_ELEM(path_ptrs, pp->pathSegments_len));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 
@@ -262,7 +271,8 @@ static j_Elem typeExprJson(TypeExpr *tep, Allocator *a) {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("TEK_Builtin")));
-    ptrs[3] = J_PROP(J_ASCIZ("builtin"), builtinJson(tep->builtinExpr.builtin, a));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("builtin"), builtinJson(tep->builtinExpr.builtin, a));
     break;
   }
   case TEK_Void: {
@@ -341,10 +351,10 @@ static j_Elem typeExprJson(TypeExpr *tep, Allocator *a) {
     }
     }
     ptrs[3] = J_PROP(J_ASCIZ("operator"), J_STR_ELEM(J_ASCIZ(binOpStr)));
-    ptrs[4] =
-        J_PROP(J_ASCIZ("left_operand"), typeExprJson(tep->binaryOp.left_operand, a));
-    ptrs[5] =
-        J_PROP(J_ASCIZ("right_operand"), typeExprJson(tep->binaryOp.right_operand, a));
+    ptrs[4] = J_PROP(J_ASCIZ("left_operand"),
+                     typeExprJson(tep->binaryOp.left_operand, a));
+    ptrs[5] = J_PROP(J_ASCIZ("right_operand"),
+                     typeExprJson(tep->binaryOp.right_operand, a));
     break;
   }
 
@@ -353,7 +363,8 @@ static j_Elem typeExprJson(TypeExpr *tep, Allocator *a) {
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("TEK_FieldAccess")));
     ptrs[3] = J_PROP(J_ASCIZ("value"), typeExprJson(tep->fieldAccess.value, a));
-    ptrs[4] = J_PROP(J_ASCIZ("field"), J_STR_ELEM(J_ASCIZ(tep->fieldAccess.field)));
+    ptrs[4] =
+        J_PROP(J_ASCIZ("field"), J_STR_ELEM(J_ASCIZ(tep->fieldAccess.field)));
     break;
   }
   case TEK_Fn: {
@@ -373,13 +384,13 @@ static j_Elem typeExprJson(TypeExpr *tep, Allocator *a) {
   }
   }
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(tep->span, a));
-  ptrs[2] =
-      J_PROP(J_ASCIZ("comments"), commentsJson(tep->comments, tep->comments_len, a));
+  ptrs[2] = J_PROP(J_ASCIZ("comments"),
+                   commentsJson(tep->comments, tep->comments_len, a));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 
 static j_Elem valueStructMemberExprJson(struct ValueStructMemberExpr_s *vsmep,
-                                          Allocator *a) {
+                                        Allocator *a) {
   if (vsmep == NULL) {
     return J_NULL_ELEM;
   }
@@ -393,8 +404,9 @@ static j_Elem valueStructMemberExprJson(struct ValueStructMemberExpr_s *vsmep,
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 
-static j_Elem patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep,
-                                        Allocator *a) {
+static j_Elem
+patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep,
+                            Allocator *a) {
   if (psmep == NULL) {
     return J_NULL_ELEM;
   }
@@ -423,8 +435,9 @@ static j_Elem patternStructMemberExprJson(struct PatternStructMemberExpr_s *psme
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 
-static j_Elem typeStructMemberExprJson(struct TypeStructMemberExpr_s *tsmep,
-                                         Allocator *a) {
+static j_Elem 
+typeStructMemberExprJson(struct TypeStructMemberExpr_s *tsmep,
+                                       Allocator *a) {
   if (tsmep == NULL) {
     return J_NULL_ELEM;
   }
@@ -446,8 +459,8 @@ static j_Elem matchCaseExprJson(struct MatchCaseExpr_s *mcep, Allocator *a) {
   j_Prop *ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
   ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("MatchCaseExpr")));
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(mcep->span, a));
-  ptrs[2] =
-      J_PROP(J_ASCIZ("comments"), commentsJson(mcep->comments, mcep->comments_len, a));
+  ptrs[2] = J_PROP(J_ASCIZ("comments"),
+                   commentsJson(mcep->comments, mcep->comments_len, a));
   ptrs[3] = J_PROP(J_ASCIZ("pattern"), patternExprJson(mcep->pattern, a));
   ptrs[4] = J_PROP(J_ASCIZ("value"), valueExprJson(mcep->value, a));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
@@ -486,14 +499,16 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_IntLiteral")));
-    ptrs[3] = J_PROP(J_ASCIZ("value"), J_INT_ELEM(J_UINT(vep->intLiteral.value)));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("value"), J_INT_ELEM(J_UINT(vep->intLiteral.value)));
     break;
   }
   case VEK_CharLiteral: {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_CharLiteral")));
-    ptrs[3] = J_PROP(J_ASCIZ("value"), J_INT_ELEM(J_SINT(vep->charLiteral.value)));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("value"), J_INT_ELEM(J_SINT(vep->charLiteral.value)));
     break;
   }
   case VEK_FloatLiteral: {
@@ -617,10 +632,10 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     }
     }
     ptrs[3] = J_PROP(J_ASCIZ("operator"), J_STR_ELEM(J_ASCIZ(binOpStr)));
-    ptrs[4] =
-        J_PROP(J_ASCIZ("left_operand"), valueExprJson(vep->binaryOp.left_operand, a));
-    ptrs[5] =
-        J_PROP(J_ASCIZ("right_operand"), valueExprJson(vep->binaryOp.right_operand, a));
+    ptrs[4] = J_PROP(J_ASCIZ("left_operand"),
+                     valueExprJson(vep->binaryOp.left_operand, a));
+    ptrs[5] = J_PROP(J_ASCIZ("right_operand"),
+                     valueExprJson(vep->binaryOp.right_operand, a));
     break;
   }
   case VEK_UnaryOp: {
@@ -651,7 +666,8 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     }
     }
     ptrs[3] = J_PROP(J_ASCIZ("operator"), J_STR_ELEM(J_ASCIZ(unOpStr)));
-    ptrs[4] = J_PROP(J_ASCIZ("operand"), valueExprJson(vep->unaryOp.operand, a));
+    ptrs[4] =
+        J_PROP(J_ASCIZ("operand"), valueExprJson(vep->unaryOp.operand, a));
     break;
   }
   case VEK_Fn: {
@@ -689,9 +705,11 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_Loop")));
     ptrs[3] = J_PROP(J_ASCIZ("value"), valueExprJson(vep->loopExpr.value, a));
-    ptrs[4] = J_PROP(J_ASCIZ("has_label"), J_BOOL_ELEM(vep->loopExpr.has_label));
-    if(vep->loopExpr.has_label) {
-      ptrs[5] = J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->loopExpr.label)));
+    ptrs[4] =
+        J_PROP(J_ASCIZ("has_label"), J_BOOL_ELEM(vep->loopExpr.has_label));
+    if (vep->loopExpr.has_label) {
+      ptrs[5] =
+          J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->loopExpr.label)));
     } else {
       ptrs[5] = J_PROP(J_ASCIZ("label"), J_NULL_ELEM);
     }
@@ -701,7 +719,8 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_Builtin")));
-    ptrs[3] = J_PROP(J_ASCIZ("value"), builtinJson(vep->builtinExpr.builtin, a));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("value"), builtinJson(vep->builtinExpr.builtin, a));
     break;
   }
   case VEK_Defer: {
@@ -723,14 +742,16 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_Continue")));
-    ptrs[3] = J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->continueExpr.label)));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->continueExpr.label)));
     break;
   }
   case VEK_Return: {
     ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_Return")));
-    ptrs[3] = J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->continueExpr.label)));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->continueExpr.label)));
     ptrs[4] = J_PROP(J_ASCIZ("value"), valueExprJson(vep->returnExpr.value, a));
     break;
   }
@@ -746,10 +767,12 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
       array[i] = matchCaseExprJson(&vep->matchExpr.cases[i], a);
     }
     ptrs[4] = J_PROP(J_ASCIZ("cases"), J_ARRAY_ELEM(array, len));
-    
-    ptrs[5] = J_PROP(J_ASCIZ("has_label"), J_BOOL_ELEM(vep->matchExpr.has_label));
-    if(vep->matchExpr.has_label) {
-      ptrs[6] = J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->matchExpr.label)));
+
+    ptrs[5] =
+        J_PROP(J_ASCIZ("has_label"), J_BOOL_ELEM(vep->matchExpr.has_label));
+    if (vep->matchExpr.has_label) {
+      ptrs[6] =
+          J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->matchExpr.label)));
     } else {
       ptrs[6] = J_PROP(J_ASCIZ("label"), J_NULL_ELEM);
     }
@@ -766,9 +789,11 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
       array[i] = stmntJson(&vep->blockExpr.statements[i], a);
     }
     ptrs[3] = J_PROP(J_ASCIZ("statements"), J_ARRAY_ELEM(array, len));
-    ptrs[4] = J_PROP(J_ASCIZ("has_label"), J_BOOL_ELEM(vep->blockExpr.has_label));
-    if(vep->matchExpr.has_label) {
-      ptrs[5] = J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->blockExpr.label)));
+    ptrs[4] =
+        J_PROP(J_ASCIZ("has_label"), J_BOOL_ELEM(vep->blockExpr.has_label));
+    if (vep->matchExpr.has_label) {
+      ptrs[5] =
+          J_PROP(J_ASCIZ("label"), J_STR_ELEM(J_ASCIZ(vep->blockExpr.label)));
     } else {
       ptrs[5] = J_PROP(J_ASCIZ("label"), J_NULL_ELEM);
     }
@@ -778,8 +803,10 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_FieldAccess")));
-    ptrs[3] = J_PROP(J_ASCIZ("value"), valueExprJson(vep->fieldAccess.value, a));
-    ptrs[4] = J_PROP(J_ASCIZ("field"), J_STR_ELEM(J_ASCIZ(vep->fieldAccess.field)));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("value"), valueExprJson(vep->fieldAccess.value, a));
+    ptrs[4] =
+        J_PROP(J_ASCIZ("field"), J_STR_ELEM(J_ASCIZ(vep->fieldAccess.field)));
     break;
   }
   case VEK_Reference: {
@@ -791,8 +818,8 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
   }
   }
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(vep->span, a));
-  ptrs[2] =
-      J_PROP(J_ASCIZ("comments"), commentsJson(vep->comments, vep->comments_len, a));
+  ptrs[2] = J_PROP(J_ASCIZ("comments"),
+                   commentsJson(vep->comments, vep->comments_len, a));
   // create final json object
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
@@ -833,7 +860,8 @@ j_Elem stmntJson(Stmnt *sp, Allocator *a) {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("SK_Macro")));
-    ptrs[3] = J_PROP(J_ASCIZ("macro"), J_STR_ELEM(J_ASCIZ(sp->macroStmnt.name)));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("macro"), J_STR_ELEM(J_ASCIZ(sp->macroStmnt.name)));
     break;
   }
   // Decls
@@ -841,7 +869,8 @@ j_Elem stmntJson(Stmnt *sp, Allocator *a) {
     ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("SK_ValDecl")));
-    ptrs[3] = J_PROP(J_ASCIZ("pattern"), patternExprJson(sp->valDecl.pattern, a));
+    ptrs[3] =
+        J_PROP(J_ASCIZ("pattern"), patternExprJson(sp->valDecl.pattern, a));
     ptrs[4] = J_PROP(J_ASCIZ("value"), valueExprJson(sp->valDecl.value, a));
     break;
   }
@@ -877,22 +906,22 @@ j_Elem stmntJson(Stmnt *sp, Allocator *a) {
   }
   }
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(sp->span, a));
-  ptrs[2] =
-      J_PROP(J_ASCIZ("comments"), commentsJson(sp->comments, sp->comments_len, a));
+  ptrs[2] = J_PROP(J_ASCIZ("comments"),
+                   commentsJson(sp->comments, sp->comments_len, a));
   // create final json object
   j_Elem je = J_OBJECT_ELEM(ptrs, ptrs_len);
   return je;
 }
 
 void print_stream(Parser *parser, FILE *file) {
-  while(true) {
+  while (true) {
     Allocator a = std_allocator();
 
     // Parse the next statment
     Stmnt stmnt;
-    Vector diagnostics =  vec_create(&a);
+    Vector diagnostics = vec_create(&a);
     bool eof = parse_nextStmntIfExists(&stmnt, &diagnostics, parser);
-    if(eof) {
+    if (eof) {
       vec_destroy(&diagnostics);
       break;
     }
@@ -900,14 +929,13 @@ void print_stream(Parser *parser, FILE *file) {
     // print the json
     j_Elem sjson = stmntJson(&stmnt, &a);
     fputs(j_stringify(&sjson, &a), file);
-    fputs("\n", file);
+    fputc('\n', file);
 
-
-    for(size_t i = 0; i < VEC_LEN(&diagnostics, Diagnostic); i--) {
-        Diagnostic d = *VEC_GET(&diagnostics, i, Diagnostic);
-        j_Elem djson = diagnosticJson(d, &a);
-        fputs(j_stringify(&djson, &a), file);
-        fputs("\n", file);
+    for (size_t i = 0; i < VEC_LEN(&diagnostics, Diagnostic); i--) {
+      Diagnostic d = *VEC_GET(&diagnostics, i, Diagnostic);
+      j_Elem djson = diagnosticJson(d, &a);
+      fputs(j_stringify(&djson, &a), file);
+      fputc('\n', file);
     }
     fflush(file);
     // Clean up

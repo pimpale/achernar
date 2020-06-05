@@ -756,7 +756,7 @@ static j_Elem valueExprJson(ValueExpr *vep, Allocator *a) {
     break;
   }
   case VEK_Block: {
-    ptrs_len = 8;
+    ptrs_len = 6;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("VEK_Block")));
     // Embed array
@@ -885,14 +885,17 @@ j_Elem stmntJson(Stmnt *sp, Allocator *a) {
 }
 
 void print_stream(Parser *parser, FILE *file) {
-  bool eof = false;
-  while(!eof) {
+  while(true) {
     Allocator a = std_allocator();
 
     // Parse the next statment
     Stmnt stmnt;
     Vector diagnostics =  vec_create(&a);
-    parseStmnt(&stmnt, &diagnostics, parser);
+    bool eof = parse_nextStmntIfExists(&stmnt, &diagnostics, parser);
+    if(eof) {
+      vec_destroy(&diagnostics);
+      break;
+    }
 
     // print the json
     j_Elem sjson = stmntJson(&stmnt, &a);
@@ -905,10 +908,8 @@ void print_stream(Parser *parser, FILE *file) {
         j_Elem djson = diagnosticJson(d, &a);
         fputs(j_stringify(&djson, &a), file);
         fputs("\n", file);
-        if(d.kind == DK_EOF) {
-          eof = true;
-        }
     }
+    fflush(file);
     // Clean up
     vec_destroy(&diagnostics);
     a_destroy(&a);

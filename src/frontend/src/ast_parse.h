@@ -26,7 +26,8 @@ typedef struct Parser_s {
 // Uses memory allocated from a to build a parser with the source as lp
 Parser parse_create(Lexer *lp, Allocator* a);
 
-void parseStmnt(Stmnt *stmnt, Vector* diagnostics, Parser *parser);
+// returns true if eof hit
+bool parse_nextStmntIfExists(Stmnt *s, Vector* diagnostics, Parser *parser);
 
 // Frees memory associated with the parser and cleans up
 Allocator* parse_release(Parser *pp);

@@ -216,6 +216,7 @@ static void resyncParser(Parser *parser, Vector *diagnostics) {
 }
 
 // Note that all errors resync at the statement level
+static void parseStmnt(Stmnt *stmnt, Vector* diagnostics, Parser *parser);
 static void parseValueExpr(ValueExpr *vep, Vector *diagnostics, Parser *parser);
 static void parseTypeExpr(TypeExpr *tep, Vector *diagnostics, Parser *parser);
 static void parsePatternExpr(PatternExpr *pp, Vector *diagnostics,
@@ -455,7 +456,7 @@ static void certain_parseBlockValueExpr(ValueExpr *bvep, Vector *diagnostics,
   if (t.kind == tk_Label) {
     bvep->blockExpr.has_label = true;
     bvep->blockExpr.label = t.label;
-    parse_next(parser, diagnostics);
+    t = parse_next(parser, diagnostics);
   } else {
     bvep->blockExpr.has_label = false;
   }
@@ -2147,7 +2148,7 @@ static void parseTypeExprStmnt(Stmnt *tesp, Vector *diagnostics,
   return;
 }
 
-void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
+static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   pushCommentScopeParser(parser);
   
   // peek next token
@@ -2205,7 +2206,6 @@ void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
     break;
   }
   default: {
-    // Value Expr Statement
     sp->kind = SK_ValExpr;
     sp->valExpr.value = ALLOC(parser->a, ValueExpr);
     parseValueExpr(sp->valExpr.value,diagnostics, parser);
@@ -2216,4 +2216,13 @@ void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   Vector comments = popCommentScopeParser(parser);
   sp->comments_len = VEC_LEN(&comments, Comment);
   sp->comments = vec_release(&comments);
+}
+
+bool parse_nextStmntIfExists(Stmnt *s, Vector* diagnostics, Parser *parser) {
+  Token t = parse_peek(parser);
+  if(t.kind == tk_Eof) {
+    return true;
+  }
+  parseStmnt(s, diagnostics, parser);
+  return false;
 }

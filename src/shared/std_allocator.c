@@ -76,13 +76,23 @@ static inline void *std_get(StdAllocator *backing, AllocId id) {
 
 static inline StdAllocator *std_create() {
   StdAllocator *sa = malloc(sizeof(StdAllocator));
-
-  // allocate once to form the standard allocator
-  sa->ptrs = malloc(2 * sizeof(AllocEntry));
-  sa->ptrs_cap = 2;
-  sa->ptrs_len = 1;
-  // the null pointer
-  sa->ptrs[0] = (AllocEntry){.ptr = NULL, .valid = true};
+  if(sa != NULL) {
+    void* ptr = malloc(2 * sizeof(AllocEntry));
+    if(ptr != NULL) {
+      // allocate once to form the standard allocator
+      sa->ptrs = ptr;
+      sa->ptrs_cap = 2;
+      sa->ptrs_len = 1;
+      // the null pointer
+      sa->ptrs[0] = (AllocEntry){.ptr = NULL, .valid = true};
+    } else {
+        // otherwise GCC complains
+        assert(ptr != NULL);
+    }
+  } else {
+    // helpful assertion to diagnose
+    assert(sa != NULL);
+  }
   return sa;
 }
 

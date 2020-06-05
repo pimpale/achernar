@@ -1,6 +1,8 @@
 #include "lexer.h"
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
 #include <stdlib.h>
 
 Lexer lex_fromFile(FILE *file) {
@@ -62,21 +64,25 @@ int32_t lex_next(Lexer *lexer) {
 }
 
 int32_t lex_peek(Lexer *lexer) {
+  int32_t ret = EOF;
   switch (lexer->backing) {
   case lex_BackingMemory: {
     // If it's within the bounds, return the value ahead of us
     if (lexer->memory.loc + 2 < lexer->memory.len) {
-      return (lexer->memory.ptr[lexer->memory.loc + 1]);
+      ret = (lexer->memory.ptr[lexer->memory.loc + 1]);
     } else {
-      return EOF;
+      ret = EOF;
     }
+    break;
   }
   case lex_BackingFile: {
     int32_t val = getc(lexer->file);
     ungetc(val, lexer->file);
-    return val;
+    ret = val;
+    break;
   }
   }
+  return ret;
 }
 
 Span lex_peekSpan(Lexer *lexer) {

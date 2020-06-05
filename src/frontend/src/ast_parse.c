@@ -932,7 +932,7 @@ static void parseFieldAccessValueExpr(ValueExpr *fave, Vector *diagnostics,
   fave->fieldAccess.value = root;
 
   Token t = parse_next(parser, diagnostics);
-  assert(t.kind == TEK_FieldAccess);
+  assert(t.kind == tk_FieldAccess);
 
   // Now we get the field
   t = parse_peek(parser);

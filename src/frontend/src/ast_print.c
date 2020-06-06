@@ -23,11 +23,11 @@ static j_Elem spanJson(Span span, Allocator *a) {
 }
 
 static j_Elem diagnosticJson(Diagnostic diagnostic, Allocator *a) {
-  j_Prop *ptrs = ALLOC_ARR(a, 2, j_Prop);
-
-  ptrs[0] = J_PROP(J_ASCIZ("kind"),
+  j_Prop *ptrs = ALLOC_ARR(a, 3, j_Prop);
+  ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("diagnostic")));
+  ptrs[1] = J_PROP(J_ASCIZ("diagnostic"),
                    J_STR_ELEM(J_ASCIZ(strDiagnosticKind(diagnostic.kind))));
-  ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(diagnostic.span, a));
+  ptrs[2] = J_PROP(J_ASCIZ("span"), spanJson(diagnostic.span, a));
   return J_OBJECT_ELEM(ptrs, 2);
 }
 
@@ -95,13 +95,13 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
   case PEK_None: {
     ptrs_len = 3;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_None")));
+    ptrs[0] = J_PROP(J_ASCIZ("pattern_kind"), J_STR_ELEM(J_ASCIZ("PEK_None")));
     break;
   }
   case PEK_Group: {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_Group")));
+    ptrs[0] = J_PROP(J_ASCIZ("pattern_kind"), J_STR_ELEM(J_ASCIZ("PEK_Group")));
     ptrs[3] = J_PROP(J_ASCIZ("value"), patternExprJson(pp->groupExpr.value, a));
     break;
   }
@@ -109,7 +109,7 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
     ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
     ptrs[0] =
-        J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_ValueRestriction")));
+        J_PROP(J_ASCIZ("pattern_kind"), J_STR_ELEM(J_ASCIZ("PEK_ValueRestriction")));
     char *pevrk;
     switch (pp->valueRestriction.restriction) {
     case PEVRK_CompEqual: {
@@ -154,7 +154,7 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
     }
 
     ptrs[0] =
-        J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_TypeRestriction")));
+        J_PROP(J_ASCIZ("pattern_kind"), J_STR_ELEM(J_ASCIZ("PEK_TypeRestriction")));
     ptrs[3] =
         J_PROP(J_ASCIZ("type"), typeExprJson(pp->typeRestriction.type, a));
     ptrs[4] = J_PROP(J_ASCIZ("has_binding"),
@@ -164,7 +164,7 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
   case PEK_UnaryOp: {
     ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_UnaryOp")));
+    ptrs[0] = J_PROP(J_ASCIZ("pattern_kind"), J_STR_ELEM(J_ASCIZ("PEK_UnaryOp")));
     char *peuok;
     switch (pp->unaryOp.operator) {
     case PEUOK_Not: {
@@ -180,7 +180,7 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
   case PEK_BinaryOp: {
     ptrs_len = 6;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_BinaryOp")));
+    ptrs[0] = J_PROP(J_ASCIZ("pattern_kind"), J_STR_ELEM(J_ASCIZ("PEK_BinaryOp")));
     char *pebok;
     switch (pp->binaryOp.operator) {
     case PEBOK_Tuple: {
@@ -210,7 +210,7 @@ static j_Elem patternExprJson(PatternExpr *pp, Allocator *a) {
   case PEK_Struct: {
     ptrs_len = 4;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PEK_Struct")));
+    ptrs[0] = J_PROP(J_ASCIZ("pattern_kind"), J_STR_ELEM(J_ASCIZ("PEK_Struct")));
     size_t members_len = pp->structExpr.members_len;
     j_Elem *members = ALLOC_ARR(a, members_len, j_Elem);
     for (size_t i = 0; i < members_len; i++) {
@@ -231,16 +231,17 @@ static j_Elem pathJson(Path *pp, Allocator *a) {
     return J_NULL_ELEM;
   }
 
-  size_t ptrs_len = 3;
+  size_t ptrs_len = 4;
   j_Prop *ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-  ptrs[0] = J_PROP(J_ASCIZ("span"), spanJson(pp->span, a));
-  ptrs[1] = J_PROP(J_ASCIZ("comments"),
+  ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("path")));
+  ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(pp->span, a));
+  ptrs[2] = J_PROP(J_ASCIZ("comments"),
                    commentsJson(pp->comments, pp->comments_len, a));
   j_Elem *path_ptrs = ALLOC_ARR(a, pp->pathSegments_len, j_Elem);
   for (size_t i = 0; i < pp->pathSegments_len; i++) {
     path_ptrs[i] = J_STR_ELEM(J_ASCIZ(pp->pathSegments[i]));
   }
-  ptrs[2] = J_PROP(J_ASCIZ("path_segments"),
+  ptrs[3] = J_PROP(J_ASCIZ("path_segments"),
                    J_ARRAY_ELEM(path_ptrs, pp->pathSegments_len));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
@@ -417,21 +418,21 @@ patternStructMemberExprJson(struct PatternStructMemberExpr_s *psmep,
   case PSMEK_Field: {
     ptrs_len = 6;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PSMEK_Field")));
+    ptrs[4] = J_PROP(J_ASCIZ("PatternStructMemberExpr_kind"), J_STR_ELEM(J_ASCIZ("PSMEK_Field")));
     ptrs[5] = J_PROP(J_ASCIZ("field"), J_STR_ELEM(J_ASCIZ(psmep->field.field)));
     break;
   }
   case PSMEK_Rest: {
-    ptrs_len = 4;
+    ptrs_len = 5;
     ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-    ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PSMEK_Rest")));
+    ptrs[4] = J_PROP(J_ASCIZ("PatternStructMemberExpr_kind"), J_STR_ELEM(J_ASCIZ("PSMEK_Rest")));
   }
   }
-  ptrs[3] = J_PROP(J_ASCIZ("pattern"), patternExprJson(psmep->pattern, a));
-
+  ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("PatternStructMemberExpr")));
   ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(psmep->span, a));
   ptrs[2] = J_PROP(J_ASCIZ("comments"),
                    commentsJson(psmep->comments, psmep->comments_len, a));
+  ptrs[3] = J_PROP(J_ASCIZ("pattern"), patternExprJson(psmep->pattern, a));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 
@@ -441,13 +442,14 @@ typeStructMemberExprJson(struct TypeStructMemberExpr_s *tsmep,
   if (tsmep == NULL) {
     return J_NULL_ELEM;
   }
-  size_t ptrs_len = 4;
+  size_t ptrs_len = 5;
   j_Prop *ptrs = ALLOC_ARR(a, ptrs_len, j_Prop);
-  ptrs[0] = J_PROP(J_ASCIZ("span"), spanJson(tsmep->span, a));
-  ptrs[1] = J_PROP(J_ASCIZ("name"), J_STR_ELEM(J_ASCIZ(tsmep->name)));
-  ptrs[2] = J_PROP(J_ASCIZ("comments"),
+  ptrs[0] = J_PROP(J_ASCIZ("kind"), J_STR_ELEM(J_ASCIZ("TypeStructMemberExpr")));
+  ptrs[1] = J_PROP(J_ASCIZ("span"), spanJson(tsmep->span, a));
+  ptrs[2] = J_PROP(J_ASCIZ("name"), J_STR_ELEM(J_ASCIZ(tsmep->name)));
+  ptrs[3] = J_PROP(J_ASCIZ("comments"),
                    commentsJson(tsmep->comments, tsmep->comments_len, a));
-  ptrs[3] = J_PROP(J_ASCIZ("type"), typeExprJson(tsmep->type, a));
+  ptrs[4] = J_PROP(J_ASCIZ("type"), typeExprJson(tsmep->type, a));
   return J_OBJECT_ELEM(ptrs, ptrs_len);
 }
 

@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "error.h"
-
 // The percent it will increase when out of room MUST BE POSITIVE
 // Ex. 1.5 -> 50% expansion each time the limit is hit
 #define LOAD_FACTOR 2

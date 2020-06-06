@@ -116,7 +116,7 @@ static AllocId std_allocator_fn(void *backing, size_t size) {
 static AllocId std_allocator_flags_fn(void *backing, size_t size,
                                       AllocatorFlags flags) {
   UNUSED(flags);
-  return std_allocate(backing, size);
+  return std_allocate((StdAllocator*)backing, size);
 }
 
 static void std_deallocator_fn(void *backing, AllocId id) {

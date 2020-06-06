@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include "allocator.h"
-#include "error.h"
 #include "vector.h"
 
 // GLORIOUS UTILS
@@ -324,11 +323,11 @@ static j_Elem j_certain_parseNumberElem(Lexer *l, Vector *diagnostics,
 
   double fractional_component = 0;
   if (fractional) {
-    double place = 0.1;
+    double place = 1;
     while ((c = lex_peek(l)) != EOF) {
       if (isdigit(c)) {
-        fractional_component += place * (c - '0');
-        place /= 10;
+        place *= 10;
+        fractional_component += (c - '0')/place;
         lex_next(l);
       } else {
         break;

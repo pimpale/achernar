@@ -26,7 +26,5 @@ static inline uint64_t safe_abs(int64_t val) {
 #define UNUSED(x) (void)(x)
 #define ZERO(ptr) (memset(ptr, 0, sizeof(*ptr)))
 #define PANIC() abort()
-#define INTERNAL_ERROR(appname, msg) logInternalError(appname, __LINE__, __func__, msg)
-void logInternalError(const char* appname, uint32_t line, const char *func, const char *fmt, ...);
 
 #endif

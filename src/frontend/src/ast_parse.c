@@ -7,7 +7,6 @@
 
 #include "ast.h"
 #include "constants.h"
-#include "error.h"
 #include "json.h"
 #include "lex.h"
 #include "std_allocator.h"
@@ -1398,9 +1397,7 @@ static void certain_parseStructTypeExpr(TypeExpr *ste, Vector *diagnostics,
     break;
   }
   default: {
-    INTERNAL_ERROR(APPNAME, "called struct type expression parser where there was no "
-                   "struct declaration");
-    PANIC();
+    assert(t.kind == tk_Struct || t.kind == tk_Enum);
   }
   }
 
@@ -1705,8 +1702,13 @@ static void certain_parseValueRestrictionPatternExpr(PatternExpr *vrpe, Vector* 
     break;
   }
   default: {
-    INTERNAL_ERROR(APPNAME, "called value restrict pattern expr parser where there was "
-                   "no value restrict pattern");
+    assert(
+        t.kind == tk_CompEqual ||
+        t.kind == tk_CompNotEqual ||
+        t.kind == tk_CompGreaterEqual ||
+        t.kind == tk_CompGreater ||
+        t.kind == tk_CompLess ||
+        t.kind == tk_CompLessEqual);
     PANIC();
   }
   }
@@ -1726,7 +1728,6 @@ static void certain_parseTypeRestrictionPatternExpr(PatternExpr *trpe, Vector* d
 
   bool parseType = false;
 
-  
   Token t = parse_next(parser, diagnostics);
 
   LnCol start = t.span.start;
@@ -1756,8 +1757,7 @@ static void certain_parseTypeRestrictionPatternExpr(PatternExpr *trpe, Vector* d
     break;
   }
   default: {
-    INTERNAL_ERROR(APPNAME, "called type restrict pattern expr parser where there was "
-                   "no type restrict pattern");
+    assert(t.kind == tk_Colon || t.kind == tk_Identifier);
     PANIC();
   }
   }

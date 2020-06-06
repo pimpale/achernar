@@ -1,12 +1,11 @@
-#ifndef AST_H_
-#define AST_H_
+#ifndef AST_H
+#define AST_H
 
+#include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "error.h"
-#include "lexer.h"
-#include "token.h"
+#include "lncol.h"
 
 typedef enum {
   SK_None,

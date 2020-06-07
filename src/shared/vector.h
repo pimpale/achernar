@@ -65,8 +65,10 @@ void *vec_insert(Vector *vec, size_t loc, size_t len);
 /// Removes `len` bytes of memory
 /// If `data` is not NULL, the removed memory will be copied to `data`
 /// REQUIRES: `data` is NULL or a pointer to a segment of memory at least `len`
-/// bytes REQUIRES: `vec` is a pointer to a valid Vector REQUIRES: `loc` <
-/// vector's current length REQUIRES: `len` <= `vec`'s current length - `loc`
+///           bytes 
+/// REQUIRES: `vec` is a pointer to a valid Vector
+/// REQUIRES: `loc` < vector's current length 
+/// REQUIRES: `len` <= `vec`'s current length - `loc`
 /// GUARANTEES: vector's length is decreased by `len` byte
 /// GUARANTEES: vector's byes from [loc, `loc` + len) will be removed
 /// GUARANTEES: the remainder of the vector will be moved backward `len` bytes
@@ -86,9 +88,10 @@ void *vec_push(Vector *vec, size_t len);
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// REQUIRES: `len` < vector's current length
 /// REQUIRES: data is either NULL, or a pointer to a segment of memory at least
-/// `len` bytes long GUARANTEES: the vector's length is decreased by `len` bytes
-/// GUARANTEES: if `data` is NULL, the bytes from the end of the array will be
-/// lost GUARANTEES: if `data` is not NULL, the the bytes from the
+///           `len` bytes long 
+/// GUARANTEES: the vector's length is decreased by `len` bytes
+/// GUARANTEES: if `data` is NULL, the bytes from the end of the array will be lost
+/// GUARANTEES: if `data` is not NULL, the last `len` bytes from the array will be copied to `data`
 void vec_pop(Vector *vec, void *data, size_t len);
 
 /// Returns the length of `vec`

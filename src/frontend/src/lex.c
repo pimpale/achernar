@@ -213,7 +213,7 @@ static uint64_t parseNumBaseComponent(Lexer *l, Vector *diagnostics,
     if (c >= '0' && c <= '9') {
       digit_val = (uint8_t)(c - '0');
     } else if (c >= 'A' && c <= 'F') {
-      digit_val = (uint8_t)(c - 'A');
+      digit_val = 10 + (uint8_t)(c - 'A');
     } else if (c == '_') {
       // skip it
       lex_next(l);

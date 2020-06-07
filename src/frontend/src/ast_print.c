@@ -923,8 +923,10 @@ void print_stream(Parser *parser, FILE *file) {
     Stmnt stmnt;
     Vector diagnostics = vec_create(&a);
     bool eof = parse_nextStmntIfExists(&stmnt, &diagnostics, parser);
+
     if (eof) {
       vec_destroy(&diagnostics);
+      a_destroy(&a);
       break;
     }
 
@@ -940,6 +942,7 @@ void print_stream(Parser *parser, FILE *file) {
       fputc('\n', file);
     }
     fflush(file);
+
     // Clean up
     vec_destroy(&diagnostics);
     a_destroy(&a);

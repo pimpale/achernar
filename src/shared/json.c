@@ -57,15 +57,27 @@ static void j_emitInt(Vector *vptr, j_Int val) {
   if (val.negative) {
     *VEC_PUSH(vptr, char) = '-';
   }
+  //buffer to push
+  char buffer[30];
+
   uint64_t digit = val.integer;
-  while (true) {
+  int64_t index = 0;
+  while (index < 30) {
     int8_t rem = digit % 10;
+    buffer[index] = '0' + rem;
     digit /= 10;
-    *VEC_PUSH(vptr, char) = '0' + rem;
     if (digit == 0) {
       break;
     }
+    index++;
   }
+
+  // push buffer in reverse order
+  while(index >= 0) {
+    j_unchecked_emitChar(vptr, buffer[index]);
+    index--;
+  }
+
 }
 
 static void j_emitNum(Vector *vptr, double number) {

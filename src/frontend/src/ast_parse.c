@@ -13,6 +13,7 @@
 #include "token.h"
 #include "utils.h"
 #include "vector.h"
+#include "queue.h"
 
 // convoluted function to save repetitive tasks
 #define PARSE_LIST(members_vec_ptr, diagnostics_vec_ptr,                       \
@@ -41,9 +42,9 @@ Parser parse_create(Lexer *lp, Allocator *a) {
   return (Parser){
       .a = a,                                  // Allocator
       .lexer = lp,                             // Lexer Pointer
-      .next_tokens_stack = vec_create(a),      // Stack of all peeked tokens
-      .next_diagnostics_stack = vec_create(a), // Stack<Vector<Comment>>
-      .next_comments_stack = vec_create(a),    // Stack<Vector<Comment>>
+      .next_tokens_queue = queue_create(vec_create(a)),      // Queue of peeked tokens
+      .next_diagnostics_queue = queue_create(vec_create(a)), // Queue<Vector<Comment>>
+      .next_comments_queue = queue_create(vec_create(a)),    // Queue<Vector<Comment>>
       .comments = vec_create(a),               // Vector<Comment>
       .paren_depth = 0,
       .brace_depth = 0,
@@ -105,28 +106,28 @@ static Token parse_next(Parser *pp, Vector *diagnostics) {
   size_t top_index = VEC_LEN(&pp->comments, Vector);
   assert(top_index > 0);
   Vector *current_scope = VEC_GET(&pp->comments, top_index - 1, Vector);
-  if (VEC_LEN(&pp->next_tokens_stack, Token) != 0) {
+  if(QUEUE_LEN(&pp->next_tokens_queue, Token) > 0) {
     // we want to merge together the next token's diagnostics and comments into
     // the provided ones
 
     // Vector containing all comments for the next token
-    Vector next_token_comments;
     // pop a vector off the stack and assign it to next_token_comments
-    VEC_REM(&pp->next_comments_stack, &next_token_comments, 0, Vector);
+    Vector next_token_comments;
+    QUEUE_POP(&pp->next_comments_queue, &next_token_comments, Vector);
 
     // append next_token_comments to the current scope
     vec_append(current_scope, &next_token_comments);
 
     // Vector containing all diagnostics for the next
     Vector next_token_diagnostics;
-    VEC_REM(&pp->next_diagnostics_stack, &next_token_diagnostics, 0, Vector);
+    QUEUE_POP(&pp->next_diagnostics_queue, &next_token_diagnostics, Vector);
 
     // append next_token_diagnostics to the diagnostics vector
     vec_append(diagnostics, &next_token_diagnostics);
 
     // set the token
     Token ret;
-    VEC_REM(&pp->next_tokens_stack, &ret, 0, Token);
+    QUEUE_POP(&pp->next_tokens_queue, &ret, Token);
     return ret;
   } else {
     return parse_rawNext(pp, current_scope, diagnostics);
@@ -137,22 +138,23 @@ static Token parse_next(Parser *pp, Vector *diagnostics) {
 // K must be greater than 0
 static Token parse_peekNth(Parser *pp, size_t k) {
   assert(k > 0);
-  for (size_t i = VEC_LEN(&pp->next_tokens_stack, Token); i < k; i++) {
+  
+  for (size_t i = QUEUE_LEN(&pp->next_tokens_queue, Token); i < k; i++) {
     // Create vector to store any comments
-    Vector *next_token_comments = VEC_PUSH(&pp->next_comments_stack, Vector);
+    Vector *next_token_comments = QUEUE_PUSH(&pp->next_comments_queue, Vector);
     *next_token_comments = vec_create(pp->a);
 
     // Create vector to store any diagnostics
     Vector *next_token_diagnostics =
-        VEC_PUSH(&pp->next_diagnostics_stack, Vector);
+        QUEUE_PUSH(&pp->next_diagnostics_queue, Vector);
     *next_token_diagnostics = vec_create(pp->a);
 
     // parse the token and add it to the top of the stack
-    *VEC_PUSH(&pp->next_tokens_stack, Token) =
+    *QUEUE_PUSH(&pp->next_tokens_queue, Token) =
         parse_rawNext(pp, next_token_comments, next_token_diagnostics);
   }
-  // peek the token at the desired location's kind
-  return *VEC_GET(&pp->next_tokens_stack, k - 1, Token);
+  // return the most recent token added
+  return *QUEUE_GET(&pp->next_tokens_queue, 0, Token);
 }
 
 static Token parse_peek(Parser *parser) { return parse_peekNth(parser, 1); }
@@ -180,13 +182,18 @@ static void pushCommentScopeParser(Parser *parser) {
 }
 
 Allocator *parse_release(Parser *pp) {
-  for (size_t i = 0; i < VEC_LEN(&pp->next_comments_stack, Vector); i++) {
-    vec_destroy(VEC_GET(&pp->next_comments_stack, i, Vector));
-    vec_destroy(VEC_GET(&pp->next_diagnostics_stack, i, Vector));
+  while(QUEUE_LEN(&pp->next_comments_queue, Vector) != 0) {
+    Vector comments;
+    QUEUE_POP(&pp->next_comments_queue, &comments, Vector);
+    vec_destroy(&comments);
+
+    Vector diagnostics;
+    QUEUE_POP(&pp->next_diagnostics_queue, &diagnostics, Vector);
+    vec_destroy(&diagnostics);
   }
-  vec_destroy(&pp->next_diagnostics_stack);
-  vec_destroy(&pp->next_comments_stack);
-  vec_destroy(&pp->next_tokens_stack);
+  queue_destroy(&pp->next_diagnostics_queue);
+  queue_destroy(&pp->next_comments_queue);
+  queue_destroy(&pp->next_tokens_queue);
 
   // ensure that caller has popped the current scope
   assert(VEC_LEN(&pp->comments, Vector) == 0);
@@ -209,7 +216,10 @@ static void resyncParser(Parser *parser, Vector *diagnostics) {
         initial_bracket_depth > parser->bracket_depth) {
       break;
     }
-    parse_rawNext(parser, &comments, diagnostics);
+    Token t = parse_rawNext(parser, &comments, diagnostics);
+    if(t.kind == tk_Eof) {
+      break;
+    }
   }
   vec_destroy(&comments);
 }

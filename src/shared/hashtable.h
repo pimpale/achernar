@@ -18,9 +18,11 @@ typedef struct {
 typedef struct {
   void *key;
   size_t keylen;
+  AllocId key_allocId;
 
   void *value;
   size_t valuelen;
+  AllocId value_allocId;
 
   bool existent;
 } HashTableKVPair;
@@ -29,12 +31,15 @@ typedef struct {
 typedef struct {
   Allocator *a;
 
-  // The mappings in the table
-  HashTableKVPair *mappings;
-  // Number of mappings in mappings
-  size_t mappingCount;
-  // Total number of spots for mappings
-  size_t mappingCapacity;
+  // The KV Pairs in the table
+  HashTableKVPair *pairs;
+  AllocId pairs_allocId;
+
+  // Number of existent KV Pairs in `pairs`
+  size_t pair_count;
+
+  // length of `pairs`
+  size_t pairs_capacity;
 } HashTable;
 
 // Creates a hashtable using memory allocated from `a` with default capacity
@@ -85,7 +90,7 @@ HashTableValueLength hashtable_valueLength(const HashTable *hashtable, void *key
 /// REQUIRES: a KV pair must be defined for the value of `key`
 /// GUARANTEES: returns a pointer to the the value of the KV pair
 /// GUARANTEES: this pointer is valid until the next operation on `hashtable`
-void* hashtable_get(HashTable *hashtable, void *key, size_t keylen);
+void* hashtable_get(const HashTable *hashtable, void *key, size_t keylen);
 
 // deletes the KV pair with key `key` from `hashtable`
 /// REQUIRES: `hashtable` is a valid pointer to a HashTable.

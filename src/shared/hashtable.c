@@ -1,177 +1,166 @@
 #include "hashtable.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "hash.h"
 
-#define MIN_LOAD_FACTOR 0.05f
-#define MAX_LOAD_FACTOR 0.2f
+#define MIN_LOAD_FACTOR 0.01
+#define OPT_LOAD_FACTOR 0.05
+#define MAX_LOAD_FACTOR 0.2
+
 #define INITIAL_CAPACITY 1
 
-/* Initializes a mapping data structure */
-void initMapping(Mapping *mapping, void *key, size_t keylen, void *value,
-                 size_t valuelen);
-
-/* Frees a mapping data structure */
-void freeMapping(Mapping *mapping);
-
-/* Resizes table to the given number of spots, and then attempts to fit all
- * hashes inside */
-void resizeTable(Table *table, size_t newCapacity);
-
 /* copies data to mapping pointer */
-void initMapping(Mapping *mapping, void *key, size_t keylen, void *value,
-                 size_t valuelen) {
-  mapping->existent = true;
-  mapping->keylen = keylen;
-  mapping->valuelen = valuelen;
-  mapping->key = malloc(keylen);
-  mapping->value = malloc(valuelen);
-  memcpy(mapping->key, key, keylen);
-  memcpy(mapping->value, value, valuelen);
+static void kvp_init(HashTableKVPair *kvp, void *key, size_t keylen,
+                     size_t valuelen, Allocator *a) {
+  kvp->existent = true;
+
+  kvp->keylen = keylen;
+  kvp->key_allocId = a_alloc(a, keylen);
+  kvp->key = a_get(a, kvp->key_allocId);
+  memcpy(kvp->key, key, keylen);
+
+  kvp->valuelen = valuelen;
+  kvp->value_allocId = a_alloc(a, valuelen);
+  kvp->value = a_get(a, kvp->value_allocId);
 }
 
-void freeMapping(Mapping *mapping) {
-  if (mapping->existent) {
-    mapping->existent = false;
-    free(mapping->key);
-    free(mapping->value);
-  }
-}
-
-void updateMappingValue(Mapping *mapping, void *value, size_t valuelen);
-void updateMappingValue(Mapping *mapping, void *value, size_t valuelen) {
-  if (mapping->valuelen != valuelen) {
-    mapping->value = realloc(mapping->value, valuelen);
-    mapping->valuelen = valuelen;
-  }
-  memcpy(mapping->value, value, valuelen);
-}
-
-float currentLoadTable(Table *table);
-float currentLoadTable(Table *table) {
-  return (((float)table->mappingCount) / ((float)table->mappingCapacity));
+static void kvp_destroy(HashTableKVPair *kvp, Allocator *a) {
+  assert(kvp->existent);
+  a_dealloc(a, kvp->key_allocId);
+  a_dealloc(a, kvp->value_allocId);
+  kvp->existent = false;
 }
 
 // Creates table with default initial capacity
-void initTable(Table *table) { initTableCapacity(table, INITIAL_CAPACITY); }
+HashTable hashtable_create(Allocator *a) { 
+  return hashtable_createWithCapacity(a, INITIAL_CAPACITY); 
+}
 
 // Initializes the memory pointed to as a table with given capacity
-void initTableCapacity(Table *table, size_t capacity) {
-  table->mappingCount = 0;
-  table->mappingCapacity = capacity;
+HashTable hashtable_createWithCapacity(Allocator *a, size_t capacity) {
+  HashTable table;
+  table.a = a;
+  table.pair_count= 0;
+  table.pairs_capacity = capacity;
   // Initialize array to zero
-  size_t mappingLength = capacity * sizeof(Mapping);
-  table->mappings = malloc(mappingLength);
-  memset(table->mappings, 0, mappingLength);
+  size_t arr_size = capacity * sizeof(HashTableKVPair);
+  table.pairs_allocId = a_alloc(a, arr_size);
+  table.pairs = a_get(a, table.pairs_allocId);
+  memset(table.pairs, 0, arr_size);
+  return table;
 }
 
-void resizeTable(Table *table, size_t newCapacity) {
-  Table newTable;
-  initTableCapacity(&newTable, newCapacity);
-  for (size_t i = 0; i < table->mappingCapacity; i++) {
-    Mapping m = table->mappings[i];
-    if (m.existent) {
-      putTable(&newTable, m.key, m.keylen, m.value, m.valuelen);
-    }
-  }
-  // free the old table
-  freeTable(table);
-  // overwrite with new table
-  *table = newTable;
-}
-
-void freeTable(Table *table) {
+void hashtable_destroy(HashTable *hashtable) {
   // Free all mappings
-  for (size_t i = 0; i < table->mappingCapacity; i++) {
-    if (table->mappings[i].existent) {
-      freeMapping(&table->mappings[i]);
+  for (size_t i = 0; i < hashtable->pairs_capacity; i++) {
+    if (hashtable->pairs[i].existent) {
+      kvp_destroy(&hashtable->pairs[i], hashtable->a);
     }
   }
   // Now free memory
-  free(table->mappings);
+  a_dealloc(hashtable->a, hashtable->pairs_allocId);
 }
 
-size_t getMappingIndexTable(Table *table, void *key, size_t keylen);
+/* Resizes table to the given number of spots, and then attempts to fit all
+ * hashes inside */
+// Literally clones the whole hashmap, super expensive operation
+// TODO: make this faster
+static void hashtable_resize(HashTable *hashtable, size_t capacity) {
+  // check that new size is not too small
+  assert((double)hashtable->pair_count / (double)capacity < MAX_LOAD_FACTOR);
 
-size_t getMappingIndexTable(Table *table, void *key, size_t keylen) {
-  uint32_t attempt = 0;
+  HashTable new =  hashtable_createWithCapacity(hashtable->a, capacity);
+  for (size_t i = 0; i < hashtable->pairs_capacity; i++) {
+    HashTableKVPair htkvp = hashtable->pairs[i];
+    if (htkvp.existent) {
+      // clone mapping
+      void* value = hashtable_set(&new, htkvp.key, htkvp.keylen, htkvp.valuelen);
+      memcpy(value, htkvp.value, htkvp.valuelen);
+    }
+  }
+  // free the old table
+  hashtable_destroy(hashtable);
+  // overwrite with new table
+  *hashtable = new;
+}
+
+static HashTableKVPair* hashtable_getKVPair(const HashTable *table, void *key, size_t keylen) {
+  uint64_t attempt = 0;
   // Double hashing algorithm
   while (true) {
-    // Calculate index
-    size_t index = simpleHash(attempt, key, keylen) % table->mappingCapacity;
-    Mapping m = table->mappings[index];
-    // If the mapping does not exist yet
-    if (!m.existent) {
-      return (index);
-    } else if (keylen == m.keylen && memcmp(m.key, key, keylen) == 0) {
+    // Calculate index and retrieve mapping
+    size_t index = simpleHash(attempt, key, keylen) % table->pairs_capacity;
+    HashTableKVPair *kvp = &table->pairs[index];
+    if (!kvp->existent) {
+      // If the mapping does not exist yet
+      return kvp;
+    } else if (keylen == kvp->keylen && memcmp(kvp->key, key, keylen) == 0) {
       // If the mapping exists and keys match
-      return (index);
-    } else if (attempt <= table->mappingCapacity) {
+      return kvp;
+    } else if (attempt < table->pairs_capacity) {
       // If there is another attempt availaible
       attempt++;
     } else {
       // Once we've iterated through all possibilities
-      FATAL("Table lookup failed");
+      // This is probably because we have a bad hashing function or the table is too small
+      assert(attempt < table->pairs_capacity);
     }
   }
 }
 
-void putTable(Table *table, void *key, size_t keylen, void *value,
-              size_t valuelen) {
-  size_t index = getMappingIndexTable(table, key, keylen);
-  Mapping *m = &table->mappings[index];
-  // If m exists, just update it
-  if (m->existent) {
-    updateMappingValue(m, value, valuelen);
+void *hashtable_set(HashTable *hashtable, void *key, size_t keylen, size_t valuelen) {
+  // if potentially adding this element would cause the load to increase too much, then we must resize
+  if((double)(hashtable->pair_count+1) / (double)hashtable->pairs_capacity > MAX_LOAD_FACTOR) {
+    // resize so that the table is at the OPT_LOAD_FACTOR
+    hashtable_resize(hashtable, (double)(hashtable->pair_count+1)/OPT_LOAD_FACTOR);
+  }
+
+  HashTableKVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
+
+  // If kvp exists, just update it
+  if (kvp->existent) {
+    // if the value length is different we must reallocate
+    if (kvp->valuelen != valuelen) {
+        a_dealloc(hashtable->a, kvp->key_allocId);
+        kvp->key_allocId = a_alloc(hashtable->a, valuelen);
+        kvp->key = a_get(hashtable->a, kvp->key_allocId);
+        kvp->valuelen = valuelen;
+    }
+    return kvp->value;
   } else {
-    // Create a new mapping and update the mapping count
-    initMapping(m, key, keylen, value, valuelen);
-    table->mappingCount++;
-  }
-
-  // If the load on table is greater than what it should be
-  if (currentLoadTable(table) > MAX_LOAD_FACTOR) {
-    // expand the size of this table
-    resizeTable(table, table->mappingCapacity * 2);
-  }
-  return;
-}
-
-void delTable(Table *table, void *key, size_t keylen) {
-  size_t index = getMappingIndexTable(table, key, keylen);
-  Mapping *m = &table->mappings[index];
-  // If a mapping exists, free it
-  if (m->existent) {
-    freeMapping(m);
-  }
-
-  if (currentLoadTable(table) < MIN_LOAD_FACTOR &&
-      currentLoadTable(table) * 2 < MAX_LOAD_FACTOR) {
-    resizeTable(table, table->mappingCapacity / 2);
+    // update the count
+    hashtable->pair_count++;
+    // Create a new key value pair 
+    kvp_init(kvp, key, keylen, valuelen, hashtable->a);
+    return kvp->value;
   }
 }
 
-size_t getValueLengthTable(Table *table, void *key, size_t keylen) {
-  size_t index = getMappingIndexTable(table, key, keylen);
-  Mapping *m = &table->mappings[index];
+void hashtable_remove(HashTable *hashtable, void *key, size_t keylen) {
+  HashTableKVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
+  kvp_destroy(kvp, hashtable->a);
+
+  if((double)(hashtable->pair_count)/(double)(hashtable->pairs_capacity) < MIN_LOAD_FACTOR) {
+    // resize so that the table is at the OPT_LOAD_FACTOR
+    hashtable_resize(hashtable, (double)(hashtable->pair_count+1)/OPT_LOAD_FACTOR);
+  }
+}
+
+HashTableValueLength hashtable_valueLength(const HashTable *hashtable, void *key, size_t keylen) {
+  HashTableKVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
   // If m exists, return the valuelen, otherwise return 0
-  return (m->existent ? m->valuelen : 0);
+  return (HashTableValueLength) {
+      .exists=kvp->existent,
+      .length=kvp->valuelen
+  };
 }
 
-void getTable(Table *table, void *key, size_t keylen, void *value,
-              size_t valuelen) {
-  size_t index = getMappingIndexTable(table, key, keylen);
-  Mapping *m = &table->mappings[index];
-  if (m->existent) {
-    memcpy(value, m->value, valuelen);
-  } else {
-    FATAL("No value defined for key");
-  }
-  return;
+void* hashtable_get(const HashTable *hashtable, void *key, size_t keylen) {
+  HashTableKVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
+  assert(kvp->existent);
+  return kvp->value;
 }
-

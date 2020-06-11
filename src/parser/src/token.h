@@ -19,7 +19,7 @@ typedef enum {
   tk_Loop,        // loop
   tk_Match,       // match
   tk_Continue,    // continue
-  tk_Let,         // let
+  tk_Val,         // val
   tk_Return,      // return
   tk_Defer,       // defer
   tk_Fn,          // fn
@@ -92,7 +92,6 @@ typedef enum {
   tk_Rest,         // ..
   tk_Dollar,       // $
   // Macros
-  tk_Builtin,   // _builtin
   tk_Label,     // 'label
   tk_MacroCall, // macrocall!
   // Comments, and Attributes
@@ -109,7 +108,6 @@ typedef struct Token_s {
   union {
     char *identifier;
     char *macro_call;
-    char *builtin;
     char *label;
     struct {
       char *comment;

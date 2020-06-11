@@ -1987,7 +1987,7 @@ static void parseValDecl(Stmnt *vdsp, Vector *diagnostics, Parser *parser) {
   vdsp->kind = SK_ValDecl;
 
   Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_Let);
+  assert(t.kind == tk_Val);
   LnCol start = t.span.start;
 
   // Get Binding
@@ -2098,8 +2098,8 @@ static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
     sp->span = SPAN(start, sp->namespaceStmnt.stmnt->span.end);
     break;
   }
-  // Let Stmnt (Decl)
-  case tk_Let: {
+  // Val Stmnt (Decl)
+  case tk_Val: {
     parseValDecl(sp, diagnostics, parser);
     break;
   }

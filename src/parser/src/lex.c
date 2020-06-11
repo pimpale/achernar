@@ -549,9 +549,19 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
                    .span = span};
   }
 
+  if(!strcmp(string, "_")) {
+    vec_destroy(&data);
+    return (Token) {
+        .kind=tk_Underscore,
+        .span=span
+    };
+  }
+
   if (!strcmp(string, "true")) {
+    vec_destroy(&data);
     return (Token){.kind = tk_Bool, .bool_literal = true, .span = span};
   } else if (!strcmp(string, "false")) {
+    vec_destroy(&data);
     return (Token){.kind = tk_Bool, .bool_literal = false, .span = span};
   }
 
@@ -559,8 +569,8 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   token.span = span;
   if (!strcmp(string, "loop")) {
     token.kind = tk_Loop;
-  } else if (!strcmp(string, "let")) {
-    token.kind = tk_Let;
+  } else if (!strcmp(string, "val")) {
+    token.kind = tk_Val;
   } else if (!strcmp(string, "use")) {
     token.kind = tk_Use;
   } else if (!strcmp(string, "namespace")) {
@@ -603,46 +613,6 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   return token;
 }
 
-// Parses a builtin or an underscore token
-static Token lexBuiltinOrUnderscore(Lexer *lexer, Vector *diagnostics,
-                                    Allocator *a) {
-  UNUSED(diagnostics);
-
-  LnCol start = lexer->position;
-
-  int32_t c;
-  assert(lex_next(lexer) == '_');
-
-  c = lex_peek(lexer);
-  if (!isalpha(c)) {
-    return (Token){
-        .kind = tk_Underscore,
-        .span = SPAN(start, lexer->position),
-    };
-  }
-
-  Vector data =  vec_create(a);
-
-  while ((c = lex_peek(lexer)) != EOF) {
-    if (isalnum(c)) {
-      *VEC_PUSH(&data, char) = (char)c;
-      lex_next(lexer);
-    } else {
-      break;
-    }
-  }
-
-  Span span = SPAN(start, lexer->position);
-
-  // Note that string length does not incude the trailing null byte
-  // Push null byte
-  *VEC_PUSH(&data, char) = '\0';
-  char *string = vec_release(&data);
-
-  // If it wasn't an identifier
-  return (Token){.builtin = string, .kind = tk_Builtin, .span = span};
-}
-
 #define RESULT_TOKEN(tokenType)                                                \
   (Token) { .kind = tokenType, .span = SPAN(start, lexer->position) }
 
@@ -666,7 +636,7 @@ Token tk_next(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   LnCol start = lexer->position;
 
-  if (isalpha(c)) {
+  if (isalpha(c) || c == '_') {
     return lexWord(lexer, diagnostics, a);
   } else if (isdigit(c)) {
     return lexNumberLiteral(lexer, diagnostics, a);
@@ -677,9 +647,6 @@ Token tk_next(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     }
     case '\"': {
       return lexStringLiteral(lexer, diagnostics, a);
-    }
-    case '_': {
-      return lexBuiltinOrUnderscore(lexer, diagnostics, a);
     }
     case '#': {
       return lexComment(lexer, diagnostics, a);

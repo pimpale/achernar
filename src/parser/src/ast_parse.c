@@ -9,11 +9,11 @@
 #include "constants.h"
 #include "json.h"
 #include "lex.h"
+#include "queue.h"
 #include "std_allocator.h"
 #include "token.h"
 #include "utils.h"
 #include "vector.h"
-#include "queue.h"
 
 // convoluted function to save repetitive tasks
 #define PARSE_LIST(members_vec_ptr, diagnostics_vec_ptr,                       \
@@ -40,12 +40,15 @@
 // Parser
 Parser parse_create(Lexer *lp, Allocator *a) {
   return (Parser){
-      .a = a,                                  // Allocator
-      .lexer = lp,                             // Lexer Pointer
-      .next_tokens_queue = queue_create(vec_create(a)),      // Queue of peeked tokens
-      .next_diagnostics_queue = queue_create(vec_create(a)), // Queue<Vector<Comment>>
-      .next_comments_queue = queue_create(vec_create(a)),    // Queue<Vector<Comment>>
-      .comments = vec_create(a),               // Vector<Comment>
+      .a = a,      // Allocator
+      .lexer = lp, // Lexer Pointer
+      .next_tokens_queue =
+          queue_create(vec_create(a)), // Queue of peeked tokens
+      .next_diagnostics_queue =
+          queue_create(vec_create(a)), // Queue<Vector<Comment>>
+      .next_comments_queue =
+          queue_create(vec_create(a)), // Queue<Vector<Comment>>
+      .comments = vec_create(a),       // Vector<Comment>
       .paren_depth = 0,
       .brace_depth = 0,
       .bracket_depth = 0,
@@ -106,7 +109,7 @@ static Token parse_next(Parser *pp, Vector *diagnostics) {
   size_t top_index = VEC_LEN(&pp->comments, Vector);
   assert(top_index > 0);
   Vector *current_scope = VEC_GET(&pp->comments, top_index - 1, Vector);
-  if(QUEUE_LEN(&pp->next_tokens_queue, Token) > 0) {
+  if (QUEUE_LEN(&pp->next_tokens_queue, Token) > 0) {
     // we want to merge together the next token's diagnostics and comments into
     // the provided ones
 
@@ -138,7 +141,7 @@ static Token parse_next(Parser *pp, Vector *diagnostics) {
 // K must be greater than 0
 static Token parse_peekNth(Parser *pp, size_t k) {
   assert(k > 0);
-  
+
   for (size_t i = QUEUE_LEN(&pp->next_tokens_queue, Token); i < k; i++) {
     // Create vector to store any comments
     Vector *next_token_comments = QUEUE_PUSH(&pp->next_comments_queue, Vector);
@@ -182,7 +185,7 @@ static void pushCommentScopeParser(Parser *parser) {
 }
 
 Allocator *parse_release(Parser *pp) {
-  while(QUEUE_LEN(&pp->next_comments_queue, Vector) != 0) {
+  while (QUEUE_LEN(&pp->next_comments_queue, Vector) != 0) {
     Vector comments;
     QUEUE_POP(&pp->next_comments_queue, &comments, Vector);
     vec_destroy(&comments);
@@ -217,7 +220,7 @@ static void resyncParser(Parser *parser, Vector *diagnostics) {
       break;
     }
     Token t = parse_rawNext(parser, &comments, diagnostics);
-    if(t.kind == tk_Eof) {
+    if (t.kind == tk_Eof) {
       break;
     }
   }
@@ -325,7 +328,7 @@ CLEANUP:
 }
 
 static void certain_parseNilValueExpr(ValueExpr *vep, Vector *diagnostics,
-                                       Parser *parser) {
+                                      Parser *parser) {
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Nil);
   vep->kind = VEK_NilLiteral;
@@ -815,10 +818,6 @@ static void parseL1ValueExpr(ValueExpr *l1, Vector *diagnostics,
     certain_parseNilValueExpr(l1, diagnostics, parser);
     break;
   }
-  case tk_Builtin: {
-    certain_parseBuiltinValueExpr(l1, diagnostics, parser);
-    break;
-  }
   case tk_String: {
     certain_parseStringValueExpr(l1, diagnostics, parser);
     break;
@@ -833,10 +832,6 @@ static void parseL1ValueExpr(ValueExpr *l1, Vector *diagnostics,
   }
   case tk_Struct: {
     certain_parseValueStructExpr(l1, diagnostics, parser);
-    break;
-  }
-  case tk_Defer: {
-    certain_parseDeferValueExpr(l1, diagnostics, parser);
     break;
   }
   case tk_Continue: {
@@ -1213,7 +1208,7 @@ static inline bool opDetL8ValueExpr(tk_Kind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case tk_And: {
-    *val = VEBOK_CompLess;
+    *val = VEBOK_And;
     return true;
   }
   default: {
@@ -1227,7 +1222,7 @@ static inline bool opDetL9ValueExpr(tk_Kind tk,
                                     enum ValueExprBinaryOpKind_e *val) {
   switch (tk) {
   case tk_Or: {
-    *val = VEBOK_CompGreater;
+    *val = VEBOK_Or;
     return true;
   }
   default: {
@@ -1402,7 +1397,7 @@ static void parseReferenceTypeExpr(TypeExpr *rtep, Vector *diagnostics,
 }
 
 static void certain_parseNilTypeExpr(TypeExpr *vte, Vector *diagnostics,
-                                      Parser *parser) {
+                                     Parser *parser) {
 
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Nil);
@@ -1410,7 +1405,6 @@ static void certain_parseNilTypeExpr(TypeExpr *vte, Vector *diagnostics,
   vte->span = t.span;
   return;
 }
-
 
 static void parseFnTypeExpr(TypeExpr *fte, Vector *diagnostics,
                             Parser *parser) {
@@ -1470,10 +1464,6 @@ static void parseL1TypeExpr(TypeExpr *l1, Vector *diagnostics, Parser *parser) {
   switch (t.kind) {
   case tk_Identifier: {
     parseReferenceTypeExpr(l1, diagnostics, parser);
-    break;
-  }
-  case tk_Builtin: {
-    certain_parseBuiltinTypeExpr(l1, diagnostics, parser);
     break;
   }
   case tk_Enum:
@@ -1743,8 +1733,9 @@ parsePatternStructMemberExpr(struct PatternStructMemberExpr_s *psmep,
 
   // get define token
   Token t = parse_next(parser, diagnostics);
-  if(t.kind != tk_Define) {
-    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_PatternStructExpectedDefine, t.span);
+  if (t.kind != tk_Define) {
+    *VEC_PUSH(diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_PatternStructExpectedDefine, t.span);
     end = t.span.end;
     goto CLEANUP;
   }
@@ -2027,11 +2018,9 @@ static void parseTypeDecl(Stmnt *tdp, Vector *diagnostics, Parser *parser) {
   ZERO(tdp);
   tdp->kind = SK_TypeDecl;
   Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_Let);
-  LnCol start = t.span.start;
-
   // enforce that next token is type
-  assert(parse_next(parser, diagnostics).kind == tk_Type);
+  assert(t.kind == tk_Type);
+  LnCol start = t.span.start;
 
   LnCol end;
 
@@ -2066,7 +2055,7 @@ CLEANUP:
 }
 
 static void certain_parseDeferStmnt(Stmnt *dsp, Vector *diagnostics,
-                                        Parser *parser) {
+                                    Parser *parser) {
   dsp->kind = SK_DeferStmnt;
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Defer);
@@ -2075,7 +2064,6 @@ static void certain_parseDeferStmnt(Stmnt *dsp, Vector *diagnostics,
   dsp->span = SPAN(t.span.start, dsp->deferStmnt.value->span.end);
   return;
 }
-
 
 static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   pushCommentScopeParser(parser);
@@ -2112,17 +2100,11 @@ static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
   }
   // Let Stmnt (Decl)
   case tk_Let: {
-    t = parse_peekNth(parser, 2);
-    switch (t.kind) {
-    case tk_Type: {
-      parseTypeDecl(sp, diagnostics, parser);
-      break;
-    }
-    default: {
-      parseValDecl(sp, diagnostics, parser);
-      break;
-    }
-    }
+    parseValDecl(sp, diagnostics, parser);
+    break;
+  }
+  case tk_Type: {
+    parseTypeDecl(sp, diagnostics, parser);
     break;
   }
   // Expressions

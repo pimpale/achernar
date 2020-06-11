@@ -3,28 +3,6 @@
 # comments must always convey meaningful information, and are linked to an object that they discuss
 # AST has 1:1 representation with code
 
-
-# --- BEGIN KEYWORDS ---
-loop =      "loop";
-match =     "match";
-continue =  "continue";
-let =       "let";
-return =    "return";
-defer =     "defer";
-fn =        "fn";
-pat =       "pat";
-as =        "as";
-struct =    "struct";
-enum =      "enum";
-type =      "type";
-macro =     "macro";
-namespace = "namespace";
-use =       "use";
-nil =       "nil";
-true =      "true";
-false =     "false";
-# --- END KEYWORDS ---
-
 # --- BEGIN BASIC DEFINITIONS ---
 spacing = " " | "\t" | "\r";
 newline = "\n";
@@ -108,9 +86,11 @@ macroInvocation = macro_identifier, { letter | digit | symbolExceptSemicolon | w
 # --- BEGIN LITERALS ---
 
 # nil literal
-nilLiteral = nil;
+nilLiteral = "nil";
 
 # boolean literal
+true = "true";
+false = "false";
 boolLiteral = true, false;
 
 # int variants
@@ -148,19 +128,18 @@ label = comment_ws, "'", identifer;
 # paths
 pathSegment = ws, identifer;
 concrete_path = pathSegment, { "::", pathSegment };
-path = macro | concrete_path;
+path = macroInvocation | concrete_path;
 
 # --- END LABELS & PATHS ---
 
-# --- ValExpr ---
+# --- BEGIN ValExpr ---
 
 # fn values
-# You can comment before each function parameter
-fnParamDecl = "(", { comment_ws, patternExpr }, ws ")";
-fnValExpr = fn, ws, fnParamDecl, ws, "=>", valExpr;
+fnParamDecl = "(", { patExpr }, ws ")";
+fnValExpr = fn, ws, fnParamDecl, ws, [ ":", typeExpr ], ws, "=>", valExpr;
 
 # block values
-blockValExpr = "{", [ label ], { stmntExpr, ws }, "}";
+blockValExpr = "{", [ label ], { Stmnt }, ws, "}";
 
 # return values
 returnValExpr = "return", label, valExpr;
@@ -173,7 +152,7 @@ loopValExpr = "loop", [ label ], valExpr;
 
 # match case expr
 # You can comment before each case
-matchCase = comment_ws, "pat", patternExpr, ws, "=>" valExpr;
+matchCase = comment_ws, "pat", patExpr, ws, "=>" valExpr;
 # match val expr
 matchValExpr = "match", [ label ], valExpr, "{", { matchCase }, ws, "}";
 
@@ -184,30 +163,107 @@ refValExpr = path;
 # You can comment before each structural identifier
 structLiteralMemberExpr = comment_ws, identifier, ws, "=", valExpr;
 
-# TODO this is where i stopped
-structLiteral = "struct", identifier, "{", [ binding ], { ",", binding }, [ "," ], "}";
+structLiteralValExpr = "struct", ws, "{", { structLiteralMemberExpr }, ws "}";
 
-valueExpr = l8expr;
-l9expr = l8expr | (l8expr, ("=" | "+="), l9expr);
-l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
-l7expr = l6expr | (l6expr, ("<" | ">" | "<=" | ">=" | "==" | "!="), l7expr);
-l6expr = l5expr | (l5expr, ("<<" | ">>" | "&" | "|" | "^"), l6expr);
-l5expr = l4expr | (l4expr, ("+" | "-"), l5expr);
-l4expr = l3expr | (l3expr, ("*" | "/" | "%"), l4expr);
-l3expr = l2expr | (("++" | "--" | "~" | "!"), l3expr);
-l2expr = l1expr | (l2expr, ("$" | "@" | funcCall | arrayAccess | fieldAccess));
-l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | parenExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
+# can comment before any L1 Value expr
+valExprL1 = comment_ws, fnValExpr | blockValExpr | returnValExpr, continueValExpr | loopValExpr  | matchValExpr | refValExpr | structLiteralValExpr | macroInvocation;
 
-translationUnit = { stmnt };
-stmnt = useStmnt | modStmnt | exprStmnt | ;
-funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
-structDecl = "struct", "{", [ binding ], { "," binding }, [ "," ], "}";
-varDecl = "let", type, identifier, "=", expr, ";";
-assignStmnt = valueExpr, "=", valueExpr, ";"
-exprStmnt = valueExpr, ";"
+# l2 val expr
+fieldAccessValExpr = ".", ws, identifier;
+fnCallValExpr = "(", { valExpr }, ws, ")";
+asValExpr = "as", ws, typeExpr;
 
+# can make a comment before the operator
+valExprL2 = valExprL1 | (valExprL2, comment_ws, ("&" | "@" | fieldAccessValExpr | fnCallValExpr | asValExpr ));
+valExprL3 = valExprL2 | (comment_ws, ( "++" | "--" | "!" ), valExprL3);
+valExprL4 = valExprL3 | (valExprL3, comment_ws, "->", valExprL4);
+valExprL5 = valExprL4 | (valExprL4, comment_ws, ( "*" | "/" | "%" ), valExprL5);
+valExprL6 = valExprL5 | (valExprL5, comment_ws, ( "-" | "+" ), valExprL6);
+valExprL7 = valExprL6 | (valExprL6, comment_ws, ( "<" | ">" | "<=" | ">=" | "==" | "!=" ), valExprL7);
+valExprL8 = valExprL7 | (valExprL7, comment_ws, "&&", valExprL8);
+valExprL9 = valExprL8 | (valExprL8, comment_ws, "||", valExprL9);
+valExprL10 = valExprL9 | (valExprL9, comment_ws, ",", valExprL10);
+valExprL11 = valExprL10 | (valExprL10, comment_ws, ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" ), valExprL11);
 
-funcCall = "(", [ valueExpr ], { ",", valueExpr }, [ "," ], ")";
-arrayAccess = "[", valueExpr, "]";
-fieldAccess = ".", identifier;
+valExpr = valExprL11;
 
+# --- END ValExpr ---
+
+# --- BEGIN TypeExpr ---
+
+# StructMemberExpr
+# Can comment before each struct member
+structMemberExpr = comment_ws, identifier, [ ws, ":", typeExpr ];
+structTypeExpr = ("struct" | "enum" ), ws, "{", { structMemberExpr }, ws, "}";
+
+# Group Type Expr (used for ordering unions and tuple precedence)
+groupTypeExpr = "{", typeExpr, ws, "}";
+
+# reference type expr
+refTypeExpr = path;
+
+nilTypeExpr = nil;
+
+# function type expr
+fnTypeExpr = "fn", ws, "(", { patExpr }, ws, ")", [ ws, ":", typeExpr ];
+
+# you can comment before each L1 type
+typeExprL1 = comment_ws, groupTypeExpr | structTypeExpr | refTypeExpr | fnTypeExpr | nilTypeExpr | macroInvocation;
+
+fieldAccessTypeExpr = ".", ws, identifier;
+
+# comments go before the operator
+typeExprL2 = typeExprL1 | (typeExprL2, comment_ws, ( fieldAccessTypeEx | "&" | "@" ));
+typeExprL3 = typeExprL2 | (typeExprL2, comment_ws, ",", typeExprL3);
+typeExprL4 = typeExprL3 | (typeExprL3, comment_ws, "|", typeExprL4);
+
+typeExpr = typeExprL4;
+
+# --- END TypeExpr ---
+
+# --- BEGIN PatExpr ---
+
+# restricts the value to a pattern, no binding though
+valRestrictionPatExpr = ( "==" | "!=" | ">=" | ">" | "<" | "<=" ), valExpr;
+
+# used to discrimate enums
+# if omitting identifier, must have a type (binds to the identifier)
+typeRestrictionPatExpr = ( ":", typeExpr ) | ( identifier, [ ws, ":", typeExpr ] );
+
+# struct decomposition
+# Can comment before each :=
+patStructMemberExpr = patExpr, comment_ws, ":=", ws, ( ".." | identifier );
+structPatExpr = "struct", ws, "{", {patStructMemberExpr}, ws, "}";
+
+groupPatExpr = "{", patExpr, ws, "}";
+
+# can comment before
+patExprL1 = comment_ws, groupPatExpr | valRestrictionPatExpr | typeRestrictionPatExpr | structPatExpr | macroInvocation;
+# comment comes before operator
+patExprL2 = patExprL1 | comment_ws, "!", patExprL2
+patExprL3 = patExprL2 | (patExprL2, comment_ws, ",", patExprL3);
+patExprL4 = patExprL3 | (patExprL3, comment_ws, "|", patExprL4);
+patExprL5 = patExprL4 | (patExprL4, comment_ws, "&&", patExprL5);
+patExprL6 = patExprL5 | (patExprL5, comment_ws, "||", patExprL6);
+
+patExpr = patExprL6;
+
+# --- END PatExpr ---
+
+# --- BEGIN Stmnt ---
+
+useStmnt = "use", ws, path;
+namespaceStmnt = "namespace", ws, identifier, "{", {Stmnt}, ws, "}";
+valDeclStmnt = "val", patExpr, ws, ":=", valExpr;
+typeDeclStmnt = "type", ws, identifier, ws, ":=", typeExpr;
+
+valStmnt = valExpr;
+
+# comments come before each stmnt
+Stmnt = comment_ws, useStmnt | namespaceStmnt | valDeclStmnt | typeDeclStmnt | valStmnt | macroInvocation;
+
+# --- BEGIN PROGRAM ---
+
+Program = { Stmnt };
+
+# --- END PROGRAM ---

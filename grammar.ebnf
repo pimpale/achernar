@@ -1,0 +1,213 @@
+# General ideas of the language:
+# comments lex first, then identifiers, then macros, then paths, then literals, then everything else.
+# comments must always convey meaningful information, and are linked to an object that they discuss
+# AST has 1:1 representation with code
+
+
+# --- BEGIN KEYWORDS ---
+loop =      "loop";
+match =     "match";
+continue =  "continue";
+let =       "let";
+return =    "return";
+defer =     "defer";
+fn =        "fn";
+pat =       "pat";
+as =        "as";
+struct =    "struct";
+enum =      "enum";
+type =      "type";
+macro =     "macro";
+namespace = "namespace";
+use =       "use";
+nil =       "nil";
+true =      "true";
+false =     "false";
+# --- END KEYWORDS ---
+
+# --- BEGIN BASIC DEFINITIONS ---
+spacing = " " | "\t" | "\r";
+newline = "\n";
+whitespace = spacing | newline;
+
+# shortcut for an arbitrary amount of whitespace
+ws = { whitespace };
+
+# digits
+binaryDigit = "0" | "1";
+octalDigit = binaryDigit | "2" | "3" | "4" | "5" | "6" | "7";
+# decimal is special
+decimalDigit = octalDigit | "8" | "9";
+hexadecimalDigit = digit | "A" | "B" | "C" | "D" | "E" | "F";
+
+digit = decimalDigit;
+
+letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
+       | "H" | "I" | "J" | "K" | "L" | "M" | "N"
+       | "O" | "P" | "Q" | "R" | "S" | "T" | "U"
+       | "V" | "W" | "X" | "Y" | "Z" | "a" | "b"
+       | "c" | "d" | "e" | "f" | "g" | "h" | "i"
+       | "j" | "k" | "l" | "m" | "n" | "o" | "p"
+       | "q" | "r" | "s" | "t" | "u" | "v" | "w"
+       | "x" | "y" | "z" ;
+
+symbolExceptSemicolon =
+         "!" | "\"" | "#" | "$" | "%" | "&" | "'"
+       | "(" | ")" | "*" | "+" | "," | "-" | "."
+       | "/" | ":" | ";" | "<" | "=" | ">" | "?"
+       | "@" | "[" | "\" | "]" | "^" | "_" | "`"
+       | "{" | "|" | "}" | "~" ;
+
+symbol = ";" | symbolExceptSemicolon;
+# --- END BASIC DEFINITIONS ---
+
+# --- BEGIN COMMENTS ---
+
+# comment scopes define which program should read them
+commentScopeElement = letter | digit, { letter | digit };
+commentScope = commentScopeElement, { "/", commentScopeElement };
+
+# for both of these, the comment scope is prepended by an @ and appears at the beginning of the comment
+# whitespace is mandatory after the scope for single line comments.
+lineComment = "#" [ '@', commentScope ], whitespace, { letter | digit | symbol | spacing }, newline;
+
+multilineComment = "#", [ '@', commentScope ], "{", { letter | digit | symbol | whitespace }, "}#";
+
+comment = lineComment | multilineComment;
+
+# zero or more comments interspersed by whitespace
+comment_ws = { ws, comment }, ws;
+
+# --- END COMMENTS ---
+
+# --- BEGIN IDENTIFIERS, MACROS & DIGITS ---
+# whitespace
+
+underscore = "_";
+
+controlCode = "\\t" | "\\n" | "\\\\" | "\\\"" | "\\'";
+
+# underscore followed by one or more digits or letters
+reserved_identifier = underscore, (letter | digit | underscore ), { digit | letter | underscore }
+# always starts with a letter
+legal_identifier = letter, { digit | letter | underscore };
+# an identifer can be either
+identifier = identifier | reserved_identifier;
+
+# same deal with macros
+reserved_macro_identifier = reserved_identifier, "!";
+legal_macro_identifier = identifier, "!";
+macro_identifier = reserved_macro_identifier | legal_macro_identifier;
+# we can next macros inside of each other
+# Macros are invoked lazily, meaning that a macro can yield a macro that will then be evaluated
+# A macro invocation ends when it encounters a non nested semicolon.
+macroInvocation = macro_identifier, { letter | digit | symbolExceptSemicolon | whitespace | macroInvocation }, ';';
+
+# --- END IDENTIFIERS, MACROS & DIGITS ---
+
+# --- BEGIN LITERALS ---
+
+# nil literal
+nilLiteral = nil;
+
+# boolean literal
+boolLiteral = true, false;
+
+# int variants
+binaryIntLiteral = "0b", binaryDigit, { binaryDigit | underscore };
+octalIntLiteral = "0o", octalDigit, { octalDigit | underscore};
+decimalIntLiteral = [ "0d" ], decimalDigit, { decimalDigit | underscore}
+hexadecimalIntLiteral = "0x", hexadecimalDigit, { hexadecimalDigit | underscore};
+
+# general form
+intLiteral = binaryIntLiteral | octalIntLiteral | decimalIntLiteral | hexadecimalIntLiteral;
+
+# float variants
+binaryFloatLiteral = binaryIntLiteral ".", binaryDigit | underscore, { binaryDigit | underscore };
+octalFloatLiteral = octalIntLiteral, ".", octalDigit | underscore, { octalDigit | underscore };
+decimalFloatLiteral = decimalIntLiteral, ".", decimalDigit | underscore, { decimalDigit | underscore };
+hexadecimalFloatLiteral = hexadecimalIntLiteral, ".", hexadecimalDigit | underscore, { hexadecimalDigit | underscore };
+
+# float literal
+floatLiteral = binaryIntLiteral | octalFloatLiteral | decimalFloatLiteral | hexadecimalFloatLiteral;
+
+# char literal
+charLiteral = "'", (letter | digit | symbol | controlCode | whitespace), "'";
+
+# string literal
+stringLiteral = "\"", { letter | digit | symbol | controlCode | whitespace }, "\"";
+
+# --- END LITERALS ---
+
+# --- BEGIN LABELS & PATHS ---
+
+# label
+# You can comment before each label
+label = comment_ws, "'", identifer;
+
+# paths
+pathSegment = ws, identifer;
+concrete_path = pathSegment, { "::", pathSegment };
+path = macro | concrete_path;
+
+# --- END LABELS & PATHS ---
+
+# --- ValExpr ---
+
+# fn values
+# You can comment before each function parameter
+fnParamDecl = "(", { comment_ws, patternExpr }, ws ")";
+fnValExpr = fn, ws, fnParamDecl, ws, "=>", valExpr;
+
+# block values
+blockValExpr = "{", [ label ], { stmntExpr, ws }, "}";
+
+# return values
+returnValExpr = "return", label, valExpr;
+
+# continue values
+continueValExpr = "continue", label, valExpr;
+
+# loop val expr
+loopValExpr = "loop", [ label ], valExpr;
+
+# match case expr
+# You can comment before each case
+matchCase = comment_ws, "pat", patternExpr, ws, "=>" valExpr;
+# match val expr
+matchValExpr = "match", [ label ], valExpr, "{", { matchCase }, ws, "}";
+
+# reference value exprs
+refValExpr = path;
+
+# struct literal member expr
+# You can comment before each structural identifier
+structLiteralMemberExpr = comment_ws, identifier, ws, "=", valExpr;
+
+# TODO this is where i stopped
+structLiteral = "struct", identifier, "{", [ binding ], { ",", binding }, [ "," ], "}";
+
+valueExpr = l8expr;
+l9expr = l8expr | (l8expr, ("=" | "+="), l9expr);
+l8expr = l7expr | (l7expr, ("&&" | "||"), l8expr);
+l7expr = l6expr | (l6expr, ("<" | ">" | "<=" | ">=" | "==" | "!="), l7expr);
+l6expr = l5expr | (l5expr, ("<<" | ">>" | "&" | "|" | "^"), l6expr);
+l5expr = l4expr | (l4expr, ("+" | "-"), l5expr);
+l4expr = l3expr | (l3expr, ("*" | "/" | "%"), l4expr);
+l3expr = l2expr | (("++" | "--" | "~" | "!"), l3expr);
+l2expr = l1expr | (l2expr, ("$" | "@" | funcCall | arrayAccess | fieldAccess));
+l1expr = intLiteral | floatLiteral | charLiteral | stringLiteral | arrayLiteral | structLiteral | blockExpr | parenExpr | ifExpr | whileExpr | returnExpr | breakExpr | continueExpr;
+
+translationUnit = { stmnt };
+stmnt = useStmnt | modStmnt | exprStmnt | ;
+funcDecl = "fn", identifier, "(",  [ binding ], {",", binding }, [ "," ], ")", ":", type, "=", valueExpr;
+structDecl = "struct", "{", [ binding ], { "," binding }, [ "," ], "}";
+varDecl = "let", type, identifier, "=", expr, ";";
+assignStmnt = valueExpr, "=", valueExpr, ";"
+exprStmnt = valueExpr, ";"
+
+
+funcCall = "(", [ valueExpr ], { ",", valueExpr }, [ "," ], ")";
+arrayAccess = "[", valueExpr, "]";
+fieldAccess = ".", identifier;
+

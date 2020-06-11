@@ -18,7 +18,6 @@ typedef enum {
   tk_Unreachable, // unreachable type for when a function does not return
   tk_Loop,        // loop
   tk_Match,       // match
-  tk_Break,       // break
   tk_Continue,    // continue
   tk_Let,         // let
   tk_Return,      // return
@@ -33,7 +32,7 @@ typedef enum {
   tk_Namespace,   // namespace
   tk_Use,         // use
   // Literals and constants
-  tk_Void,   // void
+  tk_Nil,    // nil
   tk_Bool,   // true
   tk_String, // "string"
   tk_Char,   // 'a'
@@ -63,6 +62,7 @@ typedef enum {
   tk_Ref,   // &
   tk_Deref, // @
   // Assignment
+  tk_Define,    // :=
   tk_Assign,    // =
   tk_AssignAdd, // +=
   tk_AssignSub, // -=

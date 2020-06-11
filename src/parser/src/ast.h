@@ -15,14 +15,12 @@ typedef enum {
   SK_ValDecl,
   SK_TypeDecl,
   SK_ValExpr,
-  SK_TypeExpr,
-  SK_PatExpr,
+  SK_DeferStmnt,
 } StmntKind;
 
 typedef enum {
   VEK_None,
-  VEK_Builtin,
-  VEK_VoidLiteral,
+  VEK_NilLiteral,
   VEK_BoolLiteral,
   VEK_IntLiteral,
   VEK_FloatLiteral,
@@ -35,7 +33,6 @@ typedef enum {
   VEK_BinaryOp,
   VEK_UnaryOp,
   VEK_Call,
-  VEK_Defer,
   VEK_Continue,
   VEK_Return,
   VEK_Match,
@@ -47,8 +44,8 @@ typedef enum {
 typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
-  TEK_Builtin,     // Builtin Type
-  TEK_Void,        // void type
+  TEK_Macro,       // Macro Type
+  TEK_Nil,         // Nil type
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Struct,      // struct
   TEK_Fn,          // function pointer
@@ -349,10 +346,7 @@ typedef struct ValueExpr_s {
     struct {
       char *label;
     } continueExpr;
-    struct {
-      ValueExpr *value;
-    } deferExpr;
-    struct Match_s {
+     struct {
       bool has_label;
       char *label;
 
@@ -368,7 +362,7 @@ typedef struct ValueExpr_s {
       } * cases;
       size_t cases_len;
     } matchExpr;
-    struct Block_s {
+    struct {
       Stmnt *statements;
       size_t statements_len;
 
@@ -412,11 +406,9 @@ typedef struct Stmnt_s {
       ValueExpr *value;
     } valExpr;
     struct {
-      TypeExpr *type;
-    } typeExpr;
-    struct {
-      PatternExpr *pattern;
-    } patExpr;
+      char* scope;
+      ValueExpr *value;
+    } deferStmnt;
   };
 } Stmnt;
 

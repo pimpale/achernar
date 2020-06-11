@@ -14,12 +14,16 @@ typedef enum {
   // Builtins
   DK_BuiltinExpectedLeftParen,
   DK_BuiltinExpectedRightParen,
-  // Integer literals
-  DK_IntLiteralUnrecognizedRadixCode,
-  DK_IntLiteralDigitExceedsRadix,
-  DK_IntLiteralOverflow,
-  DK_IntLiteralUnknownCharacter,
+  // Number literals
+  DK_NumLiteralNoFirstDigit,
+  DK_NumLiteralFirstDigitUnderscore,
+  DK_NumLiteralUnrecognizedRadixCode,
+  DK_NumLiteralDigitExceedsRadix,
+  DK_NumLiteralOverflow,
+  DK_NumLiteralUnknownCharacter,
   // Float Literals
+  DK_FloatLiteralFirstDigitUnderscore,
+  DK_FloatLiteralNoFirstDigit,
   DK_FloatLiteralDigitExceedsRadix,
   DK_FloatLiteralExceedsMaxPrecision,
   // Character Literals
@@ -48,8 +52,8 @@ typedef enum {
   DK_StructMemberExpectedType,
   DK_StructMemberExpectedIdentifier,
   // StructMemberLiteralExpr
-  DK_StructMemberLiteralExpectedValue,
   DK_StructMemberLiteralExpectedIdentifier,
+  DK_StructMemberLiteralExpectedDefine,
   // FnValueExpr
   DK_FnValueExprExpectedRightParen,
   DK_FnValueExprExpectedLeftParen,
@@ -65,14 +69,13 @@ typedef enum {
   DK_PatternStructExpectedLeftBrace,
   DK_PatternStructExpectedRightBrace,
   DK_PatternStructExpectedIdentifier,
-  DK_PatternStructUnexpectedAssignForValueRestriction,
-  DK_PatternStructExpectedAssignForNonValueRestriction,
+  DK_PatternStructExpectedDefine,
   // ValDecl
-  DK_ValDeclExpectedAssign,
+  DK_ValDeclExpectedDefine,
   DK_ValDeclExpectedValue,
   // TypeDecl
   DK_TypeDeclExpectedIdentifier,
-  DK_TypeDeclExpectedAssign,
+  DK_TypeDeclExpectedDefine,
   // StructTypeExpr
   DK_StructExpectedLeftBrace,
   DK_StructExpectedRightBrace,

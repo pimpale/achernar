@@ -571,8 +571,6 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     token.kind = tk_Match;
   } else if (!strcmp(string, "defer")) {
     token.kind = tk_Defer;
-  } else if (!strcmp(string, "break")) {
-    token.kind = tk_Break;
   } else if (!strcmp(string, "continue")) {
     token.kind = tk_Continue;
   } else if (!strcmp(string, "return")) {
@@ -581,8 +579,8 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     token.kind = tk_Fn;
   } else if (!strcmp(string, "pat")) {
     token.kind = tk_Pat;
-  } else if (!strcmp(string, "void")) {
-    token.kind = tk_Void;
+  } else if (!strcmp(string, "nil")) {
+    token.kind = tk_Nil;
   } else if (!strcmp(string, "struct")) {
     token.kind = tk_Struct;
   } else if (!strcmp(string, "enum")) {
@@ -827,6 +825,9 @@ Token tk_next(Lexer *lexer, Vector *diagnostics, Allocator *a) {
       switch (lex_peek(lexer)) {
       case ':': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_ScopeResolution)
+      }
+      case '=': {
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Define)
       }
       default: {
         RETURN_RESULT_TOKEN(tk_Colon)

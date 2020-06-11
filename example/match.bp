@@ -8,8 +8,11 @@ match MATCHABLE_VARIABLE {
   pat >2,<2 => "first elem >2 and next less than"
   pat { TEST } => "grouped expr"
   pat struct {
-    ELEM1 == 5
-    ELEM2 = :float
-    ELEM3 = x
+    x := ELEM1
+    ==5 := ELEM2
+    < 3 := ELEM3
+    struct {
+      y := 2
+    } := ..
   } => dofunction(x)
 }

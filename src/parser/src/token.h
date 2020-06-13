@@ -1,9 +1,9 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 #include "diagnostic.h"
 #include "lncol.h"
@@ -27,7 +27,6 @@ typedef enum {
   tk_Struct,      // struct
   tk_Enum,        // enum
   tk_Type,        // type
-  tk_Macro,       // macro
   tk_Namespace,   // namespace
   tk_Use,         // use
   // Literals and constants
@@ -41,11 +40,11 @@ typedef enum {
   // Unary
   tk_Negate, // --
   tk_Posit,  // ++
-  tk_Add, // +
-  tk_Sub, // -
-  tk_Mul, // *
-  tk_Div, // /
-  tk_Mod, // %
+  tk_Add,    // +
+  tk_Sub,    // -
+  tk_Mul,    // *
+  tk_Div,    // /
+  tk_Mod,    // %
   // Logical Operators
   tk_And, // &&
   tk_Or,  // ||
@@ -91,15 +90,15 @@ typedef enum {
   tk_Rest,         // ..
   tk_Dollar,       // $
   // Macros
-  tk_Label,     // 'label
-  tk_MacroIdentifier, // macroidentifier!
+  tk_Label, // 'label
+  tk_Macro, // macroidentifier!
   // Comments, and Attributes
   tk_Comment, // #{ comment }# and # comment
 } tk_Kind;
 
 typedef struct Token_s {
   tk_Kind kind; // The type of this token
-  Span span; // position in the file
+  Span span;    // position in the file
   // This points to
   // null terminated string in case of identifier, tk_StringLiteral,
   // tk_Comment, tk_Documentation, or tk_Annotation uint64_t in case of
@@ -107,13 +106,13 @@ typedef struct Token_s {
   // be null
   union {
     struct {
-      char* data;
+      char *data;
     } identifierToken;
     struct {
-      char* data;
-    } macroIdentifierToken;
+      char *data;
+    } macroToken;
     struct {
-        char* data;
+      char *data;
     } labelToken;
     struct {
       char *comment;
@@ -123,16 +122,16 @@ typedef struct Token_s {
       bool data;
     } boolToken;
     struct {
-       char* data;
+      char *data;
     } stringToken;
     struct {
       uint64_t data;
     } intToken;
     struct {
-        double data;
+      double data;
     } floatToken;
     struct {
-        char data;
+      char data;
     } charToken;
   };
 } Token;

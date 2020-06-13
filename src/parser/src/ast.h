@@ -8,27 +8,27 @@
 #include "lncol.h"
 #include "token.h"
 
-typedef struct Comment_s {
+typedef struct  {
   Span span;
   char *scope;
   char *data;
 } Comment;
 
-typedef struct AstNode_s {
+typedef struct  {
   Span span;
   Comment *comments;
   size_t comments_len;
 } AstNode;
 
-typedef struct Macro_s {
+typedef struct  {
   AstNode node;
 
   char *name;
   Token *tokens;
   size_t tokens_len;
-} Macro;
+} MacroExpr;
 
-typedef struct Path_s {
+typedef struct  {
   AstNode node;
 
   char **pathSegments;
@@ -75,13 +75,13 @@ typedef enum {
   PSMEK_Macro,
 } PatStructMemberExprKind;
 
-typedef struct PatStructMemberExpr_s {
+typedef struct  {
   AstNode node;
   PatStructMemberExprKind kind;
   PatExpr *pattern;
   union {
       struct {
-        Macro data;
+        MacroExpr data;
       } macro;
       struct {
         char *field;
@@ -99,8 +99,8 @@ typedef struct PatExpr_s {
       ValExpr *valExpr;
     } valRestriction;
     struct {
-        Macro macro;
-    } macroExpr;
+        MacroExpr macro;
+    } macro;
     struct {
       bool has_binding;
       char *binding;
@@ -128,7 +128,7 @@ typedef struct PatExpr_s {
 typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
-  TEK_Macro,       // Macro Type
+  TEK_Macro,       //MacroExpr Type
   TEK_Nil,         // Nil type
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Struct,      // struct
@@ -138,12 +138,13 @@ typedef enum {
   TEK_FieldAccess, // .
 } TypeExprKind;
 
-typedef enum TypeStructExprKind_e {
+typedef enum  {
   TSEK_Struct,
   TSEK_Enum,
 } TypeStructExprKind;
 
 typedef enum {
+  TSMEK_None,
   TSMEK_Macro,
   TSMEK_StructMember
 } TypeStructMemberExprKind;
@@ -158,8 +159,8 @@ typedef struct TypeStructMemberExpr_s {
       TypeExpr *type;
       } structMember;
       struct {
-          Macro macroExpr;
-      };
+         MacroExpr* macro;
+      } macro;
   };
 } TypeStructMemberExpr;
 
@@ -247,6 +248,7 @@ typedef struct {
 } Label;
 
 typedef enum {
+  MCK_None,
   MCK_Case,
   MCK_Macro,
 } MatchCaseKind;
@@ -255,11 +257,20 @@ typedef struct  {
   AstNode node;
   MatchCaseKind kind;
 
+  union {
+      struct {
   PatExpr *pattern;
   ValExpr *val;
+      } matchCase;
+      struct {
+          MacroExpr* macro;
+      } macro;
+  };
+
 } MatchCaseExpr;
 
 typedef enum {
+    VSMEK_None,
     VSMEK_Macro,
     VSMEK_ValStructMemberExpr,
 } ValStructMemberExprKind;
@@ -275,8 +286,8 @@ typedef struct  {
           ValExpr *val;
       } valStructMemberExpr;
       struct {
-          Macro macro;
-      } macroExpr;
+         MacroExpr *macro;
+      } macro;
   };
 } ValStructMemberExpr;
 
@@ -426,7 +437,7 @@ typedef struct Stmnt_s {
       Stmnt *stmnt;
     } namespaceStmnt;
     struct {
-      char *name;
+        MacroExpr* macro;
     } macroStmnt;
     // Expressions
     struct {

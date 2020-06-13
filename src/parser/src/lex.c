@@ -548,8 +548,8 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    return (Token){.kind = tk_MacroIdentifier,
-                   .macroIdentifierToken= {vec_release(&data)},
+    return (Token){.kind = tk_Macro,
+                   .macroToken= {vec_release(&data)},
                    .span = span};
   }
 
@@ -599,8 +599,6 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     token.kind = tk_Enum;
   } else if (!strcmp(string, "type")) {
     token.kind = tk_Type;
-  } else if (!strcmp(string, "macro")) {
-    token.kind = tk_Macro;
   } else if (!strcmp(string, "unreachable")) {
     token.kind = tk_Unreachable;
   } else {

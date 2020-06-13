@@ -146,11 +146,6 @@ returnValExpr = "return", label, valExpr;
 # loop val expr
 loopValExpr = "loop", [ label ], valExpr;
 
-# match case expr
-# You can comment before each case
-matchCase = comment_ws, "pat", patExpr, ws, "=>" valExpr;
-# match val expr
-matchValExpr = "match", valExpr, "{", { matchCase }, ws, "}";
 
 # reference value exprs
 refValExpr = path;
@@ -169,8 +164,13 @@ fieldAccessValExpr = ".", ws, identifier;
 fnCallValExpr = "(", { valExpr }, ws, ")";
 asValExpr = "as", ws, typeExpr;
 
+# You can comment before each case
+matchCase = comment_ws, "pat", patExpr, ws, "=>" valExpr;
+# match val expr
+matchValExpr = "match", ws, "{", { matchCase }, ws, "}";
+
 # can make a comment before the operator
-valExprL2 = valExprL1 | (valExprL2, comment_ws, ("&" | "@" | fieldAccessValExpr | fnCallValExpr | asValExpr ));
+valExprL2 = valExprL1 | (valExprL2, comment_ws, ("&" | "@" | fieldAccessValExpr | fnCallValExpr | asValExpr | matchValExpr ));
 valExprL3 = valExprL2 | (comment_ws, ( "++" | "--" | "!" ), valExprL3);
 valExprL4 = valExprL3 | (valExprL3, comment_ws, "->", valExprL4);
 valExprL5 = valExprL4 | (valExprL4, comment_ws, ( "*" | "/" | "%" ), valExprL5);

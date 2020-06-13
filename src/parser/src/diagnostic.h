@@ -56,15 +56,15 @@ typedef enum {
   // TypeExpr
   DK_TypeExprUnexpectedToken,
   DK_TypeExprFieldAccessExpectedIdentifier,
-  // PatternExprs
-  // Pattern Group
-  DK_PatternGroupExpectedLeftBrace,
-  DK_PatternGroupExpectedRightBrace,
-  // Pattern 
-  DK_PatternStructExpectedLeftBrace,
-  DK_PatternStructExpectedRightBrace,
-  DK_PatternStructExpectedIdentifier,
-  DK_PatternStructExpectedDefine,
+  // PatExprs
+  // Pat Group
+  DK_PatGroupExpectedLeftBrace,
+  DK_PatGroupExpectedRightBrace,
+  // Pat 
+  DK_PatStructExpectedLeftBrace,
+  DK_PatStructExpectedRightBrace,
+  DK_PatStructExpectedIdentifier,
+  DK_PatStructExpectedDefine,
   // ValDecl
   DK_ValDeclExpectedDefine,
   DK_ValDeclExpectedVal,

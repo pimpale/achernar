@@ -70,22 +70,26 @@ typedef enum {
 typedef enum { PEUOK_Not } PatExprUnaryOpKind;
 
 typedef enum {
+  PSMEK_None,
+  PSMEK_Macro,
   PSMEK_Field,
   PSMEK_Rest,
-  PSMEK_Macro,
 } PatStructMemberExprKind;
 
 typedef struct  {
   AstNode node;
   PatStructMemberExprKind kind;
-  PatExpr *pattern;
   union {
       struct {
-        MacroExpr data;
+        MacroExpr* macro;
       } macro;
       struct {
+        PatExpr *pattern;
         char *field;
       } field;
+      struct {
+        PatExpr *pattern;
+      } rest;
   };
 } PatStructMemberExpr;
 
@@ -184,7 +188,7 @@ typedef struct TypeExpr_s {
       Path *path;
     } referenceExpr;
     struct {
-      TypeStructExprKind *kind;
+      TypeStructExprKind kind;
       TypeStructMemberExpr *members;
       size_t members_len;
     } structExpr;

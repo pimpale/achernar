@@ -8,19 +8,19 @@
 #include "lncol.h"
 #include "token.h"
 
-typedef struct  {
+typedef struct {
   Span span;
   char *scope;
   char *data;
 } Comment;
 
-typedef struct  {
+typedef struct {
   Span span;
   Comment *comments;
   size_t comments_len;
 } AstNode;
 
-typedef struct  {
+typedef struct {
   AstNode node;
 
   char *name;
@@ -28,7 +28,7 @@ typedef struct  {
   size_t tokens_len;
 } MacroExpr;
 
-typedef struct  {
+typedef struct {
   AstNode node;
 
   char **pathSegments;
@@ -76,20 +76,20 @@ typedef enum {
   PSMEK_Rest,
 } PatStructMemberExprKind;
 
-typedef struct  {
+typedef struct {
   AstNode node;
   PatStructMemberExprKind kind;
   union {
-      struct {
-        MacroExpr* macro;
-      } macro;
-      struct {
-        PatExpr *pattern;
-        char *field;
-      } field;
-      struct {
-        PatExpr *pattern;
-      } rest;
+    struct {
+      MacroExpr *macro;
+    } macro;
+    struct {
+      PatExpr *pattern;
+      char *field;
+    } field;
+    struct {
+      PatExpr *pattern;
+    } rest;
   };
 } PatStructMemberExpr;
 
@@ -103,7 +103,7 @@ typedef struct PatExpr_s {
       ValExpr *valExpr;
     } valRestriction;
     struct {
-        MacroExpr macro;
+      MacroExpr macro;
     } macro;
     struct {
       bool has_binding;
@@ -132,8 +132,9 @@ typedef struct PatExpr_s {
 typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
-  TEK_Macro,       //MacroExpr Type
+  TEK_Macro,       // MacroExpr Type
   TEK_Nil,         // Nil type
+  TEK_Group,       // { nil }
   TEK_Reference,   // Reference (primitive or aliased or path)
   TEK_Struct,      // struct
   TEK_Fn,          // function pointer
@@ -142,7 +143,7 @@ typedef enum {
   TEK_FieldAccess, // .
 } TypeExprKind;
 
-typedef enum  {
+typedef enum {
   TSEK_Struct,
   TSEK_Enum,
 } TypeStructExprKind;
@@ -158,13 +159,13 @@ typedef struct TypeStructMemberExpr_s {
   TypeStructMemberExprKind kind;
 
   union {
-      struct {
+    struct {
       char *name;
       TypeExpr *type;
-      } structMember;
-      struct {
-         MacroExpr* macro;
-      } macro;
+    } structMember;
+    struct {
+      MacroExpr *macro;
+    } macro;
   };
 } TypeStructMemberExpr;
 
@@ -198,8 +199,11 @@ typedef struct TypeExpr_s {
       TypeExpr *type;
     } fnExpr;
     struct {
+      TypeExpr *value;
+    } groupExpr;
+    struct {
       TypeExprUnaryOpKind op;
-      struct TypeExpr_s *operand;
+      TypeExpr *operand;
     } unaryOp;
     struct {
       TypeExprBinaryOpKind op;
@@ -207,7 +211,7 @@ typedef struct TypeExpr_s {
       struct TypeExpr_s *right_operand;
     } binaryOp;
     struct {
-      struct TypeExpr_s *val;
+      struct TypeExpr_s *type;
       char *field;
     } fieldAccess;
   };
@@ -242,13 +246,13 @@ typedef enum {
 } LabelExprKind;
 
 typedef struct {
-    AstNode node;
-    LabelExprKind kind;
-    union {
-        struct {
-            char *label;
-        } label;
-    };
+  AstNode node;
+  LabelExprKind kind;
+  union {
+    struct {
+      char *label;
+    } label;
+  };
 } Label;
 
 typedef enum {
@@ -257,41 +261,41 @@ typedef enum {
   MCK_Macro,
 } MatchCaseKind;
 
-typedef struct  {
+typedef struct {
   AstNode node;
   MatchCaseKind kind;
 
   union {
-      struct {
-  PatExpr *pattern;
-  ValExpr *val;
-      } matchCase;
-      struct {
-          MacroExpr* macro;
-      } macro;
+    struct {
+      PatExpr *pattern;
+      ValExpr *val;
+    } matchCase;
+    struct {
+      MacroExpr *macro;
+    } macro;
   };
 
 } MatchCaseExpr;
 
 typedef enum {
-    VSMEK_None,
-    VSMEK_Macro,
-    VSMEK_ValStructMemberExpr,
+  VSMEK_None,
+  VSMEK_Macro,
+  VSMEK_ValStructMemberExpr,
 } ValStructMemberExprKind;
 
-typedef struct  {
+typedef struct {
   AstNode node;
 
   ValStructMemberExprKind kind;
 
   union {
-      struct {
-          char *name;
-          ValExpr *val;
-      } valStructMemberExpr;
-      struct {
-         MacroExpr *macro;
-      } macro;
+    struct {
+      char *name;
+      ValExpr *val;
+    } valStructMemberExpr;
+    struct {
+      MacroExpr *macro;
+    } macro;
   };
 } ValStructMemberExpr;
 
@@ -441,7 +445,7 @@ typedef struct Stmnt_s {
       Stmnt *stmnt;
     } namespaceStmnt;
     struct {
-        MacroExpr* macro;
+      MacroExpr *macro;
     } macroStmnt;
     // Expressions
     struct {

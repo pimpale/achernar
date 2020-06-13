@@ -11,9 +11,8 @@ typedef enum {
   // Generic Lexing Errors
   DK_EOF,
   DK_UnrecognizedCharacter,
-  // Builtins
-  DK_BuiltinExpectedLeftParen,
-  DK_BuiltinExpectedRightParen,
+  // MacroExpr
+  DK_MacroExprExpectedClosingBacktick,
   // Number literals
   DK_NumLiteralNoFirstDigit,
   DK_NumLiteralFirstDigitUnderscore,
@@ -44,20 +43,16 @@ typedef enum {
   // Parsing Errors
   // Path
   DK_PathExpectedIdentifier,
-  // Return
-  DK_ReturnExpectedLabel,
-  // Continue
-  DK_ContinueExpectedLabel,
   // StructMemberExpr
   DK_StructMemberExpectedType,
   DK_StructMemberExpectedIdentifier,
   // StructMemberLiteralExpr
   DK_StructMemberLiteralExpectedIdentifier,
   DK_StructMemberLiteralExpectedDefine,
-  // FnValueExpr
-  DK_FnValueExprExpectedRightParen,
-  DK_FnValueExprExpectedLeftParen,
-  DK_FnValueExprExpectedArrow,
+  // FnValExpr
+  DK_FnValExprExpectedRightParen,
+  DK_FnValExprExpectedLeftParen,
+  DK_FnValExprExpectedArrow,
   // TypeExpr
   DK_TypeExprUnexpectedToken,
   DK_TypeExprFieldAccessExpectedIdentifier,
@@ -72,7 +67,7 @@ typedef enum {
   DK_PatternStructExpectedDefine,
   // ValDecl
   DK_ValDeclExpectedDefine,
-  DK_ValDeclExpectedValue,
+  DK_ValDeclExpectedVal,
   // TypeDecl
   DK_TypeDeclExpectedIdentifier,
   DK_TypeDeclExpectedDefine,

@@ -79,7 +79,7 @@ static Token lexComment(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     // Return data
     return (Token){
         .kind = tk_Comment,
-        .comment =
+        .commentToken =
             {
                 .scope = scope,
                 .comment = vec_release(&data),
@@ -104,7 +104,7 @@ static Token lexComment(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     // Return data
     return (Token){
         .kind = tk_Comment,
-        .comment =
+        .commentToken =
             {
                 .scope = scope,
                 .comment = vec_release(&data),
@@ -182,7 +182,8 @@ static Token lexStringLiteral(Lexer *lexer, Vector *diagnostics, Allocator *a) {
                        SPAN(start, lexer->position));
         return (Token){.kind = tk_String,
                        .span = SPAN(start, lexer->position),
-                       .string_literal = vec_release(&data)};
+                       .stringToken = { .data= vec_release(&data)}
+                       };
       }
       }
     } else if (c == '\"') {
@@ -198,7 +199,7 @@ static Token lexStringLiteral(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   // Return data
   return (Token){
       .kind = tk_String,
-      .string_literal = vec_release(&data),
+      .stringToken= { .data= vec_release(&data) },
       .span = SPAN(start, lexer->position),
   };
 }
@@ -224,13 +225,13 @@ static uint64_t parseNumBaseComponent(Lexer *l, Vector *diagnostics,
     } else {
       // means an alphabetical character out of this range
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_IntLiteralUnknownCharacter, lex_peekSpan(l));
+          DIAGNOSTIC(DK_NumLiteralUnknownCharacter, lex_peekSpan(l));
       digit_val = 0;
     }
 
     if (digit_val >= radix) {
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_IntLiteralDigitExceedsRadix, lex_peekSpan(l));
+          DIAGNOSTIC(DK_NumLiteralDigitExceedsRadix, lex_peekSpan(l));
       // correct the radix value
       digit_val = radix - 1;
     }
@@ -240,7 +241,7 @@ static uint64_t parseNumBaseComponent(Lexer *l, Vector *diagnostics,
     integer_value = integer_value * radix + digit_val;
     if (old_integer_value > integer_value) {
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_IntLiteralOverflow, lex_peekSpan(l));
+          DIAGNOSTIC(DK_NumLiteralOverflow, lex_peekSpan(l));
     }
 
     // we can finally move past this char
@@ -279,13 +280,13 @@ static double parseNumFractionalComponent(Lexer *l, Vector *diagnostics,
     } else {
       // means an alphabetical character out of this range
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_IntLiteralUnknownCharacter, lex_peekSpan(l));
+          DIAGNOSTIC(DK_NumLiteralUnknownCharacter, lex_peekSpan(l));
       digit_val = 0;
     }
 
     if (digit_val >= radix) {
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_IntLiteralDigitExceedsRadix, lex_peekSpan(l));
+          DIAGNOSTIC(DK_NumLiteralDigitExceedsRadix, lex_peekSpan(l));
       // correct the radix value
       digit_val = radix - 1;
     }
@@ -332,7 +333,7 @@ static Token lexNumberLiteral(Lexer *l, Vector *diagnostics, Allocator *a) {
     default: {
       radix = 10;
       *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
-          DK_IntLiteralUnrecognizedRadixCode, SPAN(start, l->position));
+          DK_NumLiteralUnrecognizedRadixCode, SPAN(start, l->position));
     }
     }
   } else {
@@ -351,12 +352,15 @@ static Token lexNumberLiteral(Lexer *l, Vector *diagnostics, Allocator *a) {
     double fractional_component =
         parseNumFractionalComponent(l, diagnostics, radix);
     return (Token){.kind = tk_Float,
-                   .float_literal =
-                       (fractional_component + (double)base_component),
+                   .floatToken= {
+                       .data= (fractional_component + (double)base_component)
+                    },
                    .span = SPAN(start, l->position)};
   } else {
     return (Token){.kind = tk_Int,
-                   .int_literal = base_component,
+                   .intToken = {
+                   .data = base_component,
+                   },
                    .span = SPAN(start, l->position)};
   }
 }
@@ -499,13 +503,13 @@ EXIT_LOOP:;
     *VEC_PUSH(&label_data, char) = '\0';
     return (Token){
         .kind = tk_Label,
-        .label = vec_release(&label_data),
+        .labelToken= {vec_release(&label_data) },
         .span = SPAN(start, lexer->position),
     };
   } else {
     return (Token){
         .kind = tk_Char,
-        .char_literal = char_literal,
+        .charToken= {char_literal},
         .span = SPAN(start, lexer->position),
     };
   }
@@ -526,7 +530,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     if (isalnum(c) || c == '_') {
       *VEC_PUSH(&data, char) = (char)c;
       lex_next(lexer);
-    } else if (c == '!') {
+    } else if (c == '`') {
       lex_next(lexer);
       macro = true;
       break;
@@ -544,8 +548,8 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    return (Token){.kind = tk_MacroCall,
-                   .macro_call = vec_release(&data),
+    return (Token){.kind = tk_MacroIdentifier,
+                   .macroIdentifierToken= {vec_release(&data)},
                    .span = span};
   }
 
@@ -559,10 +563,10 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
 
   if (!strcmp(string, "true")) {
     vec_destroy(&data);
-    return (Token){.kind = tk_Bool, .bool_literal = true, .span = span};
+    return (Token){.kind = tk_Bool, .boolToken = {true}, .span = span};
   } else if (!strcmp(string, "false")) {
     vec_destroy(&data);
-    return (Token){.kind = tk_Bool, .bool_literal = false, .span = span};
+    return (Token){.kind = tk_Bool, .boolToken= {false}, .span = span};
   }
 
   Token token;
@@ -581,8 +585,6 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     token.kind = tk_Match;
   } else if (!strcmp(string, "defer")) {
     token.kind = tk_Defer;
-  } else if (!strcmp(string, "continue")) {
-    token.kind = tk_Continue;
   } else if (!strcmp(string, "return")) {
     token.kind = tk_Return;
   } else if (!strcmp(string, "fn")) {
@@ -604,7 +606,7 @@ static Token lexWord(Lexer *lexer, Vector *diagnostics, Allocator *a) {
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
-    token.identifier = vec_release(&data);
+    token.identifierToken.data =vec_release(&data);
     return token;
   }
 

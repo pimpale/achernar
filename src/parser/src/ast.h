@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "lncol.h"
+#include "token.h"
 
 typedef struct Comment_s {
   Span span;
@@ -22,66 +23,72 @@ typedef struct AstNode_s {
 typedef struct Builtin_s Builtin;
 typedef struct TypeExpr_s TypeExpr;
 typedef struct ValExpr_s ValExpr;
-typedef struct PatternExpr_s PatternExpr;
+typedef struct PatExpr_s PatExpr;
 typedef struct Stmnt_s Stmnt;
 
 typedef struct Macro_s {
   AstNode node;
 
   char *name;
-  Stmnt *parameters;
-  size_t parameters_len;
+  Token *tokens;
+  size_t tokens_len;
 } Macro;
 
-typedef enum PatternExprValRestrictionKind_e {
+typedef enum PatExprValRestrictionKind_e {
   PEVRK_CompEqual,        // ==
   PEVRK_CompNotEqual,     // !=
   PEVRK_CompLess,         // <
   PEVRK_CompLessEqual,    // <=
   PEVRK_CompGreater,      // >
   PEVRK_CompGreaterEqual, // >=
-} PatternExprValRestrictionKind;
+} PatExprValRestrictionKind;
 
 typedef enum {
-  PEK_None,             // Error type
-  PEK_ValRestriction, // matches a constant val, and optionally binds it
-  PEK_TypeRestriction,  // matches a type, and optionally binds it
-  PEK_Struct,           // a container for struct based patterns
-  PEK_Group,            // ()
-  PEK_UnaryOp,          // !
-  PEK_BinaryOp,         // , |
-} PatternExprKind;
+  PEK_None,            // Error type
+  PEK_ValRestriction,  // matches a constant val, and optionally binds it
+  PEK_TypeRestriction, // matches a type, and optionally binds it
+  PEK_Struct,          // a container for struct based patterns
+  PEK_Group,           // ()
+  PEK_UnaryOp,         // !
+  PEK_BinaryOp,        // , |
+} PatExprKind;
 
 typedef enum {
   PEBOK_Tuple,
   PEBOK_Union,
   PEBOK_And,
   PEBOK_Or,
-} PatternExprBinaryOpKind;
+} PatExprBinaryOpKind;
 
-typedef enum { PEUOK_Not } PatternExprUnaryOpKind;
+typedef enum { PEUOK_Not } PatExprUnaryOpKind;
 
 typedef enum {
   PSMEK_Field,
   PSMEK_Rest,
-} PatternStructMemberExprKind;
+  PSMEK_Macro,
+} PatStructMemberExprKind;
 
-typedef struct PatternStructMemberExpr_s {
+typedef struct PatStructMemberExpr_s {
   AstNode node;
-  PatternStructMemberExprKind kind;
-  PatternExpr *pattern;
-  struct {
-    char *field;
-  } field;
-} PatternStructMemberExpr;
+  PatStructMemberExprKind kind;
+  PatExpr *pattern;
+  union {
+      struct {
+        Macro data;
+      } macro;
+      struct {
+        char *field;
+      } field;
+  };
+} PatStructMemberExpr;
 
-typedef struct PatternExpr_s {
+typedef struct PatExpr_s {
   AstNode node;
 
-  PatternExprKind kind;
+  PatExprKind kind;
   union {
     struct {
-      PatternExprValRestrictionKind restriction;
+      PatExprValRestrictionKind restriction;
       ValExpr *valExpr;
     } valRestriction;
     struct {
@@ -90,29 +97,42 @@ typedef struct PatternExpr_s {
       TypeExpr *type;
     } typeRestriction;
     struct {
-      PatternStructMemberExpr * members;
+      PatStructMemberExpr *members;
       size_t members_len;
     } structExpr;
     struct {
-      PatternExpr *val;
+      PatExpr *value;
     } groupExpr;
     struct {
-      PatternExprUnaryOpKind op;
-      PatternExpr *operand;
+      PatExprUnaryOpKind op;
+      PatExpr *operand;
     } unaryOp;
     struct {
-      PatternExprBinaryOpKind op;
-      PatternExpr *left_operand;
-      PatternExpr *right_operand;
+      PatExprBinaryOpKind op;
+      PatExpr *left_operand;
+      PatExpr *right_operand;
     } binaryOp;
   };
-} PatternExpr;
+} PatExpr;
+
+typedef enum {
+    PK_Macro,
+    PK_Identifier,
+} PathKind;
 
 typedef struct Path_s {
   AstNode node;
 
-  char **pathSegments;
-  size_t pathSegments_len;
+  PathKind kind;
+  union {
+  struct {
+      char **pathSegments;
+      size_t pathSegments_len;
+  } identifier;
+  struct {
+      Macro* macro;
+  } macro;
+  };
 } Path;
 
 typedef enum {
@@ -212,6 +232,21 @@ typedef enum {
 } ValExprKind;
 
 typedef enum {
+  LEK_Omitted,
+  LEK_Label,
+} LabelExprKind;
+
+typedef struct {
+    AstNode node;
+    LabelExprKind kind;
+    union {
+        struct {
+            char *label;
+        } label;
+    };
+} Label;
+
+typedef enum {
   MCK_Case,
   MCK_Macro,
 } MatchCaseKind;
@@ -220,7 +255,7 @@ typedef struct MatchCaseExpr_s {
   AstNode node;
   MatchCaseKind kind;
 
-  PatternExpr *pattern;
+  PatExpr *pattern;
   ValExpr *val;
 } MatchCaseExpr;
 
@@ -272,19 +307,19 @@ typedef struct ValExpr_s {
       Builtin *builtin;
     } builtinExpr;
     struct {
-      bool val;
+      bool value;
     } boolLiteral;
     struct {
-      uint64_t val;
+      uint64_t value;
     } intLiteral;
     struct {
-      double val;
+      double value;
     } floatLiteral;
     struct {
-      char val;
+      char value;
     } charLiteral;
     struct {
-      char *val;
+      char *value;
       size_t val_len;
     } stringLiteral;
     struct {
@@ -292,17 +327,16 @@ typedef struct ValExpr_s {
       size_t members_len;
     } structExpr;
     struct {
-      ValExpr *val;
+      ValExpr *value;
       TypeExpr *type;
       char *field;
     } asExpr;
     struct {
-      ValExpr *val;
-      bool has_label;
-      char *label;
+      ValExpr *value;
+      Label *label;
     } loopExpr;
     struct {
-      ValExpr *val;
+      ValExpr *value;
       char *field;
     } fieldAccess;
     struct {
@@ -323,22 +357,16 @@ typedef struct ValExpr_s {
       size_t parameters_len;
     } callExpr;
     struct {
-      PatternExpr *parameters;
+      PatExpr *parameters;
       size_t parameters_len;
       TypeExpr *type;
       ValExpr *body;
     } fnExpr;
     struct {
-      ValExpr *val;
-      char *label;
+      ValExpr *value;
+      Label *label;
     } returnExpr;
     struct {
-      char *label;
-    } continueExpr;
-    struct {
-      bool has_label;
-      char *label;
-
       ValExpr *val;
       MatchCaseExpr *cases;
       size_t cases_len;
@@ -346,9 +374,7 @@ typedef struct ValExpr_s {
     struct {
       Stmnt *statements;
       size_t statements_len;
-
-      bool has_label;
-      char *label;
+      Label *label;
     } blockExpr;
   };
 } ValExpr;
@@ -372,7 +398,7 @@ typedef struct Stmnt_s {
   union {
     // Declarations
     struct {
-      PatternExpr *pattern;
+      PatExpr *pattern;
       bool has_val;
       ValExpr *val;
     } valDecl;

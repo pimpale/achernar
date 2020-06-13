@@ -29,14 +29,14 @@ letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
        | "q" | "r" | "s" | "t" | "u" | "v" | "w"
        | "x" | "y" | "z" ;
 
-symbolExceptSemicolon =
+symbolExceptBacktick =
          "!" | "\"" | "#" | "$" | "%" | "&" | "'"
        | "(" | ")" | "*" | "+" | "," | "-" | "."
        | "/" | ":" | ";" | "<" | "=" | ">" | "?"
-       | "@" | "[" | "\" | "]" | "^" | "_" | "`"
+       | "@" | "[" | "\\" | "]" | "^" | "_" | "`"
        | "{" | "|" | "}" | "~" ;
 
-symbol = ";" | symbolExceptSemicolon;
+symbol = "`" | symbolExceptBacktick;
 # --- END BASIC DEFINITIONS ---
 
 # --- BEGIN COMMENTS ---
@@ -73,20 +73,21 @@ legal_identifier = letter, { digit | letter | underscore };
 identifier = identifier | reserved_identifier;
 
 # same deal with macros
-reserved_macro_identifier = reserved_identifier, "!";
-legal_macro_identifier = identifier, "!";
+reserved_macro_identifier = reserved_identifier, "`";
+legal_macro_identifier = identifier, "`";
 macro_identifier = reserved_macro_identifier | legal_macro_identifier;
+
 # we can next macros inside of each other
 # Macros are invoked lazily, meaning that a macro can yield a macro that will then be evaluated
 # A macro invocation ends when it encounters a non nested semicolon.
-macroInvocation = macro_identifier, { letter | digit | symbolExceptSemicolon | whitespace | macroInvocation }, ';';
+macroInvocation = macro_identifier, { letter | digit | symbolExceptBacktick | whitespace | macroInvocation }, '`';
 
 # --- END IDENTIFIERS, MACROS & DIGITS ---
 
 # --- BEGIN LITERALS ---
 
 # nil literal
-nilLiteral = "nil";
+nilLiteral = "nil" | ";"
 
 # boolean literal
 true = "true";
@@ -122,8 +123,7 @@ stringLiteral = "\"", { letter | digit | symbol | controlCode | whitespace }, "\
 # --- BEGIN LABELS & PATHS ---
 
 # label
-# You can comment before each label
-label = comment_ws, "'", identifer;
+label = ws, "'", identifer;
 
 # paths
 pathSegment = ws, identifer;
@@ -144,9 +144,6 @@ blockValExpr = "{", [ label ], { Stmnt }, ws, "}";
 # return values
 returnValExpr = "return", label, valExpr;
 
-# continue values
-continueValExpr = "continue", label, valExpr;
-
 # loop val expr
 loopValExpr = "loop", [ label ], valExpr;
 
@@ -166,7 +163,7 @@ structLiteralMemberExpr = comment_ws, identifier, ws, "=", valExpr;
 structLiteralValExpr = "struct", ws, "{", { structLiteralMemberExpr }, ws "}";
 
 # can comment before any L1 Value expr
-valExprL1 = comment_ws, fnValExpr | blockValExpr | returnValExpr, continueValExpr | loopValExpr  | matchValExpr | refValExpr | structLiteralValExpr | macroInvocation;
+valExprL1 = comment_ws, fnValExpr | blockValExpr | returnValExpr | loopValExpr  | matchValExpr | refValExpr | structLiteralValExpr | macroInvocation;
 
 # l2 val expr
 fieldAccessValExpr = ".", ws, identifier;

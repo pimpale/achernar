@@ -10,15 +10,12 @@
 typedef struct Parser_s {
   Allocator *a;
   Lexer *lexer;
+
   // Queue<Token>
   Queue next_tokens_queue;
   // Queue<Vector<Diagnostic>> queue of vectors of peeked diagnostics for each peeked token
   Queue next_diagnostics_queue;
-  // Queue<Vector<Comment>> queue of vectors of of peeked comments for each peeked token
-  Queue next_comments_queue;
-  // Stack<Vector<Comment>> (stack of vectors of comments)
-  Vector comments;
-  // list of nested scopes for breaking out of stuff
+
   int64_t paren_depth;
   int64_t brace_depth;
   int64_t bracket_depth;

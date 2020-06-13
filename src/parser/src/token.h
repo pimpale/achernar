@@ -18,7 +18,6 @@ typedef enum {
   tk_Unreachable, // unreachable type for when a function does not return
   tk_Loop,        // loop
   tk_Match,       // match
-  tk_Continue,    // continue
   tk_Val,         // val
   tk_Return,      // return
   tk_Defer,       // defer
@@ -93,33 +92,49 @@ typedef enum {
   tk_Dollar,       // $
   // Macros
   tk_Label,     // 'label
-  tk_MacroCall, // macrocall!
+  tk_MacroIdentifier, // macroidentifier!
   // Comments, and Attributes
   tk_Comment, // #{ comment }# and # comment
 } tk_Kind;
 
 typedef struct Token_s {
   tk_Kind kind; // The type of this token
+  Span span; // position in the file
   // This points to
   // null terminated string in case of identifier, tk_StringLiteral,
   // tk_Comment, tk_Documentation, or tk_Annotation uint64_t in case of
   // tk_IntLiteral double double in case of tk_FloatLiteral Otherwise must
   // be null
   union {
-    char *identifier;
-    char *macro_call;
-    char *label;
+    struct {
+      char* data;
+    } identifierToken;
+    struct {
+      char* data;
+    } macroIdentifierToken;
+    struct {
+        char* data;
+    } labelToken;
     struct {
       char *comment;
       char *scope;
-    } comment;
-    bool bool_literal;
-    char *string_literal;
-    uint64_t int_literal;
-    double float_literal;
-    char char_literal;
+    } commentToken;
+    struct {
+      bool data;
+    } boolToken;
+    struct {
+       char* data;
+    } stringToken;
+    struct {
+      uint64_t data;
+    } intToken;
+    struct {
+        double data;
+    } floatToken;
+    struct {
+        char data;
+    } charToken;
   };
-  Span span; // position in the file
 } Token;
 
 #endif

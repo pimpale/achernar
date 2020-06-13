@@ -20,12 +20,6 @@ typedef struct AstNode_s {
   size_t comments_len;
 } AstNode;
 
-typedef struct Builtin_s Builtin;
-typedef struct TypeExpr_s TypeExpr;
-typedef struct ValExpr_s ValExpr;
-typedef struct PatExpr_s PatExpr;
-typedef struct Stmnt_s Stmnt;
-
 typedef struct Macro_s {
   AstNode node;
 
@@ -33,6 +27,18 @@ typedef struct Macro_s {
   Token *tokens;
   size_t tokens_len;
 } Macro;
+
+typedef struct Path_s {
+  AstNode node;
+
+  char **pathSegments;
+  size_t pathSegments_len;
+} Path;
+
+typedef struct TypeExpr_s TypeExpr;
+typedef struct ValExpr_s ValExpr;
+typedef struct PatExpr_s PatExpr;
+typedef struct Stmnt_s Stmnt;
 
 typedef enum PatExprValRestrictionKind_e {
   PEVRK_CompEqual,        // ==
@@ -45,6 +51,7 @@ typedef enum PatExprValRestrictionKind_e {
 
 typedef enum {
   PEK_None,            // Error type
+  PEK_Macro,           // a macro representing a pattern
   PEK_ValRestriction,  // matches a constant val, and optionally binds it
   PEK_TypeRestriction, // matches a type, and optionally binds it
   PEK_Struct,          // a container for struct based patterns
@@ -92,6 +99,9 @@ typedef struct PatExpr_s {
       ValExpr *valExpr;
     } valRestriction;
     struct {
+        Macro macro;
+    } macroExpr;
+    struct {
       bool has_binding;
       char *binding;
       TypeExpr *type;
@@ -116,26 +126,6 @@ typedef struct PatExpr_s {
 } PatExpr;
 
 typedef enum {
-    PK_Macro,
-    PK_Identifier,
-} PathKind;
-
-typedef struct Path_s {
-  AstNode node;
-
-  PathKind kind;
-  union {
-  struct {
-      char **pathSegments;
-      size_t pathSegments_len;
-  } identifier;
-  struct {
-      Macro* macro;
-  } macro;
-  };
-} Path;
-
-typedef enum {
   TEK_None,        // Error type
   TEK_Omitted,     // Omitted
   TEK_Macro,       // Macro Type
@@ -153,11 +143,24 @@ typedef enum TypeStructExprKind_e {
   TSEK_Enum,
 } TypeStructExprKind;
 
+typedef enum {
+  TSMEK_Macro,
+  TSMEK_StructMember
+} TypeStructMemberExprKind;
+
 typedef struct TypeStructMemberExpr_s {
   AstNode node;
+  TypeStructMemberExprKind kind;
 
-  char *name;
-  TypeExpr *type;
+  union {
+      struct {
+      char *name;
+      TypeExpr *type;
+      } structMember;
+      struct {
+          Macro macroExpr;
+      };
+  };
 } TypeStructMemberExpr;
 
 typedef enum {
@@ -176,9 +179,6 @@ typedef struct TypeExpr_s {
   TypeExprKind kind;
 
   union {
-    struct {
-      Builtin *builtin;
-    } builtinExpr;
     struct {
       Path *path;
     } referenceExpr;
@@ -251,7 +251,7 @@ typedef enum {
   MCK_Macro,
 } MatchCaseKind;
 
-typedef struct MatchCaseExpr_s {
+typedef struct  {
   AstNode node;
   MatchCaseKind kind;
 
@@ -259,11 +259,25 @@ typedef struct MatchCaseExpr_s {
   ValExpr *val;
 } MatchCaseExpr;
 
-typedef struct ValStructMemberExpr_s {
+typedef enum {
+    VSMEK_Macro,
+    VSMEK_ValStructMemberExpr,
+} ValStructMemberExprKind;
+
+typedef struct  {
   AstNode node;
 
-  char *name;
-  ValExpr *val;
+  ValStructMemberExprKind kind;
+
+  union {
+      struct {
+          char *name;
+          ValExpr *val;
+      } valStructMemberExpr;
+      struct {
+          Macro macro;
+      } macroExpr;
+  };
 } ValStructMemberExpr;
 
 typedef enum {
@@ -303,9 +317,6 @@ typedef struct ValExpr_s {
   ValExprKind kind;
 
   union {
-    struct {
-      Builtin *builtin;
-    } builtinExpr;
     struct {
       bool value;
     } boolLiteral;

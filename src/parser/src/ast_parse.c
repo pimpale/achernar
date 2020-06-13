@@ -152,7 +152,7 @@ Allocator *parse_release(Parser *pp) {
 // Continues reading tokens until we jump out of a paren, brace, or bracket
 // group discards any comments and tokens found
 // Will store any lexer errors into the diagnostics
-static void parse_resyncParser(Parser *parser, Vector *diagnostics) {
+static void parse_resync(Parser *parser, Vector *diagnostics) {
   Vector comments = vec_create(parser->a);
   int64_t initial_paren_depth = parser->paren_depth;
   int64_t initial_brace_depth = parser->brace_depth;
@@ -238,10 +238,8 @@ static void certain_parseMacroExpr(Macro *mpe, Vector *diagnostics,
   mpe->node.span = SPAN(start, end);
 }
 
-static void certain_parseIdentifierPath(Path *pp, Vector *diagnostics, Parser *parser) {
-  pp->kind = PK_Identifier;
+static void parsePath(Path *pp, Vector *diagnostics, Parser *parser) {
   Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_Identifier);
 
   // start and finish
   LnCol start = t.span.start;
@@ -249,6 +247,12 @@ static void certain_parseIdentifierPath(Path *pp, Vector *diagnostics, Parser *p
 
   Vector pathSegments = vec_create(parser->a);
   *VEC_PUSH(&pathSegments, char *) = t.identifierToken.data;
+
+  if(t.kind != tk_Identifier) {
+    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
 
   while (true) {
     t = parse_peek(parser);
@@ -272,39 +276,13 @@ static void certain_parseIdentifierPath(Path *pp, Vector *diagnostics, Parser *p
   }
 
 CLEANUP:
-  pp->identifier.pathSegments_len = VEC_LEN(&pathSegments, char *);
-  pp->identifier.pathSegments = vec_release(&pathSegments);
+  pp->pathSegments_len = VEC_LEN(&pathSegments, char *);
+  pp->pathSegments = vec_release(&pathSegments);
 
   pp->node.span = SPAN(start, end);
-}
-
-static void certain_parseMacroPath(Path *pp, Vector *diagnostics, Parser *parser) {
-    pp->kind = PK_Macro;
-    pp->macro.macro = ALLOC(parser->a, Macro);
-    certain_parseMacroExpr(pp->macro.macro, diagnostics, parser);
-    pp->node.span = pp->macro.macro->node.span;
-    return;
-}
-
-static void parsePath(Path *pp, Vector *diagnostics, Parser *parser) {
-  Token t = parse_peek(parser);
-  switch(t.kind) {
-    case tk_Identifier: {
-      certain_parseIdentifierPath(pp, diagnostics, parser);
-      break;
-  } 
-  case tk_MacroIdentifier: {
-      certain_parseMacroPath(pp, diagnostics, parser);
-      break;
-  }
-  default: {
-
-  }
-  }
-
-  // path cannot have comments (yet)
   pp->node.comments_len = 0;
 }
+
 
 static void certain_parseNilValExpr(ValExpr *vep, Vector *diagnostics,
                                       Parser *parser) {
@@ -559,7 +537,7 @@ static void certain_parseLoopValExpr(ValExpr *lep, Vector *diagnostics,
 }
 
 // pat Pattern => Expr,
-static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep,
+static void parseMatchCaseExpr(MatchCaseExpr *mcep,
                                Vector *diagnostics, Parser *parser) {
   ZERO(mcep);
 
@@ -588,7 +566,7 @@ static void parseMatchCaseExpr(struct MatchCaseExpr_s *mcep,
   if (t.kind != tk_Arrow) {
     *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_MatchCaseNoArrow, t.span);
-    parse_resyncParser(parser, diagnostics);
+    parse_resync(parser, diagnostics);
     goto CLEANUP;
   }
 
@@ -635,7 +613,7 @@ static void certain_parseMatchValExpr(ValExpr *mvep, Vector *diagnostics,
   PARSE_LIST(&cases,                 // members_vec_ptr
              diagnostics,            // diagnostics_vec_ptr
              parseMatchCaseExpr,     // member_parse_function
-             struct MatchCaseExpr_s, // member_kind
+             MatchCaseExpr, // member_kind
              tk_BraceRight,          // delimiting_token_kind
              DK_MatchNoRightBrace,   // missing_delimiter_error
              end,                    // end_lncol
@@ -644,7 +622,7 @@ static void certain_parseMatchValExpr(ValExpr *mvep, Vector *diagnostics,
 
 CLEANUP:
   // Get interior cases
-  mvep->matchExpr.cases_len = VEC_LEN(&cases, struct MatchCaseExpr_s);
+  mvep->matchExpr.cases_len = VEC_LEN(&cases, MatchCaseExpr);
   mvep->matchExpr.cases = vec_release(&cases);
 
   mvep->node.span = SPAN(start, end);
@@ -661,8 +639,10 @@ static void parseReferenceValExpr(ValExpr *rvep, Vector *diagnostics,
   return;
 }
 
+// TODO need to add macro here
+
 // field = Value
-static void parseValStructMemberExpr(struct ValStructMemberExpr_s *vsmep,
+static void parseValStructMemberExpr(ValStructMemberExpr *vsmep,
                                        Vector *diagnostics, Parser *parser) {
   // zero-initialize bp
   ZERO(vsmep);
@@ -1258,7 +1238,6 @@ static void parseTypeStructMemberExpr(struct TypeStructMemberExpr_s *tsmep,
                                       Vector *diagnostics, Parser *parser) {
   // zero-initialize bp
   ZERO(tsmep);
-  pushCommentScopeParser(parser);
 
   LnCol start;
   LnCol end;
@@ -1425,9 +1404,7 @@ CLEANUP:
 }
 
 static void parseL1TypeExpr(TypeExpr *l1, Vector *diagnostics, Parser *parser) {
-  pushCommentScopeParser(parser);
-
-  Token t = parse_peek(parser);
+  Token t = parse_peekPastComments(parser);
   switch (t.kind) {
   case tk_Identifier: {
     parseReferenceTypeExpr(l1, diagnostics, parser);
@@ -1452,7 +1429,7 @@ static void parseL1TypeExpr(TypeExpr *l1, Vector *diagnostics, Parser *parser) {
     *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
-    resyncParser(parser, diagnostics);
+    parse_resync(parser, diagnostics);
     break;
   }
   }
@@ -1837,7 +1814,7 @@ static void parseL1PatExpr(PatExpr *l1, Vector *diagnostics,
     *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
-    resyncParser(parser, diagnostics);
+   parse_resync(parser, diagnostics);
     break;
   }
   }

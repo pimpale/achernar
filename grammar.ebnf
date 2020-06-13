@@ -1,5 +1,5 @@
 # General ideas of the language:
-# comments lex first, then identifiers, then macros, then paths, then literals, then everything else.
+# strings, literals, comments, identifiers, and paths lex first, then macros, then everything else.
 # comments must always convey meaningful information, and are linked to an object that they discuss
 # AST has 1:1 representation with code
 
@@ -127,8 +127,7 @@ label = ws, "'", identifer;
 
 # paths
 pathSegment = ws, identifer;
-concrete_path = pathSegment, { "::", pathSegment };
-path = macroInvocation | concrete_path;
+path = pathSegment, { "::", pathSegment };
 
 # --- END LABELS & PATHS ---
 
@@ -151,7 +150,7 @@ loopValExpr = "loop", [ label ], valExpr;
 # You can comment before each case
 matchCase = comment_ws, "pat", patExpr, ws, "=>" valExpr;
 # match val expr
-matchValExpr = "match", [ label ], valExpr, "{", { matchCase }, ws, "}";
+matchValExpr = "match", valExpr, "{", { matchCase }, ws, "}";
 
 # reference value exprs
 refValExpr = path;

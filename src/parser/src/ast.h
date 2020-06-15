@@ -69,8 +69,9 @@ static const char *strPatExprValRestrictionKind(PatExprValRestrictionKind val) {
 typedef enum {
   PEK_None,            // Error type
   PEK_Macro,           // a macro representing a pattern
-  PEK_ValRestriction,  // matches a constant val, and optionally binds it
-  PEK_TypeRestriction, // matches a type, and optionally binds it
+  PEK_ValRestriction,  // matches a constant val
+  PEK_TypeRestriction, // matches a type, without binding
+  PEK_TypeRestrictionBinding, // matches a type, and binds it
   PEK_Struct,          // a container for struct based patterns
   PEK_Group,           // ()
   PEK_UnaryOp,         // !
@@ -87,6 +88,8 @@ static const char *strPatExprKind(PatExprKind val) {
     return "ValRestriction";
   case PEK_TypeRestriction:
     return "TypeRestriction";
+  case PEK_TypeRestrictionBinding:
+    return "TypeRestrictionBinding";
   case PEK_Struct:
     return "Struct";
   case PEK_Group:
@@ -174,19 +177,21 @@ typedef struct PatExpr_s {
       ValExpr *valExpr;
     } valRestriction;
     struct {
-      MacroExpr macro;
+      MacroExpr *macro;
     } macro;
     struct {
-      bool has_binding;
-      char *binding;
       TypeExpr *type;
     } typeRestriction;
+    struct {
+      TypeExpr *type;
+      char *name;
+    } typeRestrictionBinding;
     struct {
       PatStructMemberExpr *members;
       size_t members_len;
     } structExpr;
     struct {
-      PatExpr *value;
+      PatExpr *inner;
     } groupExpr;
     struct {
       PatExprUnaryOpKind op;
@@ -322,6 +327,9 @@ typedef struct TypeExpr_s {
 
   union {
     struct {
+      MacroExpr *macro;
+    } macro;
+    struct {
       Path *path;
     } referenceExpr;
     struct {
@@ -335,7 +343,7 @@ typedef struct TypeExpr_s {
       TypeExpr *type;
     } fnExpr;
     struct {
-      TypeExpr *value;
+      TypeExpr *inner;
     } groupExpr;
     struct {
       TypeExprUnaryOpKind op;
@@ -347,7 +355,7 @@ typedef struct TypeExpr_s {
       struct TypeExpr_s *right_operand;
     } binaryOp;
     struct {
-      struct TypeExpr_s *type;
+      struct TypeExpr_s *root;
       char *field;
     } fieldAccess;
   };
@@ -355,6 +363,7 @@ typedef struct TypeExpr_s {
 
 typedef enum {
   VEK_None,
+  VEK_Macro,
   VEK_NilLiteral,
   VEK_BoolLiteral,
   VEK_IntLiteral,
@@ -378,9 +387,10 @@ typedef enum {
 
 static const char *strValExprKind(ValExprKind val) {
   switch (val) {
-
   case VEK_None:
     return "None";
+  case VEK_Macro:
+    return "Macro";
   case VEK_NilLiteral:
     return "NilLiteral";
   case VEK_BoolLiteral:
@@ -505,7 +515,7 @@ typedef struct {
     struct {
       char *name;
       ValExpr *val;
-    } valStructMemberExpr;
+    } memberExpr;
     struct {
       MacroExpr *macro;
     } macro;
@@ -612,6 +622,9 @@ typedef struct ValExpr_s {
 
   union {
     struct {
+      MacroExpr* macro;
+    } macro;
+    struct {
       bool value;
     } boolLiteral;
     struct {
@@ -632,17 +645,16 @@ typedef struct ValExpr_s {
       size_t members_len;
     } structExpr;
     struct {
-      ValExpr *value;
+      ValExpr *root;
       TypeExpr *type;
-      char *field;
     } asExpr;
     struct {
-      ValExpr *value;
+      ValExpr *body;
       LabelExpr *label;
     } loopExpr;
     struct {
-      ValExpr *value;
-      char *field;
+      ValExpr *root;
+      char *name;
     } fieldAccess;
     struct {
       Path *path;

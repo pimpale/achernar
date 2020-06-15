@@ -444,21 +444,21 @@ typedef struct {
       char *label;
     } label;
   };
-} Label;
+} LabelExpr;
 
 typedef enum {
-  MCK_None,
-  MCK_Case,
-  MCK_Macro,
+  MCEK_None,
+  MCEK_Case,
+  MCEK_Macro,
 } MatchCaseExprKind;
 
 static const char *strMatchCaseExprKind(MatchCaseExprKind val) {
   switch (val) {
-  case MCK_None:
+  case MCEK_None:
     return "None";
-  case MCK_Case:
+  case MCEK_Case:
     return "Case";
-  case MCK_Macro:
+  case MCEK_Macro:
     return "Macro";
   }
 }
@@ -625,7 +625,7 @@ typedef struct ValExpr_s {
     } charLiteral;
     struct {
       char *value;
-      size_t val_len;
+      size_t value_len;
     } stringLiteral;
     struct {
       ValStructMemberExpr *members;
@@ -638,7 +638,7 @@ typedef struct ValExpr_s {
     } asExpr;
     struct {
       ValExpr *value;
-      Label *label;
+      LabelExpr *label;
     } loopExpr;
     struct {
       ValExpr *value;
@@ -669,7 +669,7 @@ typedef struct ValExpr_s {
     } fnExpr;
     struct {
       ValExpr *value;
-      Label *label;
+      LabelExpr *label;
     } returnExpr;
     struct {
       ValExpr *val;
@@ -679,7 +679,7 @@ typedef struct ValExpr_s {
     struct {
       Stmnt *statements;
       size_t statements_len;
-      Label *label;
+      LabelExpr *label;
     } blockExpr;
   };
 } ValExpr;

@@ -338,6 +338,7 @@ static void certain_parseStringValExpr(ValExpr *svep, Vector *diagnostics,
   assert(t.kind == tk_String);
   svep->kind = VEK_StringLiteral;
   svep->stringLiteral.value = t.stringToken.data;
+  svep->stringLiteral.value_len = t.stringToken.data_len;
   svep->node.span = t.span;
   return;
 }
@@ -408,7 +409,7 @@ CLEANUP:
   fvep->node.span = SPAN(start, end);
 }
 
-static void certain_parseLabelLabel(Label *lp, Vector *diagnostics,
+static void certain_parseLabelLabelExpr(LabelExpr *lp, Vector *diagnostics,
                                     Parser *parser) {
   ZERO(lp);
   lp->kind = LEK_Label;
@@ -430,11 +431,11 @@ static void certain_parseBlockValExpr(ValExpr *bvep, Vector *diagnostics,
 
   t = parse_peek(parser);
   // blocks may be labeled
-  bvep->blockExpr.label = ALLOC(parser->a, Label);
+  bvep->blockExpr.label = ALLOC(parser->a, LabelExpr);
   if (t.kind == tk_Label) {
-    certain_parseLabelLabel(bvep->blockExpr.label, diagnostics, parser);
+    certain_parseLabelLabelExpr(bvep->blockExpr.label, diagnostics, parser);
   } else {
-    *bvep->blockExpr.label = (Label){
+    *bvep->blockExpr.label = (LabelExpr) {
         .node = {.span = lbracespan, .comments_len = 0}, .kind = LEK_Omitted};
   }
 
@@ -474,11 +475,11 @@ static void certain_parseReturnValExpr(ValExpr *rep, Vector *diagnostics,
 
   t = parse_peek(parser);
   // blocks may be labeled
-  rep->returnExpr.label = ALLOC(parser->a, Label);
+  rep->returnExpr.label = ALLOC(parser->a, LabelExpr);
   if (t.kind == tk_Label) {
-    certain_parseLabelLabel(rep->returnExpr.label, diagnostics, parser);
+    certain_parseLabelLabelExpr(rep->returnExpr.label, diagnostics, parser);
   } else {
-    *rep->returnExpr.label = (Label){
+    *rep->returnExpr.label = (LabelExpr){
         .node = {.span = retspan, .comments_len = 0}, .kind = LEK_Omitted};
   }
 
@@ -499,11 +500,11 @@ static void certain_parseLoopValExpr(ValExpr *lep, Vector *diagnostics,
   Span loopspan = t.span;
 
   t = parse_peek(parser);
-  lep->loopExpr.label = ALLOC(parser->a, Label);
+  lep->loopExpr.label = ALLOC(parser->a, LabelExpr);
   if (t.kind == tk_Label) {
-    certain_parseLabelLabel(lep->loopExpr.label, diagnostics, parser);
+    certain_parseLabelLabelExpr(lep->loopExpr.label, diagnostics, parser);
   } else {
-    *lep->loopExpr.label = (Label){
+    *lep->loopExpr.label = (LabelExpr){
         .node = {.span = loopspan, .comments_len = 0}, .kind = LEK_Omitted};
   }
 
@@ -513,122 +514,6 @@ static void certain_parseLoopValExpr(ValExpr *lep, Vector *diagnostics,
   return;
 }
 
-// pat Pattern => Expr,
-static void certain_parsePatMatchCaseExpr(MatchCaseExpr *mcep,
-                                          Vector *diagnostics, Parser *parser) {
-  ZERO(mcep);
-
-  // Get Pat
-  Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_Pat);
-  LnCol start = t.span.start;
-
-  // Get pattern
-  mcep->matchCase.pattern = ALLOC(parser->a, PatExpr);
-  parsePatExpr(mcep->matchCase.pattern, diagnostics, parser);
-
-  LnCol end = mcep->matchCase.pattern->node.span.end;
-
-  // Expect colon
-  t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Arrow) {
-    *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_MatchCaseNoArrow, t.span);
-    parse_resync(parser, diagnostics);
-    goto CLEANUP;
-  }
-
-  // Get Value
-  mcep->matchCase.val = ALLOC(parser->a, ValExpr);
-  parseValExpr(mcep->matchCase.val, diagnostics, parser);
-  end = mcep->matchCase.val->node.span.end;
-
-CLEANUP:
-  mcep->node.span = SPAN(start, end);
-  return;
-}
-
-static void certain_parseMacroMatchCaseExpr(MatchCaseExpr *mcep,
-                                            Vector *diagnostics,
-                                            Parser *parser) {
-  ZERO(mcep);
-  mcep->kind = MCK_Macro;
-  mcep->macro.macro = ALLOC(parser->a, MacroExpr);
-  certain_parseMacroExpr(mcep->macro.macro, diagnostics, parser);
-  mcep->node.span = mcep->macro.macro->node.span;
-}
-
-static void parseMatchCaseExpr(MatchCaseExpr *mcep, Vector *diagnostics,
-                               Parser *parser) {
-  Vector comments = parse_getComments(parser, diagnostics);
-  Token t = parse_peek(parser);
-  switch (t.kind) {
-  case tk_Pat: {
-    certain_parsePatMatchCaseExpr(mcep, diagnostics, parser);
-    break;
-  }
-  case tk_Macro: {
-    certain_parseMacroMatchCaseExpr(mcep, diagnostics, parser);
-    break;
-  }
-  default: {
-    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_MatchCaseNoPat, t.span);
-
-    mcep->kind = MCK_None;
-    mcep->node.span = t.span;
-    // discard token
-    parse_next(parser, diagnostics);
-    break;
-  }
-  }
-  mcep->node.comments_len = VEC_LEN(&comments, Comment);
-  mcep->node.comments = vec_release(&comments);
-}
-static void certain_parseMatchValExpr(ValExpr *mvep, Vector *diagnostics,
-                                      Parser *parser) {
-  ZERO(mvep);
-  mvep->kind = VEK_Match;
-
-  Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_Match);
-  LnCol start = t.span.start;
-
-  // Get expression to match against
-  mvep->matchExpr.val = ALLOC(parser->a, ValExpr);
-  parseValExpr(mvep->matchExpr.val, diagnostics, parser);
-  // now we must parse the block containing the cases
-  Vector cases = vec_create(parser->a);
-
-  LnCol end;
-
-  // Expect beginning brace
-  t = parse_next(parser, diagnostics);
-
-  if (t.kind != tk_BraceLeft) {
-    *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_MatchNoLeftBrace, t.span);
-    end = t.span.end;
-    goto CLEANUP;
-  }
-
-  PARSE_LIST(&cases,               // members_vec_ptr
-             diagnostics,          // diagnostics_vec_ptr
-             parseMatchCaseExpr,   // member_parse_function
-             MatchCaseExpr,        // member_kind
-             tk_BraceRight,        // delimiting_token_kind
-             DK_MatchNoRightBrace, // missing_delimiter_error
-             end,                  // end_lncol
-             parser                // parser
-  )
-
-CLEANUP:
-  // Get interior cases
-  mvep->matchExpr.cases_len = VEC_LEN(&cases, MatchCaseExpr);
-  mvep->matchExpr.cases = vec_release(&cases);
-
-  mvep->node.span = SPAN(start, end);
-  return;
-}
 
 static void parseReferenceValExpr(ValExpr *rvep, Vector *diagnostics,
                                   Parser *parser) {
@@ -656,7 +541,7 @@ static void certain_parseMemberValStructMemberExpr(ValStructMemberExpr *vsmep,
                                                    Parser *parser) {
   // zero-initialize bp
   ZERO(vsmep);
-  vsmep->kind = VSMEK_ValStructMemberExpr;
+  vsmep->kind = VSMEK_Member;
 
   LnCol start;
   LnCol end;
@@ -819,10 +704,6 @@ static void parseL1ValExpr(ValExpr *l1, Vector *diagnostics, Parser *parser) {
     certain_parseLoopValExpr(l1, diagnostics, parser);
     break;
   }
-  case tk_Match: {
-    certain_parseMatchValExpr(l1, diagnostics, parser);
-    break;
-  }
   case tk_Identifier: {
     parseReferenceValExpr(l1, diagnostics, parser);
     break;
@@ -860,7 +741,7 @@ static void parseFieldAccessValExpr(ValExpr *fave, Vector *diagnostics,
   fave->node.span = SPAN(root->node.span.start, t.span.end);
 }
 
-static void parseCallValExpr(ValExpr *cvep, Vector *diagnostics, Parser *parser,
+static void certain_postfix_parseCallValExpr(ValExpr *cvep, Vector *diagnostics, Parser *parser,
                              ValExpr *root) {
   ZERO(cvep);
 
@@ -890,7 +771,7 @@ static void parseCallValExpr(ValExpr *cvep, Vector *diagnostics, Parser *parser,
   cvep->node.span = SPAN(root->node.span.start, end);
 }
 
-static void parseAsValExpr(ValExpr *avep, Vector *diagnostics, Parser *parser,
+static void certain_postfix_parseAsValExpr(ValExpr *avep, Vector *diagnostics, Parser *parser,
                            ValExpr *root) {
   ZERO(avep);
   avep->kind = VEK_As;
@@ -901,6 +782,123 @@ static void parseAsValExpr(ValExpr *avep, Vector *diagnostics, Parser *parser,
 
   avep->asExpr.type = ALLOC(parser->a, TypeExpr);
   parseTypeExpr(avep->asExpr.type, diagnostics, parser);
+  avep->node.span = SPAN(root->node.span.start, avep->asExpr.type->node.span.end);
+}
+
+// pat Pattern => Expr,
+static void certain_parsePatMatchCaseExpr(MatchCaseExpr *mcep,
+                                          Vector *diagnostics, Parser *parser) {
+  ZERO(mcep);
+
+  // Get Pat
+  Token t = parse_next(parser, diagnostics);
+  assert(t.kind == tk_Pat);
+  LnCol start = t.span.start;
+
+  // Get pattern
+  mcep->matchCase.pattern = ALLOC(parser->a, PatExpr);
+  parsePatExpr(mcep->matchCase.pattern, diagnostics, parser);
+
+  LnCol end = mcep->matchCase.pattern->node.span.end;
+
+  // Expect colon
+  t = parse_next(parser, diagnostics);
+  if (t.kind != tk_Arrow) {
+    *VEC_PUSH(diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_MatchCaseNoArrow, t.span);
+    parse_resync(parser, diagnostics);
+    goto CLEANUP;
+  }
+
+  // Get Value
+  mcep->matchCase.val = ALLOC(parser->a, ValExpr);
+  parseValExpr(mcep->matchCase.val, diagnostics, parser);
+  end = mcep->matchCase.val->node.span.end;
+
+CLEANUP:
+  mcep->node.span = SPAN(start, end);
+  return;
+}
+
+static void certain_parseMacroMatchCaseExpr(MatchCaseExpr *mcep,
+                                            Vector *diagnostics,
+                                            Parser *parser) {
+  ZERO(mcep);
+  mcep->kind = MCEK_Macro;
+  mcep->macro.macro = ALLOC(parser->a, MacroExpr);
+  certain_parseMacroExpr(mcep->macro.macro, diagnostics, parser);
+  mcep->node.span = mcep->macro.macro->node.span;
+}
+
+static void parseMatchCaseExpr(MatchCaseExpr *mcep, Vector *diagnostics,
+                               Parser *parser) {
+  Vector comments = parse_getComments(parser, diagnostics);
+  Token t = parse_peek(parser);
+  switch (t.kind) {
+  case tk_Pat: {
+    certain_parsePatMatchCaseExpr(mcep, diagnostics, parser);
+    break;
+  }
+  case tk_Macro: {
+    certain_parseMacroMatchCaseExpr(mcep, diagnostics, parser);
+    break;
+  }
+  default: {
+    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_MatchCaseNoPat, t.span);
+
+    mcep->kind = MCEK_None;
+    mcep->node.span = t.span;
+    // discard token
+    parse_next(parser, diagnostics);
+    break;
+  }
+  }
+  mcep->node.comments_len = VEC_LEN(&comments, Comment);
+  mcep->node.comments = vec_release(&comments);
+}
+
+static void certain_postfix_parseMatchValExpr(ValExpr *mvep, Vector *diagnostics,
+                                      Parser *parser, ValExpr *root) {
+  ZERO(mvep);
+  mvep->kind = VEK_Match;
+  mvep->matchExpr.val = root;
+
+  // guarantee token exists
+  Token t = parse_next(parser, diagnostics);
+  assert(t.kind == tk_Match);
+
+  // now we must parse the block containing the cases
+  Vector cases = vec_create(parser->a);
+
+  LnCol end;
+
+  // Expect beginning brace
+  t = parse_next(parser, diagnostics);
+
+  if (t.kind != tk_BraceLeft) {
+    *VEC_PUSH(diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_MatchNoLeftBrace, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
+  PARSE_LIST(&cases,               // members_vec_ptr
+             diagnostics,          // diagnostics_vec_ptr
+             parseMatchCaseExpr,   // member_parse_function
+             MatchCaseExpr,        // member_kind
+             tk_BraceRight,        // delimiting_token_kind
+             DK_MatchNoRightBrace, // missing_delimiter_error
+             end,                  // end_lncol
+             parser                // parser
+  )
+
+CLEANUP:
+  // Get interior cases
+  mvep->matchExpr.cases_len = VEC_LEN(&cases, MatchCaseExpr);
+  mvep->matchExpr.cases = vec_release(&cases);
+
+  mvep->node.span = SPAN(root->node.span.start, end);
+  return;
 }
 
 static void parseL2ValExpr(ValExpr *l2, Vector *diagnostics, Parser *parser) {
@@ -958,7 +956,7 @@ static void parseL2ValExpr(ValExpr *l2, Vector *diagnostics, Parser *parser) {
       Vector comments = parse_getComments(parser, diagnostics);
       v = ALLOC(parser->a, ValExpr);
       *v = *root;
-      parseCallValExpr(root, diagnostics, parser, v);
+      certain_postfix_parseCallValExpr(root, diagnostics, parser, v);
       root->node.comments_len = VEC_LEN(&comments, Comment);
       root->node.comments = vec_release(&comments);
       break;
@@ -967,10 +965,18 @@ static void parseL2ValExpr(ValExpr *l2, Vector *diagnostics, Parser *parser) {
       Vector comments = parse_getComments(parser, diagnostics);
       v = ALLOC(parser->a, ValExpr);
       *v = *root;
-      parseAsValExpr(root, diagnostics, parser, v);
+      certain_postfix_parseAsValExpr(root, diagnostics, parser, v);
       root->node.comments_len = VEC_LEN(&comments, Comment);
       root->node.comments = vec_release(&comments);
       break;
+    }
+    case tk_Match: {
+      Vector comments = parse_getComments(parser, diagnostics);
+      v = ALLOC(parser->a, ValExpr);
+      *v = *root;
+      certain_postfix_parseMatchValExpr(root, diagnostics, parser, v);
+      root->node.comments_len = VEC_LEN(&comments, Comment);
+      root->node.comments = vec_release(&comments);
     }
     default: {
       // there are no more level 2 expressions

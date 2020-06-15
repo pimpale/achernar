@@ -30,7 +30,7 @@ typedef struct j_Int_s {
 } j_Int;
 
 typedef struct j_Str_s {
-  char *string;
+  const char *string;
   size_t length;
 } j_Str;
 
@@ -59,6 +59,8 @@ typedef struct j_Prop_s {
 
 // Utility macros to construct these types
 #define J_ASCIZ(x) J_STR((x), strlen((x)))
+// string literals only 
+#define J_LITSTR(x) J_STR((x), sizeof(x))
 #define J_STR(x, len) ((j_Str){.string = (x), .length = (len)})
 
 

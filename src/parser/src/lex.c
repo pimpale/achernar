@@ -180,10 +180,8 @@ static Token lexStringLiteral(Lexer *lexer, Vector *diagnostics, Allocator *a) {
         *VEC_PUSH(diagnostics, Diagnostic) =
             DIAGNOSTIC(DK_StringLiteralUnrecognizedEscapeCode,
                        SPAN(start, lexer->position));
-        return (Token){.kind = tk_String,
-                       .span = SPAN(start, lexer->position),
-                       .stringToken = { .data= vec_release(&data)}
-                       };
+
+        goto CLEANUP;
       }
       }
     } else if (c == '\"') {
@@ -193,13 +191,13 @@ static Token lexStringLiteral(Lexer *lexer, Vector *diagnostics, Allocator *a) {
     }
   }
 
-  // Push null byte
-  *VEC_PUSH(&data, char) = '\0';
-
+CLEANUP:;
+  size_t len = VEC_LEN(&data, char);
+  char* ptr = vec_release(&data);
   // Return data
   return (Token){
       .kind = tk_String,
-      .stringToken= { .data= vec_release(&data) },
+      .stringToken= { .data=ptr, .data_len=len },
       .span = SPAN(start, lexer->position),
   };
 }

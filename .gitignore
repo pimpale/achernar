@@ -1,5 +1,4 @@
 obj/
-compile_commands.json
 .clangd/
 vgcore.*
 .gdb_history

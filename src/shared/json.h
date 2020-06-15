@@ -63,8 +63,8 @@ typedef struct j_Prop_s {
 
 
 #define J_INT(neg, val) ((j_Int){.negative=(neg), .integer=(val)})
-#define J_UINT(x) ((j_Int){.negative=false, .integer=(x)})
-#define J_SINT(x) ((j_Int){.negative=((x) < 0), .integer=safe_abs(x)})
+#define J_UINT(x) J_INT(false, (x))
+#define J_SINT(x) J_INT(((x) < 0), safe_abs((x)))
 
 #define J_PROP(k, v) ((j_Prop){.key = (k), .value = (v)})
 

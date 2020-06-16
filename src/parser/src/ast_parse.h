@@ -11,14 +11,10 @@ typedef struct Parser_s {
   Allocator *a;
   Lexer *lexer;
 
-  // Queue<Token>
+  // Queue[Token]
   Queue next_tokens_queue;
-  // Queue<Vector<Diagnostic>> queue of vectors of peeked diagnostics for each peeked token
+  // Queue[Vector[Diagnostic]] queue of vectors of peeked diagnostics for each peeked token
   Queue next_diagnostics_queue;
-
-  int64_t paren_depth;
-  int64_t brace_depth;
-  int64_t bracket_depth;
 } Parser;
 
 // Uses memory allocated from a to build a parser with the source as lp

@@ -1,4 +1,5 @@
 #include "diagnostic.h"
+#include "utils.h"
 
 const char *strDiagnosticKind(DiagnosticKind val) {
   switch (val) {
@@ -129,4 +130,5 @@ const char *strDiagnosticKind(DiagnosticKind val) {
   case DK_NamespaceExpectedRightBrace:
     return "NamespaceExpectedRightBrace";
   }
+  PANIC();
 }

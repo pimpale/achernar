@@ -20,7 +20,7 @@ LDFLAGS :=
 #CC := gcc
 #CFLAGS ?= $(INC_FLAGS) -fanalyzer -std=c11 -MMD -MP -O0 -g3 -Wall -pedantic -Wno-padded -Wno-switch-enum -Wno-format-nonliteral
 
-CC := gcc
+CC := afl-gcc
 CFLAGS ?= $(INC_FLAGS) -std=c11 -MMD -MP -O0 -g3 -Wall -pedantic -Wno-padded -Wno-switch-enum -Wno-format-nonliteral
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)

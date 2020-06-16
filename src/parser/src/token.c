@@ -1,4 +1,5 @@
 #include "token.h"
+#include "utils.h"
 
 const char *tk_strKind(tk_Kind val) {
   switch (val) {
@@ -141,5 +142,6 @@ const char *tk_strKind(tk_Kind val) {
   case tk_Comment:
     return "Comment";
   }
+  PANIC();
 }
 

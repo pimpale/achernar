@@ -54,36 +54,7 @@ Parser parse_create(Lexer *lp, Allocator *a) {
 
 /// gets the next token, ignoring buffering
 static Token parse_rawNext(Parser *parser, Vector *diagnostics) {
-  Token c = tk_next(parser->lexer, diagnostics, parser->a);
-  switch (c.kind) {
-  case tk_ParenLeft: {
-    parser->paren_depth++;
-    return c;
-  }
-  case tk_ParenRight: {
-    parser->paren_depth--;
-    return c;
-  }
-  case tk_BraceLeft: {
-    parser->brace_depth++;
-    return c;
-  }
-  case tk_BraceRight: {
-    parser->brace_depth--;
-    return c;
-  }
-  case tk_BracketLeft: {
-    parser->bracket_depth++;
-    return c;
-  }
-  case tk_BracketRight: {
-    parser->bracket_depth--;
-    return c;
-  }
-  default: {
-    return c;
-  }
-  }
+  return tk_next(parser->lexer, diagnostics, parser->a);
 }
 
 // If the peeked token stack is not empty:
@@ -146,27 +117,6 @@ Allocator *parse_release(Parser *pp) {
   queue_destroy(&pp->next_diagnostics_queue);
   queue_destroy(&pp->next_tokens_queue);
   return pp->a;
-}
-
-// Heuristic to resync the parser after reaching a syntax error
-// Continues reading tokens until we jump out of a paren, brace, or bracket
-// group discards any comments and tokens found
-// Will store any lexer errors into the diagnostics
-static void parse_resync(Parser *parser, Vector *diagnostics) {
-  int64_t initial_paren_depth = parser->paren_depth;
-  int64_t initial_brace_depth = parser->brace_depth;
-  int64_t initial_bracket_depth = parser->bracket_depth;
-  while (true) {
-    if (initial_brace_depth > parser->brace_depth &&
-        initial_paren_depth > parser->paren_depth &&
-        initial_bracket_depth > parser->bracket_depth) {
-      break;
-    }
-    Token t = parse_rawNext(parser, diagnostics);
-    if (t.kind == tk_Eof) {
-      break;
-    }
-  }
 }
 
 // returns a vector containing all the comments encountered here

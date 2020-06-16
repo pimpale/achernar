@@ -1,0 +1,12 @@
+std::basics::print("hi")
+{
+  use std::basics
+  print("hi")
+}
+
+namespace foo {
+  namespace bar {
+    val x := 20
+    val y := 30
+  }
+}

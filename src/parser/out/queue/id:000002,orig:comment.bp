@@ -1,0 +1,23 @@
+# NUMERO 3
+val x
+
+# test 2
+val y
+
+
+# statement comment 1
+type foo := 
+# type comment
+struct {
+  # struct member comment
+  struct_member: 
+                  # comment on the type
+                  int
+}
+
+# statement comment 2
+val #{pattern comment}# foo := nil
+
+foo #{L11}# = Qwerty #{L9}# || true #{L10}#,nil
+
+foo = ex #{comment =====================}# @

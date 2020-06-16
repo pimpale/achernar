@@ -90,6 +90,10 @@ typedef enum {
   DK_BlockExpectedRightBrace,
   // Fn Calls
   DK_CallExpectedParen,
+  // Namespace errors
+  DK_NamespaceExpectedIdentifier,
+  DK_NamespaceExpectedLeftBrace,
+  DK_NamespaceExpectedRightBrace,
   // Generic Parsing errors
   DK_UnexpectedToken,
   DK_FieldAccessExpectedIdentifier,
@@ -217,6 +221,12 @@ static const char *strDiagnosticKind(DiagnosticKind val) {
     return "UnexpectedToken";
   case DK_FieldAccessExpectedIdentifier:
     return "FieldAccessExpectedIdentifier";
+  case DK_NamespaceExpectedIdentifier:
+    return "NamespaceExpectedIdentifier";
+  case DK_NamespaceExpectedLeftBrace:
+    return "NamespaceExpectedLeftBrace";
+  case DK_NamespaceExpectedRightBrace:
+    return "NamespaceExpectedRightBrace";
   }
 }
 

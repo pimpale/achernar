@@ -454,8 +454,8 @@ static void certain_parseBlockValExpr(ValExpr *bvep, Vector *diagnostics,
              parser                      // parser
   )
 
-  bvep->blockExpr.statements_len = VEC_LEN(&statements, Stmnt);
-  bvep->blockExpr.statements = vec_release(&statements);
+  bvep->blockExpr.stmnts_len = VEC_LEN(&statements, Stmnt);
+  bvep->blockExpr.stmnts = vec_release(&statements);
   bvep->node.span = SPAN(lbracespan.start, end);
   return;
 }
@@ -508,9 +508,9 @@ static void certain_parseLoopValExpr(ValExpr *lep, Vector *diagnostics,
         .node = {.span = loopspan, .comments_len = 0}, .kind = LEK_Omitted};
   }
 
-  lep->loopExpr.value = ALLOC(parser->a, ValExpr);
-  parseValExpr(lep->loopExpr.value, diagnostics, parser);
-  lep->node.span = SPAN(start, lep->loopExpr.value->node.span.end);
+  lep->loopExpr.body = ALLOC(parser->a, ValExpr);
+  parseValExpr(lep->loopExpr.body, diagnostics, parser);
+  lep->node.span = SPAN(start, lep->loopExpr.body->node.span.end);
   return;
 }
 
@@ -550,19 +550,19 @@ static void certain_parseMemberValStructMemberExpr(ValStructMemberExpr *vsmep,
   assert(t.kind == tk_Identifier);
   Span identitySpan = t.span;
   start = identitySpan.start;
-  vsmep->valStructMemberExpr.name = t.identifierToken.data;
+  vsmep->memberExpr.name = t.identifierToken.data;
 
   // check if define
   t = parse_next(parser, diagnostics);
   if (t.kind == tk_Define) {
     // Get value of variable
-    vsmep->valStructMemberExpr.val = ALLOC(parser->a, ValExpr);
-    parseValExpr(vsmep->valStructMemberExpr.val, diagnostics, parser);
-    end = vsmep->valStructMemberExpr.val->node.span.end;
+    vsmep->memberExpr.val = ALLOC(parser->a, ValExpr);
+    parseValExpr(vsmep->memberExpr.val, diagnostics, parser);
+    end = vsmep->memberExpr.val->node.span.end;
   } else {
     *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_StructMemberLiteralExpectedDefine, t.span);
-    vsmep->valStructMemberExpr.val = NULL;
+    vsmep->memberExpr.val = NULL;
     end = t.span.end;
     goto CLEANUP;
   }
@@ -642,9 +642,9 @@ static void certain_parseMacroValExpr(ValExpr *vep, Vector *diagnostics,
                                       Parser *parser) {
   ZERO(vep);
   vep->kind = VEK_Macro;
-  vep->macroExpr.macro = ALLOC(parser->a, MacroExpr);
-  certain_parseMacroExpr(vep->macroExpr.macro, diagnostics, parser);
-  vep->node.span = vep->macroExpr.macro->node.span;
+  vep->macro.macro = ALLOC(parser->a, MacroExpr);
+  certain_parseMacroExpr(vep->macro.macro, diagnostics, parser);
+  vep->node.span = vep->macro.macro->node.span;
 }
 
 // Level1ValExpr parentheses, braces, literals
@@ -736,7 +736,7 @@ static void parseFieldAccessValExpr(ValExpr *fave, Vector *diagnostics,
                                     Parser *parser, ValExpr *root) {
   ZERO(fave);
   fave->kind = VEK_FieldAccess;
-  fave->fieldAccess.value = root;
+  fave->fieldAccess.root = root;
 
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_FieldAccess);
@@ -745,11 +745,11 @@ static void parseFieldAccessValExpr(ValExpr *fave, Vector *diagnostics,
   t = parse_peek(parser);
   if (t.kind != tk_Identifier) {
     // it is possible we encounter an error
-    fave->fieldAccess.field = NULL;
+    fave->fieldAccess.name = NULL;
     *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, t.span);
   } else {
-    fave->fieldAccess.field = t.identifierToken.data;
+    fave->fieldAccess.name = t.identifierToken.data;
   }
   fave->node.span = SPAN(root->node.span.start, t.span.end);
 }
@@ -788,7 +788,7 @@ static void certain_postfix_parseAsValExpr(ValExpr *avep, Vector *diagnostics,
                                            Parser *parser, ValExpr *root) {
   ZERO(avep);
   avep->kind = VEK_As;
-  avep->asExpr.value = root;
+  avep->asExpr.root = root;
 
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_As);
@@ -876,7 +876,7 @@ static void certain_postfix_parseMatchValExpr(ValExpr *mvep,
                                               Parser *parser, ValExpr *root) {
   ZERO(mvep);
   mvep->kind = VEK_Match;
-  mvep->matchExpr.val = root;
+  mvep->matchExpr.root = root;
 
   // guarantee token exists
   Token t = parse_next(parser, diagnostics);
@@ -1470,8 +1470,8 @@ static void certain_parseGroupTypeExpr(TypeExpr *gtep, Vector *diagnostics,
   LnCol start = t.span.start;
   LnCol end;
 
-  gtep->groupExpr.value = ALLOC(parser->a, TypeExpr);
-  parseTypeExpr(gtep->groupExpr.value, diagnostics, parser);
+  gtep->groupExpr.inner = ALLOC(parser->a, TypeExpr);
+  parseTypeExpr(gtep->groupExpr.inner, diagnostics, parser);
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceRight) {
@@ -1479,7 +1479,7 @@ static void certain_parseGroupTypeExpr(TypeExpr *gtep, Vector *diagnostics,
         DIAGNOSTIC(DK_TypeGroupExpectedRightBrace, t.span);
     end = t.span.end;
   } else {
-    end = gtep->groupExpr.value->node.span.end;
+    end = gtep->groupExpr.inner->node.span.end;
   }
 
   gtep->node.span = SPAN(start, end);
@@ -1489,9 +1489,9 @@ static void certain_parseMacroTypeExpr(TypeExpr *tep, Vector *diagnostics,
                                        Parser *parser) {
   ZERO(tep);
   tep->kind = TEK_Macro;
-  tep->macroExpr.macro = ALLOC(parser->a, MacroExpr);
-  certain_parseMacroExpr(tep->macroExpr.macro, diagnostics, parser);
-  tep->node.span = tep->macroExpr.macro->node.span;
+  tep->macro.macro = ALLOC(parser->a, MacroExpr);
+  certain_parseMacroExpr(tep->macro.macro, diagnostics, parser);
+  tep->node.span = tep->macro.macro->node.span;
 }
 
 static void parseL1TypeExpr(TypeExpr *l1, Vector *diagnostics, Parser *parser) {
@@ -1541,7 +1541,7 @@ static void parseScopeResolutionTypeExpr(TypeExpr *srte, Vector *diagnostics,
                                          Parser *parser, TypeExpr *root) {
   ZERO(srte);
   srte->kind = TEK_FieldAccess;
-  srte->fieldAccess.type = root;
+  srte->fieldAccess.root = root;
 
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_FieldAccess);
@@ -1709,35 +1709,33 @@ static void certain_parseTypeRestrictionPatExpr(PatExpr *trpe,
                                                 Parser *parser) {
   ZERO(trpe);
 
-  trpe->kind = PEK_TypeRestriction;
-
-  bool parseType = false;
+  bool parse_type = false;
 
   Token t = parse_next(parser, diagnostics);
 
   LnCol start = t.span.start;
   LnCol end;
 
+  char *binding;
+
   switch (t.kind) {
   // No binding created
   case tk_Colon: {
-    trpe->typeRestriction.has_binding = false;
-    parseType = true;
-    end = t.span.end;
+    binding = NULL;
+    parse_type = true;
     break;
   }
   // Create a binding
   case tk_Identifier: {
-    trpe->typeRestriction.has_binding = true;
-    trpe->typeRestriction.binding = t.identifierToken.data;
-    end = t.span.end;
+    bool has_binding = true;
+    binding = t.identifierToken.data;
     t = parse_peek(parser);
     if (t.kind == tk_Colon) {
-      parseType = true;
+      parse_type = true;
       // advance through it
       t = parse_next(parser, diagnostics);
     } else {
-      parseType = false;
+      parse_type = false;
     }
     break;
   }
@@ -1747,17 +1745,27 @@ static void certain_parseTypeRestrictionPatExpr(PatExpr *trpe,
   }
   }
 
-  if (parseType) {
-    trpe->typeRestriction.type = ALLOC(parser->a, TypeExpr);
+  TypeExpr *type;
+  if (parse_type) {
+    type = ALLOC(parser->a, TypeExpr);
     parseTypeExpr(trpe->typeRestriction.type, diagnostics, parser);
     end = t.span.end;
   } else {
-    trpe->typeRestriction.type = ALLOC(parser->a, TypeExpr);
-    trpe->typeRestriction.type->kind = TEK_Omitted;
-    trpe->typeRestriction.type->node.span = SPAN(start, end);
-    trpe->typeRestriction.type->node.comments_len = 0;
+    type = ALLOC(parser->a, TypeExpr);
+    type->kind = TEK_Omitted;
+    type->node.span = SPAN(start, end);
+    type->node.comments_len = 0;
+    end = t.span.end;
   }
 
+  if (binding != NULL) {
+    trpe->kind = PEK_TypeRestrictionBinding;
+    trpe->typeRestrictionBinding.name = binding;
+    trpe->typeRestrictionBinding.type = type;
+  } else {
+    trpe->kind = PEK_TypeRestriction;
+    trpe->typeRestriction.type = type;
+  }
   trpe->node.span = SPAN(start, end);
 }
 
@@ -1899,8 +1907,8 @@ static void certain_parseGroupPatExpr(PatExpr *gpep, Vector *diagnostics,
   LnCol start = t.span.start;
   LnCol end;
 
-  gpep->groupExpr.value = ALLOC(parser->a, PatExpr);
-  parsePatExpr(gpep->groupExpr.value, diagnostics, parser);
+  gpep->groupExpr.inner = ALLOC(parser->a, PatExpr);
+  parsePatExpr(gpep->groupExpr.inner, diagnostics, parser);
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceRight) {
@@ -1908,7 +1916,7 @@ static void certain_parseGroupPatExpr(PatExpr *gpep, Vector *diagnostics,
         DIAGNOSTIC(DK_PatGroupExpectedRightBrace, t.span);
     end = t.span.end;
   } else {
-    end = gpep->groupExpr.value->node.span.end;
+    end = gpep->groupExpr.inner->node.span.end;
   }
 
   gpep->node.span = SPAN(start, end);
@@ -2053,31 +2061,34 @@ static void certain_parseValDecl(Stmnt *vdsp, Vector *diagnostics,
                                  Parser *parser) {
   // zero-initialize vdsp
   ZERO(vdsp);
-  vdsp->kind = SK_ValDecl;
 
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Val);
   LnCol start = t.span.start;
 
   // Get Binding
-  vdsp->valDecl.pattern = ALLOC(parser->a, PatExpr);
-  parsePatExpr(vdsp->valDecl.pattern, diagnostics, parser);
+  PatExpr *pat = ALLOC(parser->a, PatExpr);
+  parsePatExpr(pat, diagnostics, parser);
 
   LnCol end;
 
   // Expect define
   t = parse_peek(parser);
   if (t.kind == tk_Define) {
+    // set components
+    vdsp->kind = SK_ValDeclDefine;
+    vdsp->valDeclDefine.pat = pat;
     // accept the define token
     parse_next(parser, diagnostics);
 
-    vdsp->valDecl.has_val = true;
-    vdsp->valDecl.val = ALLOC(parser->a, ValExpr);
-    parseValExpr(vdsp->valDecl.val, diagnostics, parser);
-    end = vdsp->valDecl.val->node.span.end;
+    vdsp->valDeclDefine.val = ALLOC(parser->a, ValExpr);
+    parseValExpr(vdsp->valDeclDefine.val, diagnostics, parser);
+    end = vdsp->valDeclDefine.val->node.span.end;
   } else {
-    vdsp->valDecl.has_val = false;
-    end = vdsp->valDecl.pattern->node.span.end;
+    // set components
+    vdsp->kind = SK_ValDecl;
+    vdsp->valDecl.pat = pat;
+    end = vdsp->valDecl.pat->node.span.end;
   }
 
   vdsp->node.span = SPAN(start, end);
@@ -2139,9 +2150,68 @@ static void certain_parseMacroStmnt(Stmnt *msp, Vector *diagnostics,
                                     Parser *parser) {
   ZERO(msp);
   msp->kind = SK_Macro;
-  msp->macroStmnt.macro = ALLOC(parser->a, MacroExpr);
-  certain_parseMacroExpr(msp->macroStmnt.macro, diagnostics, parser);
-  msp->node.span = msp->macroStmnt.macro->node.span;
+  msp->macro.macro = ALLOC(parser->a, MacroExpr);
+  certain_parseMacroExpr(msp->macro.macro, diagnostics, parser);
+  msp->node.span = msp->macro.macro->node.span;
+}
+
+static void certain_parseNamespaceStmnt(Stmnt *nsp, Vector *diagnostics,
+                                        Parser *parser) {
+  ZERO(nsp);
+  nsp->kind = SK_Namespace;
+  Token t = parse_next(parser, diagnostics);
+  assert(t.kind == tk_Namespace);
+  LnCol start = t.span.start;
+  LnCol end;
+
+  // Create list of statements
+  Vector statements = vec_create(parser->a);
+
+  // namespace name
+  t = parse_next(parser, diagnostics);
+  if (t.kind != tk_Identifier) {
+    *VEC_PUSH(diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_NamespaceExpectedIdentifier, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
+  nsp->namespaceStmnt.name = t.identifierToken.data;
+
+  t = parse_next(parser, diagnostics);
+  if (t.kind != tk_BraceLeft) {
+    *VEC_PUSH(diagnostics, Diagnostic) =
+        DIAGNOSTIC(DK_NamespaceExpectedLeftBrace, t.span);
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
+  PARSE_LIST(&statements,                    // members_vec_ptr
+             diagnostics,                    // diagnostics_vec_ptr
+             parseStmnt,                     // member_parse_function
+             Stmnt,                          // member_kind
+             tk_BraceRight,                  // delimiting_token_kind
+             DK_NamespaceExpectedRightBrace, // missing_delimiter_error
+             end,                            // end_lncol
+             parser                          // parser
+  )
+
+CLEANUP:
+  nsp->namespaceStmnt.stmnts_len = VEC_LEN(&statements, Stmnt);
+  nsp->namespaceStmnt.stmnts = vec_release(&statements);
+  nsp->node.span = SPAN(start, end);
+}
+
+static void certain_parseUseStmnt(Stmnt *usp, Vector *diagnostics,
+                                  Parser *parser) {
+  ZERO(usp);
+  usp->kind = SK_Use;
+  Token t = parse_next(parser, diagnostics); // drop use token
+  assert(t.kind == tk_Use);
+  LnCol start = t.span.start;
+
+  usp->useStmnt.path = ALLOC(parser->a, Path);
+  parsePath(usp->useStmnt.path, diagnostics, parser);
+  usp->node.span = SPAN(start, usp->useStmnt.path->node.span.end);
 }
 
 static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
@@ -2157,23 +2227,11 @@ static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
     break;
   }
   case tk_Use: {
-    LnCol start = t.span.start;
-    parse_next(parser, diagnostics); // drop use token
-    sp->kind = SK_Use;
-    sp->useStmnt.path = ALLOC(parser->a, Path);
-    parsePath(sp->useStmnt.path, diagnostics, parser);
-    sp->node.span = SPAN(start, sp->useStmnt.path->node.span.end);
+    certain_parseUseStmnt(sp, diagnostics, parser);
     break;
   }
   case tk_Namespace: {
-    LnCol start = t.span.start;
-    parse_next(parser, diagnostics); // drop namespace token
-    sp->kind = SK_Namespace;
-    sp->namespaceStmnt.path = ALLOC(parser->a, Path);
-    parsePath(sp->namespaceStmnt.path, diagnostics, parser);
-    sp->namespaceStmnt.stmnt = ALLOC(parser->a, Stmnt);
-    parseStmnt(sp->namespaceStmnt.stmnt, diagnostics, parser);
-    sp->node.span = SPAN(start, sp->namespaceStmnt.stmnt->node.span.end);
+    certain_parseNamespaceStmnt(sp, diagnostics, parser);
     break;
   }
   // Val Stmnt (Decl)

@@ -67,15 +67,15 @@ static const char *strPatExprValRestrictionKind(PatExprValRestrictionKind val) {
 }
 
 typedef enum {
-  PEK_None,            // Error type
-  PEK_Macro,           // a macro representing a pattern
-  PEK_ValRestriction,  // matches a constant val
-  PEK_TypeRestriction, // matches a type, without binding
+  PEK_None,                   // Error type
+  PEK_Macro,                  // a macro representing a pattern
+  PEK_ValRestriction,         // matches a constant val
+  PEK_TypeRestriction,        // matches a type, without binding
   PEK_TypeRestrictionBinding, // matches a type, and binds it
-  PEK_Struct,          // a container for struct based patterns
-  PEK_Group,           // ()
-  PEK_UnaryOp,         // !
-  PEK_BinaryOp,        // , |
+  PEK_Struct,                 // a container for struct based patterns
+  PEK_Group,                  // ()
+  PEK_UnaryOp,                // !
+  PEK_BinaryOp,               // , |
 } PatExprKind;
 
 static const char *strPatExprKind(PatExprKind val) {
@@ -377,7 +377,6 @@ typedef enum {
   VEK_BinaryOp,
   VEK_UnaryOp,
   VEK_Call,
-  VEK_Continue,
   VEK_Return,
   VEK_Match,
   VEK_Block,
@@ -417,8 +416,6 @@ static const char *strValExprKind(ValExprKind val) {
     return "UnaryOp";
   case VEK_Call:
     return "Call";
-  case VEK_Continue:
-    return "Continue";
   case VEK_Return:
     return "Return";
   case VEK_Match:
@@ -622,7 +619,7 @@ typedef struct ValExpr_s {
 
   union {
     struct {
-      MacroExpr* macro;
+      MacroExpr *macro;
     } macro;
     struct {
       bool value;
@@ -684,14 +681,14 @@ typedef struct ValExpr_s {
       LabelExpr *label;
     } returnExpr;
     struct {
-      ValExpr *val;
+      ValExpr *root;
       MatchCaseExpr *cases;
       size_t cases_len;
     } matchExpr;
     struct {
-      Stmnt *statements;
-      size_t statements_len;
       LabelExpr *label;
+      Stmnt *stmnts;
+      size_t stmnts_len;
     } blockExpr;
   };
 } ValExpr;
@@ -702,6 +699,7 @@ typedef enum {
   SK_Macro,
   SK_Namespace,
   SK_ValDecl,
+  SK_ValDeclDefine,
   SK_TypeDecl,
   SK_ValExpr,
   SK_DeferStmnt,
@@ -719,6 +717,8 @@ static const char *strStmntKind(StmntKind val) {
     return "Namespace";
   case SK_ValDecl:
     return "ValDecl";
+  case SK_ValDeclDefine:
+    return "ValDeclDefine";
   case SK_TypeDecl:
     return "TypeDecl";
   case SK_ValExpr:
@@ -736,31 +736,34 @@ typedef struct Stmnt_s {
   union {
     // Declarations
     struct {
-      PatExpr *pattern;
-      bool has_val;
-      ValExpr *val;
+      PatExpr *pat;
     } valDecl;
     struct {
-      TypeExpr *type;
+      PatExpr *pat;
+      ValExpr *val;
+    } valDeclDefine;
+    struct {
       char *name;
+      TypeExpr *type;
     } typeDecl;
     // Things
     struct {
       Path *path;
     } useStmnt;
     struct {
-      Path *path;
-      Stmnt *stmnt;
+      char *name;
+      Stmnt *stmnts;
+      size_t stmnts_len;
     } namespaceStmnt;
     struct {
       MacroExpr *macro;
-    } macroStmnt;
+    } macro;
     // Expressions
     struct {
       ValExpr *val;
     } valExpr;
     struct {
-      char *scope;
+      LabelExpr *label;
       ValExpr *val;
     } deferStmnt;
   };

@@ -5,6 +5,7 @@
 #include "json.h"
 #include "std_allocator.h"
 #include "token.h"
+#include "vector.h"
 
 static inline j_Elem print_objectify(Vector *props) {
   size_t len = VEC_LEN(props, j_Prop);
@@ -414,7 +415,8 @@ static j_Elem print_PatExpr(PatExpr *pep, Allocator *a) {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("type_restriction_binding_type"),
                print_TypeExpr(pep->typeRestrictionBinding.type, a));
-    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("type_restriction_binding_name"),
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("type_restriction_binding_name"),
                J_STR_ELEM(J_ASCIZ(pep->typeRestrictionBinding.name)));
     break;
   }
@@ -465,8 +467,9 @@ static j_Elem print_MatchCaseExpr(MatchCaseExpr *mcep, Allocator *a) {
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("match_case")));
   print_appendAstNode(mcep->node, &obj, a);
-  *VEC_PUSH(&obj, j_Prop) = J_PROP(
-      J_LITSTR("match_case_kind"), J_STR_ELEM(J_ASCIZ(strMatchCaseExprKind(mcep->kind))));
+  *VEC_PUSH(&obj, j_Prop) =
+      J_PROP(J_LITSTR("match_case_kind"),
+             J_STR_ELEM(J_ASCIZ(strMatchCaseExprKind(mcep->kind))));
   switch (mcep->kind) {
   case MCEK_None: {
     // nop
@@ -488,7 +491,8 @@ static j_Elem print_MatchCaseExpr(MatchCaseExpr *mcep, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_ValStructMemberExpr(ValStructMemberExpr *vsmep, Allocator *a) {
+static j_Elem print_ValStructMemberExpr(ValStructMemberExpr *vsmep,
+                                        Allocator *a) {
   if (vsmep == NULL) {
     return J_NULL_ELEM;
   }
@@ -496,21 +500,22 @@ static j_Elem print_ValStructMemberExpr(ValStructMemberExpr *vsmep, Allocator *a
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("val_struct_member_expr")));
   print_appendAstNode(vsmep->node, &obj, a);
-  *VEC_PUSH(&obj, j_Prop) = J_PROP(
-      J_LITSTR("val_struct_member_expr_kind"), J_STR_ELEM(J_ASCIZ(strValStructMemberExprKind(vsmep->kind))));
+  *VEC_PUSH(&obj, j_Prop) =
+      J_PROP(J_LITSTR("val_struct_member_expr_kind"),
+             J_STR_ELEM(J_ASCIZ(strValStructMemberExprKind(vsmep->kind))));
   switch (vsmep->kind) {
-      case VSMEK_None: {
-        // nop
-        break;
+  case VSMEK_None: {
+    // nop
+    break;
   }
   case VSMEK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("macro"), print_MacroExpr(vsmep->macro.macro, a));
-        break;
+    break;
   }
   case VSMEK_Member: {
-    *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("member_name"), J_STR_ELEM(J_ASCIZ(vsmep->memberExpr.name)));
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(
+        J_LITSTR("member_name"), J_STR_ELEM(J_ASCIZ(vsmep->memberExpr.name)));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("member_val"), print_ValExpr(vsmep->memberExpr.val, a));
     break;
@@ -518,6 +523,8 @@ static j_Elem print_ValStructMemberExpr(ValStructMemberExpr *vsmep, Allocator *a
   }
   return print_objectify(&obj);
 }
+
+static j_Elem print_Stmnt(Stmnt *sp, Allocator *a);
 
 static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
   if (vep == NULL) {
@@ -535,38 +542,39 @@ static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
     break;
   }
   case VEK_Macro: {
-*VEC_PUSH(&obj, j_Prop) =
+    *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("macro"), print_MacroExpr(vep->macro.macro, a));
-        break;
+    break;
   }
   case VEK_NilLiteral: {
-      // literally nothing
-      break;
+    // literally nothing
+    break;
   }
   case VEK_BoolLiteral: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("bool"), J_BOOL_ELEM(vep->boolLiteral.value));
-        break;
+    break;
   }
   case VEK_IntLiteral: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("int"), J_INT_ELEM(J_UINT(vep->intLiteral.value)));
-        break;
+    break;
   }
   case VEK_FloatLiteral: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("float"), J_NUM_ELEM(vep->floatLiteral.value));
-        break;
+    break;
   }
   case VEK_CharLiteral: {
-    *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("char"), J_INT_ELEM(J_UINT((uint64_t)vep->charLiteral.value)));
-        break;
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(
+        J_LITSTR("char"), J_INT_ELEM(J_UINT((uint64_t)vep->charLiteral.value)));
+    break;
   }
   case VEK_StringLiteral: {
-    *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("string"), J_STR_ELEM(J_STR(vep->stringLiteral.value, vep->stringLiteral.value_len)));
-        break;
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(
+        J_LITSTR("string"), J_STR_ELEM(J_STR(vep->stringLiteral.value,
+                                             vep->stringLiteral.value_len)));
+    break;
   }
   case VEK_StructLiteral: {
     Vector members = vec_create(a);
@@ -583,23 +591,25 @@ static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
         J_PROP(J_LITSTR("as_root"), print_ValExpr(vep->asExpr.root, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("as_type"), print_TypeExpr(vep->asExpr.type, a));
-        break;
+    break;
   }
   case VEK_Loop: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("loop_label"), print_LabelExpr(vep->loopExpr.label, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("loop_body"), print_ValExpr(vep->loopExpr.body, a));
-        break;
+    break;
   }
   case VEK_FieldAccess: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("field_root"), print_ValExpr(vep->fieldAccess.root, a));
-    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("field_name"), J_STR_ELEM(J_ASCIZ(vep->fieldAccess.name)));
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(
+        J_LITSTR("field_name"), J_STR_ELEM(J_ASCIZ(vep->fieldAccess.name)));
     break;
   }
   case VEK_Reference: {
-    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("reference"), print_Path(vep->reference.path, a));
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("reference"), print_Path(vep->reference.path, a));
     break;
   }
   case VEK_UnaryOp: {
@@ -648,12 +658,116 @@ static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
     break;
   }
   case VEK_Return: {
-    *VEC
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("return_label"),
+                                     print_LabelExpr(vep->returnExpr.label, a));
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("return_value"),
+                                     print_ValExpr(vep->returnExpr.value, a));
+    break;
   }
-  
+  case VEK_Match: {
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("match_root"), print_ValExpr(vep->matchExpr.root, a));
+    Vector cases = vec_create(a);
+    for (size_t i = 0; i < vep->matchExpr.cases_len; i++) {
+      *VEC_PUSH(&cases, j_Elem) =
+          print_MatchCaseExpr(&vep->matchExpr.cases[i], a);
+    }
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("match_cases"), print_arrayify(&cases));
+    break;
+  }
+  case VEK_Block: {
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("block_label"),
+                                     print_LabelExpr(vep->blockExpr.label, a));
+    Vector stmnts = vec_create(a);
+    for (size_t i = 0; i < vep->blockExpr.stmnts_len; i++) {
+      *VEC_PUSH(&stmnts, j_Elem) = print_Stmnt(&vep->blockExpr.stmnts[i], a);
+    }
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("block_stmnts"), print_arrayify(&stmnts));
+    break;
+  }
+  }
+  return print_objectify(&obj);
+}
 
-
-
+static j_Elem print_Stmnt(Stmnt *sp, Allocator *a) {
+  if (sp == NULL) {
+    return J_NULL_ELEM;
+  }
+  Vector obj = vec_create(a);
+  *VEC_PUSH(&obj, j_Prop) =
+      J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("stmnt")));
+  print_appendAstNode(sp->node, &obj, a);
+  *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("stmnt_kind"),
+                                   J_STR_ELEM(J_ASCIZ(strStmntKind(sp->kind))));
+  switch (sp->kind) {
+  case SK_None: {
+    // nop
+    break;
+  }
+  case SK_Macro: {
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("macro"), print_MacroExpr(sp->macro.macro, a));
+    break;
+  }
+  case SK_Use: {
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("use"), print_Path(sp->useStmnt.path, a));
+    break;
+  }
+  case SK_Namespace: {
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("namespace_name"),
+               J_STR_ELEM(J_ASCIZ(sp->namespaceStmnt.name)));
+    Vector stmnts = vec_create(a);
+    for (size_t i = 0; i < sp->namespaceStmnt.stmnts_len; i++) {
+      *VEC_PUSH(&stmnts, j_Elem) =
+          print_Stmnt(&sp->namespaceStmnt.stmnts[i], a);
+    }
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("namespace_stmnts"), print_arrayify(&stmnts));
+    break;
+  }
+  case SK_ValDecl: {
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("val_decl_pat"), print_PatExpr(sp->valDecl.pat, a));
+    break;
+  }
+  case SK_ValDeclDefine: {
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("val_decl_define_pat"),
+                                     print_PatExpr(sp->valDeclDefine.pat, a));
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("val_decl_define_val"),
+                                     print_ValExpr(sp->valDeclDefine.val, a));
+    break;
+  }
+  case SK_TypeDecl: {
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("type_decl_pat"),
+                                     J_STR_ELEM(J_ASCIZ(sp->typeDecl.name)));
+    break;
+  }
+  case SK_TypeDeclDefine: {
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("type_decl_define_pat"),
+                                     J_STR_ELEM(J_ASCIZ(sp->typeDecl.name)));
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("type_decl_define_type"),
+               print_TypeExpr(sp->typeDeclDefine.type, a));
+    break;
+  }
+  case SK_DeferStmnt: {
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("defer_label"),
+                                     print_LabelExpr(sp->deferStmnt.label, a));
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("defer_val"), print_ValExpr(sp->deferStmnt.val, a));
+    break;
+  }
+  case SK_ValExpr: {
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("val"), print_ValExpr(sp->valExpr.val, a));
+    break;
+  }
+  }
+  return print_objectify(&obj);
 }
 
 void print_stream(Parser *parser, FILE *file) {

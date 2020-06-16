@@ -776,10 +776,10 @@ void print_stream(Parser *parser, FILE *file) {
   while (true) {
     Allocator a = std_allocator();
 
-    // Parse the next statment
+    // Parse the next statement
     Stmnt stmnt;
     Vector diagnostics = vec_create(&a);
-    bool eof = parse_nextStmntIfExists(&stmnt, &diagnostics, parser);
+    bool eof = !parse_nextStmntAndCheckNext(&stmnt, &diagnostics, parser);
 
     if (eof) {
       vec_destroy(&diagnostics);

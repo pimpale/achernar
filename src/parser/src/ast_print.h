@@ -1,5 +1,5 @@
-#ifndef PRINT_AST_H_
-#define PRINT_AST_H_
+#ifndef PRINT_AST_H
+#define PRINT_AST_H
 
 #include <stdio.h>
 

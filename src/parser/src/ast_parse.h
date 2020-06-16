@@ -1,5 +1,5 @@
-#ifndef PARSE_H_
-#define PARSE_H_
+#ifndef AST_PARSE_H
+#define AST_PARSE_H
 
 #include "allocator.h"
 #include "ast.h"
@@ -7,7 +7,7 @@
 #include "queue.h"
 #include "lexer.h"
 
-typedef struct Parser_s {
+typedef struct {
   Allocator *a;
   Lexer *lexer;
 
@@ -20,10 +20,10 @@ typedef struct Parser_s {
 // Uses memory allocated from a to build a parser with the source as lp
 Parser parse_create(Lexer *lp, Allocator* a);
 
-// returns true if eof hit
-bool parse_nextStmntIfExists(Stmnt *s, Vector* diagnostics, Parser *parser);
+// returns true if there is a next stmnt
+bool parse_nextStmntAndCheckNext(Stmnt *s, Vector* diagnostics, Parser *parser);
 
 // Frees memory associated with the parser and cleans up
-Allocator* parse_release(Parser *pp);
+void parse_destroy(Parser *pp);
 
 #endif

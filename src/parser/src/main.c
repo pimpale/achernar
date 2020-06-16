@@ -16,7 +16,7 @@ int main() {
   print_stream(&parser, stdout);
 
   // Clean up
-  parse_release(&parser);
+  parse_destroy(&parser);
   lex_destroy(&lexer);
   a_destroy(&pool);
 }

@@ -45,10 +45,7 @@ Parser parse_create(Lexer *lp, Allocator *a) {
       .next_tokens_queue =
           queue_create(vec_create(a)), // Queue of peeked tokens
       .next_diagnostics_queue =
-          queue_create(vec_create(a)), // Queue<Vector<Diagnostic>>
-      .paren_depth = 0,
-      .brace_depth = 0,
-      .bracket_depth = 0,
+          queue_create(vec_create(a)) // Queue[Vector[Diagnostic]]
   };
 }
 
@@ -108,7 +105,7 @@ static Token parse_peekNth(Parser *pp, size_t k) {
 
 static Token parse_peek(Parser *parser) { return parse_peekNth(parser, 1); }
 
-Allocator *parse_release(Parser *pp) {
+void parse_destroy(Parser *pp) {
   while (QUEUE_LEN(&pp->next_diagnostics_queue, Vector) != 0) {
     Vector diagnostics;
     QUEUE_POP(&pp->next_diagnostics_queue, &diagnostics, Vector);
@@ -116,7 +113,6 @@ Allocator *parse_release(Parser *pp) {
   }
   queue_destroy(&pp->next_diagnostics_queue);
   queue_destroy(&pp->next_tokens_queue);
-  return pp->a;
 }
 
 // returns a vector containing all the comments encountered here
@@ -2215,8 +2211,8 @@ static void parseStmnt(Stmnt *sp, Vector *diagnostics, Parser *parser) {
 bool parse_nextStmntIfExists(Stmnt *s, Vector *diagnostics, Parser *parser) {
   Token t = parse_peek(parser);
   if (t.kind == tk_Eof) {
-    return true;
+    return false;
   }
   parseStmnt(s, diagnostics, parser);
-  return false;
+  return true;
 }

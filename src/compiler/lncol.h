@@ -1,1 +1,0 @@
-../shared/lncol.h

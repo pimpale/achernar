@@ -86,21 +86,6 @@ static Token parse_rawNext(Parser *parser, Vector *diagnostics) {
   }
 }
 
-static void debugBuf(Parser *pp) {
-  puts("===STATE OF QUEUE (bottom is next) ");
-  for(size_t i = 0; i  < QUEUE_LEN(&pp->next_tokens_queue, Token); i++) {
-    Token *t = QUEUE_GET(&pp->next_tokens_queue, i, Token);
-    const char* tkind = tk_strKind(t->kind);
-    if(t->kind == tk_Comment) {
-      const char* comcontent = t->commentToken.comment;
-      printf("   TOKEN %s: %s\n", tkind, comcontent);
-    } else {
-      printf("   TOKEN %s\n", tkind);
-    }
-  }
-  puts("===END OF QUEUE");
-}
-
 // If the peeked token stack is not empty:
 //    Return the first element of the top of the token
 //    Pop the first element of the next_comments_stack
@@ -133,9 +118,6 @@ static Token parse_next(Parser *pp, Vector *diagnostics) {
 // gets the k'th token
 // K must be greater than 0
 static Token parse_peekNth(Parser *pp, size_t k) {
-  puts("\nBefore peek \n");
-  debugBuf(pp);
-
   assert(k > 0);
 
   for (size_t i = QUEUE_LEN(&pp->next_tokens_queue, Token); i < k; i++) {
@@ -149,11 +131,8 @@ static Token parse_peekNth(Parser *pp, size_t k) {
         parse_rawNext(pp, next_token_diagnostics);
   }
 
-  puts("\n After peek \n");
-  debugBuf(pp);
-
   // return the most recent token added
-  return *QUEUE_GET(&pp->next_tokens_queue, 0, Token);
+  return *QUEUE_GET(&pp->next_tokens_queue, QUEUE_LEN(&pp->next_tokens_queue, Token) -k, Token);
 }
 
 static Token parse_peek(Parser *parser) { return parse_peekNth(parser, 1); }

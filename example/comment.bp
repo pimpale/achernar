@@ -16,8 +16,8 @@ struct {
 }
 
 # statement comment 2
-val #{pattern comment}# foo;
+val #{pattern comment}# foo := nil
 
-foo #{L11} = Qwerty #{L9} || true #{L10}#,nil
+foo #{L11}# = Qwerty #{L9}# || true #{L10}#,nil
 
 foo = ex #{comment =====================}# @

@@ -992,6 +992,7 @@ static void parseL2ValExpr(ValExpr *l2, Vector *diagnostics, Parser *parser) {
       certain_postfix_parseMatchValExpr(root, diagnostics, parser, v);
       root->node.comments_len = VEC_LEN(&comments, Comment);
       root->node.comments = vec_release(&comments);
+      break;
     }
     default: {
       // there are no more level 2 expressions
@@ -1500,6 +1501,7 @@ static void parseL1TypeExpr(TypeExpr *l1, Vector *diagnostics, Parser *parser) {
   switch (t.kind) {
   case tk_Macro: {
     certain_parseMacroTypeExpr(l1, diagnostics, parser);
+    break;
   }
   case tk_Identifier: {
     certain_parseReferenceTypeExpr(l1, diagnostics, parser);
@@ -1727,7 +1729,6 @@ static void certain_parseTypeRestrictionPatExpr(PatExpr *trpe,
   }
   // Create a binding
   case tk_Identifier: {
-    bool has_binding = true;
     binding = t.identifierToken.data;
     t = parse_peek(parser);
     if (t.kind == tk_Colon) {
@@ -1751,11 +1752,11 @@ static void certain_parseTypeRestrictionPatExpr(PatExpr *trpe,
     parseTypeExpr(trpe->typeRestriction.type, diagnostics, parser);
     end = t.span.end;
   } else {
+    end = t.span.end;
     type = ALLOC(parser->a, TypeExpr);
     type->kind = TEK_Omitted;
     type->node.span = SPAN(start, end);
     type->node.comments_len = 0;
-    end = t.span.end;
   }
 
   if (binding != NULL) {

@@ -49,23 +49,6 @@ typedef enum {
   PEVRK_CompGreaterEqual, // >=
 } PatExprValRestrictionKind;
 
-static const char *strPatExprValRestrictionKind(PatExprValRestrictionKind val) {
-  switch (val) {
-  case PEVRK_CompEqual:
-    return "CompEqual";
-  case PEVRK_CompNotEqual:
-    return "CompNotEqual";
-  case PEVRK_CompLess:
-    return "CompLess";
-  case PEVRK_CompLessEqual:
-    return "CompLessEqual";
-  case PEVRK_CompGreater:
-    return "CompGreater";
-  case PEVRK_CompGreaterEqual:
-    return "CompGreaterEqual";
-  }
-}
-
 typedef enum {
   PEK_None,                   // Error type
   PEK_Macro,                  // a macro representing a pattern
@@ -78,28 +61,6 @@ typedef enum {
   PEK_BinaryOp,               // , |
 } PatExprKind;
 
-static const char *strPatExprKind(PatExprKind val) {
-  switch (val) {
-  case PEK_None:
-    return "None";
-  case PEK_Macro:
-    return "Macro";
-  case PEK_ValRestriction:
-    return "ValRestriction";
-  case PEK_TypeRestriction:
-    return "TypeRestriction";
-  case PEK_TypeRestrictionBinding:
-    return "TypeRestrictionBinding";
-  case PEK_Struct:
-    return "Struct";
-  case PEK_Group:
-    return "Group";
-  case PEK_UnaryOp:
-    return "UnaryOp";
-  case PEK_BinaryOp:
-    return "BinaryOp";
-  }
-}
 
 typedef enum {
   PEBOK_Tuple,
@@ -107,28 +68,8 @@ typedef enum {
   PEBOK_And,
   PEBOK_Or,
 } PatExprBinaryOpKind;
-
-static const char *strPatExprBinaryOpKind(PatExprBinaryOpKind val) {
-  switch (val) {
-  case PEBOK_Tuple:
-    return "Tuple";
-  case PEBOK_Union:
-    return "Union";
-  case PEBOK_And:
-    return "And";
-  case PEBOK_Or:
-    return "Or";
-  }
-}
-
 typedef enum { PEUOK_Not } PatExprUnaryOpKind;
 
-static const char *strPatExprUnaryOpKind(PatExprUnaryOpKind val) {
-  switch (val) {
-  case PEUOK_Not:
-    return "Not";
-  }
-}
 
 typedef enum {
   PSMEK_None,
@@ -136,19 +77,6 @@ typedef enum {
   PSMEK_Field,
   PSMEK_Rest,
 } PatStructMemberExprKind;
-
-static const char *strPatStructMemberExprKind(PatStructMemberExprKind val) {
-  switch (val) {
-  case PSMEK_None:
-    return "None";
-  case PSMEK_Macro:
-    return "Macro";
-  case PSMEK_Field:
-    return "Field";
-  case PSMEK_Rest:
-    return "Rest";
-  }
-}
 
 typedef struct {
   AstNode node;
@@ -219,46 +147,12 @@ typedef enum {
   TEK_FieldAccess, // .
 } TypeExprKind;
 
-static const char *strTypeExprKind(TypeExprKind val) {
-  switch (val) {
-  case TEK_None:
-    return "None";
-  case TEK_Omitted:
-    return "Omitted";
-  case TEK_Macro:
-    return "Macro";
-  case TEK_Nil:
-    return "Nil";
-  case TEK_Group:
-    return "Group";
-  case TEK_Reference:
-    return "Reference";
-  case TEK_Struct:
-    return "Struct";
-  case TEK_Fn:
-    return "Fn";
-  case TEK_UnaryOp:
-    return "UnaryOp";
-  case TEK_BinaryOp:
-    return "BinaryOp";
-  case TEK_FieldAccess:
-    return "FieldAccess";
-  }
-}
 
 typedef enum {
   TSEK_Struct,
   TSEK_Enum,
 } TypeStructExprKind;
 
-static const char *strTypeStructExprKind(TypeStructExprKind val) {
-  switch (val) {
-  case TSEK_Struct:
-    return "Struct";
-  case TSEK_Enum:
-    return "Enum";
-  }
-}
 
 typedef enum {
   TSMEK_None,
@@ -266,16 +160,6 @@ typedef enum {
   TSMEK_StructMember,
 } TypeStructMemberExprKind;
 
-static const char *strTypeStructMemberExprKind(TypeStructMemberExprKind val) {
-  switch (val) {
-  case TSMEK_None:
-    return "None";
-  case TSMEK_Macro:
-    return "Macro";
-  case TSMEK_StructMember:
-    return "StructMember";
-  }
-}
 
 typedef struct TypeStructMemberExpr_s {
   AstNode node;
@@ -297,28 +181,11 @@ typedef enum {
   TEUOK_Deref, // @
 } TypeExprUnaryOpKind;
 
-static const char *strTypeExprUnaryOpKind(TypeExprUnaryOpKind val) {
-  switch (val) {
-  case TEUOK_Ref:
-    return "Ref";
-  case TEUOK_Deref:
-    return "Deref";
-  }
-}
-
 typedef enum {
   TEBOK_Tuple, // ,
   TEBOK_Union, // |
 } TypeExprBinaryOpKind;
 
-static const char *strTypeExprBinaryOpKind(TypeExprBinaryOpKind val) {
-  switch (val) {
-  case TEBOK_Tuple:
-    return "Tuple";
-  case TEBOK_Union:
-    return "Union";
-  }
-}
 
 // Expressions and operations yielding a type
 typedef struct TypeExpr_s {
@@ -384,64 +251,10 @@ typedef enum {
   VEK_Reference,
 } ValExprKind;
 
-static const char *strValExprKind(ValExprKind val) {
-  switch (val) {
-  case VEK_None:
-    return "None";
-  case VEK_Macro:
-    return "Macro";
-  case VEK_NilLiteral:
-    return "NilLiteral";
-  case VEK_BoolLiteral:
-    return "BoolLiteral";
-  case VEK_IntLiteral:
-    return "IntLiteral";
-  case VEK_FloatLiteral:
-    return "FloatLiteral";
-  case VEK_CharLiteral:
-    return "CharLiteral";
-  case VEK_Fn:
-    return "Fn";
-  case VEK_Loop:
-    return "Loop";
-  case VEK_As:
-    return "As";
-  case VEK_StringLiteral:
-    return "StringLiteral";
-  case VEK_StructLiteral:
-    return "StructLiteral";
-  case VEK_BinaryOp:
-    return "BinaryOp";
-  case VEK_UnaryOp:
-    return "UnaryOp";
-  case VEK_Call:
-    return "Call";
-  case VEK_Return:
-    return "Return";
-  case VEK_Match:
-    return "Match";
-  case VEK_Block:
-    return "Block";
-  case VEK_FieldAccess:
-    return "FieldAccess";
-  case VEK_Reference:
-    return "Reference";
-  }
-}
-
 typedef enum {
   LEK_Omitted,
   LEK_Label,
 } LabelExprKind;
-
-static const char *strLabelExprKind(LabelExprKind val) {
-  switch (val) {
-  case LEK_Omitted:
-    return "Omitted";
-  case LEK_Label:
-    return "Label";
-  }
-}
 
 typedef struct {
   AstNode node;
@@ -459,16 +272,6 @@ typedef enum {
   MCEK_Macro,
 } MatchCaseExprKind;
 
-static const char *strMatchCaseExprKind(MatchCaseExprKind val) {
-  switch (val) {
-  case MCEK_None:
-    return "None";
-  case MCEK_Case:
-    return "Case";
-  case MCEK_Macro:
-    return "Macro";
-  }
-}
 
 typedef struct {
   AstNode node;
@@ -491,17 +294,6 @@ typedef enum {
   VSMEK_Macro,
   VSMEK_Member,
 } ValStructMemberExprKind;
-
-static const char *strValStructMemberExprKind(ValStructMemberExprKind val) {
-  switch (val) {
-  case VSMEK_None:
-    return "None";
-  case VSMEK_Macro:
-    return "Macro";
-  case VSMEK_Member:
-    return "Member";
-  }
-}
 
 typedef struct {
   AstNode node;
@@ -527,21 +319,6 @@ typedef enum {
   VEUOK_Deref,
 } ValExprUnaryOpKind;
 
-static const char *strValExprUnaryOpKind(ValExprUnaryOpKind val) {
-  switch (val) {
-  case VEUOK_Negate:
-    return "Negate";
-  case VEUOK_Posit:
-    return "Posit";
-  case VEUOK_Not:
-    return "Not";
-  case VEUOK_Ref:
-    return "Ref";
-  case VEUOK_Deref:
-    return "Deref";
-  }
-}
-
 typedef enum {
   VEBOK_Add,
   VEBOK_Sub,
@@ -566,52 +343,6 @@ typedef enum {
   VEBOK_Tuple,
 } ValExprBinaryOpKind;
 
-static const char *strValExprBinaryOpKind(ValExprBinaryOpKind val) {
-  switch (val) {
-  case VEBOK_Add:
-    return "Add";
-  case VEBOK_Sub:
-    return "Sub";
-  case VEBOK_Mul:
-    return "Mul";
-  case VEBOK_Div:
-    return "Div";
-  case VEBOK_Mod:
-    return "Mod";
-  case VEBOK_And:
-    return "And";
-  case VEBOK_Or:
-    return "Or";
-  case VEBOK_CompEqual:
-    return "CompEqual";
-  case VEBOK_CompNotEqual:
-    return "CompNotEqual";
-  case VEBOK_CompLess:
-    return "CompLess";
-  case VEBOK_CompLessEqual:
-    return "CompLessEqual";
-  case VEBOK_CompGreater:
-    return "CompGreater";
-  case VEBOK_CompGreaterEqual:
-    return "CompGreaterEqual";
-  case VEBOK_Pipeline:
-    return "Pipeline";
-  case VEBOK_Assign:
-    return "Assign";
-  case VEBOK_AssignAdd:
-    return "AssignAdd";
-  case VEBOK_AssignSub:
-    return "AssignSub";
-  case VEBOK_AssignMul:
-    return "AssignMul";
-  case VEBOK_AssignDiv:
-    return "AssignDiv";
-  case VEBOK_AssignMod:
-    return "AssignMod";
-  case VEBOK_Tuple:
-    return "Tuple";
-  }
-}
 
 typedef struct ValExpr_s {
   AstNode node;
@@ -705,29 +436,6 @@ typedef enum {
   SK_DeferStmnt,
 } StmntKind;
 
-static const char *strStmntKind(StmntKind val) {
-  switch (val) {
-  case SK_None:
-    return "None";
-  case SK_Use:
-    return "Use";
-  case SK_Macro:
-    return "Macro";
-  case SK_Namespace:
-    return "Namespace";
-  case SK_ValDecl:
-    return "ValDecl";
-  case SK_ValDeclDefine:
-    return "ValDeclDefine";
-  case SK_TypeDecl:
-    return "TypeDecl";
-  case SK_ValExpr:
-    return "ValExpr";
-  case SK_DeferStmnt:
-    return "DeferStmnt";
-  }
-}
-
 typedef struct Stmnt_s {
   AstNode node;
   StmntKind kind;
@@ -768,5 +476,23 @@ typedef struct Stmnt_s {
     } deferStmnt;
   };
 } Stmnt;
+
+const char *strPatExprValRestrictionKind(PatExprValRestrictionKind val);
+const char *strPatExprKind(PatExprKind val);
+const char *strPatExprBinaryOpKind(PatExprBinaryOpKind val);
+const char *strPatStructMemberExprKind(PatStructMemberExprKind val);
+const char *strTypeExprKind(TypeExprKind val);
+const char *strTypeStructExprKind(TypeStructExprKind val);
+const char *strTypeStructMemberExprKind(TypeStructMemberExprKind val);
+const char *strTypeExprUnaryOpKind(TypeExprUnaryOpKind val);
+const char *strTypeExprBinaryOpKind(TypeExprBinaryOpKind val);
+const char *strValExprKind(ValExprKind val);
+const char *strLabelExprKind(LabelExprKind val);
+const char *strMatchCaseExprKind(MatchCaseExprKind val);
+const char *strValStructMemberExprKind(ValStructMemberExprKind val);
+const char *strValExprUnaryOpKind(ValExprUnaryOpKind val);
+const char *strValExprBinaryOpKind(ValExprBinaryOpKind val);
+const char *strStmntKind(StmntKind val);
+const char *strPatExprUnaryOpKind(PatExprUnaryOpKind val);
 
 #endif

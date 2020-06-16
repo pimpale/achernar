@@ -180,7 +180,7 @@ static j_Elem print_Token(Token *token, Allocator *a) {
   }
   case tk_Char: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
-        J_LITSTR("char"), J_INT_ELEM(J_UINT((char)token->floatToken.data)));
+        J_LITSTR("char"), J_INT_ELEM(J_SINT(token->charToken.data)));
     break;
   }
   default: {
@@ -744,14 +744,9 @@ static j_Elem print_Stmnt(Stmnt *sp, Allocator *a) {
   case SK_TypeDecl: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("type_decl_pat"),
                                      J_STR_ELEM(J_ASCIZ(sp->typeDecl.name)));
-    break;
-  }
-  case SK_TypeDeclDefine: {
-    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("type_decl_define_pat"),
-                                     J_STR_ELEM(J_ASCIZ(sp->typeDecl.name)));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("type_decl_define_type"),
-               print_TypeExpr(sp->typeDeclDefine.type, a));
+        J_PROP(J_LITSTR("type_decl_type"),
+               print_TypeExpr(sp->typeDecl.type, a));
     break;
   }
   case SK_DeferStmnt: {

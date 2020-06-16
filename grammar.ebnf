@@ -228,7 +228,7 @@ typeRestrictionPatExpr = ( ":", typeExpr ) | ( identifier, [ ws, ":", typeExpr ]
 
 # struct decomposition
 # Can comment before each :=
-patStructMemberExpr = comment_ws, "val", patExpr, ":=", ws, ( ".." | identifier );
+patStructMemberExpr = comment_ws, "pat", patExpr, ":=", ws, ( ".." | identifier );
 structPatExpr = "struct", ws, "{", {patStructMemberExpr}, ws, "}";
 
 groupPatExpr = "{", patExpr, ws, "}";

@@ -59,8 +59,8 @@ typedef struct j_Prop_s {
 
 // Utility macros to construct these types
 #define J_ASCIZ(x) J_STR((x), strlen((x)))
-// string literals only 
-#define J_LITSTR(x) J_STR((x), sizeof(x))
+// string literals only
+#define J_LITSTR(x) J_STR((x), sizeof(x)-1)
 #define J_STR(x, len) ((j_Str){.string = (x), .length = (len)})
 
 

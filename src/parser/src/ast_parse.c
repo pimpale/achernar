@@ -35,6 +35,7 @@
     /* if there wasn't an end delimiter, push the last token back */           \
     member_parse_function(VEC_PUSH(members_vec_ptr, member_kind), diagnostics, \
                           parser);                                             \
+                puts("hi"); \
   }
 
 // Parser
@@ -54,37 +55,35 @@ Parser parse_create(Lexer *lp, Allocator *a) {
 
 /// gets the next token, ignoring buffering
 static Token parse_rawNext(Parser *parser, Vector *diagnostics) {
-  while (true) {
-    Token c = tk_next(parser->lexer, diagnostics, parser->a);
-    switch (c.kind) {
-    case tk_ParenLeft: {
-      parser->paren_depth++;
-      return c;
-    }
-    case tk_ParenRight: {
-      parser->paren_depth--;
-      return c;
-    }
-    case tk_BraceLeft: {
-      parser->brace_depth++;
-      return c;
-    }
-    case tk_BraceRight: {
-      parser->brace_depth--;
-      return c;
-    }
-    case tk_BracketLeft: {
-      parser->bracket_depth++;
-      return c;
-    }
-    case tk_BracketRight: {
-      parser->bracket_depth--;
-      return c;
-    }
-    default: {
-      return c;
-    }
-    }
+  Token c = tk_next(parser->lexer, diagnostics, parser->a);
+  switch (c.kind) {
+  case tk_ParenLeft: {
+    parser->paren_depth++;
+    return c;
+  }
+  case tk_ParenRight: {
+    parser->paren_depth--;
+    return c;
+  }
+  case tk_BraceLeft: {
+    parser->brace_depth++;
+    return c;
+  }
+  case tk_BraceRight: {
+    parser->brace_depth--;
+    return c;
+  }
+  case tk_BracketLeft: {
+    parser->bracket_depth++;
+    return c;
+  }
+  case tk_BracketRight: {
+    parser->bracket_depth--;
+    return c;
+  }
+  default: {
+    return c;
+  }
   }
 }
 
@@ -212,7 +211,7 @@ static void certain_parseMacroExpr(MacroExpr *mpe, Vector *diagnostics,
 
   uint64_t depth = 1;
   while (true) {
-    t = parse_peek(parser);
+    t = parse_next(parser, diagnostics);
     if (t.kind == tk_Eof) {
       *VEC_PUSH(diagnostics, Diagnostic) =
           DIAGNOSTIC(DK_MacroExprExpectedClosingBacktick, t.span);
@@ -803,6 +802,7 @@ static void certain_postfix_parseAsValExpr(ValExpr *avep, Vector *diagnostics,
 static void certain_parsePatMatchCaseExpr(MatchCaseExpr *mcep,
                                           Vector *diagnostics, Parser *parser) {
   ZERO(mcep);
+  mcep->kind = MCEK_Case;
 
   // Get Pat
   Token t = parse_next(parser, diagnostics);
@@ -820,7 +820,8 @@ static void certain_parsePatMatchCaseExpr(MatchCaseExpr *mcep,
   if (t.kind != tk_Arrow) {
     *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_MatchCaseNoArrow, t.span);
-    parse_resync(parser, diagnostics);
+    // TODO
+    //parse_resync(parser, diagnostics);
     goto CLEANUP;
   }
 
@@ -1266,6 +1267,7 @@ static void certain_parseMemberTypeStructMemberExpr(TypeStructMemberExpr *tsmep,
                                                     Parser *parser) {
   // zero-initialize bp
   ZERO(tsmep);
+  tsmep->kind = TSMEK_StructMember;
 
   LnCol start;
   LnCol end;
@@ -1749,7 +1751,7 @@ static void certain_parseTypeRestrictionPatExpr(PatExpr *trpe,
   TypeExpr *type;
   if (parse_type) {
     type = ALLOC(parser->a, TypeExpr);
-    parseTypeExpr(trpe->typeRestriction.type, diagnostics, parser);
+    parseTypeExpr(type, diagnostics, parser);
     end = t.span.end;
   } else {
     end = t.span.end;
@@ -1770,13 +1772,13 @@ static void certain_parseTypeRestrictionPatExpr(PatExpr *trpe,
   trpe->node.span = SPAN(start, end);
 }
 
-// 'val' pat ':=' ('..' | identifier )
+// 'pat' pat ':=' ('..' | identifier )
 static void certain_parseBindPatStructMemberExpr(PatStructMemberExpr *psmep,
                                                  Vector *diagnostics,
                                                  Parser *parser) {
   ZERO(psmep);
   Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_Val);
+  assert(t.kind == tk_Pat);
   LnCol start = t.span.start;
 
   PatExpr *pat = ALLOC(parser->a, PatExpr);
@@ -1842,7 +1844,7 @@ static void parsePatStructMemberExpr(PatStructMemberExpr *psmep,
   Vector comments = parse_getComments(parser, diagnostics);
   Token t = parse_peek(parser);
   switch (t.kind) {
-  case tk_Val: {
+  case tk_Pat: {
     certain_parseBindPatStructMemberExpr(psmep, diagnostics, parser);
     break;
   }
@@ -1956,7 +1958,7 @@ static void parseL1PatExpr(PatExpr *l1, Vector *diagnostics, Parser *parser) {
     *VEC_PUSH(diagnostics, Diagnostic) =
         DIAGNOSTIC(DK_TypeExprUnexpectedToken, t.span);
     // Resync
-    parse_resync(parser, diagnostics);
+    parse_next(parser, diagnostics);
     break;
   }
   }

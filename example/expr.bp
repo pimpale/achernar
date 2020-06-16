@@ -1,3 +1,2 @@
 1 + 2 + 3
-type struct { nice:int }
-pat ==5
+type foo =  struct { nice:int }

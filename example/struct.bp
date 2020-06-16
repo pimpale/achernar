@@ -1,4 +1,4 @@
-let type Stmnt = struct {
+type Stmnt := struct {
   value: enum {
     fnDecl: struct {
       name: char&, usize

@@ -132,3 +132,14 @@ const char *strDiagnosticKind(DiagnosticKind val) {
   }
   PANIC();
 }
+
+const char *strDiagnosticSeverityKind(DiagnosticSeverityKind val) {
+  case DSK_Note: return "Note";
+  case DSK_Warn: return "Warn";
+  case DSK_Error: return "Error";
+  case DSK_Fatal: return "Fatal";
+
+  PANIC();
+}
+
+

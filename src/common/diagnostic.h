@@ -97,8 +97,18 @@ typedef enum {
   // Generic Parsing errors
   DK_UnexpectedToken,
   DK_FieldAccessExpectedIdentifier,
+  // AST Read Errors (Always Fatal)
+  DK_AstReadError,
 } DiagnosticKind;
 
+typedef enum {
+  DSK_Note,
+  DSK_Warn,
+  DSK_Error,
+  DSK_Fatal,
+} DiagnosticSeverityKind;
+
+const char *strDiagnosticSeverityKind(DiagnosticSeverityKind val);
 const char *strDiagnosticKind(DiagnosticKind val);
 
 typedef struct Diagnostic_s {

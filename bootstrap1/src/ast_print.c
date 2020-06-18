@@ -640,8 +640,7 @@ static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
                print_ValExpr(vep->binaryOp.right_operand, a));
     break;
   }
-  case TEK_Fn: {
-
+  case VEK_Fn: {
     Vector parameters = vec_create(a);
     for (size_t i = 0; i < vep->fnExpr.parameters_len; i++) {
       *VEC_PUSH(&parameters, j_Elem) =
@@ -721,7 +720,9 @@ static j_Elem print_Stmnt(Stmnt *sp, Allocator *a) {
   }
   case SK_Use: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("use"), print_Path(sp->useStmnt.path, a));
+        J_PROP(J_LITSTR("use_path"), print_Path(sp->useStmnt.path, a));
+    *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("use_alias"),
+                                     print_str(sp->useStmnt.name));
     break;
   }
   case SK_Namespace: {

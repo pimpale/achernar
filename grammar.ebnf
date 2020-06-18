@@ -199,12 +199,13 @@ groupTypeExpr = "{", typeExpr, ws, "}";
 refTypeExpr = path;
 
 nilTypeExpr = nil;
+neverTypeExpr = "never";
 
 # function type expr
 fnTypeExpr = "fn", ws, "(", { patExpr }, ws, ")", [ ws, ":", typeExpr ];
 
 # you can comment before each L1 type
-typeExprL1 = comment_ws, groupTypeExpr | structTypeExpr | refTypeExpr | fnTypeExpr | nilTypeExpr | macroInvocation;
+typeExprL1 = comment_ws, groupTypeExpr | structTypeExpr | refTypeExpr | fnTypeExpr | nilTypeExpr | neverTypeExpr | macroInvocation;
 
 fieldAccessTypeExpr = ".", ws, identifier;
 
@@ -248,7 +249,7 @@ patExpr = patExprL6;
 
 # --- BEGIN Stmnt ---
 
-useStmnt = "use", ws, path;
+useStmnt = "use", ws, path, "as", ws, identifier;
 namespaceStmnt = "namespace", ws, identifier, "{", {Stmnt}, ws, "}";
 valDeclStmnt = "val", patExpr, ws, ":=", valExpr;
 typeDeclStmnt = "type", ws, identifier, ws, ":=", typeExpr;

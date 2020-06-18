@@ -450,6 +450,7 @@ typedef struct Stmnt_s {
     // Things
     struct {
       Path *path;
+      char* name;
     } useStmnt;
     struct {
       char *name;

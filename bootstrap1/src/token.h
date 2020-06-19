@@ -85,7 +85,6 @@ typedef enum {
   tk_FieldAccess,  // .
   tk_Colon,        // :
   tk_Semicolon,    // ;
-  tk_Underscore,   // _
   tk_Backtick,     // `
   tk_Rest,         // ..
   tk_Dollar,       // $

@@ -11,8 +11,8 @@ const char *strDiagnosticKind(DiagnosticKind val) {
     return "EOF";
   case DK_UnrecognizedCharacter:
     return "UnrecognizedCharacter";
-  case DK_MacroExprExpectedClosingBacktick:
-    return "MacroExprExpectedClosingBacktick";
+  case DK_MacroExpectedClosingBacktick:
+    return "MacroExpectedClosingBacktick";
   case DK_NumLiteralNoFirstDigit:
     return "NumLiteralNoFirstDigit";
   case DK_NumLiteralFirstDigitUnderscore:
@@ -41,8 +41,8 @@ const char *strDiagnosticKind(DiagnosticKind val) {
     return "UnexpectedLabel";
   case DK_LabelUnknownCharacter:
     return "LabelUnknownCharacter";
-  case DK_ConstExprUnrecognizedLiteral:
-    return "ConstExprUnrecognizedLiteral";
+  case DK_ConstUnrecognizedLiteral:
+    return "ConstUnrecognizedLiteral";
   case DK_StringLiteralTooLong:
     return "StringLiteralTooLong";
   case DK_StringLiteralUnrecognizedEscapeCode:
@@ -63,16 +63,16 @@ const char *strDiagnosticKind(DiagnosticKind val) {
     return "StructMemberLiteralExpectedIdentifier";
   case DK_StructMemberLiteralExpectedDefine:
     return "StructMemberLiteralExpectedDefine";
-  case DK_FnValExprExpectedRightParen:
-    return "FnValExprExpectedRightParen";
-  case DK_FnValExprExpectedLeftParen:
-    return "FnValExprExpectedLeftParen";
-  case DK_FnValExprExpectedArrow:
-    return "FnValExprExpectedArrow";
-  case DK_TypeExprUnexpectedToken:
-    return "TypeExprUnexpectedToken";
-  case DK_TypeExprFieldAccessExpectedIdentifier:
-    return "TypeExprFieldAccessExpectedIdentifier";
+  case DK_FnValExpectedRightParen:
+    return "FnValExpectedRightParen";
+  case DK_FnValExpectedLeftParen:
+    return "FnValExpectedLeftParen";
+  case DK_FnValExpectedArrow:
+    return "FnValExpectedArrow";
+  case DK_TypeUnexpectedToken:
+    return "TypeUnexpectedToken";
+  case DK_TypeFieldAccessExpectedIdentifier:
+    return "TypeFieldAccessExpectedIdentifier";
   case DK_TypeGroupExpectedRightBrace:
     return "TypeGroupExpectedRightBrace";
   case DK_PatGroupExpectedLeftBrace:
@@ -99,12 +99,12 @@ const char *strDiagnosticKind(DiagnosticKind val) {
     return "StructExpectedLeftBrace";
   case DK_StructExpectedRightBrace:
     return "StructExpectedRightBrace";
-  case DK_FnTypeExprExpectedLeftParen:
-    return "FnTypeExprExpectedLeftParen";
-  case DK_FnTypeExprExpectedRightParen:
-    return "FnTypeExprExpectedRightParen";
-  case DK_FnTypeExprExpectedColon:
-    return "FnTypeExprExpectedColon";
+  case DK_FnTypeExpectedLeftParen:
+    return "FnTypeExpectedLeftParen";
+  case DK_FnTypeExpectedRightParen:
+    return "FnTypeExpectedRightParen";
+  case DK_FnTypeExpectedColon:
+    return "FnTypeExpectedColon";
   case DK_MatchCaseNoArrow:
     return "MatchCaseNoArrow";
   case DK_MatchCaseNoPat:
@@ -129,6 +129,10 @@ const char *strDiagnosticKind(DiagnosticKind val) {
     return "NamespaceExpectedLeftBrace";
   case DK_NamespaceExpectedRightBrace:
     return "NamespaceExpectedRightBrace";
+  case DK_UseExpectedAs:
+    return "UseExpectedAs";
+  case DK_UseExpectedIdentifier:
+    return "UseExpectedIdentifier";
   }
   abort();
 }

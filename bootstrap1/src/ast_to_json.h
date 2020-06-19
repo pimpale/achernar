@@ -1,9 +1,9 @@
-#ifndef PRINT_AST_H
-#define PRINT_AST_H
+#ifndef AST_TO_JSON
+#define AST_TO_JSON
 
 #include <stdio.h>
 
-#include "ast_parse.h"
+#include "code_to_ast.h"
 
 void print_stream(Parser *parser, FILE *file);
 

@@ -1,5 +1,5 @@
-#ifndef AST_PARSE_H
-#define AST_PARSE_H
+#ifndef CODE_TO_AST_H
+#define CODE_TO_AST_H
 
 #include "ast.h"
 

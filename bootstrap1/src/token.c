@@ -128,8 +128,6 @@ const char *tk_strKind(tk_Kind val) {
     return "Colon";
   case tk_Semicolon:
     return "Semicolon";
-  case tk_Underscore:
-    return "Underscore";
   case tk_Backtick:
     return "Backtick";
   case tk_Rest:

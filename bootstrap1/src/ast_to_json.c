@@ -1,4 +1,4 @@
-#include "ast_print.h"
+#include "ast_to_json.h"
 
 #include "allocator.h"
 #include "json.h"

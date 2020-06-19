@@ -3,16 +3,14 @@
 #include "allocator.h"
 #include "std_allocator.h"
 #include "lex.h"
-#include "ast_parse.h"
-#include "ast_print.h"
-#include "hir_construct.h"
+#include "code_to_ast.h"
+#include "ast_to_json.h"
 
 int main() {
   Allocator pool = std_allocator();
   Lexer lexer = lex_fromFile(stdin);
   Parser parser = parse_create(&lexer, &pool);
 
-  HIRConstructor hir = hir_constructor_create(&parser, &pool);
   // Print
   print_stream(&parser, stdout);
 

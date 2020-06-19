@@ -11,8 +11,8 @@ typedef enum {
   // Generic Lexing Errors
   DK_EOF,
   DK_UnrecognizedCharacter,
-  // MacroExpr
-  DK_MacroExprExpectedClosingBacktick,
+  // Macro
+  DK_MacroExpectedClosingBacktick,
   // Number literals
   DK_NumLiteralNoFirstDigit,
   DK_NumLiteralFirstDigitUnderscore,
@@ -31,8 +31,8 @@ typedef enum {
   // Labels
   DK_UnexpectedLabel,
   DK_LabelUnknownCharacter,
-  // ConstExpr Errors
-  DK_ConstExprUnrecognizedLiteral,
+  // Const Errors
+  DK_ConstUnrecognizedLiteral,
   // String Literals
   DK_StringLiteralTooLong,
   DK_StringLiteralUnrecognizedEscapeCode,
@@ -43,21 +43,21 @@ typedef enum {
   // Parsing Errors
   // Path
   DK_PathExpectedIdentifier,
-  // StructMemberExpr
+  // StructMember
   DK_StructMemberExpectedType,
   DK_StructMemberExpectedIdentifier,
-  // StructMemberLiteralExpr
+  // StructMemberLiteral
   DK_StructMemberLiteralExpectedIdentifier,
   DK_StructMemberLiteralExpectedDefine,
-  // FnValExpr
-  DK_FnValExprExpectedRightParen,
-  DK_FnValExprExpectedLeftParen,
-  DK_FnValExprExpectedArrow,
-  // TypeExpr
-  DK_TypeExprUnexpectedToken,
-  DK_TypeExprFieldAccessExpectedIdentifier,
+  // FnVal
+  DK_FnValExpectedRightParen,
+  DK_FnValExpectedLeftParen,
+  DK_FnValExpectedArrow,
+  // Type
+  DK_TypeUnexpectedToken,
+  DK_TypeFieldAccessExpectedIdentifier,
   DK_TypeGroupExpectedRightBrace,
-  // PatExprs
+  // Pats
   // Pat Group
   DK_PatGroupExpectedLeftBrace,
   DK_PatGroupExpectedRightBrace,
@@ -72,13 +72,13 @@ typedef enum {
   // TypeDecl
   DK_TypeDeclExpectedIdentifier,
   DK_TypeDeclExpectedDefine,
-  // StructTypeExpr
+  // StructType
   DK_StructExpectedLeftBrace,
   DK_StructExpectedRightBrace,
-  // FnTypeExpr
-  DK_FnTypeExprExpectedLeftParen,
-  DK_FnTypeExprExpectedRightParen,
-  DK_FnTypeExprExpectedColon,
+  // FnType
+  DK_FnTypeExpectedLeftParen,
+  DK_FnTypeExpectedRightParen,
+  DK_FnTypeExpectedColon,
   // MatchCase
   DK_MatchCaseNoArrow,
   DK_MatchCaseNoPat,
@@ -94,6 +94,9 @@ typedef enum {
   DK_NamespaceExpectedIdentifier,
   DK_NamespaceExpectedLeftBrace,
   DK_NamespaceExpectedRightBrace,
+  // Use Errors
+  DK_UseExpectedAs,
+  DK_UseExpectedIdentifier,
   // Generic Parsing errors
   DK_UnexpectedToken,
   DK_FieldAccessExpectedIdentifier,

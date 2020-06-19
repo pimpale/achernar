@@ -1,317 +1,319 @@
 #include "ast.h"
 #include <stdlib.h>
 
-const char *strPatExprValRestrictionKind(PatExprValRestrictionKind val) {
+const char *strPatValRestrictionKind(ast_PatValRestrictionKind val) {
   switch (val) {
-  case PEVRK_CompEqual:
+  case ast_PEVRK_CompEqual:
     return "CompEqual";
-  case PEVRK_CompNotEqual:
+  case ast_PEVRK_CompNotEqual:
     return "CompNotEqual";
-  case PEVRK_CompLess:
+  case ast_PEVRK_CompLess:
     return "CompLess";
-  case PEVRK_CompLessEqual:
+  case ast_PEVRK_CompLessEqual:
     return "CompLessEqual";
-  case PEVRK_CompGreater:
+  case ast_PEVRK_CompGreater:
     return "CompGreater";
-  case PEVRK_CompGreaterEqual:
+  case ast_PEVRK_CompGreaterEqual:
     return "CompGreaterEqual";
   }
   abort();
 }
 
-const char *strPatExprKind(PatExprKind val) {
+const char *strPatKind(ast_PatKind val) {
   switch (val) {
-  case PEK_None:
+  case ast_PK_None:
     return "None";
-  case PEK_Macro:
+  case ast_PK_Macro:
     return "Macro";
-  case PEK_ValRestriction:
+  case ast_PK_ValRestriction:
     return "ValRestriction";
-  case PEK_TypeRestriction:
+  case ast_PK_TypeRestriction:
     return "TypeRestriction";
-  case PEK_TypeRestrictionBinding:
+  case ast_PK_TypeRestrictionBinding:
     return "TypeRestrictionBinding";
-  case PEK_Struct:
+  case ast_PK_Struct:
     return "Struct";
-  case PEK_Group:
+  case ast_PK_Group:
     return "Group";
-  case PEK_UnaryOp:
+  case ast_PK_UnaryOp:
     return "UnaryOp";
-  case PEK_BinaryOp:
+  case ast_PK_BinaryOp:
     return "BinaryOp";
   }
   abort();
 }
 
-const char *strPatExprBinaryOpKind(PatExprBinaryOpKind val) {
+const char *strPatBinaryOpKind(ast_PatBinaryOpKind val) {
   switch (val) {
-  case PEBOK_Tuple:
+  case ast_PEBOK_Tuple:
     return "Tuple";
-  case PEBOK_Union:
+  case ast_PEBOK_Union:
     return "Union";
-  case PEBOK_And:
+  case ast_PEBOK_And:
     return "And";
-  case PEBOK_Or:
+  case ast_PEBOK_Or:
     return "Or";
   }
   abort();
 }
 
-const char *strPatStructMemberExprKind(PatStructMemberExprKind val) {
+const char *strPatStructMemberKind(ast_PatStructMemberKind val) {
   switch (val) {
-  case PSMEK_None:
+  case ast_PSMK_None:
     return "None";
-  case PSMEK_Macro:
+  case ast_PSMK_Macro:
     return "Macro";
-  case PSMEK_Field:
+  case ast_PSMK_Field:
     return "Field";
-  case PSMEK_Rest:
+  case ast_PSMK_Rest:
     return "Rest";
   }
   abort();
 }
 
-const char *strTypeExprKind(TypeExprKind val) {
+const char *strTypeKind(ast_TypeKind val) {
   switch (val) {
-  case TEK_None:
+  case ast_TK_None:
     return "None";
-  case TEK_Omitted:
+  case ast_TK_Omitted:
     return "Omitted";
-  case TEK_Macro:
+  case ast_TK_Macro:
     return "Macro";
-  case TEK_Nil:
+  case ast_TK_Never:
+    return "Never";
+  case ast_TK_Nil:
     return "Nil";
-  case TEK_Group:
+  case ast_TK_Group:
     return "Group";
-  case TEK_Reference:
+  case ast_TK_Reference:
     return "Reference";
-  case TEK_Struct:
+  case ast_TK_Struct:
     return "Struct";
-  case TEK_Fn:
+  case ast_TK_Fn:
     return "Fn";
-  case TEK_UnaryOp:
+  case ast_TK_UnaryOp:
     return "UnaryOp";
-  case TEK_BinaryOp:
+  case ast_TK_BinaryOp:
     return "BinaryOp";
-  case TEK_FieldAccess:
+  case ast_TK_FieldAccess:
     return "FieldAccess";
   }
   abort();
 }
 
-const char *strTypeStructExprKind(TypeStructExprKind val) {
+const char *strTypeStructKind(ast_TypeStructKind val) {
   switch (val) {
-  case TSEK_Struct:
+  case ast_TSK_Struct:
     return "Struct";
-  case TSEK_Enum:
+  case ast_TSK_Enum:
     return "Enum";
   }
   abort();
 }
 
-const char *strTypeStructMemberExprKind(TypeStructMemberExprKind val) {
+const char *strTypeStructMemberKind(ast_TypeStructMemberKind val) {
   switch (val) {
-  case TSMEK_None:
+  case ast_TSMK_None:
     return "None";
-  case TSMEK_Macro:
+  case ast_TSMK_Macro:
     return "Macro";
-  case TSMEK_StructMember:
+  case ast_TSMK_StructMember:
     return "StructMember";
   }
   abort();
 }
 
-const char *strTypeExprUnaryOpKind(TypeExprUnaryOpKind val) {
+const char *strTypeUnaryOpKind(ast_TypeUnaryOpKind val) {
   switch (val) {
-  case TEUOK_Ref:
+  case ast_TEUOK_Ref:
     return "Ref";
-  case TEUOK_Deref:
+  case ast_TEUOK_Deref:
     return "Deref";
   }
   abort();
 }
 
-const char *strTypeExprBinaryOpKind(TypeExprBinaryOpKind val) {
+const char *strTypeBinaryOpKind(ast_TypeBinaryOpKind val) {
   switch (val) {
-  case TEBOK_Tuple:
+  case ast_TEBOK_Tuple:
     return "Tuple";
-  case TEBOK_Union:
+  case ast_TEBOK_Union:
     return "Union";
   }
   abort();
 }
 
-const char *strValExprKind(ValExprKind val) {
+const char *strValKind(ast_ValKind val) {
   switch (val) {
-  case VEK_None:
+  case ast_VK_None:
     return "None";
-  case VEK_Macro:
+  case ast_VK_Macro:
     return "Macro";
-  case VEK_NilLiteral:
+  case ast_VK_NilLiteral:
     return "NilLiteral";
-  case VEK_BoolLiteral:
+  case ast_VK_BoolLiteral:
     return "BoolLiteral";
-  case VEK_IntLiteral:
+  case ast_VK_IntLiteral:
     return "IntLiteral";
-  case VEK_FloatLiteral:
+  case ast_VK_FloatLiteral:
     return "FloatLiteral";
-  case VEK_CharLiteral:
+  case ast_VK_CharLiteral:
     return "CharLiteral";
-  case VEK_Fn:
+  case ast_VK_Fn:
     return "Fn";
-  case VEK_Loop:
+  case ast_VK_Loop:
     return "Loop";
-  case VEK_As:
+  case ast_VK_As:
     return "As";
-  case VEK_StringLiteral:
+  case ast_VK_StringLiteral:
     return "StringLiteral";
-  case VEK_StructLiteral:
+  case ast_VK_StructLiteral:
     return "StructLiteral";
-  case VEK_BinaryOp:
+  case ast_VK_BinaryOp:
     return "BinaryOp";
-  case VEK_UnaryOp:
+  case ast_VK_UnaryOp:
     return "UnaryOp";
-  case VEK_Call:
+  case ast_VK_Call:
     return "Call";
-  case VEK_Return:
+  case ast_VK_Return:
     return "Return";
-  case VEK_Match:
+  case ast_VK_Match:
     return "Match";
-  case VEK_Block:
+  case ast_VK_Block:
     return "Block";
-  case VEK_FieldAccess:
+  case ast_VK_FieldAccess:
     return "FieldAccess";
-  case VEK_Reference:
+  case ast_VK_Reference:
     return "Reference";
   }
   abort();
 }
 
-const char *strLabelExprKind(LabelExprKind val) {
+const char *strLabelKind(ast_LabelKind val) {
   switch (val) {
-  case LEK_Omitted:
+  case ast_LK_Omitted:
     return "Omitted";
-  case LEK_Label:
+  case ast_LK_Label:
     return "Label";
   }
   abort();
 }
 
-const char *strMatchCaseExprKind(MatchCaseExprKind val) {
+const char *strMatchCaseKind(ast_MatchCaseKind val) {
   switch (val) {
-  case MCEK_None:
+  case ast_MCK_None:
     return "None";
-  case MCEK_Case:
+  case ast_MCK_Case:
     return "Case";
-  case MCEK_Macro:
+  case ast_MCK_Macro:
     return "Macro";
   }
   abort();
 }
 
-const char *strValStructMemberExprKind(ValStructMemberExprKind val) {
+const char *strValStructMemberKind(ast_ValStructMemberKind val) {
   switch (val) {
-  case VSMEK_None:
+  case ast_VSMK_None:
     return "None";
-  case VSMEK_Macro:
+  case ast_VSMK_Macro:
     return "Macro";
-  case VSMEK_Member:
+  case ast_VSMK_Member:
     return "Member";
   }
   abort();
 }
 
-const char *strValExprUnaryOpKind(ValExprUnaryOpKind val) {
+const char *strValUnaryOpKind(ast_ValUnaryOpKind val) {
   switch (val) {
-  case VEUOK_Negate:
+  case ast_VEUOK_Negate:
     return "Negate";
-  case VEUOK_Posit:
+  case ast_VEUOK_Posit:
     return "Posit";
-  case VEUOK_Not:
+  case ast_VEUOK_Not:
     return "Not";
-  case VEUOK_Ref:
+  case ast_VEUOK_Ref:
     return "Ref";
-  case VEUOK_Deref:
+  case ast_VEUOK_Deref:
     return "Deref";
   }
   abort();
 }
 
-const char *strValExprBinaryOpKind(ValExprBinaryOpKind val) {
+const char *strValBinaryOpKind(ast_ValBinaryOpKind val) {
   switch (val) {
-  case VEBOK_Add:
+  case ast_VEBOK_Add:
     return "Add";
-  case VEBOK_Sub:
+  case ast_VEBOK_Sub:
     return "Sub";
-  case VEBOK_Mul:
+  case ast_VEBOK_Mul:
     return "Mul";
-  case VEBOK_Div:
+  case ast_VEBOK_Div:
     return "Div";
-  case VEBOK_Mod:
+  case ast_VEBOK_Mod:
     return "Mod";
-  case VEBOK_And:
+  case ast_VEBOK_And:
     return "And";
-  case VEBOK_Or:
+  case ast_VEBOK_Or:
     return "Or";
-  case VEBOK_CompEqual:
+  case ast_VEBOK_CompEqual:
     return "CompEqual";
-  case VEBOK_CompNotEqual:
+  case ast_VEBOK_CompNotEqual:
     return "CompNotEqual";
-  case VEBOK_CompLess:
+  case ast_VEBOK_CompLess:
     return "CompLess";
-  case VEBOK_CompLessEqual:
+  case ast_VEBOK_CompLessEqual:
     return "CompLessEqual";
-  case VEBOK_CompGreater:
+  case ast_VEBOK_CompGreater:
     return "CompGreater";
-  case VEBOK_CompGreaterEqual:
+  case ast_VEBOK_CompGreaterEqual:
     return "CompGreaterEqual";
-  case VEBOK_Pipeline:
+  case ast_VEBOK_Pipeline:
     return "Pipeline";
-  case VEBOK_Assign:
+  case ast_VEBOK_Assign:
     return "Assign";
-  case VEBOK_AssignAdd:
+  case ast_VEBOK_AssignAdd:
     return "AssignAdd";
-  case VEBOK_AssignSub:
+  case ast_VEBOK_AssignSub:
     return "AssignSub";
-  case VEBOK_AssignMul:
+  case ast_VEBOK_AssignMul:
     return "AssignMul";
-  case VEBOK_AssignDiv:
+  case ast_VEBOK_AssignDiv:
     return "AssignDiv";
-  case VEBOK_AssignMod:
+  case ast_VEBOK_AssignMod:
     return "AssignMod";
-  case VEBOK_Tuple:
+  case ast_VEBOK_Tuple:
     return "Tuple";
   }
   abort();
 }
 
-const char *strStmntKind(StmntKind val) {
+const char *strStmntKind(ast_StmntKind val) {
   switch (val) {
-  case SK_None:
+  case ast_SK_None:
     return "None";
-  case SK_Use:
+  case ast_SK_Use:
     return "Use";
-  case SK_Macro:
+  case ast_SK_Macro:
     return "Macro";
-  case SK_Namespace:
+  case ast_SK_Namespace:
     return "Namespace";
-  case SK_ValDecl:
+  case ast_SK_ValDecl:
     return "ValDecl";
-  case SK_ValDeclDefine:
+  case ast_SK_ValDeclDefine:
     return "ValDeclDefine";
-  case SK_TypeDecl:
+  case ast_SK_TypeDecl:
     return "TypeDecl";
-  case SK_ValExpr:
-    return "ValExpr";
-  case SK_DeferStmnt:
+  case ast_SK_Val:
+    return "Val";
+  case ast_SK_DeferStmnt:
     return "DeferStmnt";
   }
   abort();
 }
 
-const char *strPatExprUnaryOpKind(PatExprUnaryOpKind val) {
+const char *strPatUnaryOpKind(ast_PatUnaryOpKind val) {
   switch (val) {
-  case PEUOK_Not:
+  case ast_PEUOK_Not:
     return "Not";
   }
   abort();

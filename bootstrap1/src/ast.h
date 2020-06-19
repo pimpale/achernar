@@ -12,338 +12,339 @@ typedef struct {
   Span span;
   char *scope;
   char *data;
-} Comment;
+} ast_Comment;
 
 typedef struct {
   Span span;
-  Comment *comments;
+  ast_Comment *comments;
   size_t comments_len;
-} AstNode;
+} ast_Node;
 
 typedef struct {
-  AstNode node;
+  ast_Node node;
 
   char *name;
   Token *tokens;
   size_t tokens_len;
-} MacroExpr;
+} ast_Macro;
 
 typedef struct {
-  AstNode node;
+  ast_Node node;
 
   char **pathSegments;
   size_t pathSegments_len;
-} Path;
+} ast_Path;
 
-typedef struct TypeExpr_s TypeExpr;
-typedef struct ValExpr_s ValExpr;
-typedef struct PatExpr_s PatExpr;
-typedef struct Stmnt_s Stmnt;
-
-typedef enum {
-  PEVRK_CompEqual,        // ==
-  PEVRK_CompNotEqual,     // !=
-  PEVRK_CompLess,         // <
-  PEVRK_CompLessEqual,    // <=
-  PEVRK_CompGreater,      // >
-  PEVRK_CompGreaterEqual, // >=
-} PatExprValRestrictionKind;
+typedef struct ast_Type_s ast_Type;
+typedef struct ast_Val_s ast_Val;
+typedef struct ast_Pat_s ast_Pat;
+typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
-  PEK_None,                   // Error type
-  PEK_Macro,                  // a macro representing a pattern
-  PEK_ValRestriction,         // matches a constant val
-  PEK_TypeRestriction,        // matches a type, without binding
-  PEK_TypeRestrictionBinding, // matches a type, and binds it
-  PEK_Struct,                 // a container for struct based patterns
-  PEK_Group,                  // ()
-  PEK_UnaryOp,                // !
-  PEK_BinaryOp,               // , |
-} PatExprKind;
+  ast_PEVRK_CompEqual,        // ==
+  ast_PEVRK_CompNotEqual,     // !=
+  ast_PEVRK_CompLess,         // <
+  ast_PEVRK_CompLessEqual,    // <=
+  ast_PEVRK_CompGreater,      // >
+  ast_PEVRK_CompGreaterEqual, // >=
+} ast_PatValRestrictionKind;
 
 typedef enum {
-  PEBOK_Tuple,
-  PEBOK_Union,
-  PEBOK_And,
-  PEBOK_Or,
-} PatExprBinaryOpKind;
-typedef enum { PEUOK_Not } PatExprUnaryOpKind;
+  ast_PK_None,                   // Error type
+  ast_PK_Macro,                  // a macro representing a pattern
+  ast_PK_ValRestriction,         // matches a constant val
+  ast_PK_TypeRestriction,        // matches a type, without binding
+  ast_PK_TypeRestrictionBinding, // matches a type, and binds it
+  ast_PK_Struct,                 // a container for struct based patterns
+  ast_PK_Group,                  // ()
+  ast_PK_UnaryOp,                // !
+  ast_PK_BinaryOp,               // , |
+} ast_PatKind;
 
 typedef enum {
-  PSMEK_None,
-  PSMEK_Macro,
-  PSMEK_Field,
-  PSMEK_Rest,
-} PatStructMemberExprKind;
+  ast_PEBOK_Tuple,
+  ast_PEBOK_Union,
+  ast_PEBOK_And,
+  ast_PEBOK_Or,
+} ast_PatBinaryOpKind;
+
+typedef enum { ast_PEUOK_Not } ast_PatUnaryOpKind;
+
+typedef enum {
+  ast_PSMK_None,
+  ast_PSMK_Macro,
+  ast_PSMK_Field,
+  ast_PSMK_Rest,
+} ast_PatStructMemberKind;
 
 typedef struct {
-  AstNode node;
-  PatStructMemberExprKind kind;
+  ast_Node node;
+  ast_PatStructMemberKind kind;
   union {
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
     struct {
-      PatExpr *pattern;
+      ast_Pat *pattern;
       char *field;
     } field;
     struct {
-      PatExpr *pattern;
+      ast_Pat *pattern;
     } rest;
   };
-} PatStructMemberExpr;
+} ast_PatStructMember;
 
-typedef struct PatExpr_s {
-  AstNode node;
+typedef struct ast_Pat_s {
+  ast_Node node;
 
-  PatExprKind kind;
+  ast_PatKind kind;
   union {
     struct {
-      PatExprValRestrictionKind restriction;
-      ValExpr *valExpr;
+      ast_PatValRestrictionKind restriction;
+      ast_Val *val;
     } valRestriction;
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
     struct {
-      TypeExpr *type;
+      ast_Type *type;
     } typeRestriction;
     struct {
-      TypeExpr *type;
+      ast_Type *type;
       char *name;
     } typeRestrictionBinding;
     struct {
-      PatStructMemberExpr *members;
+      ast_PatStructMember *members;
       size_t members_len;
     } structExpr;
     struct {
-      PatExpr *inner;
-    } groupExpr;
+      ast_Pat *inner;
+    } group;
     struct {
-      PatExprUnaryOpKind op;
-      PatExpr *operand;
+      ast_PatUnaryOpKind op;
+      ast_Pat *operand;
     } unaryOp;
     struct {
-      PatExprBinaryOpKind op;
-      PatExpr *left_operand;
-      PatExpr *right_operand;
+      ast_PatBinaryOpKind op;
+      ast_Pat *left_operand;
+      ast_Pat *right_operand;
     } binaryOp;
   };
-} PatExpr;
+} ast_Pat;
 
 typedef enum {
-  TEK_None,        // Error type
-  TEK_Omitted,     // Omitted
-  TEK_Macro,       // MacroExpr Type
-  TEK_Nil,         // Nil type
-  TEK_Never,       // Never type
-  TEK_Group,       // { something }
-  TEK_Reference,   // Reference (primitive or aliased or path)
-  TEK_Struct,      // struct
-  TEK_Fn,          // function pointer
-  TEK_UnaryOp,     // & or @
-  TEK_BinaryOp,    // , or |
-  TEK_FieldAccess, // .
-} TypeExprKind;
+  ast_TK_None,        // Error type
+  ast_TK_Omitted,     // Omitted
+  ast_TK_Macro,       // ast_Macroast_Type
+  ast_TK_Nil,         // Nil type
+  ast_TK_Never,       // Never type
+  ast_TK_Group,       // { something }
+  ast_TK_Reference,   // Reference (primitive or aliased or path)
+  ast_TK_Struct,      // struct
+  ast_TK_Fn,          // function pointer
+  ast_TK_UnaryOp,     // & or @
+  ast_TK_BinaryOp,    // , or |
+  ast_TK_FieldAccess, // .
+} ast_TypeKind;
 
 typedef enum {
-  TSEK_Struct,
-  TSEK_Enum,
-} TypeStructExprKind;
+  ast_TSK_Struct,
+  ast_TSK_Enum,
+} ast_TypeStructKind;
 
 typedef enum {
-  TSMEK_None,
-  TSMEK_Macro,
-  TSMEK_StructMember,
-} TypeStructMemberExprKind;
+  ast_TSMK_None,
+  ast_TSMK_Macro,
+  ast_TSMK_StructMember,
+} ast_TypeStructMemberKind;
 
-typedef struct TypeStructMemberExpr_s {
-  AstNode node;
-  TypeStructMemberExprKind kind;
+typedef struct ast_TypeStructMember_s {
+  ast_Node node;
+  ast_TypeStructMemberKind kind;
 
   union {
     struct {
       char *name;
-      TypeExpr *type;
+      ast_Type *type;
     } structMember;
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
   };
-} TypeStructMemberExpr;
+} ast_TypeStructMember;
 
 typedef enum {
-  TEUOK_Ref,   // $
-  TEUOK_Deref, // @
-} TypeExprUnaryOpKind;
+  ast_TEUOK_Ref,   // $
+  ast_TEUOK_Deref, // @
+} ast_TypeUnaryOpKind;
 
 typedef enum {
-  TEBOK_Tuple, // ,
-  TEBOK_Union, // |
-} TypeExprBinaryOpKind;
+  ast_TEBOK_Tuple, // ,
+  ast_TEBOK_Union, // |
+} ast_TypeBinaryOpKind;
 
-// Expressions and operations yielding a type
-typedef struct TypeExpr_s {
-  AstNode node;
-  TypeExprKind kind;
+// essions and operations yielding a type
+typedef struct ast_Type_s {
+  ast_Node node;
+  ast_TypeKind kind;
 
   union {
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
     struct {
-      Path *path;
-    } referenceExpr;
+      ast_Path *path;
+    } reference;
     struct {
-      TypeStructExprKind kind;
-      TypeStructMemberExpr *members;
+      ast_TypeStructKind kind;
+      ast_TypeStructMember *members;
       size_t members_len;
     } structExpr;
     struct {
-      TypeExpr *parameters;
+      ast_Type *parameters;
       size_t parameters_len;
-      TypeExpr *type;
-    } fnExpr;
+      ast_Type *type;
+    } fn;
     struct {
-      TypeExpr *inner;
-    } groupExpr;
+      ast_Type *inner;
+    } group;
     struct {
-      TypeExprUnaryOpKind op;
-      TypeExpr *operand;
+      ast_TypeUnaryOpKind op;
+      ast_Type *operand;
     } unaryOp;
     struct {
-      TypeExprBinaryOpKind op;
-      struct TypeExpr_s *left_operand;
-      struct TypeExpr_s *right_operand;
+      ast_TypeBinaryOpKind op;
+      ast_Type *left_operand;
+      ast_Type *right_operand;
     } binaryOp;
     struct {
-      struct TypeExpr_s *root;
+      ast_Type *root;
       char *field;
     } fieldAccess;
   };
-} TypeExpr;
+} ast_Type;
 
 typedef enum {
-  VEK_None,
-  VEK_Macro,
-  VEK_NilLiteral,
-  VEK_BoolLiteral,
-  VEK_IntLiteral,
-  VEK_FloatLiteral,
-  VEK_CharLiteral,
-  VEK_Fn,
-  VEK_Loop,
-  VEK_As,
-  VEK_StringLiteral,
-  VEK_StructLiteral,
-  VEK_BinaryOp,
-  VEK_UnaryOp,
-  VEK_Call,
-  VEK_Return,
-  VEK_Match,
-  VEK_Block,
-  VEK_FieldAccess,
-  VEK_Reference,
-} ValExprKind;
+  ast_VK_None,
+  ast_VK_Macro,
+  ast_VK_NilLiteral,
+  ast_VK_BoolLiteral,
+  ast_VK_IntLiteral,
+  ast_VK_FloatLiteral,
+  ast_VK_CharLiteral,
+  ast_VK_Fn,
+  ast_VK_Loop,
+  ast_VK_As,
+  ast_VK_StringLiteral,
+  ast_VK_StructLiteral,
+  ast_VK_BinaryOp,
+  ast_VK_UnaryOp,
+  ast_VK_Call,
+  ast_VK_Return,
+  ast_VK_Match,
+  ast_VK_Block,
+  ast_VK_FieldAccess,
+  ast_VK_Reference,
+} ast_ValKind;
 
 typedef enum {
-  LEK_Omitted,
-  LEK_Label,
-} LabelExprKind;
+  ast_LK_Omitted,
+  ast_LK_Label,
+} ast_LabelKind;
 
 typedef struct {
-  AstNode node;
-  LabelExprKind kind;
+  ast_Node node;
+  ast_LabelKind kind;
   union {
     struct {
       char *label;
     } label;
   };
-} LabelExpr;
+} ast_Label;
 
 typedef enum {
-  MCEK_None,
-  MCEK_Case,
-  MCEK_Macro,
-} MatchCaseExprKind;
+  ast_MCK_None,
+  ast_MCK_Case,
+  ast_MCK_Macro,
+} ast_MatchCaseKind;
 
 typedef struct {
-  AstNode node;
-  MatchCaseExprKind kind;
+  ast_Node node;
+  ast_MatchCaseKind kind;
 
   union {
     struct {
-      PatExpr *pattern;
-      ValExpr *val;
+      ast_Pat *pattern;
+      ast_Val *val;
     } matchCase;
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
   };
 
-} MatchCaseExpr;
+} ast_MatchCase;
 
 typedef enum {
-  VSMEK_None,
-  VSMEK_Macro,
-  VSMEK_Member,
-} ValStructMemberExprKind;
+  ast_VSMK_None,
+  ast_VSMK_Macro,
+  ast_VSMK_Member,
+} ast_ValStructMemberKind;
 
 typedef struct {
-  AstNode node;
+  ast_Node node;
 
-  ValStructMemberExprKind kind;
+  ast_ValStructMemberKind kind;
 
   union {
     struct {
       char *name;
-      ValExpr *val;
-    } memberExpr;
+      ast_Val *val;
+    } member;
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
   };
-} ValStructMemberExpr;
+} ast_ValStructMember;
 
 typedef enum {
-  VEUOK_Negate,
-  VEUOK_Posit,
-  VEUOK_Not,
-  VEUOK_Ref,
-  VEUOK_Deref,
-} ValExprUnaryOpKind;
+  ast_VEUOK_Negate,
+  ast_VEUOK_Posit,
+  ast_VEUOK_Not,
+  ast_VEUOK_Ref,
+  ast_VEUOK_Deref,
+} ast_ValUnaryOpKind;
 
 typedef enum {
-  VEBOK_Add,
-  VEBOK_Sub,
-  VEBOK_Mul,
-  VEBOK_Div,
-  VEBOK_Mod,
-  VEBOK_And,
-  VEBOK_Or,
-  VEBOK_CompEqual,
-  VEBOK_CompNotEqual,
-  VEBOK_CompLess,
-  VEBOK_CompLessEqual,
-  VEBOK_CompGreater,
-  VEBOK_CompGreaterEqual,
-  VEBOK_Pipeline,
-  VEBOK_Assign,
-  VEBOK_AssignAdd,
-  VEBOK_AssignSub,
-  VEBOK_AssignMul,
-  VEBOK_AssignDiv,
-  VEBOK_AssignMod,
-  VEBOK_Tuple,
-} ValExprBinaryOpKind;
+  ast_VEBOK_Add,
+  ast_VEBOK_Sub,
+  ast_VEBOK_Mul,
+  ast_VEBOK_Div,
+  ast_VEBOK_Mod,
+  ast_VEBOK_And,
+  ast_VEBOK_Or,
+  ast_VEBOK_CompEqual,
+  ast_VEBOK_CompNotEqual,
+  ast_VEBOK_CompLess,
+  ast_VEBOK_CompLessEqual,
+  ast_VEBOK_CompGreater,
+  ast_VEBOK_CompGreaterEqual,
+  ast_VEBOK_Pipeline,
+  ast_VEBOK_Assign,
+  ast_VEBOK_AssignAdd,
+  ast_VEBOK_AssignSub,
+  ast_VEBOK_AssignMul,
+  ast_VEBOK_AssignDiv,
+  ast_VEBOK_AssignMod,
+  ast_VEBOK_Tuple,
+} ast_ValBinaryOpKind;
 
-typedef struct ValExpr_s {
-  AstNode node;
-  ValExprKind kind;
+typedef struct ast_Val_s {
+  ast_Node node;
+  ast_ValKind kind;
 
   union {
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
     struct {
       bool value;
@@ -362,131 +363,131 @@ typedef struct ValExpr_s {
       size_t value_len;
     } stringLiteral;
     struct {
-      ValStructMemberExpr *members;
+      ast_ValStructMember *members;
       size_t members_len;
     } structExpr;
     struct {
-      ValExpr *root;
-      TypeExpr *type;
-    } asExpr;
+      ast_Val *root;
+      ast_Type *type;
+    } as;
     struct {
-      ValExpr *body;
-      LabelExpr *label;
-    } loopExpr;
+      ast_Val *body;
+      ast_Label *label;
+    } loop;
     struct {
-      ValExpr *root;
+      ast_Val *root;
       char *name;
     } fieldAccess;
     struct {
-      Path *path;
+      ast_Path *path;
     } reference;
     struct {
-      ValExprUnaryOpKind op;
-      ValExpr *operand;
+      ast_ValUnaryOpKind op;
+      ast_Val *operand;
     } unaryOp;
     struct {
-      ValExprBinaryOpKind op;
-      ValExpr *left_operand;
-      ValExpr *right_operand;
+      ast_ValBinaryOpKind op;
+      ast_Val *left_operand;
+      ast_Val *right_operand;
     } binaryOp;
     struct {
-      ValExpr *function;
-      ValExpr *parameters;
+      ast_Val *function;
+      ast_Val *parameters;
       size_t parameters_len;
-    } callExpr;
+    } call;
     struct {
-      PatExpr *parameters;
+      ast_Pat *parameters;
       size_t parameters_len;
-      TypeExpr *type;
-      ValExpr *body;
-    } fnExpr;
+      ast_Type *type;
+      ast_Val *body;
+    } fn;
     struct {
-      ValExpr *value;
-      LabelExpr *label;
+      ast_Val *value;
+      ast_Label *label;
     } returnExpr;
     struct {
-      ValExpr *root;
-      MatchCaseExpr *cases;
+      ast_Val *root;
+      ast_MatchCase *cases;
       size_t cases_len;
-    } matchExpr;
+    } match;
     struct {
-      LabelExpr *label;
-      Stmnt *stmnts;
+      ast_Label *label;
+      ast_Stmnt *stmnts;
       size_t stmnts_len;
-    } blockExpr;
+    } block;
   };
-} ValExpr;
+} ast_Val;
 
 typedef enum {
-  SK_None,
-  SK_Use,
-  SK_Macro,
-  SK_Namespace,
-  SK_ValDecl,
-  SK_ValDeclDefine,
-  SK_TypeDecl,
-  SK_ValExpr,
-  SK_DeferStmnt,
-} StmntKind;
+  ast_SK_None,
+  ast_SK_Use,
+  ast_SK_Macro,
+  ast_SK_Namespace,
+  ast_SK_ValDecl,
+  ast_SK_ValDeclDefine,
+  ast_SK_TypeDecl,
+  ast_SK_Val,
+  ast_SK_DeferStmnt,
+} ast_StmntKind;
 
-typedef struct Stmnt_s {
-  AstNode node;
-  StmntKind kind;
+typedef struct ast_Stmnt_s {
+  ast_Node node;
+  ast_StmntKind kind;
 
   size_t comments_len;
   union {
     // Declarations
     struct {
-      PatExpr *pat;
+      ast_Pat *pat;
     } valDecl;
     struct {
-      PatExpr *pat;
-      ValExpr *val;
+      ast_Pat *pat;
+      ast_Val *val;
     } valDeclDefine;
     struct {
       char *name;
-      TypeExpr *type;
+      ast_Type *type;
     } typeDecl;
     // Things
     struct {
-      Path *path;
-      char* name;
+      ast_Path *path;
+      char *name;
     } useStmnt;
     struct {
       char *name;
-      Stmnt *stmnts;
+      ast_Stmnt *stmnts;
       size_t stmnts_len;
     } namespaceStmnt;
     struct {
-      MacroExpr *macro;
+      ast_Macro *macro;
     } macro;
-    // Expressions
+    // essions
     struct {
-      ValExpr *val;
-    } valExpr;
+      ast_Val *val;
+    } val;
     struct {
-      LabelExpr *label;
-      ValExpr *val;
+      ast_Label *label;
+      ast_Val *val;
     } deferStmnt;
   };
-} Stmnt;
+} ast_Stmnt;
 
-const char *strPatExprValRestrictionKind(PatExprValRestrictionKind val);
-const char *strPatExprKind(PatExprKind val);
-const char *strPatExprBinaryOpKind(PatExprBinaryOpKind val);
-const char *strPatStructMemberExprKind(PatStructMemberExprKind val);
-const char *strTypeExprKind(TypeExprKind val);
-const char *strTypeStructExprKind(TypeStructExprKind val);
-const char *strTypeStructMemberExprKind(TypeStructMemberExprKind val);
-const char *strTypeExprUnaryOpKind(TypeExprUnaryOpKind val);
-const char *strTypeExprBinaryOpKind(TypeExprBinaryOpKind val);
-const char *strValExprKind(ValExprKind val);
-const char *strLabelExprKind(LabelExprKind val);
-const char *strMatchCaseExprKind(MatchCaseExprKind val);
-const char *strValStructMemberExprKind(ValStructMemberExprKind val);
-const char *strValExprUnaryOpKind(ValExprUnaryOpKind val);
-const char *strValExprBinaryOpKind(ValExprBinaryOpKind val);
-const char *strStmntKind(StmntKind val);
-const char *strPatExprUnaryOpKind(PatExprUnaryOpKind val);
+const char *ast_strPatValRestrictionKind(ast_PatValRestrictionKind val);
+const char *ast_strPatKind(ast_PatKind val);
+const char *ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
+const char *ast_strPatStructMemberKind(ast_PatStructMemberKind val);
+const char *ast_strTypeKind(ast_TypeKind val);
+const char *ast_strTypeStructKind(ast_TypeStructKind val);
+const char *ast_strTypeStructMemberKind(ast_TypeStructMemberKind val);
+const char *ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val);
+const char *ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val);
+const char *ast_strValKind(ast_ValKind val);
+const char *ast_strLabelKind(ast_LabelKind val);
+const char *ast_strMatchCaseKind(ast_MatchCaseKind val);
+const char *ast_strValStructMemberKind(ast_ValStructMemberKind val);
+const char *ast_strValUnaryOpKind(ast_ValUnaryOpKind val);
+const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
+const char *ast_strStmntKind(ast_StmntKind val);
+const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
 
 #endif

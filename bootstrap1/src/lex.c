@@ -548,14 +548,6 @@ static Token lexWord(Lexer *lexer, UNUSED Vector *diagnostics, Allocator *a) {
                    .span = span};
   }
 
-  if(!strcmp(string, "_")) {
-    vec_destroy(&data);
-    return (Token) {
-        .kind=tk_Underscore,
-        .span=span
-    };
-  }
-
   if (!strcmp(string, "true")) {
     vec_destroy(&data);
     return (Token){.kind = tk_Bool, .boolToken = {true}, .span = span};

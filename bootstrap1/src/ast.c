@@ -1,7 +1,7 @@
 #include "ast.h"
 #include <stdlib.h>
 
-const char *strPatValRestrictionKind(ast_PatValRestrictionKind val) {
+const char *ast_strPatValRestrictionKind(ast_PatValRestrictionKind val) {
   switch (val) {
   case ast_PEVRK_CompEqual:
     return "CompEqual";
@@ -19,7 +19,7 @@ const char *strPatValRestrictionKind(ast_PatValRestrictionKind val) {
   abort();
 }
 
-const char *strPatKind(ast_PatKind val) {
+const char *ast_strPatKind(ast_PatKind val) {
   switch (val) {
   case ast_PK_None:
     return "None";
@@ -43,7 +43,7 @@ const char *strPatKind(ast_PatKind val) {
   abort();
 }
 
-const char *strPatBinaryOpKind(ast_PatBinaryOpKind val) {
+const char *ast_strPatBinaryOpKind(ast_PatBinaryOpKind val) {
   switch (val) {
   case ast_PEBOK_Tuple:
     return "Tuple";
@@ -57,7 +57,7 @@ const char *strPatBinaryOpKind(ast_PatBinaryOpKind val) {
   abort();
 }
 
-const char *strPatStructMemberKind(ast_PatStructMemberKind val) {
+const char *ast_strPatStructMemberKind(ast_PatStructMemberKind val) {
   switch (val) {
   case ast_PSMK_None:
     return "None";
@@ -71,7 +71,7 @@ const char *strPatStructMemberKind(ast_PatStructMemberKind val) {
   abort();
 }
 
-const char *strTypeKind(ast_TypeKind val) {
+const char *ast_strTypeKind(ast_TypeKind val) {
   switch (val) {
   case ast_TK_None:
     return "None";
@@ -101,7 +101,7 @@ const char *strTypeKind(ast_TypeKind val) {
   abort();
 }
 
-const char *strTypeStructKind(ast_TypeStructKind val) {
+const char *ast_strTypeStructKind(ast_TypeStructKind val) {
   switch (val) {
   case ast_TSK_Struct:
     return "Struct";
@@ -111,7 +111,7 @@ const char *strTypeStructKind(ast_TypeStructKind val) {
   abort();
 }
 
-const char *strTypeStructMemberKind(ast_TypeStructMemberKind val) {
+const char *ast_strTypeStructMemberKind(ast_TypeStructMemberKind val) {
   switch (val) {
   case ast_TSMK_None:
     return "None";
@@ -123,7 +123,7 @@ const char *strTypeStructMemberKind(ast_TypeStructMemberKind val) {
   abort();
 }
 
-const char *strTypeUnaryOpKind(ast_TypeUnaryOpKind val) {
+const char *ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val) {
   switch (val) {
   case ast_TEUOK_Ref:
     return "Ref";
@@ -133,7 +133,7 @@ const char *strTypeUnaryOpKind(ast_TypeUnaryOpKind val) {
   abort();
 }
 
-const char *strTypeBinaryOpKind(ast_TypeBinaryOpKind val) {
+const char *ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val) {
   switch (val) {
   case ast_TEBOK_Tuple:
     return "Tuple";
@@ -143,7 +143,7 @@ const char *strTypeBinaryOpKind(ast_TypeBinaryOpKind val) {
   abort();
 }
 
-const char *strValKind(ast_ValKind val) {
+const char *ast_strValKind(ast_ValKind val) {
   switch (val) {
   case ast_VK_None:
     return "None";
@@ -189,7 +189,7 @@ const char *strValKind(ast_ValKind val) {
   abort();
 }
 
-const char *strLabelKind(ast_LabelKind val) {
+const char *ast_strLabelKind(ast_LabelKind val) {
   switch (val) {
   case ast_LK_Omitted:
     return "Omitted";
@@ -199,7 +199,7 @@ const char *strLabelKind(ast_LabelKind val) {
   abort();
 }
 
-const char *strMatchCaseKind(ast_MatchCaseKind val) {
+const char *ast_strMatchCaseKind(ast_MatchCaseKind val) {
   switch (val) {
   case ast_MCK_None:
     return "None";
@@ -211,7 +211,7 @@ const char *strMatchCaseKind(ast_MatchCaseKind val) {
   abort();
 }
 
-const char *strValStructMemberKind(ast_ValStructMemberKind val) {
+const char *ast_strValStructMemberKind(ast_ValStructMemberKind val) {
   switch (val) {
   case ast_VSMK_None:
     return "None";
@@ -223,7 +223,7 @@ const char *strValStructMemberKind(ast_ValStructMemberKind val) {
   abort();
 }
 
-const char *strValUnaryOpKind(ast_ValUnaryOpKind val) {
+const char *ast_strValUnaryOpKind(ast_ValUnaryOpKind val) {
   switch (val) {
   case ast_VEUOK_Negate:
     return "Negate";
@@ -239,7 +239,7 @@ const char *strValUnaryOpKind(ast_ValUnaryOpKind val) {
   abort();
 }
 
-const char *strValBinaryOpKind(ast_ValBinaryOpKind val) {
+const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val) {
   switch (val) {
   case ast_VEBOK_Add:
     return "Add";
@@ -287,7 +287,7 @@ const char *strValBinaryOpKind(ast_ValBinaryOpKind val) {
   abort();
 }
 
-const char *strStmntKind(ast_StmntKind val) {
+const char *ast_strStmntKind(ast_StmntKind val) {
   switch (val) {
   case ast_SK_None:
     return "None";
@@ -311,7 +311,7 @@ const char *strStmntKind(ast_StmntKind val) {
   abort();
 }
 
-const char *strPatUnaryOpKind(ast_PatUnaryOpKind val) {
+const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val) {
   switch (val) {
   case ast_PEUOK_Not:
     return "Not";

@@ -60,7 +60,7 @@ static j_Elem print_diagnostic(Diagnostic diagnostic, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_Comment(Comment comment, Allocator *a) {
+static j_Elem print_Comment(ast_Comment comment, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("comment")));
@@ -74,7 +74,7 @@ static j_Elem print_Comment(Comment comment, Allocator *a) {
 }
 
 // add shared data to the vector
-static void print_appendAstNode(AstNode node, Vector *props, Allocator *a) {
+static void print_appendAstNode(ast_Node node, Vector *props, Allocator *a) {
   *VEC_PUSH(props, j_Prop) = J_PROP(J_LITSTR("span"), print_Span(node.span, a));
   j_Elem *ptrs = ALLOC_ARR(a, node.comments_len, j_Elem);
   for (size_t i = 0; i < node.comments_len; i++) {
@@ -84,7 +84,7 @@ static void print_appendAstNode(AstNode node, Vector *props, Allocator *a) {
       J_PROP(J_LITSTR("comments"), J_ARRAY_ELEM(ptrs, node.comments_len));
 }
 
-static j_Elem print_Path(Path *path, Allocator *a) {
+static j_Elem print_Path(ast_Path *path, Allocator *a) {
   if (path == NULL) {
     return J_NULL_ELEM;
   }
@@ -103,7 +103,7 @@ static j_Elem print_Path(Path *path, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_LabelExpr(LabelExpr *label, Allocator *a) {
+static j_Elem print_Label(ast_Label *label, Allocator *a) {
   if (label == NULL) {
     return J_NULL_ELEM;
   }
@@ -113,14 +113,14 @@ static j_Elem print_LabelExpr(LabelExpr *label, Allocator *a) {
   print_appendAstNode(label->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("label_kind"),
-             print_str(strLabelExprKind(label->kind)));
+             print_str(ast_strLabelKind(label->kind)));
   switch (label->kind) {
-  case LEK_Label: {
+  case ast_LK_Label: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("label"), print_str(label->label.label));
     break;
   }
-  case LEK_Omitted: {
+  case ast_LK_Omitted: {
     // nothing
     break;
   }
@@ -199,7 +199,7 @@ static j_Elem print_Token(Token *token, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_MacroExpr(MacroExpr *macro, Allocator *a) {
+static j_Elem print_Macro(ast_Macro *macro, Allocator *a) {
   if (macro == NULL) {
     return J_NULL_ELEM;
   }
@@ -218,9 +218,9 @@ static j_Elem print_MacroExpr(MacroExpr *macro, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_TypeExpr(TypeExpr *type, Allocator *a);
+static j_Elem print_Type(ast_Type *type, Allocator *a);
 
-static j_Elem print_TypeStructMemberExpr(TypeStructMemberExpr *tsmep,
+static j_Elem print_TypeStructMember(ast_TypeStructMember *tsmep,
                                          Allocator *a) {
   if (tsmep == NULL) {
     return J_NULL_ELEM;
@@ -231,29 +231,29 @@ static j_Elem print_TypeStructMemberExpr(TypeStructMemberExpr *tsmep,
   print_appendAstNode(tsmep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("type_struct_member_expr_kind"),
-             print_str(strTypeStructMemberExprKind(tsmep->kind)));
+             print_str(ast_strTypeStructMemberKind(tsmep->kind)));
   switch (tsmep->kind) {
-  case TSMEK_None: {
+  case ast_TSMK_None: {
     // nop
     break;
   }
-  case TSMEK_Macro: {
+  case ast_TSMK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(tsmep->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(tsmep->macro.macro, a));
     break;
   }
-  case TSMEK_StructMember: {
+  case ast_TSMK_StructMember: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
         J_LITSTR("member_name"), print_str(tsmep->structMember.name));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
-        J_LITSTR("member_type"), print_TypeExpr(tsmep->structMember.type, a));
+        J_LITSTR("member_type"), print_Type(tsmep->structMember.type, a));
     break;
   }
   }
   return print_objectify(&obj);
 }
 
-static j_Elem print_TypeExpr(TypeExpr *type, Allocator *a) {
+static j_Elem print_Type(ast_Type *type, Allocator *a) {
   if (type == NULL) {
     return J_NULL_ELEM;
   }
@@ -262,73 +262,73 @@ static j_Elem print_TypeExpr(TypeExpr *type, Allocator *a) {
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("type")));
   print_appendAstNode(type->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(
-      J_LITSTR("type_kind"), print_str(strTypeExprKind(type->kind)));
+      J_LITSTR("type_kind"), print_str(ast_strTypeKind(type->kind)));
   switch (type->kind) {
-  case TEK_Macro: {
+  case ast_TK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(type->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(type->macro.macro, a));
     break;
   }
-  case TEK_Reference: {
+  case ast_TK_Reference: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("reference"), print_Path(type->referenceExpr.path, a));
+        J_PROP(J_LITSTR("reference"), print_Path(type->reference.path, a));
     break;
   }
-  case TEK_Struct: {
+  case ast_TK_Struct: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
         J_LITSTR("struct_kind"),
-        print_str(strTypeStructExprKind(type->structExpr.kind)));
+        print_str(ast_strTypeStructKind(type->structExpr.kind)));
     Vector members = vec_create(a);
     for (size_t i = 0; i < type->structExpr.members_len; i++) {
       *VEC_PUSH(&members, j_Elem) =
-          print_TypeStructMemberExpr(&type->structExpr.members[i], a);
+          print_TypeStructMember(&type->structExpr.members[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("struct_members"), print_arrayify(&members));
     break;
   }
-  case TEK_Fn: {
+  case ast_TK_Fn: {
     Vector parameters = vec_create(a);
-    for (size_t i = 0; i < type->fnExpr.parameters_len; i++) {
+    for (size_t i = 0; i < type->fn.parameters_len; i++) {
       *VEC_PUSH(&parameters, j_Elem) =
-          print_TypeExpr(&type->fnExpr.parameters[i], a);
+          print_Type(&type->fn.parameters[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("fn_parameters"), print_arrayify(&parameters));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("fn_type"), print_TypeExpr(type->fnExpr.type, a));
+        J_PROP(J_LITSTR("fn_type"), print_Type(type->fn.type, a));
     break;
   }
-  case TEK_Group: {
+  case ast_TK_Group: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("group_inner"),
-                                     print_TypeExpr(type->groupExpr.inner, a));
+                                     print_Type(type->group.inner, a));
     break;
   }
-  case TEK_UnaryOp: {
+  case ast_TK_UnaryOp: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("unary_operation"),
-               print_str(strTypeExprUnaryOpKind(type->unaryOp.op)));
+               print_str(ast_strTypeUnaryOpKind(type->unaryOp.op)));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("unary_operand"),
-                                     print_TypeExpr(type->unaryOp.operand, a));
+                                     print_Type(type->unaryOp.operand, a));
     break;
   }
-  case TEK_BinaryOp: {
+  case ast_TK_BinaryOp: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_operation"),
-               print_str(strTypeExprBinaryOpKind(type->binaryOp.op)));
+               print_str(ast_strTypeBinaryOpKind(type->binaryOp.op)));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_left_operand"),
-               print_TypeExpr(type->binaryOp.left_operand, a));
+               print_Type(type->binaryOp.left_operand, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_right_operand"),
-               print_TypeExpr(type->binaryOp.right_operand, a));
+               print_Type(type->binaryOp.right_operand, a));
     break;
   }
-  case TEK_FieldAccess: {
+  case ast_TK_FieldAccess: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
         J_LITSTR("field_name"), print_str(type->fieldAccess.field));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("field_root"),
-                                     print_TypeExpr(type->fieldAccess.root, a));
+                                     print_Type(type->fieldAccess.root, a));
     break;
   }
   default: {
@@ -340,9 +340,9 @@ static j_Elem print_TypeExpr(TypeExpr *type, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_PatExpr(PatExpr *pep, Allocator *a);
+static j_Elem print_Pat(ast_Pat *pep, Allocator *a);
 
-static j_Elem print_PatStructMemberExpr(PatStructMemberExpr *psmep,
+static j_Elem print_PatStructMember(ast_PatStructMember *psmep,
                                         Allocator *a) {
   if (psmep == NULL) {
     return J_NULL_ELEM;
@@ -353,36 +353,36 @@ static j_Elem print_PatStructMemberExpr(PatStructMemberExpr *psmep,
   print_appendAstNode(psmep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("pat_struct_member_kind"),
-             print_str(strPatStructMemberExprKind(psmep->kind)));
+             print_str(ast_strPatStructMemberKind(psmep->kind)));
   switch (psmep->kind) {
-  case PSMEK_None: {
+  case ast_PSMK_None: {
     // do nothing
     break;
   }
-  case PSMEK_Macro: {
+  case ast_PSMK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(psmep->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(psmep->macro.macro, a));
     break;
   }
-  case PSMEK_Field: {
+  case ast_PSMK_Field: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("field_name"), print_str(psmep->field.field));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("field_pattern"),
-                                     print_PatExpr(psmep->field.pattern, a));
+                                     print_Pat(psmep->field.pattern, a));
     break;
   }
-  case PSMEK_Rest: {
+  case ast_PSMK_Rest: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("rest_pattern"), print_PatExpr(psmep->rest.pattern, a));
+        J_PROP(J_LITSTR("rest_pattern"), print_Pat(psmep->rest.pattern, a));
     break;
   }
   }
   return print_objectify(&obj);
 }
 
-static j_Elem print_ValExpr(ValExpr *vep, Allocator *a);
+static j_Elem print_Val(ast_Val *vep, Allocator *a);
 
-static j_Elem print_PatExpr(PatExpr *pep, Allocator *a) {
+static j_Elem print_Pat(ast_Pat *pep, Allocator *a) {
   if (pep == NULL) {
     return J_NULL_ELEM;
   }
@@ -391,83 +391,83 @@ static j_Elem print_PatExpr(PatExpr *pep, Allocator *a) {
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("pat")));
   print_appendAstNode(pep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(
-      J_LITSTR("pat_kind"), print_str(strPatExprKind(pep->kind)));
+      J_LITSTR("pat_kind"), print_str(ast_strPatKind(pep->kind)));
   switch (pep->kind) {
-  case PEK_None: {
+  case ast_PK_None: {
     // nop
     break;
   }
-  case PEK_Macro: {
+  case ast_PK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(pep->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(pep->macro.macro, a));
     break;
   }
-  case PEK_ValRestriction: {
+  case ast_PK_ValRestriction: {
 
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("value_restriction_kind"),
-               print_str(strPatExprValRestrictionKind(
+               print_str(ast_strPatValRestrictionKind(
                    pep->valRestriction.restriction)));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("value_restriction_value"),
-               print_ValExpr(pep->valRestriction.valExpr, a));
+               print_Val(pep->valRestriction.val, a));
     break;
   }
-  case PEK_TypeRestriction: {
+  case ast_PK_TypeRestriction: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("type_restriction_type"),
-               print_TypeExpr(pep->typeRestriction.type, a));
+               print_Type(pep->typeRestriction.type, a));
     break;
   }
-  case PEK_TypeRestrictionBinding: {
+  case ast_PK_TypeRestrictionBinding: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("type_restriction_binding_type"),
-               print_TypeExpr(pep->typeRestrictionBinding.type, a));
+               print_Type(pep->typeRestrictionBinding.type, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("type_restriction_binding_name"),
                print_str(pep->typeRestrictionBinding.name));
     break;
   }
-  case PEK_Struct: {
+  case ast_PK_Struct: {
     Vector members = vec_create(a);
     for (size_t i = 0; i < pep->structExpr.members_len; i++) {
       *VEC_PUSH(&members, j_Elem) =
-          print_PatStructMemberExpr(&pep->structExpr.members[i], a);
+          print_PatStructMember(&pep->structExpr.members[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("struct_members"), print_arrayify(&members));
     break;
   }
-  case PEK_Group: {
+  case ast_PK_Group: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("group_inner"), print_PatExpr(pep->groupExpr.inner, a));
+        J_PROP(J_LITSTR("group_inner"), print_Pat(pep->group.inner, a));
     break;
   }
-  case PEK_UnaryOp: {
+  case ast_PK_UnaryOp: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("unary_operation"),
-               print_str(strPatExprUnaryOpKind(pep->unaryOp.op)));
+               print_str(ast_strPatUnaryOpKind(pep->unaryOp.op)));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("unary_operand"),
-                                     print_PatExpr(pep->unaryOp.operand, a));
+                                     print_Pat(pep->unaryOp.operand, a));
     break;
   }
-  case PEK_BinaryOp: {
+  case ast_PK_BinaryOp: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_operation"),
-               print_str(strPatExprBinaryOpKind(pep->binaryOp.op)));
+               print_str(ast_strPatBinaryOpKind(pep->binaryOp.op)));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_left_operand"),
-               print_PatExpr(pep->binaryOp.left_operand, a));
+               print_Pat(pep->binaryOp.left_operand, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_right_operand"),
-               print_PatExpr(pep->binaryOp.right_operand, a));
+               print_Pat(pep->binaryOp.right_operand, a));
     break;
   }
   }
   return print_objectify(&obj);
 }
 
-static j_Elem print_MatchCaseExpr(MatchCaseExpr *mcep, Allocator *a) {
+static j_Elem print_MatchCase(ast_MatchCase *mcep, Allocator *a) {
   if (mcep == NULL) {
     return J_NULL_ELEM;
   }
@@ -477,29 +477,29 @@ static j_Elem print_MatchCaseExpr(MatchCaseExpr *mcep, Allocator *a) {
   print_appendAstNode(mcep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("match_case_kind"),
-             print_str(strMatchCaseExprKind(mcep->kind)));
+             print_str(ast_strMatchCaseKind(mcep->kind)));
   switch (mcep->kind) {
-  case MCEK_None: {
+  case ast_MCK_None: {
     // nop
     break;
   }
-  case MCEK_Macro: {
+  case ast_MCK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(mcep->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(mcep->macro.macro, a));
     break;
   }
-  case MCEK_Case: {
+  case ast_MCK_Case: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("case_pat"), print_PatExpr(mcep->matchCase.pattern, a));
+        J_PROP(J_LITSTR("case_pat"), print_Pat(mcep->matchCase.pattern, a));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("case_val"), print_ValExpr(mcep->matchCase.val, a));
+        J_PROP(J_LITSTR("case_val"), print_Val(mcep->matchCase.val, a));
     break;
   }
   }
   return print_objectify(&obj);
 }
 
-static j_Elem print_ValStructMemberExpr(ValStructMemberExpr *vsmep,
+static j_Elem print_ValStructMember(ast_ValStructMember *vsmep,
                                         Allocator *a) {
   if (vsmep == NULL) {
     return J_NULL_ELEM;
@@ -510,31 +510,31 @@ static j_Elem print_ValStructMemberExpr(ValStructMemberExpr *vsmep,
   print_appendAstNode(vsmep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("val_struct_member_expr_kind"),
-             print_str(strValStructMemberExprKind(vsmep->kind)));
+             print_str(ast_strValStructMemberKind(vsmep->kind)));
   switch (vsmep->kind) {
-  case VSMEK_None: {
+  case ast_VSMK_None: {
     // nop
     break;
   }
-  case VSMEK_Macro: {
+  case ast_VSMK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(vsmep->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(vsmep->macro.macro, a));
     break;
   }
-  case VSMEK_Member: {
+  case ast_VSMK_Member: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
-        J_LITSTR("member_name"), print_str(vsmep->memberExpr.name));
+        J_LITSTR("member_name"), print_str(vsmep->member.name));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("member_val"), print_ValExpr(vsmep->memberExpr.val, a));
+        J_PROP(J_LITSTR("member_val"), print_Val(vsmep->member.val, a));
     break;
   }
   }
   return print_objectify(&obj);
 }
 
-static j_Elem print_Stmnt(Stmnt *sp, Allocator *a);
+static j_Elem print_Stmnt(ast_Stmnt *sp, Allocator *a);
 
-static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
+static j_Elem print_Val(ast_Val *vep, Allocator *a) {
   if (vep == NULL) {
     return J_NULL_ELEM;
   }
@@ -543,152 +543,152 @@ static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("val")));
   print_appendAstNode(vep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(
-      J_LITSTR("val_kind"), print_str(strValExprKind(vep->kind)));
+      J_LITSTR("val_kind"), print_str(ast_strValKind(vep->kind)));
   switch (vep->kind) {
-  case VEK_None: {
+  case ast_VK_None: {
     // nop
     break;
   }
-  case VEK_Macro: {
+  case ast_VK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(vep->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(vep->macro.macro, a));
     break;
   }
-  case VEK_NilLiteral: {
+  case ast_VK_NilLiteral: {
     // literally nothing
     break;
   }
-  case VEK_BoolLiteral: {
+  case ast_VK_BoolLiteral: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("bool"), J_BOOL_ELEM(vep->boolLiteral.value));
     break;
   }
-  case VEK_IntLiteral: {
+  case ast_VK_IntLiteral: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("int"), J_INT_ELEM(J_UINT(vep->intLiteral.value)));
     break;
   }
-  case VEK_FloatLiteral: {
+  case ast_VK_FloatLiteral: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("float"), J_NUM_ELEM(vep->floatLiteral.value));
     break;
   }
-  case VEK_CharLiteral: {
+  case ast_VK_CharLiteral: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
         J_LITSTR("char"), J_INT_ELEM(J_UINT((uint64_t)vep->charLiteral.value)));
     break;
   }
-  case VEK_StringLiteral: {
+  case ast_VK_StringLiteral: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
         J_LITSTR("string"), J_STR_ELEM(J_STR(vep->stringLiteral.value,
                                              vep->stringLiteral.value_len)));
     break;
   }
-  case VEK_StructLiteral: {
+  case ast_VK_StructLiteral: {
     Vector members = vec_create(a);
     for (size_t i = 0; i < vep->structExpr.members_len; i++) {
       *VEC_PUSH(&members, j_Elem) =
-          print_ValStructMemberExpr(&vep->structExpr.members[i], a);
+          print_ValStructMember(&vep->structExpr.members[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("struct_members"), print_arrayify(&members));
     break;
   }
-  case VEK_As: {
+  case ast_VK_As: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("as_root"), print_ValExpr(vep->asExpr.root, a));
+        J_PROP(J_LITSTR("as_root"), print_Val(vep->as.root, a));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("as_type"), print_TypeExpr(vep->asExpr.type, a));
+        J_PROP(J_LITSTR("as_type"), print_Type(vep->as.type, a));
     break;
   }
-  case VEK_Loop: {
+  case ast_VK_Loop: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("loop_label"), print_LabelExpr(vep->loopExpr.label, a));
+        J_PROP(J_LITSTR("loop_label"), print_Label(vep->loop.label, a));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("loop_body"), print_ValExpr(vep->loopExpr.body, a));
+        J_PROP(J_LITSTR("loop_body"), print_Val(vep->loop.body, a));
     break;
   }
-  case VEK_FieldAccess: {
+  case ast_VK_FieldAccess: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("field_root"), print_ValExpr(vep->fieldAccess.root, a));
+        J_PROP(J_LITSTR("field_root"), print_Val(vep->fieldAccess.root, a));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(
         J_LITSTR("field_name"), print_str(vep->fieldAccess.name));
     break;
   }
-  case VEK_Reference: {
+  case ast_VK_Reference: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("reference"), print_Path(vep->reference.path, a));
     break;
   }
-  case VEK_UnaryOp: {
+  case ast_VK_UnaryOp: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("unary_operation"),
-               print_str(strValExprUnaryOpKind(vep->unaryOp.op)));
+               print_str(ast_strValUnaryOpKind(vep->unaryOp.op)));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("unary_operand"),
-                                     print_ValExpr(vep->unaryOp.operand, a));
+                                     print_Val(vep->unaryOp.operand, a));
     break;
   }
-  case VEK_BinaryOp: {
+  case ast_VK_BinaryOp: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_operation"),
-               print_str(strValExprBinaryOpKind(vep->binaryOp.op)));
+               print_str(ast_strValBinaryOpKind(vep->binaryOp.op)));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_left_operand"),
-               print_ValExpr(vep->binaryOp.left_operand, a));
+               print_Val(vep->binaryOp.left_operand, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("binary_right_operand"),
-               print_ValExpr(vep->binaryOp.right_operand, a));
+               print_Val(vep->binaryOp.right_operand, a));
     break;
   }
-  case VEK_Fn: {
+  case ast_VK_Fn: {
     Vector parameters = vec_create(a);
-    for (size_t i = 0; i < vep->fnExpr.parameters_len; i++) {
+    for (size_t i = 0; i < vep->fn.parameters_len; i++) {
       *VEC_PUSH(&parameters, j_Elem) =
-          print_PatExpr(&vep->fnExpr.parameters[i], a);
+          print_Pat(&vep->fn.parameters[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("fn_parameters"), print_arrayify(&parameters));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("fn_type"), print_TypeExpr(vep->fnExpr.type, a));
+        J_PROP(J_LITSTR("fn_type"), print_Type(vep->fn.type, a));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("fn_body"), print_ValExpr(vep->fnExpr.body, a));
+        J_PROP(J_LITSTR("fn_body"), print_Val(vep->fn.body, a));
     break;
   }
-  case VEK_Call: {
+  case ast_VK_Call: {
     Vector parameters = vec_create(a);
-    for (size_t i = 0; i < vep->callExpr.parameters_len; i++) {
+    for (size_t i = 0; i < vep->call.parameters_len; i++) {
       *VEC_PUSH(&parameters, j_Elem) =
-          print_ValExpr(&vep->callExpr.parameters[i], a);
+          print_Val(&vep->call.parameters[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("call_parameters"), print_arrayify(&parameters));
     break;
   }
-  case VEK_Return: {
+  case ast_VK_Return: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("return_label"),
-                                     print_LabelExpr(vep->returnExpr.label, a));
+                                     print_Label(vep->returnExpr.label, a));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("return_value"),
-                                     print_ValExpr(vep->returnExpr.value, a));
+                                     print_Val(vep->returnExpr.value, a));
     break;
   }
-  case VEK_Match: {
+  case ast_VK_Match: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("match_root"), print_ValExpr(vep->matchExpr.root, a));
+        J_PROP(J_LITSTR("match_root"), print_Val(vep->match.root, a));
     Vector cases = vec_create(a);
-    for (size_t i = 0; i < vep->matchExpr.cases_len; i++) {
+    for (size_t i = 0; i < vep->match.cases_len; i++) {
       *VEC_PUSH(&cases, j_Elem) =
-          print_MatchCaseExpr(&vep->matchExpr.cases[i], a);
+          print_MatchCase(&vep->match.cases[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("match_cases"), print_arrayify(&cases));
     break;
   }
-  case VEK_Block: {
+  case ast_VK_Block: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("block_label"),
-                                     print_LabelExpr(vep->blockExpr.label, a));
+                                     print_Label(vep->block.label, a));
     Vector stmnts = vec_create(a);
-    for (size_t i = 0; i < vep->blockExpr.stmnts_len; i++) {
-      *VEC_PUSH(&stmnts, j_Elem) = print_Stmnt(&vep->blockExpr.stmnts[i], a);
+    for (size_t i = 0; i < vep->block.stmnts_len; i++) {
+      *VEC_PUSH(&stmnts, j_Elem) = print_Stmnt(&vep->block.stmnts[i], a);
     }
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("block_stmnts"), print_arrayify(&stmnts));
@@ -698,7 +698,7 @@ static j_Elem print_ValExpr(ValExpr *vep, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_Stmnt(Stmnt *sp, Allocator *a) {
+static j_Elem print_Stmnt(ast_Stmnt *sp, Allocator *a) {
   if (sp == NULL) {
     return J_NULL_ELEM;
   }
@@ -707,25 +707,25 @@ static j_Elem print_Stmnt(Stmnt *sp, Allocator *a) {
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("stmnt")));
   print_appendAstNode(sp->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("stmnt_kind"),
-                                   print_str(strStmntKind(sp->kind)));
+                                   print_str(ast_strStmntKind(sp->kind)));
   switch (sp->kind) {
-  case SK_None: {
+  case ast_SK_None: {
     // nop
     break;
   }
-  case SK_Macro: {
+  case ast_SK_Macro: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("macro"), print_MacroExpr(sp->macro.macro, a));
+        J_PROP(J_LITSTR("macro"), print_Macro(sp->macro.macro, a));
     break;
   }
-  case SK_Use: {
+  case ast_SK_Use: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("use_path"), print_Path(sp->useStmnt.path, a));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("use_alias"),
                                      print_str(sp->useStmnt.name));
     break;
   }
-  case SK_Namespace: {
+  case ast_SK_Namespace: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("namespace_name"),
                print_str(sp->namespaceStmnt.name));
@@ -738,50 +738,50 @@ static j_Elem print_Stmnt(Stmnt *sp, Allocator *a) {
         J_PROP(J_LITSTR("namespace_stmnts"), print_arrayify(&stmnts));
     break;
   }
-  case SK_ValDecl: {
+  case ast_SK_ValDecl: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("val_decl_pat"), print_PatExpr(sp->valDecl.pat, a));
+        J_PROP(J_LITSTR("val_decl_pat"), print_Pat(sp->valDecl.pat, a));
     break;
   }
-  case SK_ValDeclDefine: {
+  case ast_SK_ValDeclDefine: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("val_decl_define_pat"),
-                                     print_PatExpr(sp->valDeclDefine.pat, a));
+                                     print_Pat(sp->valDeclDefine.pat, a));
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("val_decl_define_val"),
-                                     print_ValExpr(sp->valDeclDefine.val, a));
+                                     print_Val(sp->valDeclDefine.val, a));
     break;
   }
-  case SK_TypeDecl: {
+  case ast_SK_TypeDecl: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("type_decl_pat"),
                                      print_str(sp->typeDecl.name));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("type_decl_type"),
-               print_TypeExpr(sp->typeDecl.type, a));
+               print_Type(sp->typeDecl.type, a));
     break;
   }
-  case SK_DeferStmnt: {
+  case ast_SK_DeferStmnt: {
     *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("defer_label"),
-                                     print_LabelExpr(sp->deferStmnt.label, a));
+                                     print_Label(sp->deferStmnt.label, a));
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("defer_val"), print_ValExpr(sp->deferStmnt.val, a));
+        J_PROP(J_LITSTR("defer_val"), print_Val(sp->deferStmnt.val, a));
     break;
   }
-  case SK_ValExpr: {
+  case ast_SK_Val: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("val"), print_ValExpr(sp->valExpr.val, a));
+        J_PROP(J_LITSTR("val"), print_Val(sp->val.val, a));
     break;
   }
   }
   return print_objectify(&obj);
 }
 
-void print_stream(Parser *parser, FILE *file) {
+void print_stream(AstFromCodeConstructor *parser, FILE *file) {
   while (true) {
     Allocator a = std_allocator();
 
     // Parse the next statement
-    Stmnt stmnt;
+    ast_Stmnt stmnt;
     Vector diagnostics = vec_create(&a);
-    bool eof = !parse_nextStmntAndCheckNext(&stmnt, &diagnostics, parser);
+    bool eof = !ast_nextStmntAndCheckNext(&stmnt, &diagnostics, parser);
 
     if (eof) {
       vec_destroy(&diagnostics);

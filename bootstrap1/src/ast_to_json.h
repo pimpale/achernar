@@ -5,6 +5,6 @@
 
 #include "code_to_ast.h"
 
-void print_stream(Parser *parser, FILE *file);
+void print_stream(AstFromCodeConstructor *parser, FILE *file);
 
 #endif

@@ -23,7 +23,7 @@ typedef struct {
   };
 } Identifier;
 
-HIRConstructor hirconstructor_create(Parser* parser, Allocator*a) {
+HIRConstructor hirconstructor_create(AstFromCodeConstructor* parser, Allocator*a) {
   HIRConstructor hc; 
   hc.a = a;
   hc.parser = parser;

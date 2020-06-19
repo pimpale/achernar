@@ -11,7 +11,7 @@
 
 typedef struct {
   Allocator *a;
-  Parser *parser;
+  AstFromCodeConstructor*parser;
 
   // Vector[Identifier]
   // Each index points to a HIRcomment
@@ -21,7 +21,7 @@ typedef struct {
 
 } HIRConstructor;
 
-HIRConstructor hirconstructor_create(Parser* parser, Allocator*a);
+HIRConstructor hirconstructor_create(AstFromCodeConstructor* parser, Allocator*a);
 
 bool hirconstructor_nextStmntAndCheckNext(Vector* diagnostics, HIRConstructor* constructor);
 

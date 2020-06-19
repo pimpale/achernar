@@ -1,27 +1,28 @@
 #include "ast_to_hir.h"
 
+typedef struct {
+  // vector of identifier ids
+  // Vector[IdentifierId]
+  Vector *identifiers;
+} Scope;
 
 typedef enum {
-    IK_Namespace,
-    IK_Identifier,
+  IK_Namespace,
+  IK_Identifier,
 } IdentifierKind;
-
-typedef struct {
-    // Vector[Identifier]
-    Vector *identifiers;
-} Scope;
 
 typedef struct {
   IdentifierKind kind;
   union {
     struct {
-      Scope* namespace;
-    } namespace;
+      Scope* value;
+    } namespaceIdentifier;
     struct {
       char* value;
     } identifier;
   };
 } Identifier;
+
 
 HIRConstructor hirconstructor_create(AstFromCodeConstructor* parser, Allocator*a) {
   HIRConstructor hc; 

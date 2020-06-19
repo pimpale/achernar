@@ -14,18 +14,19 @@ typedef struct {
   AstFromCodeConstructor*parser;
 
   // Vector[Identifier]
-  // Each index points to a HIRcomment
-  Vector* comment_table;
-  Vector* label_table;
-  Vector* identifier_table;
+  // Each index points to a char*
+  Vector* id_label_table;
+  Vector* id_type_table;
+  Vector* id_val_table;
+  Vector* id_namespace_table;
 
 } HIRConstructor;
 
-HIRConstructor hirconstructor_create(AstFromCodeConstructor* parser, Allocator*a);
+HIRConstructor hir_create(AstFromCodeConstructor* parser, Allocator*a);
 
-bool hirconstructor_nextStmntAndCheckNext(Vector* diagnostics, HIRConstructor* constructor);
+bool hir_nextStmntAndCheckNext(Vector* diagnostics, HIRConstructor* constructor);
 
-void hirconstuctor_destroy(HIRConstructor *constructor);
+void hir_destroy(HIRConstructor *constructor);
 
 #endif
 

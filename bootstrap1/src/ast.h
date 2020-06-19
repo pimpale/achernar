@@ -18,10 +18,10 @@ typedef struct {
   Span span;
   ast_Comment *comments;
   size_t comments_len;
-} ast_Node;
+} ast_Common;
 
 typedef struct {
-  ast_Node node;
+  ast_Common common;
 
   char *name;
   Token *tokens;
@@ -29,11 +29,21 @@ typedef struct {
 } ast_Macro;
 
 typedef struct {
-  ast_Node node;
+  ast_Common common;
 
   char **pathSegments;
   size_t pathSegments_len;
 } ast_Path;
+
+typedef struct {
+  ast_Common common;
+  char *name;
+} ast_Binding;
+
+typedef struct {
+  ast_Common common;
+  char *name;
+} ast_Field;
 
 typedef struct ast_Type_s ast_Type;
 typedef struct ast_Val_s ast_Val;
@@ -78,7 +88,7 @@ typedef enum {
 } ast_PatStructMemberKind;
 
 typedef struct {
-  ast_Node node;
+  ast_Common common;
   ast_PatStructMemberKind kind;
   union {
     struct {
@@ -86,16 +96,13 @@ typedef struct {
     } macro;
     struct {
       ast_Pat *pattern;
-      char *field;
+      ast_Field *field;
     } field;
-    struct {
-      ast_Pat *pattern;
-    } rest;
   };
 } ast_PatStructMember;
 
 typedef struct ast_Pat_s {
-  ast_Node node;
+  ast_Common common;
 
   ast_PatKind kind;
   union {
@@ -111,7 +118,7 @@ typedef struct ast_Pat_s {
     } typeRestriction;
     struct {
       ast_Type *type;
-      char *name;
+      ast_Binding *name;
     } typeRestrictionBinding;
     struct {
       ast_PatStructMember *members;
@@ -135,7 +142,7 @@ typedef struct ast_Pat_s {
 typedef enum {
   ast_TK_None,        // Error type
   ast_TK_Omitted,     // Omitted
-  ast_TK_Macro,       // ast_Macroast_Type
+  ast_TK_Macro,       // Macro type
   ast_TK_Nil,         // Nil type
   ast_TK_Never,       // Never type
   ast_TK_Group,       // { something }
@@ -159,12 +166,12 @@ typedef enum {
 } ast_TypeStructMemberKind;
 
 typedef struct ast_TypeStructMember_s {
-  ast_Node node;
+  ast_Common common;
   ast_TypeStructMemberKind kind;
 
   union {
     struct {
-      char *name;
+      ast_Field *name;
       ast_Type *type;
     } structMember;
     struct {
@@ -185,7 +192,7 @@ typedef enum {
 
 // essions and operations yielding a type
 typedef struct ast_Type_s {
-  ast_Node node;
+  ast_Common common;
   ast_TypeKind kind;
 
   union {
@@ -219,7 +226,7 @@ typedef struct ast_Type_s {
     } binaryOp;
     struct {
       ast_Type *root;
-      char *field;
+      ast_Field *field;
     } fieldAccess;
   };
 } ast_Type;
@@ -253,7 +260,7 @@ typedef enum {
 } ast_LabelKind;
 
 typedef struct {
-  ast_Node node;
+  ast_Common common;
   ast_LabelKind kind;
   union {
     struct {
@@ -269,7 +276,7 @@ typedef enum {
 } ast_MatchCaseKind;
 
 typedef struct {
-  ast_Node node;
+  ast_Common common;
   ast_MatchCaseKind kind;
 
   union {
@@ -291,13 +298,13 @@ typedef enum {
 } ast_ValStructMemberKind;
 
 typedef struct {
-  ast_Node node;
+  ast_Common common;
 
   ast_ValStructMemberKind kind;
 
   union {
     struct {
-      char *name;
+      ast_Field *name;
       ast_Val *val;
     } member;
     struct {
@@ -339,7 +346,7 @@ typedef enum {
 } ast_ValBinaryOpKind;
 
 typedef struct ast_Val_s {
-  ast_Node node;
+  ast_Common common;
   ast_ValKind kind;
 
   union {
@@ -431,7 +438,7 @@ typedef enum {
 } ast_StmntKind;
 
 typedef struct ast_Stmnt_s {
-  ast_Node node;
+  ast_Common common;
   ast_StmntKind kind;
 
   size_t comments_len;
@@ -445,23 +452,20 @@ typedef struct ast_Stmnt_s {
       ast_Val *val;
     } valDeclDefine;
     struct {
-      char *name;
+      ast_Binding *name;
       ast_Type *type;
     } typeDecl;
-    // Things
     struct {
       ast_Path *path;
-      char *name;
     } useStmnt;
     struct {
-      char *name;
+      ast_Binding *name;
       ast_Stmnt *stmnts;
       size_t stmnts_len;
     } namespaceStmnt;
     struct {
       ast_Macro *macro;
     } macro;
-    // essions
     struct {
       ast_Val *val;
     } val;

@@ -1,5 +1,5 @@
-#ifndef LEX_H
-#define LEX_H
+#ifndef CODE_TO_TOKENS_H
+#define CODE_TO_TOKENS_H
 
 #include "token.h"
 #include "lexer.h"

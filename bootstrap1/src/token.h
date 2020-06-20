@@ -15,20 +15,20 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_Never, // unreachable type for when a function does not return
-  tk_Loop,        // loop
-  tk_Match,       // match
-  tk_Val,         // val
-  tk_Return,      // return
-  tk_Defer,       // defer
-  tk_Fn,          // fn
-  tk_Pat,         // pat
-  tk_As,          // as
-  tk_Struct,      // struct
-  tk_Enum,        // enum
-  tk_Type,        // type
-  tk_Namespace,   // namespace
-  tk_Use,         // use
+  tk_Never,     // unreachable type for when a function does not return
+  tk_Loop,      // loop
+  tk_Match,     // match
+  tk_Val,       // val
+  tk_Return,    // return
+  tk_Defer,     // defer
+  tk_Fn,        // fn
+  tk_Pat,       // pat
+  tk_As,        // as
+  tk_Struct,    // struct
+  tk_Enum,      // enum
+  tk_Type,      // type
+  tk_Namespace, // namespace
+  tk_Use,       // use
   // Literals and constants
   tk_Nil,    // nil
   tk_Bool,   // true
@@ -86,6 +86,7 @@ typedef enum {
   tk_Colon,        // :
   tk_Semicolon,    // ;
   tk_Backtick,     // `
+  tk_Underscore,   // _
   tk_Rest,         // ..
   tk_Dollar,       // $
   // Macros

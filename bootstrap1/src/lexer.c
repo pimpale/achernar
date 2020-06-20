@@ -1,8 +1,8 @@
 #include "lexer.h"
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 Lexer lex_fromFile(FILE *file) {
@@ -32,6 +32,15 @@ void lex_destroy(Lexer *lexer) {
   }
 }
 
+static void lex_incrementLn(Lexer *lexer) {
+  lexer->position.ln = LN(lexer->position.ln.val + 1);
+  lexer->position.col = COL(1);
+}
+
+static void lex_incrementCol(Lexer *lexer) {
+  lexer->position.col = COL(lexer->position.col.val + 1);
+}
+
 int32_t lex_next(Lexer *lexer) {
   int32_t nextValue;
   switch (lexer->backing) {
@@ -51,16 +60,29 @@ int32_t lex_next(Lexer *lexer) {
   }
   }
 
-  // Update our position in the file if we haven't encountered an EOF
-  if (nextValue != EOF) {
-    if (nextValue == '\n') {
-      lexer->position.ln = LN(lexer->position.ln.val + 1);
-      lexer->position.col = COL(1);
-    } else {
-      lexer->position.col = COL(lexer->position.col.val + 1);
-    }
+  switch (nextValue) {
+  case EOF: {
+    // just return EOF
+    return EOF;
   }
-  return nextValue;
+  case '\r': {
+    // if
+    if (lex_peek(lexer) == '\n') {
+      lex_incrementCol(lexer);
+    } else {
+      lex_incrementLn(lexer);
+    }
+    return '\r';
+  }
+  case '\n': {
+    lex_incrementLn(lexer);
+    return '\n';
+  }
+  default: {
+    lex_incrementCol(lexer);
+    return nextValue;
+  }
+  }
 }
 
 int32_t lex_peek(Lexer *lexer) {

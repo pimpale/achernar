@@ -28,16 +28,35 @@ typedef struct {
   size_t tokens_len;
 } ast_Macro;
 
-typedef struct {
-  ast_Common common;
-
-  char **pathSegments;
-  size_t pathSegments_len;
-} ast_Path;
+typedef enum {
+  ast_RK_None,
+  ast_RK_Path,
+} ast_ReferenceKind; 
 
 typedef struct {
   ast_Common common;
-  char *name;
+  union {
+    struct {
+      char **segments;
+      size_t segments_len;
+    } path; 
+  };
+} ast_Reference;
+
+typedef enum {
+  ast_BK_None,
+  ast_BK_Bind,
+  ast_BK_Ignore,
+} ast_BindingKind;
+
+typedef struct {
+  ast_Common common;
+  ast_BindingKind kind;
+  union {
+      struct {
+        char *val;
+      } bind; 
+  };
 } ast_Binding;
 
 typedef struct {
@@ -493,5 +512,6 @@ const char *ast_strValUnaryOpKind(ast_ValUnaryOpKind val);
 const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
 const char *ast_strStmntKind(ast_StmntKind val);
 const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
+const char *ast_strBindingKind(ast_BindingKind val);
 
 #endif

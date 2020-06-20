@@ -541,6 +541,12 @@ static Token lexWord(Lexer *lexer, UNUSED Vector *diagnostics, Allocator *a) {
   *VEC_PUSH(&data, char) = '\0';
   char *string = vec_get(&data, 0);
 
+  if(!strcmp(string, "_")) {
+    vec_destroy(&data);
+    return (Token){.kind = tk_Underscore,
+                   .span = span};
+  }
+
   if (macro) {
     // It is an identifier, and we need to keep the string
     return (Token){.kind = tk_Macro,

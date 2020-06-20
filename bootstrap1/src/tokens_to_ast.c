@@ -182,7 +182,8 @@ static void ast_certain_parseMacro(ast_Macro *mpe, Vector *diagnostics,
   mpe->common.span = SPAN(start, end);
 }
 
-static void ast_ParsePath(ast_Path *pp, Vector *diagnostics, AstFromCodeConstructor *parser) {
+static void ast_ParseReference(ast_Reference *ptr, Vector *diagnostics, AstFromCodeConstructor *parser) {
+  ZERO(ptr);
   Token t = parse_next(parser, diagnostics);
 
   // start and finish
@@ -226,6 +227,28 @@ CLEANUP:
 
   pp->common.span = SPAN(start, end);
   pp->common.comments_len = 0;
+}
+
+static void ast_parseBinding(ast_Binding *ptr, Vector *diagnostics,
+                        AstFromCodeConstructor *parser) {
+    ZERO(ptr);
+    ptr->common.comments_len = 0;
+    Token t = parse_next(parser, diagnostics);
+    ptr->common.span = t.span;
+    switch(t.kind) {
+      case tk_Underscore: {
+        ptr->kind = ast_BK_Ignore;
+        break;
+      }
+      case tk_Identifier: {
+      ptr->kind = ast_BK_Bind;
+      ptr->bind.val = t.identifierToken.data;
+      break;
+    }
+    default: {
+      ptr->kind = ast_BK_None;
+    }
+    }
 }
 
 static void ast_certain_parseNilVal(ast_Val *ptr, Vector *diagnostics,

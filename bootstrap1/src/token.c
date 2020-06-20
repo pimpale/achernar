@@ -110,6 +110,8 @@ const char *tk_strKind(tk_Kind val) {
     return "Tuple";
   case tk_Union:
     return "Union";
+  case tk_Underscore:
+    return "Underscore";
   case tk_ParenLeft:
     return "ParenLeft";
   case tk_ParenRight:

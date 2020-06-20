@@ -318,3 +318,16 @@ const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val) {
   }
   abort();
 }
+
+const char *ast_strBindingKind(ast_BindingKind val) {
+  switch (val) {
+  case ast_BK_Bind: {
+    return "Bind";
+  }
+  case ast_BK_Ignore: {
+    return "Ignore";
+  }
+  }
+  abort();
+}
+}

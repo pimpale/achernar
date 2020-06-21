@@ -16,13 +16,6 @@ typedef struct {
 
 typedef struct {
   Span span;
-  ast_Comment *comments;
-  size_t comments_len;
-} ast_Common;
-
-typedef struct {
-  ast_Common common;
-
   char *name;
   Token *tokens;
   size_t tokens_len;
@@ -31,15 +24,16 @@ typedef struct {
 typedef enum {
   ast_RK_None,
   ast_RK_Path,
-} ast_ReferenceKind; 
+} ast_ReferenceKind;
 
 typedef struct {
-  ast_Common common;
+  Span span;
+  ast_ReferenceKind kind;
   union {
     struct {
       char **segments;
       size_t segments_len;
-    } path; 
+    } path;
   };
 } ast_Reference;
 
@@ -50,19 +44,35 @@ typedef enum {
 } ast_BindingKind;
 
 typedef struct {
-  ast_Common common;
+  Span span;
   ast_BindingKind kind;
   union {
-      struct {
-        char *val;
-      } bind; 
+    struct {
+      char *val;
+    } bind;
   };
 } ast_Binding;
 
+typedef enum {
+  ast_FK_None,
+  ast_FK_Field,
+} ast_FieldKind;
+
 typedef struct {
-  ast_Common common;
-  char *name;
+  Span span;
+  ast_FieldKind kind;
+  union {
+    struct {
+      char *name;
+    } field;
+  };
 } ast_Field;
+
+typedef struct {
+  Span span;
+  ast_Comment *comments;
+  size_t comments_len;
+} ast_Common;
 
 typedef struct ast_Type_s ast_Type;
 typedef struct ast_Val_s ast_Val;
@@ -219,7 +229,7 @@ typedef struct ast_Type_s {
       ast_Macro *macro;
     } macro;
     struct {
-      ast_Path *path;
+      ast_Reference *path;
     } reference;
     struct {
       ast_TypeStructKind kind;
@@ -279,7 +289,7 @@ typedef enum {
 } ast_LabelKind;
 
 typedef struct {
-  ast_Common common;
+  Span span;
   ast_LabelKind kind;
   union {
     struct {
@@ -323,7 +333,7 @@ typedef struct {
 
   union {
     struct {
-      ast_Field *name;
+      ast_Field *field;
       ast_Val *val;
     } member;
     struct {
@@ -402,10 +412,10 @@ typedef struct ast_Val_s {
     } loop;
     struct {
       ast_Val *root;
-      char *name;
+      ast_Field *field;
     } fieldAccess;
     struct {
-      ast_Path *path;
+      ast_Reference *path;
     } reference;
     struct {
       ast_ValUnaryOpKind op;
@@ -475,7 +485,7 @@ typedef struct ast_Stmnt_s {
       ast_Type *type;
     } typeDecl;
     struct {
-      ast_Path *path;
+      ast_Reference *path;
     } useStmnt;
     struct {
       ast_Binding *name;
@@ -513,5 +523,6 @@ const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
 const char *ast_strStmntKind(ast_StmntKind val);
 const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
 const char *ast_strBindingKind(ast_BindingKind val);
+const char *ast_strReferenceKind(ast_ReferenceKind val);
 
 #endif

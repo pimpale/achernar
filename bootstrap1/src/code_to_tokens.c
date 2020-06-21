@@ -1,4 +1,4 @@
-#include "lex.h"
+#include "code_to_tokens.h"
 
 #include <ctype.h>
 #include <inttypes.h>
@@ -177,9 +177,7 @@ static Token lexStringLiteral(Lexer *lexer, Vector *diagnostics, Allocator *a) {
           }
         }
         *VEC_PUSH(diagnostics, Diagnostic) =
-            DIAGNOSTIC(DK_StringLiteralUnrecognizedEscapeCode,
-                       SPAN(start, lexer->position));
-
+          diagnostic_standalone(SPAN(start, lexer->position), DSK_Error, "Unrecognized escape code in string literal");
         goto CLEANUP;
       }
       }
@@ -222,14 +220,14 @@ static uint64_t parseNumBaseComponent(Lexer *l, Vector *diagnostics,
     } else {
       // means an alphabetical character out of this range
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_NumLiteralUnknownCharacter, lex_peekSpan(l));
+          diagnostic_standalone(lex_peekSpan(l), DSK_Error, "num literal unknown character");
       digit_val = 0;
     }
 
     if (digit_val >= radix) {
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_NumLiteralDigitExceedsRadix, lex_peekSpan(l));
-      // correct the radix value
+          diagnostic_standalone(lex_peekSpan(l), DSK_Error, "num literal char value exceeds radix");
+       // correct the radix value
       digit_val = radix - 1;
     }
 
@@ -238,7 +236,7 @@ static uint64_t parseNumBaseComponent(Lexer *l, Vector *diagnostics,
     integer_value = integer_value * radix + digit_val;
     if (old_integer_value > integer_value) {
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_NumLiteralOverflow, lex_peekSpan(l));
+          diagnostic_standalone(lex_peekSpan(l), DSK_Error, "num literal overflow");
     }
 
     // we can finally move past this char
@@ -277,13 +275,13 @@ static double parseNumFractionalComponent(Lexer *l, Vector *diagnostics,
     } else {
       // means an alphabetical character out of this range
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_NumLiteralUnknownCharacter, lex_peekSpan(l));
+          diagnostic_standalone(lex_peekSpan(l), DSK_Error, "num literal unknown character");
       digit_val = 0;
     }
 
     if (digit_val >= radix) {
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_NumLiteralDigitExceedsRadix, lex_peekSpan(l));
+          diagnostic_standalone(lex_peekSpan(l), DSK_Error, "num literal char value exceeds radix");
       // correct the radix value
       digit_val = radix - 1;
     }
@@ -328,8 +326,9 @@ static Token lexNumberLiteral(Lexer *l, Vector *diagnostics, UNUSED Allocator *a
     }
     default: {
       radix = 10;
-      *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
-          DK_NumLiteralUnrecognizedRadixCode, SPAN(start, l->position));
+      *VEC_PUSH(diagnostics, Diagnostic) = 
+          diagnostic_standalone(SPAN(start, l->position), DSK_Error, "num literal unrecognized radix code");
+      break;
     }
     }
   } else {
@@ -441,8 +440,8 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics,
       }
       default: {
         char_literal = (char)c;
-        *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
-            DK_CharLiteralUnrecognizedEscapeCode, lex_peekSpan(lexer));
+        *VEC_PUSH(diagnostics, Diagnostic) = 
+          diagnostic_standalone(lex_peekSpan(lexer), DSK_Error, "char literal unrecognized escape code");
         break;
       }
       }
@@ -471,8 +470,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, Vector *diagnostics,
           state = LCS_Label;
         } else {
           // we are dealing with a bad char literal
-          *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(
-              DK_CharLiteralExpectedCloseSingleQuote, lex_peekSpan(lexer));
+          *VEC_PUSH(diagnostics, Diagnostic) =  diagnostic_standalone(lex_peekSpan(lexer), DSK_Error, "char literal expected close single quote");
           label = false;
           goto EXIT_LOOP;
         }
@@ -842,8 +840,8 @@ Token tk_next(Lexer *lexer, Vector *diagnostics, Allocator *a) {
       RETURN_RESULT_TOKEN(tk_Eof)
     }
     default: {
-      *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_UnrecognizedCharacter, lex_peekSpan(lexer));
+      *VEC_PUSH(diagnostics, Diagnostic) = 
+          diagnostic_standalone(lex_peekSpan(lexer), DSK_Error, "lexer unrecognized character");
       NEXT_AND_RETURN_RESULT_TOKEN(tk_None)
     }
     }

@@ -2,8 +2,9 @@
 
 #include "allocator.h"
 #include "std_allocator.h"
-#include "lex.h"
-#include "code_to_ast.h"
+#include "lexer.h"
+#include "code_to_tokens.h"
+#include "tokens_to_ast.h"
 #include "ast_to_json.h"
 
 int main() {

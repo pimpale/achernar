@@ -321,13 +321,27 @@ const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val) {
 
 const char *ast_strBindingKind(ast_BindingKind val) {
   switch (val) {
+  case ast_BK_None: {
+    return "None";
+  }
   case ast_BK_Bind: {
     return "Bind";
   }
   case ast_BK_Ignore: {
     return "Ignore";
   }
+    abort();
+  }
+}
+
+const char *ast_strReferenceKind(ast_ReferenceKind val) {
+  switch (val) {
+  case ast_RK_None: {
+    return "None";
+  }
+  case ast_RK_Path: {
+    return "Path";
+  }
   }
   abort();
-}
 }

@@ -1,4 +1,4 @@
-#include "code_to_ast.h"
+#include "tokens_to_ast.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -8,7 +8,7 @@
 
 #include "ast.h"
 #include "constants.h"
-#include "lex.h"
+#include "code_to_tokens.h"
 #include "queue.h"
 #include "std_allocator.h"
 #include "token.h"
@@ -17,7 +17,7 @@
 // convoluted function to save repetitive tasks
 #define PARSE_LIST(members_vec_ptr, diagnostics_vec_ptr,                       \
                    member_parse_function, member_kind, delimiting_token_kind,  \
-                   missing_delimiter_error, end_lncol, parser)                 \
+                   missing_delimiter_error_msg, end_lncol, parser)                 \
                                                                                \
   while (true) {                                                               \
     Token pl_ntk = parse_peek(parser); /* next token kind */                   \
@@ -27,7 +27,7 @@
       break;                                                                   \
     } else if (pl_ntk.kind == tk_Eof) {                                        \
       *VEC_PUSH(diagnostics_vec_ptr, Diagnostic) =                             \
-          DIAGNOSTIC(missing_delimiter_error, pl_ntk.span);                    \
+          diagnostic_standalone(pl_ntk.span, DSK_Error, (missing_delimiter_error_msg));                    \
       end_lncol = pl_ntk.span.end;                                             \
       break;                                                                   \
     }                                                                          \
@@ -139,7 +139,7 @@ static Token parse_peekPastComments(AstFromCodeConstructor *parser) {
 static void ast_parseStmnt(ast_Stmnt *stmnt, Vector *diagnostics, AstFromCodeConstructor *parser);
 static void ast_parseVal(ast_Val *ptr, Vector *diagnostics, AstFromCodeConstructor *parser);
 static void ast_parseType(ast_Type *tep, Vector *diagnostics, AstFromCodeConstructor *parser);
-static void ast_ParsePat(ast_Pat *pp, Vector *diagnostics, AstFromCodeConstructor *parser);
+static void ast_parsePat(ast_Pat *pp, Vector *diagnostics, AstFromCodeConstructor *parser);
 
 static void ast_certain_parseMacro(ast_Macro *mpe, Vector *diagnostics,
                                    AstFromCodeConstructor *parser) {
@@ -160,7 +160,7 @@ static void ast_certain_parseMacro(ast_Macro *mpe, Vector *diagnostics,
     t = parse_next(parser, diagnostics);
     if (t.kind == tk_Eof) {
       *VEC_PUSH(diagnostics, Diagnostic) =
-          DIAGNOSTIC(DK_MacroExpectedClosingBacktick, t.span);
+        diagnostic_standalone(t.span, DSK_Error, "macro expected a closing backtick");
       break;
     } else {
       if (t.kind == tk_Macro) {
@@ -179,11 +179,12 @@ static void ast_certain_parseMacro(ast_Macro *mpe, Vector *diagnostics,
   mpe->tokens_len = VEC_LEN(&tokens, ast_Stmnt);
   mpe->tokens = vec_release(&tokens);
 
-  mpe->common.span = SPAN(start, end);
+  mpe->span = SPAN(start, end);
 }
 
-static void ast_ParseReference(ast_Reference *ptr, Vector *diagnostics, AstFromCodeConstructor *parser) {
+static void ast_parseReference(ast_Reference *ptr, Vector *diagnostics, AstFromCodeConstructor *parser) {
   ZERO(ptr);
+
   Token t = parse_next(parser, diagnostics);
 
   // start and finish
@@ -191,14 +192,18 @@ static void ast_ParseReference(ast_Reference *ptr, Vector *diagnostics, AstFromC
   LnCol end;
 
   Vector pathSegments = vec_create(parser->a);
-  *VEC_PUSH(&pathSegments, char *) = t.identifierToken.data;
 
-  if (t.kind != tk_Identifier) {
-    *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
-    end = t.span.end;
+  if (t.kind == tk_Identifier) {
+    *VEC_PUSH(&pathSegments, char *) = t.identifierToken.data;
+    ptr->kind = ast_RK_Path;
     goto CLEANUP;
+  } else {
+      ptr->kind = ast_RK_None;
+    *VEC_PUSH(diagnostics, Diagnostic) =
+      diagnostic_standalone(t.span, DSK_Error, "reference expected identifier");
+    end = t.span.end;
   }
+
 
   while (true) {
     t = parse_peek(parser);
@@ -208,8 +213,8 @@ static void ast_ParseReference(ast_Reference *ptr, Vector *diagnostics, AstFromC
       // now check if we have an issue
       t = parse_next(parser, diagnostics);
       if (t.kind != tk_Identifier) {
-        *VEC_PUSH(diagnostics, Diagnostic) =
-            DIAGNOSTIC(DK_PathExpectedIdentifier, t.span);
+    *VEC_PUSH(diagnostics, Diagnostic) =
+      diagnostic_standalone(t.span, DSK_Error, "reference expected identifier");
         end = t.span.end;
         goto CLEANUP;
       }
@@ -222,19 +227,17 @@ static void ast_ParseReference(ast_Reference *ptr, Vector *diagnostics, AstFromC
   }
 
 CLEANUP:
-  pp->pathSegments_len = VEC_LEN(&pathSegments, char *);
-  pp->pathSegments = vec_release(&pathSegments);
+  ptr->path.segments_len = VEC_LEN(&pathSegments, char *);
+  ptr->path.segments = vec_release(&pathSegments);
 
-  pp->common.span = SPAN(start, end);
-  pp->common.comments_len = 0;
+  ptr->span = SPAN(start, end);
 }
 
 static void ast_parseBinding(ast_Binding *ptr, Vector *diagnostics,
                         AstFromCodeConstructor *parser) {
     ZERO(ptr);
-    ptr->common.comments_len = 0;
     Token t = parse_next(parser, diagnostics);
-    ptr->common.span = t.span;
+    ptr->span = t.span;
     switch(t.kind) {
       case tk_Underscore: {
         ptr->kind = ast_BK_Ignore;
@@ -246,7 +249,29 @@ static void ast_parseBinding(ast_Binding *ptr, Vector *diagnostics,
       break;
     }
     default: {
+      *VEC_PUSH(diagnostics, Diagnostic) =
+      diagnostic_standalone(t.span, DSK_Error, "binding expected either `_` for drop or an identifier to bind to");
       ptr->kind = ast_BK_None;
+      break;
+    }
+    }
+}
+
+static void ast_parseField(ast_Field *ptr, Vector *diagnostics,
+                        AstFromCodeConstructor *parser) {
+    ZERO(ptr);
+    Token t = parse_next(parser, diagnostics);
+    ptr->span = t.span;
+    switch(t.kind) {
+      case tk_Identifier: {
+      ptr->kind = ast_FK_Field;
+      ptr->field.name = t.identifierToken.data;
+      break;
+    }
+    default: {
+      *VEC_PUSH(diagnostics, Diagnostic) = diagnostic_standalone(t.span, DSK_Error, "field expected an identifier");
+      ptr->kind = ast_FK_None;
+      break;
     }
     }
 }
@@ -326,7 +351,7 @@ static void ast_certain_parseFnVal(ast_Val *fptr, Vector *diagnostics,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_ParenLeft) {
     *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_FnValExpectedLeftParen, t.span);
+        diagnostic_standalone(t.span, DSK_Error, "fn expected left paren");
     goto CLEANUP;
   }
 
@@ -336,10 +361,10 @@ static void ast_certain_parseFnVal(ast_Val *fptr, Vector *diagnostics,
 
   PARSE_LIST(&parameters,                    // members_vec_ptr
              diagnostics,                    // diagnostics_vec_ptr
-             ast_ParsePat,                   // member_parse_function
+             ast_parsePat,                   // member_parse_function
              ast_Pat,                        // member_kind
              tk_ParenRight,                  // delimiting_token_kind
-             DK_FnValExpectedRightParen, // missing_delimiter_error
+             "DK_FnValExpectedRightParen",     // missing_delimiter_error
              end,                            // end_lncol
              parser                          // parser
   )
@@ -364,7 +389,7 @@ static void ast_certain_parseFnVal(ast_Val *fptr, Vector *diagnostics,
 
   if (t.kind != tk_Arrow) {
     *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_FnValExpectedArrow, t.span);
+        diagnostic_standalone(t.span, DSK_Error, "DK_FnValExpectedArrow");
     end = t.span.end;
     goto CLEANUP;
   }
@@ -383,7 +408,7 @@ static void ast_certain_parseLabelLabel(ast_Label *lp, Vector *diagnostics,
   lp->kind = ast_LK_Label;
   Token t = parse_next(parser, diagnostics);
   assert(t.kind == tk_Label);
-  lp->common = (ast_Common){.span = t.span, .comments_len = 0};
+  lp->span = t.span;
   lp->label.label = t.labelToken.data;
 }
 
@@ -404,7 +429,7 @@ static void ast_certain_parseBlockVal(ast_Val *bptr, Vector *diagnostics,
     ast_certain_parseLabelLabel(bptr->block.label, diagnostics, parser);
   } else {
     *bptr->block.label = (ast_Label){
-        .common = {.span = lbracespan, .comments_len = 0}, .kind = ast_LK_Omitted};
+        .span = lbracespan, .kind = ast_LK_Omitted};
   }
 
   // Create list of statements
@@ -417,7 +442,7 @@ static void ast_certain_parseBlockVal(ast_Val *bptr, Vector *diagnostics,
              ast_parseStmnt,                 // member_parse_function
              ast_Stmnt,                      // member_kind
              tk_BraceRight,              // delimiting_token_kind
-             DK_BlockExpectedRightBrace, // missing_delimiter_error
+             "DK_BlockExpectedRightBrace", // missing_delimiter_error
              end,                        // end_lncol
              parser                      // parser
   )
@@ -448,7 +473,7 @@ static void ast_certain_parseReturnVal(ast_Val *rep, Vector *diagnostics,
     ast_certain_parseLabelLabel(rep->returnExpr.label, diagnostics, parser);
   } else {
     *rep->returnExpr.label = (ast_Label){
-        .common = {.span = retspan, .comments_len = 0}, .kind = ast_LK_Omitted};
+        .span = retspan, .kind = ast_LK_Omitted};
   }
 
   rep->returnExpr.value = ALLOC(parser->a, ast_Val);
@@ -473,7 +498,7 @@ static void ast_certain_parseLoopVal(ast_Val *lep, Vector *diagnostics,
     ast_certain_parseLabelLabel(lep->loop.label, diagnostics, parser);
   } else {
     *lep->loop.label = (ast_Label){
-        .common = {.span = loopspan, .comments_len = 0}, .kind = ast_LK_Omitted};
+        .span = loopspan, .kind = ast_LK_Omitted};
   }
 
   lep->loop.body = ALLOC(parser->a, ast_Val);
@@ -486,9 +511,9 @@ static void parseReferenceVal(ast_Val *rptr, Vector *diagnostics,
                                   AstFromCodeConstructor *parser) {
   ZERO(rptr);
   rptr->kind = ast_VK_Reference;
-  rptr->reference.path = ALLOC(parser->a, ast_Path);
-  ast_ParsePath(rptr->reference.path, diagnostics, parser);
-  rptr->common.span = rptr->reference.path->common.span;
+  rptr->reference.path = ALLOC(parser->a, ast_Reference);
+  ast_parseReference(rptr->reference.path, diagnostics, parser);
+  rptr->common.span = rptr->reference.path->span;
   return;
 }
 
@@ -499,7 +524,7 @@ static void ast_certain_parseMacroValStructMember(ast_ValStructMember *vsemp,
   vsemp->kind = ast_VSMK_Macro;
   vsemp->macro.macro = ALLOC(parser->a, ast_Macro);
   ast_certain_parseMacro(vsemp->macro.macro, diagnostics, parser);
-  vsemp->common.span = vsemp->macro.macro->common.span;
+  vsemp->common.span = vsemp->macro.macro->span;
 }
 
 // field := Value
@@ -510,18 +535,13 @@ static void ast_certain_parseMemberValStructMember(ast_ValStructMember *vsmep,
   ZERO(vsmep);
   vsmep->kind = ast_VSMK_Member;
 
-  LnCol start;
   LnCol end;
 
-  // identifier data
-  Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_Identifier);
-  Span identitySpan = t.span;
-  start = identitySpan.start;
-  vsmep->member.name = t.identifierToken.data;
+  vsmep->member.field = ALLOC(parser->a, ast_Field);
+  ast_parseField(vsmep->member.field, diagnostics, parser);
 
   // check if define
-  t = parse_next(parser, diagnostics);
+  Token t = parse_next(parser, diagnostics);
   if (t.kind == tk_Define) {
     // Get value of variable
     vsmep->member.val = ALLOC(parser->a, ast_Val);
@@ -529,14 +549,14 @@ static void ast_certain_parseMemberValStructMember(ast_ValStructMember *vsmep,
     end = vsmep->member.val->common.span.end;
   } else {
     *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_StructMemberLiteralExpectedDefine, t.span);
+        diagnostic_standalone(t.span, DSK_Error, "DK_StructMemberLiteralExpectedDefine");
     vsmep->member.val = NULL;
     end = t.span.end;
     goto CLEANUP;
   }
 
 CLEANUP:
-  vsmep->common.span = SPAN(start, end);
+  vsmep->common.span = SPAN(vsmep->member.field->span.start, end);
   return;
 }
 
@@ -555,7 +575,7 @@ static void ast_parseValStructMember(ast_ValStructMember *vsmep,
   }
   default: {
     *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_StructLiteralExpectedEntry, t.span);
+        diagnostic_standalone(t.span, DSK_Error, "DK_StructLiteralExpectedEntry");
 
     vsmep->kind = ast_VSMK_None;
     vsmep->common.span = t.span;
@@ -585,7 +605,7 @@ static void ast_certain_parseValStruct(ast_Val *sve, Vector *diagnostics,
   if (t.kind != tk_BraceLeft) {
     end = t.span.end;
     *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_StructLiteralExpectedLeftBrace, t.span);
+        diagnostic_standalone(t.span, DSK_Error, "DK_StructLiteralExpectedLeftBrace");
     goto CLEANUP;
   }
 
@@ -594,7 +614,7 @@ static void ast_certain_parseValStruct(ast_Val *sve, Vector *diagnostics,
              ast_parseValStructMember,           // member_parse_function
              ast_ValStructMember,                // member_kind
              tk_BraceRight,                      // delimiting_token_kind
-             DK_StructLiteralExpectedRightBrace, // missing_delimiter_error
+             "DK_StructLiteralExpectedRightBrace", // missing_delimiter_error
              end,                                // end_lncol
              parser                              // parser
   )
@@ -612,7 +632,7 @@ static void ast_certain_parseMacroVal(ast_Val *ptr, Vector *diagnostics,
   ptr->kind = ast_VK_Macro;
   ptr->macro.macro = ALLOC(parser->a, ast_Macro);
   ast_certain_parseMacro(ptr->macro.macro, diagnostics, parser);
-  ptr->common.span = ptr->macro.macro->common.span;
+  ptr->common.span = ptr->macro.macro->span;
 }
 
 // Level1Val parentheses, braces, literals
@@ -693,7 +713,7 @@ static void parseL1Val(ast_Val *l1, Vector *diagnostics, AstFromCodeConstructor 
     l1->kind = ast_VK_None;
     l1->common.span = t.span;
     parse_next(parser, diagnostics);
-    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_UnexpectedToken, t.span);
+    *VEC_PUSH(diagnostics, Diagnostic) = diagnostic_standalone(t.span, DSK_Error, "DK_UnexpectedToken");
   }
   }
   l1->common.comments_len = VEC_LEN(&comments, ast_Comment);
@@ -706,20 +726,9 @@ static void parseFieldAccessVal(ast_Val *fave, Vector *diagnostics,
   fave->kind = ast_VK_FieldAccess;
   fave->fieldAccess.root = root;
 
-  Token t = parse_next(parser, diagnostics);
-  assert(t.kind == tk_FieldAccess);
-
-  // Now we get the field
-  t = parse_peek(parser);
-  if (t.kind != tk_Identifier) {
-    // it is possible we encounter an error
-    fave->fieldAccess.name = NULL;
-    *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_FieldAccessExpectedIdentifier, t.span);
-  } else {
-    fave->fieldAccess.name = t.identifierToken.data;
-  }
-  fave->common.span = SPAN(root->common.span.start, t.span.end);
+  fave->fieldAccess.field = ALLOC(parser->a, ast_Field);
+  ast_parseField(fave->fieldAccess.field, diagnostics, parser);
+  fave->common.span = SPAN(root->common.span.start, fave->fieldAccess.field->span.end);
 }
 
 static void ast_certain_postfix_parseCallVal(ast_Val *cptr, Vector *diagnostics,
@@ -741,7 +750,7 @@ static void ast_certain_postfix_parseCallVal(ast_Val *cptr, Vector *diagnostics,
              ast_parseVal,         // member_parse_function
              ast_Val,              // member_kind
              tk_ParenRight,        // delimiting_token_kind
-             DK_CallExpectedParen, // missing_delimiter_error
+             "DK_CallExpectedParen", // missing_delimiter_error
              end,                  // end_lncol
              parser                // parser
   )
@@ -780,7 +789,7 @@ static void ast_certain_ParsePatMatchCase(ast_MatchCase *mcep,
 
   // Get pattern
   mcep->matchCase.pattern = ALLOC(parser->a, ast_Pat);
-  ast_ParsePat(mcep->matchCase.pattern, diagnostics, parser);
+  ast_parsePat(mcep->matchCase.pattern, diagnostics, parser);
 
   LnCol end = mcep->matchCase.pattern->common.span.end;
 
@@ -788,9 +797,7 @@ static void ast_certain_ParsePatMatchCase(ast_MatchCase *mcep,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_Arrow) {
     *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_MatchCaseNoArrow, t.span);
-    // TODO
-    //parse_resync(parser, diagnostics);
+        diagnostic_standalone(t.span, DSK_Error, "DK_MatchCaseNoArrow");
     goto CLEANUP;
   }
 
@@ -811,7 +818,7 @@ static void ast_certain_parseMacroMatchCase(ast_MatchCase *mcep,
   mcep->kind = ast_MCK_Macro;
   mcep->macro.macro = ALLOC(parser->a, ast_Macro);
   ast_certain_parseMacro(mcep->macro.macro, diagnostics, parser);
-  mcep->common.span = mcep->macro.macro->common.span;
+  mcep->common.span = mcep->macro.macro->span;
 }
 
 static void parseMatchCase(ast_MatchCase *mcep, Vector *diagnostics,
@@ -828,7 +835,8 @@ static void parseMatchCase(ast_MatchCase *mcep, Vector *diagnostics,
     break;
   }
   default: {
-    *VEC_PUSH(diagnostics, Diagnostic) = DIAGNOSTIC(DK_MatchCaseNoPat, t.span);
+    *VEC_PUSH(diagnostics, Diagnostic) = 
+        diagnostic_standalone(t.span, DSK_Error, "DK_MatchCaseNoPat");
 
     mcep->kind = ast_MCK_None;
     mcep->common.span = t.span;
@@ -862,7 +870,7 @@ static void ast_certain_postfix_parseMatchVal(ast_Val *mptr,
 
   if (t.kind != tk_BraceLeft) {
     *VEC_PUSH(diagnostics, Diagnostic) =
-        DIAGNOSTIC(DK_MatchNoLeftBrace, t.span);
+        diagnostic_standalone(t.span, DSK_Error, "DK_MatchNoLeftBrace");
     end = t.span.end;
     goto CLEANUP;
   }
@@ -872,7 +880,7 @@ static void ast_certain_postfix_parseMatchVal(ast_Val *mptr,
              parseMatchCase,   // member_parse_function
              ast_MatchCase,        // member_kind
              tk_BraceRight,        // delimiting_token_kind
-             DK_MatchNoRightBrace, // missing_delimiter_error
+             "DK_MatchNoRightBrace", // missing_delimiter_error
              end,                  // end_lncol
              parser                // parser
   )
@@ -1366,8 +1374,8 @@ static void ast_certain_parseReferenceType(ast_Type *rtep, Vector *diagnostics,
                                            AstFromCodeConstructor *parser) {
   ZERO(rtep);
   rtep->kind = ast_TK_Reference;
-  rtep->reference.path = ALLOC(parser->a, ast_Path);
-  ast_ParsePath(rtep->reference.path, diagnostics, parser);
+  rtep->reference.path = ALLOC(parser->a, ast_Reference);
+  ast_parseReference(rtep->reference.path, diagnostics, parser);
   rtep->common.span = rtep->reference.path->common.span;
 }
 
@@ -1766,7 +1774,7 @@ static void ast_certain_parseBindPatStructMember(ast_PatStructMember *psmep,
   LnCol start = t.span.start;
 
   ast_Pat *pat = ALLOC(parser->a, ast_Pat);
-  ast_ParsePat(pat, diagnostics, parser);
+  ast_parsePat(pat, diagnostics, parser);
 
   LnCol end;
 
@@ -1823,7 +1831,7 @@ static void ast_certain_parseMacroPatStructMember(ast_PatStructMember *psmep,
   psmep->common.span = psmep->macro.macro->common.span;
 }
 
-static void ast_ParsePatStructMember(ast_PatStructMember *psmep,
+static void ast_parsePatStructMember(ast_PatStructMember *psmep,
                                      Vector *diagnostics, AstFromCodeConstructor *parser) {
   Vector comments = parse_getComments(parser, diagnostics);
   Token t = parse_peek(parser);
@@ -1870,7 +1878,7 @@ static void ast_certain_parseStructPat(ast_Pat *spe, Vector *diagnostics,
 
   PARSE_LIST(&members,                       // members_vec_ptr
              diagnostics,                    // diagnostics_vec_ptr
-             ast_ParsePatStructMember,       // member_parse_function
+             ast_parsePatStructMember,       // member_parse_function
              ast_PatStructMember,            // member_kind
              tk_BraceRight,                  // delimiting_token_kind
              DK_PatStructExpectedRightBrace, // missing_delimiter_error
@@ -1895,7 +1903,7 @@ static void ast_certain_parseGroupPat(ast_Pat *gpep, Vector *diagnostics,
   LnCol end;
 
   gpep->group.inner = ALLOC(parser->a, ast_Pat);
-  ast_ParsePat(gpep->group.inner, diagnostics, parser);
+  ast_parsePat(gpep->group.inner, diagnostics, parser);
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceRight) {
@@ -2040,7 +2048,7 @@ static inline bool ast_opDetL6Pat(tk_Kind tk, ast_PatBinaryOpKind *val) {
 
 FN_BINOP_PARSE_LX_EXPR(Pat, ast_PK, 6, ast_parseL5Pat)
 
-static void ast_ParsePat(ast_Pat *ppe, Vector *diagnostics, AstFromCodeConstructor *parser) {
+static void ast_parsePat(ast_Pat *ppe, Vector *diagnostics, AstFromCodeConstructor *parser) {
   ast_parseL6Pat(ppe, diagnostics, parser);
 }
 
@@ -2055,7 +2063,7 @@ static void ast_certain_parseValDecl(ast_Stmnt *vdsp, Vector *diagnostics,
 
   // Get Binding
   ast_Pat *pat = ALLOC(parser->a, ast_Pat);
-  ast_ParsePat(pat, diagnostics, parser);
+  ast_parsePat(pat, diagnostics, parser);
 
   LnCol end;
 
@@ -2196,8 +2204,8 @@ static void ast_certain_parseUseStmnt(ast_Stmnt *usp, Vector *diagnostics,
   assert(t.kind == tk_Use);
   LnCol start = t.span.start;
 
-  usp->useStmnt.path = ALLOC(parser->a, ast_Path);
-  ast_ParsePath(usp->useStmnt.path, diagnostics, parser);
+  usp->useStmnt.path = ALLOC(parser->a, ast_Reference);
+  ast_parseReference(usp->useStmnt.path, diagnostics, parser);
 
   LnCol end;
   // Expect as stmnt

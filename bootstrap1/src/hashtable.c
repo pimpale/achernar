@@ -116,7 +116,7 @@ void *hashtable_set(HashTable *hashtable, void *key, size_t keylen, size_t value
   // if potentially adding this element would cause the load to increase too much, then we must resize
   if((double)(hashtable->pair_count+1) / (double)hashtable->pairs_capacity > MAX_LOAD_FACTOR) {
     // resize so that the table is at the OPT_LOAD_FACTOR
-    hashtable_resize(hashtable, (double)(hashtable->pair_count+1)/OPT_LOAD_FACTOR);
+    hashtable_resize(hashtable, (size_t)(((double)hashtable->pair_count+1)/OPT_LOAD_FACTOR));
   }
 
   HashTableKVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
@@ -146,7 +146,7 @@ void hashtable_remove(HashTable *hashtable, void *key, size_t keylen) {
 
   if((double)(hashtable->pair_count)/(double)(hashtable->pairs_capacity) < MIN_LOAD_FACTOR) {
     // resize so that the table is at the OPT_LOAD_FACTOR
-    hashtable_resize(hashtable, (double)(hashtable->pair_count+1)/OPT_LOAD_FACTOR);
+    hashtable_resize(hashtable, (size_t)(((double)hashtable->pair_count+1)/OPT_LOAD_FACTOR));
   }
 }
 

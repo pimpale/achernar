@@ -29,8 +29,6 @@ const char *ast_strPatKind(ast_PatKind val) {
     return "ValRestriction";
   case ast_PK_TypeRestriction:
     return "TypeRestriction";
-  case ast_PK_TypeRestrictionBinding:
-    return "TypeRestrictionBinding";
   case ast_PK_Struct:
     return "Struct";
   case ast_PK_Group:
@@ -65,8 +63,6 @@ const char *ast_strPatStructMemberKind(ast_PatStructMemberKind val) {
     return "Macro";
   case ast_PSMK_Field:
     return "Field";
-  case ast_PSMK_Rest:
-    return "Rest";
   }
   abort();
 }
@@ -321,27 +317,32 @@ const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val) {
 
 const char *ast_strBindingKind(ast_BindingKind val) {
   switch (val) {
-  case ast_BK_None: {
+  case ast_BK_None:
     return "None";
-  }
-  case ast_BK_Bind: {
+  case ast_BK_Bind:
     return "Bind";
-  }
-  case ast_BK_Ignore: {
+  case ast_BK_Ignore:
     return "Ignore";
   }
-    abort();
-  }
+  abort();
 }
 
 const char *ast_strReferenceKind(ast_ReferenceKind val) {
   switch (val) {
-  case ast_RK_None: {
+  case ast_RK_None:
     return "None";
-  }
-  case ast_RK_Path: {
+  case ast_RK_Path:
     return "Path";
   }
+  abort();
+}
+
+const char *ast_strFieldKind(ast_FieldKind val) {
+  switch (val) {
+  case ast_FK_None:
+    return "None";
+  case ast_FK_Field:
+    return "Field";
   }
   abort();
 }

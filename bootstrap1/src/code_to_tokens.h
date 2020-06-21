@@ -9,7 +9,7 @@
 // error. Otherwise the token will have the type TokenNone and will contain a
 // diagnostic. Tokens will be deallocated when the lexer is deallocated.
 // 
-// Any diagnostics will be allocated from `a`
-Token tk_next(Lexer *lexer, Vector* diagnostics, Allocator* a);
+// Any diagnostics will be allocated from `diagnostics`
+Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator* a);
 
 #endif

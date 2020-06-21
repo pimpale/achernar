@@ -16,7 +16,7 @@ const char *strDiagnosticSeverityKind(DiagnosticSeverityKind val) {
   abort();
 }
 
-Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, const char* message) {
+Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, char* message) {
   return (Diagnostic)  {
     .range= range,
     .severity = severity,
@@ -24,4 +24,19 @@ Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, co
     .children  = NULL,
     .children_len = 0,
   };
+}
+
+DiagnosticLogger dlogger_create(Allocator *a) {
+  return (DiagnosticLogger) {
+    .a = a,
+    .diagnostics = vec_create(a)
+  };
+}
+
+Diagnostic* dlogger_append(DiagnosticLogger *ptr) {
+  return VEC_PUSH(&ptr->diagnostics, Diagnostic);
+}
+
+Vector dlogger_release(DiagnosticLogger* ptr) {
+  return ptr->diagnostics;
 }

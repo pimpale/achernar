@@ -2,7 +2,7 @@
 #define HIR_CONSTRUCT_H
 
 #include "allocator.h"
-#include "code_to_ast.h"
+#include "tokens_to_ast.h"
 
 // HirConstructor should:
 // Walk AST Tree, Clone 

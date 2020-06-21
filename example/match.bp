@@ -9,11 +9,10 @@ match {
   pat >2,<2 => "first elem >2 and next less than"
   pat { TEST } => "grouped expr"
   pat struct {
-    val x := ELEM1
-    val ==5 := ELEM2
-    val < 3 := ELEM3
-    val struct {
-      val y && ==2 := sauce
-    } := ..
+    ELEM1 => x
+    ELEM2 => ==5
+    ELXM3 => struct {
+      sauce => cool
+    }
   } => dofunction(x)
 }

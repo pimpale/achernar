@@ -89,14 +89,14 @@ typedef enum {
 } ast_PatValRestrictionKind;
 
 typedef enum {
-  ast_PK_None,                   // Error type
-  ast_PK_Macro,                  // a macro representing a pattern
-  ast_PK_ValRestriction,         // matches a constant val
+  ast_PK_None,            // Error type
+  ast_PK_Macro,           // a macro representing a pattern
+  ast_PK_ValRestriction,  // matches a constant val
   ast_PK_TypeRestriction, // matches a type, and binds it
-  ast_PK_Struct,                 // a container for struct based patterns
-  ast_PK_Group,                  // ()
-  ast_PK_UnaryOp,                // !
-  ast_PK_BinaryOp,               // , |
+  ast_PK_Struct,          // a container for struct based patterns
+  ast_PK_Group,           // ()
+  ast_PK_UnaryOp,         // !
+  ast_PK_BinaryOp,        // , |
 } ast_PatKind;
 
 typedef enum {
@@ -518,6 +518,7 @@ const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
 const char *ast_strStmntKind(ast_StmntKind val);
 const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
 const char *ast_strBindingKind(ast_BindingKind val);
+const char *ast_strFieldKind(ast_FieldKind val);
 const char *ast_strReferenceKind(ast_ReferenceKind val);
 
 #endif

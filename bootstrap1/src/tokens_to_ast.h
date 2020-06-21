@@ -14,15 +14,13 @@ typedef struct {
 
   // Queue[Token]
   Queue next_tokens_queue;
-  // Queue[Vector[Diagnostic]] queue of vectors of peeked diagnostics for each peeked token
-  Queue next_diagnostics_queue;
 } AstFromCodeConstructor;
 
 // Uses memory allocated from a to build a parser with the source as lp
 AstFromCodeConstructor ast_create(Lexer *lp, Allocator* a);
 
 // returns true if there is a next stmnt
-bool ast_nextStmntAndCheckNext(ast_Stmnt *s, Vector* diagnostics, AstFromCodeConstructor *parser);
+bool ast_nextStmntAndCheckNext(ast_Stmnt *s, DiagnosticLogger* diagnostics, AstFromCodeConstructor *parser);
 
 // Frees memory associated with the parser and cleans up
 void ast_destroy(AstFromCodeConstructor *pp);

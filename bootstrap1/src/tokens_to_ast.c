@@ -821,7 +821,7 @@ static void ast_certain_parseMacroMatchCase(ast_MatchCase *mcep,
   mcep->common.span = mcep->macro.macro->span;
 }
 
-static void parseMatchCase(ast_MatchCase *mcep, Vector *diagnostics,
+static void ast_parseMatchCase(ast_MatchCase *mcep, Vector *diagnostics,
                                AstFromCodeConstructor *parser) {
   Vector comments = parse_getComments(parser, diagnostics);
   Token t = parse_peek(parser);
@@ -877,7 +877,7 @@ static void ast_certain_postfix_parseMatchVal(ast_Val *mptr,
 
   PARSE_LIST(&cases,               // members_vec_ptr
              diagnostics,          // diagnostics_vec_ptr
-             parseMatchCase,   // member_parse_function
+             ast_parseMatchCase,   // member_parse_function
              ast_MatchCase,        // member_kind
              tk_BraceRight,        // delimiting_token_kind
              "DK_MatchNoRightBrace", // missing_delimiter_error
@@ -1249,6 +1249,8 @@ static void ast_certain_parseMemberTypeStructMember(ast_TypeStructMember *tsmep,
   LnCol start;
   LnCol end;
 
+  
+
   // get.identifierToken.data
   Token t = parse_next(parser, diagnostics);
   Span identitySpan = t.span;
@@ -1291,7 +1293,7 @@ static void ast_certain_parseMacroTypeStructMember(ast_TypeStructMember *tsmep,
   tsmep->kind = ast_TSMK_Macro;
   tsmep->macro.macro = ALLOC(parser->a, ast_Macro);
   ast_certain_parseMacro(tsmep->macro.macro, diagnostics, parser);
-  tsmep->common.span = tsmep->macro.macro->common.span;
+  tsmep->common.span = tsmep->macro.macro->span;
 }
 
 static void ast_parseTypeStructMember(ast_TypeStructMember *tsmep,

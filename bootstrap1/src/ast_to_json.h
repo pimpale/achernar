@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "code_to_ast.h"
+#include "tokens_to_ast.h"
 
 void print_stream(AstFromCodeConstructor *parser, FILE *file);
 

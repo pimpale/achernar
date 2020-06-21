@@ -92,8 +92,7 @@ typedef enum {
   ast_PK_None,                   // Error type
   ast_PK_Macro,                  // a macro representing a pattern
   ast_PK_ValRestriction,         // matches a constant val
-  ast_PK_TypeRestriction,        // matches a type, without binding
-  ast_PK_TypeRestrictionBinding, // matches a type, and binds it
+  ast_PK_TypeRestriction, // matches a type, and binds it
   ast_PK_Struct,                 // a container for struct based patterns
   ast_PK_Group,                  // ()
   ast_PK_UnaryOp,                // !
@@ -113,7 +112,6 @@ typedef enum {
   ast_PSMK_None,
   ast_PSMK_Macro,
   ast_PSMK_Field,
-  ast_PSMK_Rest,
 } ast_PatStructMemberKind;
 
 typedef struct {
@@ -124,7 +122,7 @@ typedef struct {
       ast_Macro *macro;
     } macro;
     struct {
-      ast_Pat *pattern;
+      ast_Pat *pat;
       ast_Field *field;
     } field;
   };
@@ -144,11 +142,8 @@ typedef struct ast_Pat_s {
     } macro;
     struct {
       ast_Type *type;
-    } typeRestriction;
-    struct {
-      ast_Type *type;
       ast_Binding *name;
-    } typeRestrictionBinding;
+    } typeRestriction;
     struct {
       ast_PatStructMember *members;
       size_t members_len;
@@ -200,7 +195,7 @@ typedef struct ast_TypeStructMember_s {
 
   union {
     struct {
-      ast_Field *name;
+      ast_Field *field;
       ast_Type *type;
     } structMember;
     struct {

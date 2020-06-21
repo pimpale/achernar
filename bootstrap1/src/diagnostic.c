@@ -1,153 +1,27 @@
 #include "diagnostic.h"
 #include <stdlib.h>
 
-const char *strDiagnosticKind(DiagnosticKind val) {
+const char *strDiagnosticSeverityKind(DiagnosticSeverityKind val) {
   switch (val) {
-  case DK_Ok:
-    return "Ok";
-  case DK_Unknown:
-    return "Unknown";
-  case DK_EOF:
-    return "EOF";
-  case DK_UnrecognizedCharacter:
-    return "UnrecognizedCharacter";
-  case DK_MacroExpectedClosingBacktick:
-    return "MacroExpectedClosingBacktick";
-  case DK_NumLiteralNoFirstDigit:
-    return "NumLiteralNoFirstDigit";
-  case DK_NumLiteralFirstDigitUnderscore:
-    return "NumLiteralFirstDigitUnderscore";
-  case DK_NumLiteralUnrecognizedRadixCode:
-    return "NumLiteralUnrecognizedRadixCode";
-  case DK_NumLiteralDigitExceedsRadix:
-    return "NumLiteralDigitExceedsRadix";
-  case DK_NumLiteralOverflow:
-    return "NumLiteralOverflow";
-  case DK_NumLiteralUnknownCharacter:
-    return "NumLiteralUnknownCharacter";
-  case DK_FloatLiteralFirstDigitUnderscore:
-    return "FloatLiteralFirstDigitUnderscore";
-  case DK_FloatLiteralNoFirstDigit:
-    return "FloatLiteralNoFirstDigit";
-  case DK_FloatLiteralDigitExceedsRadix:
-    return "FloatLiteralDigitExceedsRadix";
-  case DK_FloatLiteralExceedsMaxPrecision:
-    return "FloatLiteralExceedsMaxPrecision";
-  case DK_CharLiteralUnrecognizedEscapeCode:
-    return "CharLiteralUnrecognizedEscapeCode";
-  case DK_CharLiteralExpectedCloseSingleQuote:
-    return "CharLiteralExpectedCloseSingleQuote";
-  case DK_UnexpectedLabel:
-    return "UnexpectedLabel";
-  case DK_LabelUnknownCharacter:
-    return "LabelUnknownCharacter";
-  case DK_ConstUnrecognizedLiteral:
-    return "ConstUnrecognizedLiteral";
-  case DK_StringLiteralTooLong:
-    return "StringLiteralTooLong";
-  case DK_StringLiteralUnrecognizedEscapeCode:
-    return "StringLiteralUnrecognizedEscapeCode";
-  case DK_StructLiteralExpectedEntry:
-    return "StructLiteralExpectedEntry";
-  case DK_StructLiteralExpectedRightBrace:
-    return "StructLiteralExpectedRightBrace";
-  case DK_StructLiteralExpectedLeftBrace:
-    return "StructLiteralExpectedLeftBrace";
-  case DK_PathExpectedIdentifier:
-    return "PathExpectedIdentifier";
-  case DK_StructMemberExpectedType:
-    return "StructMemberExpectedType";
-  case DK_StructMemberExpectedIdentifier:
-    return "StructMemberExpectedIdentifier";
-  case DK_StructMemberLiteralExpectedIdentifier:
-    return "StructMemberLiteralExpectedIdentifier";
-  case DK_StructMemberLiteralExpectedDefine:
-    return "StructMemberLiteralExpectedDefine";
-  case DK_FnValExpectedRightParen:
-    return "FnValExpectedRightParen";
-  case DK_FnValExpectedLeftParen:
-    return "FnValExpectedLeftParen";
-  case DK_FnValExpectedArrow:
-    return "FnValExpectedArrow";
-  case DK_TypeUnexpectedToken:
-    return "TypeUnexpectedToken";
-  case DK_TypeFieldAccessExpectedIdentifier:
-    return "TypeFieldAccessExpectedIdentifier";
-  case DK_TypeGroupExpectedRightBrace:
-    return "TypeGroupExpectedRightBrace";
-  case DK_PatGroupExpectedLeftBrace:
-    return "PatGroupExpectedLeftBrace";
-  case DK_PatGroupExpectedRightBrace:
-    return "PatGroupExpectedRightBrace";
-  case DK_PatStructExpectedLeftBrace:
-    return "PatStructExpectedLeftBrace";
-  case DK_PatStructExpectedRightBrace:
-    return "PatStructExpectedRightBrace";
-  case DK_PatStructExpectedIdentifier:
-    return "PatStructExpectedIdentifier";
-  case DK_PatStructExpectedDefine:
-    return "PatStructExpectedDefine";
-  case DK_ValDeclExpectedDefine:
-    return "ValDeclExpectedDefine";
-  case DK_ValDeclExpectedVal:
-    return "ValDeclExpectedVal";
-  case DK_TypeDeclExpectedIdentifier:
-    return "TypeDeclExpectedIdentifier";
-  case DK_TypeDeclExpectedDefine:
-    return "TypeDeclExpectedDefine";
-  case DK_StructExpectedLeftBrace:
-    return "StructExpectedLeftBrace";
-  case DK_StructExpectedRightBrace:
-    return "StructExpectedRightBrace";
-  case DK_FnTypeExpectedLeftParen:
-    return "FnTypeExpectedLeftParen";
-  case DK_FnTypeExpectedRightParen:
-    return "FnTypeExpectedRightParen";
-  case DK_FnTypeExpectedColon:
-    return "FnTypeExpectedColon";
-  case DK_MatchCaseNoArrow:
-    return "MatchCaseNoArrow";
-  case DK_MatchCaseNoPat:
-    return "MatchCaseNoPat";
-  case DK_MatchNoLeftBrace:
-    return "MatchNoLeftBrace";
-  case DK_MatchNoRightBrace:
-    return "MatchNoRightBrace";
-  case DK_MatchNoComma:
-    return "MatchNoComma";
-  case DK_BlockExpectedRightBrace:
-    return "BlockExpectedRightBrace";
-  case DK_CallExpectedParen:
-    return "CallExpectedParen";
-  case DK_UnexpectedToken:
-    return "UnexpectedToken";
-  case DK_FieldAccessExpectedIdentifier:
-    return "FieldAccessExpectedIdentifier";
-  case DK_NamespaceExpectedIdentifier:
-    return "NamespaceExpectedIdentifier";
-  case DK_NamespaceExpectedLeftBrace:
-    return "NamespaceExpectedLeftBrace";
-  case DK_NamespaceExpectedRightBrace:
-    return "NamespaceExpectedRightBrace";
-  case DK_UseExpectedAs:
-    return "UseExpectedAs";
-  case DK_UseExpectedIdentifier:
-    return "UseExpectedIdentifier";
+  case DSK_Error:
+    return "Error";
+  case DSK_Warning:
+    return "Warning";
+  case DSK_Information:
+    return "Information";
+  case DSK_Hint:
+    return "Hint";
   }
+
   abort();
 }
 
-const char *strDiagnosticSeverityKind(DiagnosticSeverityKind val) {
-  switch (val) {
-  case DSK_Note:
-    return "Note";
-  case DSK_Warn:
-    return "Warn";
-  case DSK_Error:
-    return "Error";
-  case DSK_Fatal:
-    return "Fatal";
-  }
-
-  abort();
+Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, const char* message) {
+  return (Diagnostic)  {
+    .range= range,
+    .severity = severity,
+    .message = message,
+    .children  = NULL,
+    .children_len = 0,
+  };
 }

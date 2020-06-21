@@ -1,7 +1,8 @@
 #ifndef DIAGNOSTIC_H
 #define DIAGNOSTIC_H
 
-#include "allocator.h"
+#include <stddef.h>
+
 #include "lncol.h"
 
 typedef enum {
@@ -21,14 +22,7 @@ typedef struct Diagnostic_s {
   size_t children_len;
 } Diagnostic;
 
-Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, const char* message) {
-  return (Diagnostic)  {
-    .range= range,
-    .severity = severity,
-    .message = message,
-    .children  = NULL,
-    .children_len = 0,
-  };
-}
+
+Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, const char* message);
 
 #endif

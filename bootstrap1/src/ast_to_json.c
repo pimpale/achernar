@@ -74,7 +74,7 @@ static j_Elem print_Comment(ast_Comment comment, Allocator *a) {
 }
 
 // add shared data to the vector
-static void print_appendAstNode(ast_Node node, Vector *props, Allocator *a) {
+static void print_appendCommon(ast_Common node, Vector *props, Allocator *a) {
   *VEC_PUSH(props, j_Prop) = J_PROP(J_LITSTR("span"), print_Span(node.span, a));
   j_Elem *ptrs = ALLOC_ARR(a, node.comments_len, j_Elem);
   for (size_t i = 0; i < node.comments_len; i++) {
@@ -91,7 +91,7 @@ static j_Elem print_Path(ast_Path *path, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("path")));
-  print_appendAstNode(path->node, &obj, a);
+  print_appendCommon(path->node, &obj, a);
 
   Vector arr = vec_create(a);
   for (size_t i = 0; i < path->pathSegments_len; i++) {
@@ -110,7 +110,7 @@ static j_Elem print_Label(ast_Label *label, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("label")));
-  print_appendAstNode(label->node, &obj, a);
+  print_appendCommon(label->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("label_kind"),
              print_str(ast_strLabelKind(label->kind)));
@@ -206,7 +206,7 @@ static j_Elem print_Macro(ast_Macro *macro, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("macro")));
-  print_appendAstNode(macro->node, &obj, a);
+  print_appendCommon(macro->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("name"), print_str(macro->name));
 
@@ -228,7 +228,7 @@ static j_Elem print_TypeStructMember(ast_TypeStructMember *tsmep,
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("type_struct_member_expr")));
-  print_appendAstNode(tsmep->node, &obj, a);
+  print_appendCommon(tsmep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("type_struct_member_expr_kind"),
              print_str(ast_strTypeStructMemberKind(tsmep->kind)));
@@ -260,7 +260,7 @@ static j_Elem print_Type(ast_Type *type, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("type")));
-  print_appendAstNode(type->node, &obj, a);
+  print_appendCommon(type->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(
       J_LITSTR("type_kind"), print_str(ast_strTypeKind(type->kind)));
   switch (type->kind) {
@@ -350,7 +350,7 @@ static j_Elem print_PatStructMember(ast_PatStructMember *psmep,
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("pat_struct_member")));
-  print_appendAstNode(psmep->node, &obj, a);
+  print_appendCommon(psmep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("pat_struct_member_kind"),
              print_str(ast_strPatStructMemberKind(psmep->kind)));
@@ -389,7 +389,7 @@ static j_Elem print_Pat(ast_Pat *pep, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("pat")));
-  print_appendAstNode(pep->node, &obj, a);
+  print_appendCommon(pep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(
       J_LITSTR("pat_kind"), print_str(ast_strPatKind(pep->kind)));
   switch (pep->kind) {
@@ -474,7 +474,7 @@ static j_Elem print_MatchCase(ast_MatchCase *mcep, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("match_case")));
-  print_appendAstNode(mcep->node, &obj, a);
+  print_appendCommon(mcep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("match_case_kind"),
              print_str(ast_strMatchCaseKind(mcep->kind)));
@@ -507,7 +507,7 @@ static j_Elem print_ValStructMember(ast_ValStructMember *vsmep,
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("val_struct_member_expr")));
-  print_appendAstNode(vsmep->node, &obj, a);
+  print_appendCommon(vsmep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("val_struct_member_expr_kind"),
              print_str(ast_strValStructMemberKind(vsmep->kind)));
@@ -541,7 +541,7 @@ static j_Elem print_Val(ast_Val *vep, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("val")));
-  print_appendAstNode(vep->node, &obj, a);
+  print_appendCommon(vep->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(
       J_LITSTR("val_kind"), print_str(ast_strValKind(vep->kind)));
   switch (vep->kind) {
@@ -705,7 +705,7 @@ static j_Elem print_Stmnt(ast_Stmnt *sp, Allocator *a) {
   Vector obj = vec_create(a);
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("stmnt")));
-  print_appendAstNode(sp->node, &obj, a);
+  print_appendCommon(sp->node, &obj, a);
   *VEC_PUSH(&obj, j_Prop) = J_PROP(J_LITSTR("stmnt_kind"),
                                    print_str(ast_strStmntKind(sp->kind)));
   switch (sp->kind) {

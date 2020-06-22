@@ -117,7 +117,7 @@ static j_Elem print_Reference(ast_Reference *reference, Allocator *a) {
   return print_objectify(&obj);
 }
 
-static j_Elem print_Label(ast_Label *label, Allocator *a) {
+static j_Elem print_LabelBinding(ast_LabelBinding *label, Allocator *a) {
   if (label == NULL) {
     return J_NULL_ELEM;
   }
@@ -127,14 +127,39 @@ static j_Elem print_Label(ast_Label *label, Allocator *a) {
   *VEC_PUSH(&obj, j_Prop) =
       J_PROP(J_LITSTR("span"), print_Span(label->span, a));
   *VEC_PUSH(&obj, j_Prop) =
-      J_PROP(J_LITSTR("label_kind"), print_str(ast_strLabelKind(label->kind)));
+      J_PROP(J_LITSTR("label_kind"), print_str(ast_strLabelBindingKind(label->kind)));
   switch (label->kind) {
-  case ast_LK_Label: {
+  case ast_LBK_Label: {
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("label"), print_str(label->label.label));
     break;
   }
-  case ast_LK_Omitted: {
+  case ast_LBK_Omitted: {
+    // nothing
+    break;
+  }
+  }
+  return print_objectify(&obj);
+}
+
+static j_Elem print_LabelReference(ast_LabelReference *label, Allocator *a) {
+  if (label == NULL) {
+    return J_NULL_ELEM;
+  }
+  Vector obj = vec_create(a);
+  *VEC_PUSH(&obj, j_Prop) =
+      J_PROP(J_LITSTR("kind"), J_STR_ELEM(J_LITSTR("label")));
+  *VEC_PUSH(&obj, j_Prop) =
+      J_PROP(J_LITSTR("span"), print_Span(label->span, a));
+  *VEC_PUSH(&obj, j_Prop) =
+      J_PROP(J_LITSTR("label_kind"), print_str(ast_strLabelReferenceKind(label->kind)));
+  switch (label->kind) {
+  case ast_LRK_Label: {
+    *VEC_PUSH(&obj, j_Prop) =
+        J_PROP(J_LITSTR("label"), print_str(label->label.label));
+    break;
+  }
+  case ast_LRK_None: {
     // nothing
     break;
   }
@@ -652,7 +677,7 @@ static j_Elem print_Val(ast_Val *vep, Allocator *a) {
   }
   case ast_VK_Loop: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("loop_label"), print_Label(vep->loop.label, a));
+        J_PROP(J_LITSTR("loop_label"), print_LabelBinding(vep->loop.label, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("loop_body"), print_Val(vep->loop.body, a));
     break;
@@ -711,7 +736,7 @@ static j_Elem print_Val(ast_Val *vep, Allocator *a) {
   }
   case ast_VK_Return: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("return_label"), print_Label(vep->returnExpr.label, a));
+        J_PROP(J_LITSTR("return_label"), print_LabelReference(vep->returnExpr.label, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("return_value"), print_Val(vep->returnExpr.value, a));
     break;
@@ -729,7 +754,7 @@ static j_Elem print_Val(ast_Val *vep, Allocator *a) {
   }
   case ast_VK_Block: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("block_label"), print_Label(vep->block.label, a));
+        J_PROP(J_LITSTR("block_label"), print_LabelBinding(vep->block.label, a));
     Vector stmnts = vec_create(a);
     for (size_t i = 0; i < vep->block.stmnts_len; i++) {
       *VEC_PUSH(&stmnts, j_Elem) = print_Stmnt(&vep->block.stmnts[i], a);
@@ -800,7 +825,7 @@ static j_Elem print_Stmnt(ast_Stmnt *sp, Allocator *a) {
   }
   case ast_SK_DeferStmnt: {
     *VEC_PUSH(&obj, j_Prop) =
-        J_PROP(J_LITSTR("defer_label"), print_Label(sp->deferStmnt.label, a));
+        J_PROP(J_LITSTR("defer_label"), print_LabelReference(sp->deferStmnt.label, a));
     *VEC_PUSH(&obj, j_Prop) =
         J_PROP(J_LITSTR("defer_val"), print_Val(sp->deferStmnt.val, a));
     break;
@@ -814,7 +839,7 @@ static j_Elem print_Stmnt(ast_Stmnt *sp, Allocator *a) {
   return print_objectify(&obj);
 }
 
-void print_stream(AstFromCodeConstructor *parser, FILE *file) {
+void print_stream(AstConstructor *parser, FILE *file) {
   while (true) {
     Allocator a = std_allocator();
 

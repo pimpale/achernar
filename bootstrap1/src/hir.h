@@ -50,19 +50,36 @@ typedef struct {
 } hir_Field;
 
 typedef enum {
-  hir_LK_Omitted,
-  hir_LK_Label,
-} hir_LabelKind;
+  hir_LBK_Omitted,
+  hir_LBK_Label,
+} hir_LabelBindingKind;
 
 typedef struct {
-  ast_Label *source;
-  hir_LabelKind kind;
+  ast_LabelBinding *source;
+
+  ast_LabelBindingKind kind;
   union {
     struct {
       char *label;
     } label;
   };
-} hir_Label;
+} hir_LabelBinding;
+
+typedef enum {
+  hir_LRK_None,
+  hir_LRK_Label,
+} hir_LabelReferenceKind;
+
+typedef struct {
+  ast_LabelReference *source;
+
+  hir_LabelReferenceKind kind;
+  union {
+      struct {
+          char* label;
+      } label;
+  };
+} hir_LabelReference;
 
 typedef struct hir_Type_s hir_Type;
 typedef struct hir_Val_s hir_Val;
@@ -352,7 +369,7 @@ typedef struct hir_Val_s {
     } as;
     struct {
       hir_Val *body;
-      hir_Label *label;
+      hir_LabelBinding *label;
     } loop;
     struct {
       hir_Val *root;
@@ -383,7 +400,7 @@ typedef struct hir_Val_s {
     } fn;
     struct {
       hir_Val *value;
-      hir_Label *label;
+      hir_LabelReference *label;
     } returnExpr;
     struct {
       hir_Val *root;
@@ -391,7 +408,7 @@ typedef struct hir_Val_s {
       size_t cases_len;
     } match;
     struct {
-      hir_Label *label;
+      hir_LabelBinding *label;
       hir_Stmnt *stmnts;
       size_t stmnts_len;
     } block;
@@ -427,25 +444,26 @@ typedef struct hir_Stmnt_s {
   };
 } hir_Stmnt;
 
-const char *hir_strPatValRestrictionKind(ast_PatValRestrictionKind val);
-const char *hir_strPatKind(ast_PatKind val);
-const char *hir_strPatBinaryOpKind(ast_PatBinaryOpKind val);
-const char *hir_strPatStructMemberKind(ast_PatStructMemberKind val);
-const char *hir_strTypeKind(ast_TypeKind val);
-const char *hir_strTypeStructKind(ast_TypeStructKind val);
-const char *hir_strTypeStructMemberKind(ast_TypeStructMemberKind val);
-const char *hir_strTypeUnaryOpKind(ast_TypeUnaryOpKind val);
-const char *hir_strTypeBinaryOpKind(ast_TypeBinaryOpKind val);
-const char *hir_strValKind(ast_ValKind val);
-const char *hir_strLabelKind(ast_LabelKind val);
-const char *hir_strMatchCaseKind(ast_MatchCaseKind val);
-const char *hir_strValStructMemberKind(ast_ValStructMemberKind val);
-const char *hir_strValUnaryOpKind(ast_ValUnaryOpKind val);
-const char *hir_strValBinaryOpKind(ast_ValBinaryOpKind val);
-const char *hir_strStmntKind(ast_StmntKind val);
-const char *hir_strPatUnaryOpKind(ast_PatUnaryOpKind val);
-const char *hir_strBindingKind(ast_BindingKind val);
-const char *hir_strFieldKind(ast_FieldKind val);
-const char *hir_strReferenceKind(ast_ReferenceKind val);
+const char *hir_strPatValRestrictionKind(hir_PatValRestrictionKind val);
+const char *hir_strPatKind(hir_PatKind val);
+const char *hir_strPatBinaryOpKind(hir_PatBinaryOpKind val);
+const char *hir_strPatStructMemberKind(hir_PatStructMemberKind val);
+const char *hir_strTypeKind(hir_TypeKind val);
+const char *hir_strTypeStructKind(hir_TypeStructKind val);
+const char *hir_strTypeStructMemberKind(hir_TypeStructMemberKind val);
+const char *hir_strTypeUnaryOpKind(hir_TypeUnaryOpKind val);
+const char *hir_strTypeBinaryOpKind(hir_TypeBinaryOpKind val);
+const char *hir_strValKind(hir_ValKind val);
+const char *hir_strLabelReferenceKind(hir_LabelReferenceKind val);
+const char *hir_strLabelBindingKind(hir_LabelBindingKind val);
+const char *hir_strMatchCaseKind(hir_MatchCaseKind val);
+const char *hir_strValStructMemberKind(hir_ValStructMemberKind val);
+const char *hir_strValUnaryOpKind(hir_ValUnaryOpKind val);
+const char *hir_strValBinaryOpKind(hir_ValBinaryOpKind val);
+const char *hir_strStmntKind(hir_StmntKind val);
+const char *hir_strPatUnaryOpKind(hir_PatUnaryOpKind val);
+const char *hir_strBindingKind(hir_BindingKind val);
+const char *hir_strFieldKind(hir_FieldKind val);
+const char *hir_strReferenceKind(hir_ReferenceKind val);
 
 #endif

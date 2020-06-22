@@ -1,32 +1,32 @@
-#ifndef HIR_CONSTRUCT_H
-#define HIR_CONSTRUCT_H
+#ifndef Hir_CONSTRUCT_H
+#define Hir_CONSTRUCT_H
 
 #include "allocator.h"
+#include "hir.h"
 #include "tokens_to_ast.h"
 
 // HirConstructor should:
-// Walk AST Tree, Clone 
+// Walk AST Tree, Clone
 // Convert into tabular Format
 // Resolve Variable Names
 
 typedef struct {
   Allocator *a;
-  AstFromCodeConstructor*parser;
+  AstConstructor *parser;
 
   // Vector[Identifier]
-  // Each index points to a char*
-  Vector* id_label_table;
-  Vector* id_type_table;
-  Vector* id_val_table;
-  Vector* id_namespace_table;
+  // Each index points to an identifier located in identifier_table
+  Vector scope;
+  // the actual vector holding everything
+  Vector identifier_table;
 
-} HIRConstructor;
+} HirConstructor;
 
-HIRConstructor hir_create(AstFromCodeConstructor* parser, Allocator*a);
+HirConstructor hir_create(AstConstructor *parser, Allocator *a);
 
-bool hir_nextStmntAndCheckNext(Vector* diagnostics, HIRConstructor* constructor);
+bool hir_nextStmntAndCheckNext(hir_Stmnt *stmnt, DiagnosticLogger *diagnostics,
+                               HirConstructor *constructor);
 
-void hir_destroy(HIRConstructor *constructor);
+void hir_destroy(HirConstructor *constructor);
 
 #endif
-

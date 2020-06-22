@@ -14,15 +14,15 @@ typedef struct {
 
   // Queue[Token]
   Queue next_tokens_queue;
-} AstFromCodeConstructor;
+} AstConstructor;
 
 // Uses memory allocated from a to build a parser with the source as lp
-AstFromCodeConstructor ast_create(Lexer *lp, Allocator* a);
+AstConstructor ast_create(Lexer *lp, Allocator* a);
 
 // returns true if there is a next stmnt
-bool ast_nextStmntAndCheckNext(ast_Stmnt *s, DiagnosticLogger* diagnostics, AstFromCodeConstructor *parser);
+bool ast_nextStmntAndCheckNext(ast_Stmnt *s, DiagnosticLogger* diagnostics, AstConstructor *parser);
 
 // Frees memory associated with the parser and cleans up
-void ast_destroy(AstFromCodeConstructor *pp);
+void ast_destroy(AstConstructor *pp);
 
 #endif

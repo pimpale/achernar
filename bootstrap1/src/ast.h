@@ -279,19 +279,34 @@ typedef enum {
 } ast_ValKind;
 
 typedef enum {
-  ast_LK_Omitted,
-  ast_LK_Label,
-} ast_LabelKind;
+  ast_LBK_Omitted,
+  ast_LBK_Label,
+} ast_LabelBindingKind;
 
 typedef struct {
   Span span;
-  ast_LabelKind kind;
+  ast_LabelBindingKind kind;
   union {
     struct {
       char *label;
     } label;
   };
-} ast_Label;
+} ast_LabelBinding;
+
+typedef enum {
+  ast_LRK_None,
+  ast_LRK_Label,
+} ast_LabelReferenceKind;
+
+typedef struct {
+  Span span;
+  ast_LabelReferenceKind kind;
+  union {
+      struct {
+          char* label;
+      } label;
+  };
+} ast_LabelReference;
 
 typedef enum {
   ast_MCK_None,
@@ -403,7 +418,7 @@ typedef struct ast_Val_s {
     } as;
     struct {
       ast_Val *body;
-      ast_Label *label;
+      ast_LabelBinding *label;
     } loop;
     struct {
       ast_Val *root;
@@ -434,7 +449,7 @@ typedef struct ast_Val_s {
     } fn;
     struct {
       ast_Val *value;
-      ast_Label *label;
+      ast_LabelReference *label;
     } returnExpr;
     struct {
       ast_Val *root;
@@ -442,7 +457,7 @@ typedef struct ast_Val_s {
       size_t cases_len;
     } match;
     struct {
-      ast_Label *label;
+      ast_LabelBinding *label;
       ast_Stmnt *stmnts;
       size_t stmnts_len;
     } block;
@@ -493,7 +508,7 @@ typedef struct ast_Stmnt_s {
       ast_Val *val;
     } val;
     struct {
-      ast_Label *label;
+      ast_LabelReference *label;
       ast_Val *val;
     } deferStmnt;
   };
@@ -509,7 +524,8 @@ const char *ast_strTypeStructMemberKind(ast_TypeStructMemberKind val);
 const char *ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val);
 const char *ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val);
 const char *ast_strValKind(ast_ValKind val);
-const char *ast_strLabelKind(ast_LabelKind val);
+const char *ast_strLabelReferenceKind(ast_LabelReferenceKind val);
+const char *ast_strLabelBindingKind(ast_LabelBindingKind val);
 const char *ast_strMatchCaseKind(ast_MatchCaseKind val);
 const char *ast_strValStructMemberKind(ast_ValStructMemberKind val);
 const char *ast_strValUnaryOpKind(ast_ValUnaryOpKind val);

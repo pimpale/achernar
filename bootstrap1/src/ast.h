@@ -465,7 +465,6 @@ typedef struct ast_Stmnt_s {
   ast_Common common;
   ast_StmntKind kind;
 
-  size_t comments_len;
   union {
     // Declarations
     struct {

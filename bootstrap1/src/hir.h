@@ -6,6 +6,10 @@
 #include "ast.h"
 #include "vector.h"
 
+typedef struct {
+  size_t id;
+} IdentifierId;
+
 typedef enum {
   hir_BK_None,
   hir_BK_Bind,
@@ -18,7 +22,7 @@ typedef struct {
   union {
     struct {
       char *full;
-      size_t id;
+      IdentifierId id;
     } binding;
   };
 } hir_Binding;
@@ -34,7 +38,7 @@ typedef struct {
   union {
     struct {
       ast_Binding *first_decl;
-      size_t id;
+      IdentifierId id;
     } path;
   };
 } hir_Reference;
@@ -60,7 +64,8 @@ typedef struct {
   ast_LabelBindingKind kind;
   union {
     struct {
-      char *label;
+        IdentifierId id;
+        char* full;
     } label;
   };
 } hir_LabelBinding;
@@ -76,7 +81,8 @@ typedef struct {
   hir_LabelReferenceKind kind;
   union {
       struct {
-          char* label;
+          IdentifierId id;
+          ast_LabelBinding *first_decl;
       } label;
   };
 } hir_LabelReference;

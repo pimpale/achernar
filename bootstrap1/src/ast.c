@@ -185,11 +185,21 @@ const char *ast_strValKind(ast_ValKind val) {
   abort();
 }
 
-const char *ast_strLabelKind(ast_LabelKind val) {
+const char *ast_strLabelBindingKind(ast_LabelBindingKind val) {
   switch (val) {
-  case ast_LK_Omitted:
+  case ast_LBK_Omitted:
     return "Omitted";
-  case ast_LK_Label:
+  case ast_LBK_Label:
+    return "Label";
+  }
+  abort();
+}
+
+const char *ast_strLabelReferenceKind(ast_LabelReferenceKind val) {
+  switch (val) {
+  case ast_LRK_None:
+    return "None";
+  case ast_LRK_Label:
     return "Label";
   }
   abort();

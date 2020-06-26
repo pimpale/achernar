@@ -7,6 +7,7 @@
 #include "vector.h"
 
 typedef struct {
+  bool valid;
   size_t id;
 } IdentifierId;
 
@@ -21,7 +22,6 @@ typedef struct {
   ast_Binding *source;
   union {
     struct {
-      char *full;
       IdentifierId id;
     } binding;
   };

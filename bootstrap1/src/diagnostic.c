@@ -16,6 +16,7 @@ const char *strDiagnosticSeverityKind(DiagnosticSeverityKind val) {
   abort();
 }
 
+
 Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, char* message) {
   return (Diagnostic)  {
     .range= range,

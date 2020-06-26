@@ -21,19 +21,57 @@ typedef struct {
   size_t tokens_len;
 } ast_Macro;
 
+
 typedef enum {
-  ast_RK_None,
-  ast_RK_Path,
-} ast_ReferenceKind;
+  ast_NBK_None,
+  ast_NBK_Binding,
+} ast_NamespaceBindingKind;
 
 typedef struct {
+    Span span;
+    ast_NamespaceBindingKind kind;
+    union {
+        struct {
+          char* value;
+        } binding;
+    };
+} ast_NamespaceBinding;
+
+typedef enum {
+    ast_NRK_None,
+    ast_NRK_Reference,
+} ast_NamespaceReferenceKind;
+
+typedef struct {
+    Span span;
+    ast_NamespaceReferenceKind kind;
+    union {
+        struct {
+            char *value;
+        } reference;
+    };
+} ast_NamespaceReference;
+
+typedef enum {
+  ast_RK_None, // some kind of error
+  ast_RK_NamespaceAccess, // foo::
+  ast_RK_Identifier, // print
+} ast_ReferenceKind;
+
+// forward declare struct
+typedef struct ast_Reference_s ast_Reference;
+
+typedef struct ast_Reference_s {
   Span span;
   ast_ReferenceKind kind;
   union {
     struct {
-      char **segments;
-      size_t segments_len;
-    } path;
+      ast_NamespaceReference* path;
+      ast_Reference* value;
+    } namespaceAccess;
+    struct {
+      char* value;
+    } identifier;
   };
 } ast_Reference;
 
@@ -497,7 +535,7 @@ typedef struct ast_Stmnt_s {
       ast_Reference *path;
     } useStmnt;
     struct {
-      ast_Binding *name;
+      ast_NamespaceBinding *binding;
       ast_Stmnt *stmnts;
       size_t stmnts_len;
     } namespaceStmnt;

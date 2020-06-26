@@ -5,6 +5,6 @@
 
 #include "tokens_to_ast.h"
 
-void print_stream(AstFromCodeConstructor *parser, FILE *file);
+void print_stream(AstConstructor *parser, FILE *file);
 
 #endif

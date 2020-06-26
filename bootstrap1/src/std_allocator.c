@@ -63,8 +63,11 @@ static inline AllocId std_reallocate(StdAllocator *backing, AllocId id,
 
   AllocEntry *ae = &backing->ptrs[id.id];
   void *ret = realloc(ae->ptr, size);
+  if(ret == NULL) {
+    // realloc failed
+    return (AllocId) {.valid=false};
+  }
   ae->ptr = ret;
-  assert(ae->ptr != NULL);
   return (AllocId){.id = id.id, .valid = true};
 }
 

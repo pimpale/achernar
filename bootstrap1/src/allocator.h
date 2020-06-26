@@ -65,9 +65,8 @@ static inline AllocatorFlags a_supports(const Allocator * a) {
 
 /** allocate memory
  * REQUIRES: `a` is a valid pointer to an Allocator
- * GUARANTEES: if `size` is 0, NULL will be returned
- * GUARANTEES: if allocation succeeds, `size` bytes of contiguous memory will be allocated
- * GUARANTEES: if allocation fails, NULL will be returned
+ * GUARANTEES: if allocation succeeds, a valid AllocId will be returned representing an allocation for `size` bytes of memory
+ * GUARANTEES: if allocation fails, an invalid AllocId will be returned
  * GUARANTEES: the memory will be allocated with default properties of the implementing allocator
  */
 static inline AllocId a_alloc(const Allocator * a, size_t size) {
@@ -101,10 +100,11 @@ static inline void a_dealloc(const Allocator * a, AllocId id) {
  * REQUIRES: `a` is a valid pointer to an Allocator
  * REQUIRES: `id` is a valid AllocId returned by a previous call to `a_alloc_flags` using `a` with the `A_REALLOCABLE` bit enabled
  * GUARANTEES: if `size` is 0, the allocation represented by `id` will be deallocated
- * GUARANTEES: if allocation succeeds, a pointer to `size` bytes of contiguous memory will be allocated, preserving data
- * GUARANTEES: if allocation succeeds, allocated memory will have the same properties as `ptr` 
+ * GUARANTEES: if allocation succeeds, the `size` bytes of contiguous memory will be allocated, preserving data
+ * GUARANTEES: if allocation succeeds, a possibly different AllocId will be returned representing the new memory
+ * GUARANTEES: if allocation succeeds, allocated memory will have the same properties as `ptr`
  * GUARANTEES: all pointers previously got from `id` are invalidated
- * GUARANTEES: if allocation fails, an invalid AllocId will be returned
+ * GUARANTEES: if the reallocation fails, an invalid AllocId will be returned, but `id` will still be valid
  */
 static inline AllocId a_realloc(const Allocator * a, AllocId id, size_t size) {
   assert(a_supports(a) & A_REALLOCABLE);

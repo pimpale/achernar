@@ -123,11 +123,15 @@ stringLiteral = "\"", { letter | digit | symbol | controlCode | whitespace }, "\
 # --- BEGIN LABELS & PATHS ---
 
 # label
-label = ws, "'", identifer;
+labelReference = ws, "'", identifer;
+labelBinding = ws, "'", identifer;
 
-# paths
-pathSegment = ws, identifer;
-path = pathSegment, { "::", pathSegment };
+# namespace bindings
+namespaceBinding = ws, identifier;
+namespaceReference = ws, identifier;
+
+reference = { ws, namespaceReference, ws, '::' }, identifer;
+binding = ws, identifier;
 
 # --- END LABELS & PATHS ---
 
@@ -249,8 +253,8 @@ patExpr = patExprL6;
 
 # --- BEGIN Stmnt ---
 
-useStmnt = "use", ws, path, "as", ws, identifier;
-namespaceStmnt = "namespace", ws, identifier, "{", {Stmnt}, ws, "}";
+useStmnt = "use", path, ws, "as", ws, identifier;
+namespaceStmnt = "namespace", ws, namespaceBinding, ws, "{", {Stmnt}, ws, "}";
 valDeclStmnt = "val", patExpr, ws, ":=", valExpr;
 typeDeclStmnt = "type", ws, identifier, ws, ":=", typeExpr;
 

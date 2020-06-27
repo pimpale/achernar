@@ -38,7 +38,7 @@ typedef struct {
 } ast_NamespaceBinding;
 
 typedef enum {
-    ast_NRK_None,
+    ast_NRK_Current,
     ast_NRK_Reference,
 } ast_NamespaceReferenceKind;
 
@@ -48,6 +48,7 @@ typedef struct {
     union {
         struct {
             char *value;
+            
         } reference;
     };
 } ast_NamespaceReference;

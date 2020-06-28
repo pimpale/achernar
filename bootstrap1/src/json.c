@@ -23,43 +23,6 @@ uint64_t j_safe_abs(int64_t val) {
 #define UNUSED __attribute__ ((unused))
 #define ERROR(k, l) ((j_Error){.kind = k, .loc = l})
 
-// Accepts Vector<char>, pushes as many chars points as needed to encode the
-// data
-static void encodeUTFPoint(Vector *data, uint32_t utf) {
-  if (utf <= 0x7F) { // Plain ASCII
-    char *out = vec_push(data, sizeof(char) * 1);
-    out[0] = (char)utf;
-  } else if (utf <= 0x07FF) {
-    // 2-byte unicode
-    char *out = vec_push(data, sizeof(char) * 2);
-    out[0] = (char)(((utf >> 6) & 0x1F) | 0xC0);
-    out[1] = (char)(((utf >> 0) & 0x3F) | 0x80);
-  } else if (utf <= 0xFFFF) {
-    // 3-byte unicode
-    char *out = vec_push(data, sizeof(char) * 3);
-    out[0] = (char)(((utf >> 12) & 0x0F) | 0xE0);
-    out[1] = (char)(((utf >> 6) & 0x3F) | 0x80);
-    out[2] = (char)(((utf >> 0) & 0x3F) | 0x80);
-  } else if (utf <= 0x10FFFF) {
-    // 4-byte unicode
-    char *out = vec_push(data, sizeof(char) * 4);
-    out[0] = (char)(((utf >> 18) & 0x07) | 0xF0);
-    out[1] = (char)(((utf >> 12) & 0x3F) | 0x80);
-    out[2] = (char)(((utf >> 6) & 0x3F) | 0x80);
-    out[3] = (char)(((utf >> 0) & 0x3F) | 0x80);
-  }
-  // TODO gracefully handle error
-}
-
-// JSON TO STRING
-static void j_unchecked_emitChar(Vector *vptr, char c) {
-  *VEC_PUSH(vptr, char) = c;
-}
-
-static void j_unchecked_emitStr(Vector *vptr, char *str, size_t len) {
-  // length of string in bytes
-  memcpy(vec_push(vptr, len), str, len);
-}
 
 // Convert from int to string
 static void j_emitInt(Vector *vptr, j_Int val) {
@@ -95,14 +58,6 @@ static void j_emitNum(Vector *vptr, double number) {
   char str[350];
   snprintf(str, 350, "%f", number);
   j_unchecked_emitStr(vptr, str, strlen(str));
-}
-
-static char toHex(uint8_t x) {
-  if (x < 10) {
-    return '0' + (char)x;
-  } else {
-    return 'a' + (char)x;
-  }
 }
 
 static int8_t fromHex(char c) {
@@ -177,59 +132,6 @@ static int8_t fromHex(char c) {
     return -1;
   }
   }
-}
-
-// Checks for special characters
-static void j_emitStr(Vector *vptr, j_Str str) {
-  j_unchecked_emitChar(vptr, '\"');
-  for (size_t i = 0; i < str.length; i++) {
-    char c = str.string[i];
-    switch (c) {
-    case '\b': {
-      j_unchecked_emitStr(vptr, "\\b", 2);
-      break;
-    }
-    case '\f': {
-      j_unchecked_emitStr(vptr, "\\f", 2);
-      break;
-    }
-    case '\n': {
-      j_unchecked_emitStr(vptr, "\\n", 2);
-      break;
-    }
-    case '\r': {
-      j_unchecked_emitStr(vptr, "\\r", 2);
-      break;
-    }
-    case '\t': {
-      j_unchecked_emitStr(vptr, "\\t", 2);
-      break;
-    }
-    case '\"': {
-      j_unchecked_emitStr(vptr, "\\\"", 2);
-      break;
-    }
-    case '\\': {
-      j_unchecked_emitStr(vptr, "\\\\", 2);
-      break;
-    }
-    default: {
-      if (c <= 0x001F) {
-        char *ptr = vec_push(vptr, sizeof(char) * 6);
-        ptr[0] = '\\';
-        ptr[1] = 'u';
-        ptr[2] = '0';
-        ptr[3] = '0';
-        ptr[4] = toHex((uint8_t)c / 16);
-        ptr[5] = toHex((uint8_t)c % 16);
-      } else {
-        *VEC_PUSH(vptr, char) = c;
-      }
-      break;
-    }
-    }
-  }
-  j_unchecked_emitChar(vptr, '\"');
 }
 
 static void j_emitElem(Vector *data, j_Elem *j);

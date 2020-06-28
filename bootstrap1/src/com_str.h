@@ -25,7 +25,7 @@ com_str com_str_from_asciiz(u8* asciiz);
  * REQUIRES: `literal` is a valid string literal
  * GUARANTEES: returns a valid `com_str` with a length equal to the size of the literal`
  */
-#define com_str_from_literal_m(literal) com_str_create((literal), sizeof(literal)-1)
+#define com_str_from_literal_m(literal) com_str_create((u8*)(literal), sizeof(literal)-1)
 
 #endif
 

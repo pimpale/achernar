@@ -77,7 +77,7 @@ static Token parse_peekNth(AstConstructor *pp, size_t k,
   assert(k > 0);
 
   for (size_t i = QUEUE_LEN(&pp->next_tokens_queue, Token); i < k; i++) {
-    // parse the token and add it to the top of the stack
+    // parse the token and enqueue it
     *QUEUE_PUSH(&pp->next_tokens_queue, Token) = parse_rawNext(pp, diagnostics);
   }
 
@@ -183,7 +183,7 @@ static void ast_parseReference(ast_Reference *ptr,
 
   if (t.kind == tk_Identifier) {
     *VEC_PUSH(&pathSegments, char *) = t.identifierToken.data;
-    ptr->kind = ast_RK_Path;
+    ptr->kind = ast_RK_Reference;
   } else {
     ptr->kind = ast_RK_None;
     *dlogger_append(diagnostics) = diagnostic_standalone(
@@ -214,11 +214,65 @@ static void ast_parseReference(ast_Reference *ptr,
   }
 
 CLEANUP:
-  ptr->path.segments_len = VEC_LEN(&pathSegments, char *);
-  ptr->path.segments = vec_release(&pathSegments);
+  ptr->reference.segments_len = VEC_LEN(&pathSegments, char *);
+  ptr->reference.segments = vec_release(&pathSegments);
 
   ptr->span = SPAN(start, end);
 }
+
+static void ast_parseNamespaceReference(ast_NamespaceReference *ptr,
+                               DiagnosticLogger *diagnostics,
+                               AstConstructor *parser) {
+  ZERO(ptr);
+
+  Token t = parse_next(parser, diagnostics);
+
+  // start and finish
+  LnCol start = t.span.start;
+  LnCol end;
+
+  Vector pathSegments = vec_create(parser->a);
+
+  if (t.kind == tk_Identifier) {
+    *VEC_PUSH(&pathSegments, char *) = t.identifierToken.data;
+    ptr->kind = ast_NRK_Reference;
+  } else {
+    ptr->kind = ast_NRK_None;
+    *dlogger_append(diagnostics) = diagnostic_standalone(
+        t.span, DSK_Error, "namespace reference expected identifier");
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
+  while (true) {
+    t = parse_peek(parser, diagnostics);
+    if (t.kind == tk_ScopeResolution) {
+      // discard the scope resolution
+      parse_next(parser, diagnostics);
+      // now check if we have an issue
+      t = parse_next(parser, diagnostics);
+      if (t.kind != tk_Identifier) {
+        *dlogger_append(diagnostics) = diagnostic_standalone(
+            t.span, DSK_Error, "namespace reference expected identifier");
+        end = t.span.end;
+        goto CLEANUP;
+      }
+      *VEC_PUSH(&pathSegments, char *) = t.identifierToken.data;
+    } else {
+      // we've reached the end of the path
+      end = t.span.end;
+      break;
+    }
+  }
+
+CLEANUP:
+  ptr->reference.segments_len = VEC_LEN(&pathSegments, char *);
+  ptr->reference.segments = vec_release(&pathSegments);
+
+  ptr->span = SPAN(start, end);
+}
+
+
 
 static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
                              AstConstructor *parser) {
@@ -245,6 +299,27 @@ static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
   }
 }
 
+static void ast_parseNamespaceBinding(ast_NamespaceBinding *ptr, DiagnosticLogger *diagnostics,
+                             AstConstructor *parser) {
+  ZERO(ptr);
+  Token t = parse_next(parser, diagnostics);
+  ptr->span = t.span;
+  switch (t.kind) {
+  case tk_Identifier: {
+    ptr->kind = ast_NBK_Binding;
+    ptr->binding.value= t.identifierToken.data;
+    break;
+  }
+  default: {
+    *dlogger_append(diagnostics) = diagnostic_standalone(
+        t.span, DSK_Error,
+        "binding expected either `_` for drop or an identifier to bind to");
+    ptr->kind = ast_NBK_None;
+    break;
+  }
+  }
+}
+
 static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
                            AstConstructor *parser) {
   ZERO(ptr);
@@ -252,9 +327,12 @@ static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
   ptr->span = t.span;
   switch (t.kind) {
   case tk_Identifier: {
-    ptr->kind = ast_FK_Field;
-    ptr->field.name = t.identifierToken.data;
+    ptr->kind = ast_FK_FieldStr;
+    ptr->strField.val= t.identifierToken.data;
     break;
+  }
+  case tk_Int: {
+    ptr->kind = as
   }
   default: {
     *dlogger_append(diagnostics) = diagnostic_standalone(
@@ -738,7 +816,8 @@ static void parseL1Val(ast_Val *l1, DiagnosticLogger *diagnostics,
   l1->common.comments = vec_release(&comments);
 }
 
-static voidast_certain_postfix_parseFieldAcessVal(ast_Val *fave,
+static void
+ast_certain_postfix_parseFieldAcessVal(ast_Val *fave,
                                        DiagnosticLogger *diagnostics,
                                        AstConstructor *parser, ast_Val *root) {
   ZERO(fave);
@@ -2141,10 +2220,10 @@ static void ast_certain_parseNamespaceStmnt(ast_Stmnt *nsp,
 
   // namespace name
   t = parse_next(parser, diagnostics);
-  if(t.kind != tk_Identifier) {
+  if (t.kind != tk_Identifier) {
     nsp->namespaceStmnt.name = NULL;
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "expected identifier here");
+    *dlogger_append(diagnostics) =
+        diagnostic_standalone(t.span, DSK_Error, "expected identifier here");
     end = t.span.end;
     goto CLEANUP;
   }

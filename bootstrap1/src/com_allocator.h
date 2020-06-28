@@ -1,33 +1,30 @@
-#ifndef ALLOCATOR_H
-#define ALLOCATOR_H
+#ifndef COM_ALLOCATOR_H
+#define COM_ALLOCATOR_H
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <assert.h>
+#include "com_define.h"
 
-typedef enum AllocatorFlag_e {
-  A_NOFLAGS = 0,
+typedef enum {
+  com_allocator_Flag_NONE = 0,
   /// The size of this memory allocation can be grown by a call to `a_realloc`
-  A_REALLOCABLE = 1<<0,
+  com_allocator_Flag_REALLOCABLE = 1<<0,
   /// The memory will NOT be cleaned up when the allocator is destroyed (can cause resource leak)
   /// You are responsible for cleaning up this memory, and the means of doing so will vary per implementation
-  A_NO_CLEANUP_ON_DESTROY = 1<<1,
-} AllocatorFlag;
+  com_allocator_FlagPersistent = 1<<1,
+} com_allocator_Flag;
 
-typedef uint32_t AllocatorFlags;
+typedef u32 com_allocator_Flags;
 
 // Handle to allocation, this remains constant over the allocation's life
-typedef struct AllocId_t {
-  size_t id;
-  bool valid;
-} AllocId;
+typedef struct {
+  usize _id;
+  bool _valid;
+} com_allocator_Handle;
 
 // Dynamic allocator for fun
 // ALLOCATORS ARE NOT THREAD SAFE
-typedef struct Allocator_s {
-  AllocatorFlags default_flags;
-  AllocatorFlags supported_flags;
+typedef struct com_allocator_Allocator_s {
+  com_allocator_AllocatorFlags default_flags;
+  com_allocator_AllocatorFlags supported_flags;
 
   // Opaque pointer to reallocator backend
   void* allocator_backing;

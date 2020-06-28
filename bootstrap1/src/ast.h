@@ -21,42 +21,40 @@ typedef struct {
   size_t tokens_len;
 } ast_Macro;
 
-
 typedef enum {
   ast_NBK_None,
   ast_NBK_Binding,
 } ast_NamespaceBindingKind;
 
 typedef struct {
-    Span span;
-    ast_NamespaceBindingKind kind;
-    union {
-        struct {
-          char* value;
-        } binding;
-    };
+  Span span;
+  ast_NamespaceBindingKind kind;
+  union {
+    struct {
+      char *value;
+    } binding;
+  };
 } ast_NamespaceBinding;
 
 typedef enum {
-    ast_NRK_Current,
-    ast_NRK_Reference,
+  ast_NRK_None,
+  ast_NRK_Reference,
 } ast_NamespaceReferenceKind;
 
 typedef struct {
-    Span span;
-    ast_NamespaceReferenceKind kind;
-    union {
-        struct {
-            char *value;
-            
-        } reference;
-    };
+  Span span;
+  ast_NamespaceReferenceKind kind;
+  union {
+    struct {
+      char **segments;
+      size_t segments_len;
+    } reference;
+  };
 } ast_NamespaceReference;
 
 typedef enum {
-  ast_RK_None, // some kind of error
-  ast_RK_NamespaceAccess, // foo::
-  ast_RK_Identifier, // print
+  ast_RK_None,      // some kind of error
+  ast_RK_Reference, // print
 } ast_ReferenceKind;
 
 // forward declare struct
@@ -67,12 +65,9 @@ typedef struct ast_Reference_s {
   ast_ReferenceKind kind;
   union {
     struct {
-      ast_NamespaceReference* path;
-      ast_Reference* value;
-    } namespaceAccess;
-    struct {
-      char* value;
-    } identifier;
+      char **segments;
+      size_t segments_len;
+    } reference;
   };
 } ast_Reference;
 
@@ -94,7 +89,8 @@ typedef struct {
 
 typedef enum {
   ast_FK_None,
-  ast_FK_Field,
+  ast_FK_FieldStr,
+  ast_FK_FieldInt,
 } ast_FieldKind;
 
 typedef struct {
@@ -102,8 +98,11 @@ typedef struct {
   ast_FieldKind kind;
   union {
     struct {
-      char *name;
-    } field;
+      char *val;
+    } strField;
+    struct {
+      uint64_t val;
+    } intField;
   };
 } ast_Field;
 
@@ -341,9 +340,9 @@ typedef struct {
   Span span;
   ast_LabelReferenceKind kind;
   union {
-      struct {
-          char* label;
-      } label;
+    struct {
+      char *label;
+    } label;
   };
 } ast_LabelReference;
 

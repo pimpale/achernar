@@ -19,12 +19,12 @@
 static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
                         Allocator *a) {
 
-  LnCol start = lexer->position;
+  LnCol start = lex_position(lexer);
 
   int32_t c = lex_next(lexer);
   assert(c == '#');
 
-  c = lex_peek(lexer);
+  c = LEX_PEEK(lexer);
 
   // Determine the scope of the
   char *scope = "";
@@ -32,7 +32,7 @@ static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
     lex_next(lexer);
 
     Vector data = vec_create(a);
-    while ((c = lex_peek(lexer)) != EOF) {
+    while ((c = LEX_PEEK(lexer)) != EOF) {
       if (isalnum(c) || c == '/') {
         *VEC_PUSH(&data, char) = (char)c;
         lex_next(lexer);
@@ -84,7 +84,7 @@ static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
                 .scope = scope,
                 .comment = vec_release(&data),
             },
-        .span = SPAN(start, lexer->position),
+        .span = SPAN(start, lex_position(lexer)),
     };
   }
   default: {
@@ -109,7 +109,7 @@ static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
                 .scope = scope,
                 .comment = vec_release(&data),
             },
-        .span = SPAN(start, lexer->position),
+        .span = SPAN(start, lex_position(lexer)),
     };
   }
   }
@@ -119,7 +119,7 @@ static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
 static Token lexStringLiteral(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
-  LnCol start = lexer->position;
+  LnCol start = lex_position(lexer);
   // Skip first quote
   int32_t c = lex_next(lexer);
   assert(c == '\"');
@@ -178,7 +178,7 @@ static Token lexStringLiteral(Lexer *lexer, DiagnosticLogger* diagnostics, Alloc
           }
         }
         *dlogger_append(diagnostics) =
-            diagnostic_standalone(SPAN(start, lexer->position), DSK_Error,
+            diagnostic_standalone(SPAN(start, lex_position(lexer)), DSK_Error,
                                   "Unrecognized escape code in string literal");
         goto CLEANUP;
       }
@@ -197,7 +197,7 @@ CLEANUP:;
   return (Token){
       .kind = tk_String,
       .stringToken = {.data = ptr, .data_len = len},
-      .span = SPAN(start, lexer->position),
+      .span = SPAN(start, lex_position(lexer)),
   };
 }
 
@@ -206,7 +206,7 @@ static uint64_t parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
                                       uint8_t radix) {
   uint64_t integer_value = 0;
   int32_t c;
-  while ((c = lex_peek(l)) != EOF) {
+  while ((c = LEX_PEEK(l)) != EOF) {
     uint8_t digit_val;
     if (c >= '0' && c <= '9') {
       digit_val = (uint8_t)(c - '0');
@@ -222,13 +222,13 @@ static uint64_t parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
     } else {
       // means an alphabetical character out of this range
       *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_peekSpan(l), DSK_Error, "num literal unknown character");
+          lex_getSpan(l), DSK_Error, "num literal unknown character");
       digit_val = 0;
     }
 
     if (digit_val >= radix) {
       *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_peekSpan(l), DSK_Error, "num literal char value exceeds radix");
+          lex_getSpan(l), DSK_Error, "num literal char value exceeds radix");
       // correct the radix value
       digit_val = radix - 1;
     }
@@ -238,7 +238,7 @@ static uint64_t parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
     integer_value = integer_value * radix + digit_val;
     if (old_integer_value > integer_value) {
       *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_peekSpan(l), DSK_Error, "num literal overflow");
+          lex_getSpan(l), DSK_Error, "num literal overflow");
     }
 
     // we can finally move past this char
@@ -261,7 +261,7 @@ static double parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostic
   // fractional component being computed
   double fractional_value = 0;
 
-  while ((c = lex_peek(l)) != EOF) {
+  while ((c = LEX_PEEK(l)) != EOF) {
     uint8_t digit_val;
     if (c >= '0' && c <= '9') {
       digit_val = (uint8_t)(c - '0');
@@ -277,13 +277,13 @@ static double parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostic
     } else {
       // means an alphabetical character out of this range
       *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_peekSpan(l), DSK_Error, "num literal unknown character");
+          lex_getSpan(l), DSK_Error, "num literal unknown character");
       digit_val = 0;
     }
 
     if (digit_val >= radix) {
       *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_peekSpan(l), DSK_Error, "num literal char value exceeds radix");
+          lex_getSpan(l), DSK_Error, "num literal char value exceeds radix");
       // correct the radix value
       digit_val = radix - 1;
     }
@@ -307,7 +307,7 @@ static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
 
   uint8_t radix;
 
-  if (lex_peek(l) == '0') {
+  if (LEX_PEEK(l) == '0') {
     lex_next(l);
     int32_t radixCode = lex_next(l);
     switch (radixCode) {
@@ -342,7 +342,7 @@ static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
   uint64_t base_component = parseNumBaseComponent(l, diagnostics, radix);
 
   bool fractional = false;
-  if (lex_peek(l) == '.') {
+  if (LEX_PEEK(l) == '.') {
     fractional = true;
     lex_next(l);
   }
@@ -366,7 +366,7 @@ static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
 
 static Token lexCharLiteralOrLabel(Lexer *lexer, DiagnosticLogger* diagnostics,
                                    Allocator *a) {
-  LnCol start = lexer->position;
+  LnCol start = lex_position(lexer);
   // Skip first quote
   assert(lex_next(lexer) == '\'');
 
@@ -400,7 +400,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, DiagnosticLogger* diagnostics,
       break;
     }
     case LCS_SpecialChar: {
-      int32_t c = lex_peek(lexer);
+      int32_t c = LEX_PEEK(lexer);
       switch (c) {
       case '\\': {
         char_literal = '\\';
@@ -445,7 +445,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, DiagnosticLogger* diagnostics,
       default: {
         char_literal = (char)c;
         *dlogger_append(diagnostics) =
-            diagnostic_standalone(lex_peekSpan(lexer), DSK_Error,
+            diagnostic_standalone(lex_getSpan(lexer), DSK_Error,
                                   "char literal unrecognized escape code");
         break;
       }
@@ -456,7 +456,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, DiagnosticLogger* diagnostics,
       break;
     }
     case LCS_ExpectEnd: {
-      int32_t c = lex_peek(lexer);
+      int32_t c = LEX_PEEK(lexer);
       if (c == '\'') {
         label = false;
         // skip this single quote
@@ -476,7 +476,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, DiagnosticLogger* diagnostics,
         } else {
           // we are dealing with a bad char literal
           *dlogger_append(diagnostics) =
-              diagnostic_standalone(lex_peekSpan(lexer), DSK_Error,
+              diagnostic_standalone(lex_getSpan(lexer), DSK_Error,
                                     "char literal expected close single quote");
           label = false;
           goto EXIT_LOOP;
@@ -485,7 +485,7 @@ static Token lexCharLiteralOrLabel(Lexer *lexer, DiagnosticLogger* diagnostics,
       break;
     }
     case LCS_Label: {
-      int32_t c = lex_peek(lexer);
+      int32_t c = LEX_PEEK(lexer);
       if (isalnum(c) || c == '_') {
         *VEC_PUSH(&label_data, char) = (char)lex_next(lexer);
       } else {
@@ -505,13 +505,13 @@ EXIT_LOOP:;
     return (Token){
         .kind = tk_Label,
         .labelToken = {vec_release(&label_data)},
-        .span = SPAN(start, lexer->position),
+        .span = SPAN(start, lex_position(lexer)),
     };
   } else {
     return (Token){
         .kind = tk_Char,
         .charToken = {char_literal},
-        .span = SPAN(start, lexer->position),
+        .span = SPAN(start, lex_position(lexer)),
     };
   }
 }
@@ -519,14 +519,14 @@ EXIT_LOOP:;
 // Parses an identifer or macro or builtin
 static Token lexWord(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics, Allocator *a) {
 
-  LnCol start = lexer->position;
+  LnCol start = lex_position(lexer);
 
   Vector data = vec_create(a);
 
   bool macro = false;
 
   int32_t c;
-  while ((c = lex_peek(lexer)) != EOF) {
+  while ((c = LEX_PEEK(lexer)) != EOF) {
     if (isalnum(c) || c == '_') {
       *VEC_PUSH(&data, char) = (char)c;
       lex_next(lexer);
@@ -539,7 +539,7 @@ static Token lexWord(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics, Allocat
     }
   }
 
-  Span span = SPAN(start, lexer->position);
+  Span span = SPAN(start, lex_position(lexer));
 
   // Note that string length does not incude the trailing null byte
   // Push null byte
@@ -610,7 +610,7 @@ static Token lexWord(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics, Allocat
 }
 
 #define RESULT_TOKEN(tokenType)                                                \
-  (Token) { .kind = tokenType, .span = SPAN(start, lexer->position) }
+  (Token) { .kind = tokenType, .span = SPAN(start, lex_position(lexer)) }
 
 #define RETURN_RESULT_TOKEN(tokenType) return RESULT_TOKEN(tokenType);
 
@@ -622,7 +622,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
   int32_t c;
 
   // Set c to first nonblank character
-  while ((c = lex_peek(lexer)) != EOF) {
+  while ((c = LEX_PEEK(lexer)) != EOF) {
     if (isblank(c) || c == '\n') {
       lex_next(lexer);
     } else {
@@ -630,7 +630,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
   }
 
-  LnCol start = lexer->position;
+  LnCol start = lex_position(lexer);
 
   if (isalpha(c) || c == '_') {
     return lexWord(lexer, diagnostics, a);
@@ -650,7 +650,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     case '&': {
       lex_next(lexer);
       // && or &
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '&': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_And)
       }
@@ -661,7 +661,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '|': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '|': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Or)
       }
@@ -673,7 +673,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     case '!': {
       lex_next(lexer);
       // ! or !=
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompNotEqual)
       }
@@ -685,7 +685,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     case '=': {
       lex_next(lexer);
       // = or == or =>
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompEqual)
       }
@@ -699,7 +699,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '<': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompLessEqual)
       }
@@ -710,7 +710,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '>': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompGreaterEqual)
       }
@@ -721,7 +721,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '+': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '+': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Posit)
       }
@@ -735,7 +735,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '-': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '-': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Negate)
       }
@@ -752,7 +752,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '*': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignMul)
       }
@@ -763,7 +763,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '/': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignDiv)
       }
@@ -774,7 +774,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '%': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignMod)
       }
@@ -785,7 +785,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case ':': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case ':': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_ScopeResolution)
       }
@@ -799,7 +799,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     case '.': {
       lex_next(lexer);
-      switch (lex_peek(lexer)) {
+      switch (LEX_PEEK(lexer)) {
       case '.': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Rest)
       }
@@ -846,7 +846,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
     default: {
       *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_peekSpan(lexer), DSK_Error, "lexer unrecognized character");
+          lex_getSpan(lexer), DSK_Error, "lexer unrecognized character");
       NEXT_AND_RETURN_RESULT_TOKEN(tk_None)
     }
     }

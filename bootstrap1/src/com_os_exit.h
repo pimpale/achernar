@@ -6,7 +6,7 @@
 
 #include "com_define.h"
 
-void attr_NORETURN com_os_exit_abnormal(i32 code);
+void attr_NORETURN com_os_exit_abort(i32 code);
 void attr_NORETURN com_os_exit(i32 code);
 
 #endif

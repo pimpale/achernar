@@ -1,5 +1,5 @@
-#ifndef COM_ENSURE_H
-#define COM_ENSURE_H
+#ifndef COM_ASSERT_H
+#define COM_ASSERT_H
 
 #include "com_define.h"
 
@@ -13,17 +13,17 @@
  * GUARANTEES: will attempt to terminate the program execution and print a human readable error message
  * GUARANTEES: returns false if the program execution was unable to terminate
  */
-bool attr_NORETURN com_ensure_fail(const char* condition, const char *message, const char* file, const u64 line, const char* function);
+bool attr_NORETURN com_assert_fail(const char* condition, const char *message, const char* file, const u64 line, const char* function);
 
 /* 
- * If `expr` evaluates to false, will invoke `com_ensure_fail`
+ * If `expr` evaluates to false, will invoke `com_assert_fail`
  * REQUIRES: `expr` is a valid C expression returning a boolean
  * REQUIRES: `failmsg` is a null terminated string
- * GUARANTEES: when `expr` is false, `com_ensure_fail` will be evaluated
+ * GUARANTEES: when `expr` is false, `com_assert_fail` will be evaluated
  */
-#define com_ensure_m(expr, failmsg) ((expr) \
+#define com_assert_m(expr, failmsg) ((expr) \
             ? true \
-            : com_ensure_fail(#expr, (failmsg), __FILE__, __LINE__, __func__))
+            : com_assert_fail(#expr, (failmsg), __FILE__, __LINE__, __func__))
 
 
 #endif

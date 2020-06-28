@@ -24,5 +24,13 @@ void com_mem_zero(void* ptr, const usize len);
  */
 void com_mem_set(void* ptr, const usize len, const u8 byte);
 
+/* copies `n` bytes of memory from `src` to `dest` (even if they overlap)
+ * REQUIRES: `dest` is a valid pointer to at least `n` bytes of memory
+ * REQUIRES: `src` is a valid pointer to at least `n` bytes of memory
+ * REQUIRES: `n` is a digit representing the number of bytes to copy from `src` to `dest`
+ * GUARANTEES: the first `n` bytes at `dest` are identical to the first `n` bytes at `src`
+ */
+void com_mem_move(void* dest, const void* src, usize n);
+
 #endif
 

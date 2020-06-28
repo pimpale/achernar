@@ -18,6 +18,7 @@
 // TODO do ifdef cancer
 #include <stddef.h>
 #define usize size_t
+#define isize ptrdiff_t
 
 
 // TODO do ifdef cancer

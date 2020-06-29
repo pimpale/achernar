@@ -38,18 +38,18 @@ typedef struct com_Allocator_s {
   void* _allocator_backing;
 
   // com_allocator_Handle allocate(void* backing, handleData options) 
-  com_allocator_Handle(*_allocator_fn)(void*, com_allocator_HandleData);
+  com_allocator_Handle(*_allocator_fn)(const com_Allocator*, com_allocator_HandleData);
   // void deallocate(void* backing, MemHandle h) 
-  void (*_deallocator_fn)(void*, com_allocator_Handle);
+  void (*_deallocator_fn)(com_allocator_Handle);
   // com_allocator_Handle realloc(void* backing, com_allocator_Handle hndl, usize len) 
-  com_allocator_Handle(*_reallocator_fn)(void*, com_allocator_Handle, usize);
+  com_allocator_Handle(*_reallocator_fn)(com_allocator_Handle, usize);
   // void* get(void* backing, com_allocator_Handle handle);
-  void* (*_get_fn)(void*, com_allocator_Handle);
+  void* (*_get_fn)(const com_allocator_Handle);
   // void* query(void* backing, com_allocator_Handle handle);
-  com_allocator_HandleData (*_query_fn)(void*, com_allocator_Handle);
+  com_allocator_HandleData (*_query_fn)(const com_allocator_Handle);
 
   // void* destroy_allocator(void* backing)
-  void (*_destroy_allocator_fn)(void*);
+  void (*_destroy_allocator_fn)(com_Allocator*);
 } com_Allocator;
 
 /** flags that are enabled by default for an allocator (cannot be disabled)

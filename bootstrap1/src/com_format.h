@@ -18,6 +18,17 @@ typedef enum {
   com_format_HEX_UPPER= 1<<4,
 } com_format_Flags;
 
+typedef struct {
+    // char to print on the left side if the length of the printed string is less than `min_width`
+    u8 pad_char;
+    // the minimum number of bytes to pad up to
+    u32 min_width;
+} com_format_PadData;
+
+#define com_format_NO_PADDING ((com_format_PadData) { .pad_char=' ', .min_width=0})
+#define com_format_ZERO_PADDING(len) ((com_format_PadData) { .pad_char='0', .min_width=(len)})
+#define com_format_SPACE_PADDING(len) ((com_format_PadData) { .pad_char=' ', .min_width=(len)})
+
 /** Interprets `data` as a char and appends it to `builder` without escaping
  * REQUIRES: `builder` is a pointer to a valid vector of u8s
  * GUARANTEES: `data` will be interpreted as an ascii character and appended to the builder
@@ -35,19 +46,23 @@ void com_format_str(com_vec* builder, const com_str data);
 /** Converts `data` to a string format with radix `radix` and then append to builder
  * REQUIRES: `builder` is a valid pointer to a valid com_vec
  * REQUIRES: `flags` is a valid com_format_Flags object
+ * REQUIRES: `pad_data` is a valid com_format_PadData object
  * REQUIRES: `radix` > 1 && `radix` <= 36
  * GUARANTEES: will losslessly append data to `builder`
  */
-void com_format_i64(com_vec* builder, u8 radix, i64 data, com_format_Flags flags, u8 min_width, u8 pad_char);
-void com_format_u64(com_vec* builder, u8 radix, u64 data, com_format_Flags flags, u8 min_width, u8 pad_char);
-void com_format_f32(com_vec* builder, u8 radix, f32 data, com_format_Flags flags, u8 min_width, u8 pad_char);
-void com_format_f64(com_vec* builder, u8 radix, f64 data, com_format_Flags flags, u8 min_width, u8 pad_char);
+void com_format_i64(com_vec* builder, u8 radix, i64 data, com_format_Flags flags, com_format_PadData pad_data);
+void com_format_u64(com_vec* builder, u8 radix, u64 data, com_format_Flags flags, com_format_PadData pad_data);
+
+
+
+void com_format_f32(com_vec* builder, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data);
+void com_format_f64(com_vec* builder, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data);
 
 // may be lossy
 // TODO: write full description from wikipedia
 //  https://en.wikipedia.org/wiki/Printf_format_string
-void com_format_f32_exp(com_vec* builder, u8 radix, f32 data, com_format_Flags flags);
-void com_format_f64_exp(com_vec* builder, u8 radix, f64 data, com_format_Flags flags);
+void com_format_f32_exp(com_vec* builder, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
+void com_format_f64_exp(com_vec* builder, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
 
 /** Interprets `data` as a char and appends it to `builder` escaping non plaintext characters
  * REQUIRES: `builder` is a pointer to a valid vector of u8s

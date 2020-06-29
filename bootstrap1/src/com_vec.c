@@ -17,7 +17,7 @@ void com_vec_resize(com_vec *vector, size_t size);
 void com_vec_setCapacity(com_vec *vector, size_t size) {
   vector->_handle = com_allocator_handle_realloc(vector->_handle, size);
 
-  // com_vec  fails on allocation failure
+  // com_vec fails on allocation failure
   com_assert_m(vector->_handle.valid, "allocation failure");
 
   vector->_capacity = size;

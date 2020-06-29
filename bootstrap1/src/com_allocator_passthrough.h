@@ -8,17 +8,12 @@
 #include "com_allocator.h"
 
 typedef struct  {
-  // if the allocator has been destroyed or not
   bool _allocator_valid;
-  // if the given input is still valid
   bool _input_valid;
-  // if the given input has been used yet
   bool _input_used;
-  // pointer from given input
+  com_allocator_Flags _input_flags;
   void* _input_ptr;
-  // the original length provided
   usize _original_input_len;
-  // the length that may be reallocated
   usize _input_len;
 } com_allocator_passthrough_Backing;
 

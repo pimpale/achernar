@@ -40,7 +40,7 @@ typedef struct com_Allocator_s {
   // com_allocator_Handle allocate(void* backing, handleData options) 
   com_allocator_Handle(*_allocator_fn)(const com_Allocator*, com_allocator_HandleData);
   // void deallocate(void* backing, MemHandle h) 
-  void (*_deallocator_fn)(com_allocator_Handle);
+  void (*_deallocator_fn)(const com_allocator_Handle);
   // com_allocator_Handle realloc(void* backing, com_allocator_Handle hndl, usize len) 
   com_allocator_Handle(*_reallocator_fn)(com_allocator_Handle, usize);
   // void* get(void* backing, com_allocator_Handle handle);

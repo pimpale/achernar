@@ -14,6 +14,8 @@ typedef enum {
   // if true will display minus
   // ignored for unsigned
   com_format_MINUS_VISIBLE = 1<<3,
+  // which direction to pad in
+  com_format_HEX_UPPER= 1<<4,
 } com_format_Flags;
 
 /** Interprets `data` as a char and appends it to `builder` without escaping
@@ -33,15 +35,19 @@ void com_format_str(com_vec* builder, const com_str data);
 /** Converts `data` to a string format with radix `radix` and then append to builder
  * REQUIRES: `builder` is a valid pointer to a valid com_vec
  * REQUIRES: `flags` is a valid com_format_Flags object
+ * REQUIRES: `radix` > 1 && `radix` <= 36
  * GUARANTEES: will losslessly append data to `builder`
  */
-void com_format_i64(com_vec* builder, u8 radix, i64 data, com_format_Flags flags);
-void com_format_u64(com_vec* builder, u8 radix, u64 data, com_format_Flags flags);
-void com_format_f32(com_vec* builder, u8 radix, f32 data, com_format_Flags flags);
-void com_format_f64(com_vec* builder, u8 radix, f64 data, com_format_Flags flags);
+void com_format_i64(com_vec* builder, u8 radix, i64 data, com_format_Flags flags, u8 min_width, u8 pad_char);
+void com_format_u64(com_vec* builder, u8 radix, u64 data, com_format_Flags flags, u8 min_width, u8 pad_char);
+void com_format_f32(com_vec* builder, u8 radix, f32 data, com_format_Flags flags, u8 min_width, u8 pad_char);
+void com_format_f64(com_vec* builder, u8 radix, f64 data, com_format_Flags flags, u8 min_width, u8 pad_char);
+
+// may be lossy
+// TODO: write full description from wikipedia
+//  https://en.wikipedia.org/wiki/Printf_format_string
 void com_format_f32_exp(com_vec* builder, u8 radix, f32 data, com_format_Flags flags);
 void com_format_f64_exp(com_vec* builder, u8 radix, f64 data, com_format_Flags flags);
-
 
 /** Interprets `data` as a char and appends it to `builder` escaping non plaintext characters
  * REQUIRES: `builder` is a pointer to a valid vector of u8s

@@ -12,46 +12,10 @@
 // GLORIOUS UTILS
 // defined behavior for all values of val
 
-uint64_t j_safe_abs(int64_t val) {
-  if(val < 0) {
-    return (uint64_t) -val;
-  } else {
-    return (uint64_t) val;
-  }
-}
 
 #define UNUSED __attribute__ ((unused))
 #define ERROR(k, l) ((j_Error){.kind = k, .loc = l})
 
-
-// Convert from int to string
-static void j_emitInt(Vector *vptr, j_Int val) {
-  // handle negative numbers
-  if (val.negative) {
-    *VEC_PUSH(vptr, char) = '-';
-  }
-  //buffer to push
-  char buffer[30];
-
-  uint64_t digit = val.integer;
-  int64_t index = 0;
-  while (index < 30) {
-    int8_t rem = digit % 10;
-    buffer[index] = '0' + rem;
-    digit /= 10;
-    if (digit == 0) {
-      break;
-    }
-    index++;
-  }
-
-  // push buffer in reverse order
-  while(index >= 0) {
-    j_unchecked_emitChar(vptr, buffer[index]);
-    index--;
-  }
-
-}
 
 static void j_emitNum(Vector *vptr, double number) {
   // up to 328 digits in a float

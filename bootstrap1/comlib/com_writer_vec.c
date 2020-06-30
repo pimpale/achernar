@@ -1,0 +1,37 @@
+#include "com_writer_vec.h"
+#include "com_mem.h"
+#include "com_assert.h"
+
+bool append_u8_fn(const com_writer *w, const u8 data) {
+  com_vec* v = w->_backing;
+  *com_vec_push_m(v, u8) = data;
+  return true;
+}
+
+usize append_str_fn(const com_writer *w, const com_str data) {
+    com_vec * v = w->_backing;
+    com_mem_move(com_vec_push(v, data.len), data.data, data.len);
+    return data.len;
+}
+
+usize attr_NORETURN query_fn(const com_writer* w) {
+    com_assert_unreachable_m("vec writer does not support querying for length");
+}
+
+void destroy_fn(com_writer* w) {
+    w->_valid = false;
+}
+
+com_writer com_writer_vec_create(com_vec* backing) {
+  return (com_writer) {
+      ._valid = true,
+      ._default_flags = com_writer_FLAGS_NONE,
+      ._supported_flags = com_writer_FLAGS_NONE,
+      ._used_flags = com_writer_FLAGS_NONE,
+      ._backing = backing,
+      ._append_str_fn = append_str_fn,
+      ._append_u8_fn = append_u8_fn,
+      ._query_fn = query_fn,
+      ._destroy_fn = destroy_fn
+  };
+}

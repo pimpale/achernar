@@ -34,6 +34,8 @@ typedef struct {
 } com_allocator_HandleData;
 
 typedef struct com_Allocator_s {
+  bool _valid;
+
   com_allocator_Flags _default_flags;
   com_allocator_Flags _supported_flags;
 

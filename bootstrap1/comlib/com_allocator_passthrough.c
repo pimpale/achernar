@@ -5,10 +5,9 @@
 static com_allocator_Handle handle_allocator_fn(const com_Allocator *allocator,
                                                 com_allocator_HandleData data) {
 
-  com_allocator_passthrough_Backing *backing = allocator->_allocator_backing;
+  com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // do checks
-  com_assert_m(backing->_allocator_valid, "allocator is invalid");
   com_assert_m(backing->_input_used,
                "already allocated from this passthrough allocator");
   com_assert_m(backing->_input_valid,
@@ -32,10 +31,9 @@ static com_allocator_Handle handle_allocator_fn(const com_Allocator *allocator,
 void handle_deallocator_fn(const com_allocator_Handle handle) {
   // get allocator and backing
   const com_Allocator *allocator = handle._allocator;
-  com_allocator_passthrough_Backing *backing = allocator->_allocator_backing;
+  com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // perform checks
-  com_assert_m(backing->_allocator_valid, "allocator is invalid");
   com_assert_m(!backing->_input_used,
                "haven't yet allocated from this passthrough allocator, so "
                "impossible to dealloc yet");
@@ -50,10 +48,7 @@ static com_allocator_Handle handle_reallocator_fn(com_allocator_Handle handle,
 
   // get allocator and backing
   const com_Allocator *allocator = handle._allocator;
-  com_allocator_passthrough_Backing *backing = allocator->_allocator_backing;
-
-  // check allocator is valid
-  com_assert_m(backing->_allocator_valid, "allocator is invalid");
+  com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // check that we've allocated an id yet
   com_assert_m(backing->_input_used, "haven't allocated a handle yet");
@@ -82,10 +77,9 @@ static com_allocator_Handle handle_reallocator_fn(com_allocator_Handle handle,
 static void *handle_get_fn(const com_allocator_Handle handle) {
   // get allocator and backing
   const com_Allocator *allocator = handle._allocator;
-  com_allocator_passthrough_Backing *backing = allocator->_allocator_backing;
+  com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // perform checks
-  com_assert_m(backing->_allocator_valid, "allocator is invalid");
   com_assert_m(!backing->_input_used,
                "haven't yet allocated from this passthrough allocator, so "
                "impossible to get yet");
@@ -98,10 +92,9 @@ static com_allocator_HandleData
 handle_query_fn(const com_allocator_Handle handle) {
   // get allocator and backing
   const com_Allocator *allocator = handle._allocator;
-  com_allocator_passthrough_Backing *backing = allocator->_allocator_backing;
+  com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // perform checks
-  com_assert_m(backing->_allocator_valid, "allocator is invalid");
   com_assert_m(!backing->_input_used,
                "haven't yet allocated from this passthrough allocator, so "
                "impossible to get yet");
@@ -112,27 +105,25 @@ handle_query_fn(const com_allocator_Handle handle) {
 }
 
 static void destroy_fn(com_Allocator *allocator) {
-  com_allocator_passthrough_Backing *backing = allocator->_allocator_backing;
-
-  com_assert_m(backing->_allocator_valid, "allocator is already invalid");
-  backing->_allocator_valid = false;
+  com_allocator_passthrough_Backing *backing = allocator->_backing;
+  allocator->_valid = false;
 }
 
 com_Allocator
 com_allocator_passthrough(void *ptr, usize len,
                           com_allocator_passthrough_Backing *backing_storage) {
   *backing_storage =
-      (com_allocator_passthrough_Backing){._allocator_valid = true,
-                                          ._input_valid = true,
+      (com_allocator_passthrough_Backing){._input_valid = true,
                                           ._input_used = false,
                                           ._input_ptr = ptr,
                                           ._original_input_len = len,
                                           ._input_len = len};
   return (com_Allocator){
       // user is responsible for cleaning up data
-      ._default_flags = com_allocator_Persistent | com_allocator_Reallocable,
-      ._supported_flags = com_allocator_Persistent | com_allocator_Reallocable,
-      ._allocator_backing = backing_storage,
+      ._valid = true,
+      ._default_flags = com_allocator_PERSISTENT | com_allocator_REALLOCABLE,
+      ._supported_flags = com_allocator_PERSISTENT | com_allocator_REALLOCABLE,
+      ._backing = backing_storage,
       ._allocator_fn = handle_allocator_fn,
       ._deallocator_fn = handle_deallocator_fn,
       ._reallocator_fn = handle_reallocator_fn,

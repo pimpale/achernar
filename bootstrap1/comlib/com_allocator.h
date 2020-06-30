@@ -38,7 +38,7 @@ typedef struct com_Allocator_s {
   com_allocator_Flags _supported_flags;
 
   // Opaque pointer to reallocator backend
-  void* _allocator_backing;
+  void* _backing;
 
   // com_allocator_Handle allocate(void* backing, handleData options) 
   com_allocator_Handle(*_allocator_fn)(const com_Allocator*, com_allocator_HandleData);

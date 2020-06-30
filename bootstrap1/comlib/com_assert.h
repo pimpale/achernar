@@ -23,7 +23,7 @@ bool attr_NORETURN com_assert_fail(const u8* condition, const u8 *message, const
  */
 #define com_assert_m(expr, failmsg) ((expr) \
             ? true \
-            : com_assert_fail(#expr, (failmsg), __FILE__, __LINE__, __func__))
+            : com_assert_fail((u8*)(#expr), (u8*)(failmsg), (u8*)__FILE__, __LINE__, (u8*)__func__))
 
 
 #endif

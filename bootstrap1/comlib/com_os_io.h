@@ -20,7 +20,6 @@ typedef enum {
 
 typedef u32 com_os_io_Flags;
 
-
 typedef struct {
   bool valid;
   u32 _id;

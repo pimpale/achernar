@@ -13,7 +13,9 @@ bool append_u8_fn(const com_writer *w, const u8 data) {
   com_writer_str_backing *backing = w->_backing;
 
   // check write ok
-  com_assert_m(query_fn(w) >= 1, "buffer overflow");
+  if(query_fn(w) == 0) {
+    return false;
+  }
 
   // update data
   backing->_str->data[backing->_index] = data;
@@ -26,6 +28,7 @@ usize append_str_fn(const com_writer *w, const com_str data) {
   com_writer_str_backing *backing = w->_backing;
 
   // check write ok
+
   com_assert_m(query_fn(w) >= data.len, "buffer overflow");
 
   // update data
@@ -33,6 +36,10 @@ usize append_str_fn(const com_writer *w, const com_str data) {
   com_mem_move(&dest->data[backing->_index], data.data, data.len);
   backing->_index += data.len;
   return data.len;
+}
+
+void attr_NORETURN flush_fn(attr_UNUSED const com_writer *w) {
+  com_assert_unreachable_m("str_writer does not support flushing");
 }
 
 void destroy_fn(com_writer *w) {
@@ -47,13 +54,14 @@ com_writer com_writer_str_create(com_str* destination, usize offset, com_writer_
   };
   return (com_writer) {
       ._valid = true,
-      ._default_flags = com_writer_BYTES_LIMITED,
-      ._supported_flags = com_writer_BYTES_LIMITED,
-      ._used_flags = com_writer_BYTES_LIMITED,
+      ._default_flags = com_writer_LIMITED,
+      ._supported_flags = com_writer_LIMITED,
+      ._used_flags = com_writer_LIMITED,
       ._backing = backing,
       ._append_str_fn = append_str_fn,
       ._append_u8_fn = append_u8_fn,
       ._query_fn = query_fn,
+      ._flush_fn = flush_fn,
       ._destroy_fn = destroy_fn
   };
 }

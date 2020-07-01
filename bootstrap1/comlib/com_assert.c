@@ -1,33 +1,27 @@
 #include "com_assert.h"
-#include "com_os_exit.h"
-#include "com_os_io.h"
 #include "com_format.h"
+#include "com_os_exit.h"
+#include "com_os_io_out.h"
 
-#include "com_allocator_passthrough.h"
-#include "com_vec.h"
+static void write_quoted(com_writer* writer, com_str str) {
+  com_format_u8_char(writer, '\"');
+  com_format_str_checked(writer, str);
+  com_format_u8_char(writer, '\"');
+}
 
+bool attr_NORETURN com_assert_fail(com_str condition, com_str message, com_str file,
+                                   u64 line, com_str function) {
 
-#define com_assert_BUFFER_SIZE 1024
+  com_writer err = com_os_io_err_writer_create();
 
-bool attr_NORETURN com_assert_fail(const u8* condition, const u8* message, const u8* file, const u64 line, const u8* function) {
-  // define backing buffer
-  u8* buffer[com_assert_BUFFER_SIZE];
+  com_format_u8_char(&err, '{');
+  write_quoted(&err, com_str_lit_m("kind"));
+  com_format_u8_char(&err, ':');
+  write_quoted(&err, com_str_lit_m("assertion_failure"));
+  com_format_u8_char(&err, ',');
+  com_format_str_checked(&err, com_str_asciiz(condition));
+  com_format_u8_char(&err, '{');
+  com_format_u8_char(&err, '}');
 
-  // create passthrough allocator to use static array
-  com_allocator_passthrough_Backing backing;
-  com_Allocator palctr= com_allocator_passthrough(buffer, com_assert_BUFFER_SIZE, &backing);
-
-  // create vector
-  com_vec builder = com_vec_create(com_allocator_handle_create(&palctr, (com_allocator_HandleData) {
-      .len=com_assert_BUFFER_SIZE,
-      .flags=com_allocator_defaults(&palctr)
-  }));
-
-  // TODO write filesystem interface
-
-  com_format_str(&builder, com_str_from_literal_m("{"));
-  com_format_str
-  com_format_str(&builder, com_str_from_literal_m("}"));
-
-  com_os_exit_abort(1);
+  com_os_exit_panic(1);
 }

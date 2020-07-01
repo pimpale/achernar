@@ -18,6 +18,11 @@ usize attr_NORETURN query_fn(const com_writer* w) {
     com_assert_unreachable_m("vec writer does not support querying for length");
 }
 
+void attr_NORETURN flush_fn(const com_writer* w) {
+    com_assert_unreachable_m("vec writer does not support flushing");
+}
+
+
 void destroy_fn(com_writer* w) {
     w->_valid = false;
 }
@@ -32,6 +37,7 @@ com_writer com_writer_vec_create(com_vec* backing) {
       ._append_str_fn = append_str_fn,
       ._append_u8_fn = append_u8_fn,
       ._query_fn = query_fn,
+      ._flush_fn = flush_fn,
       ._destroy_fn = destroy_fn
   };
 }

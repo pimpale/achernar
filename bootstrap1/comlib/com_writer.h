@@ -7,8 +7,14 @@
 typedef enum {
   // no flags for this writer
   com_writer_FLAGS_NONE = 0,
-  // can get how many bytes can still be written
-  com_writer_BYTES_LIMITED  = 1<<1,
+  // Means that unlimited writing is not permitted
+  // There is a fixed amount of space to write to
+  // If a writer has this flag enabled, it must be able to query how many bytes can still be written
+  com_writer_LIMITED  = 1<<1,
+  // whether the  writer is buffered (uses an internal buffer to speed up writing to the underlying resource)
+  // Solely memory based writers donn't need this flag, because there's no need to `lush` them
+  // If this flag is enabled, the writer must support the `flush` operation
+  com_writer_BUFFERED = 1 << 2,
 } com_writer_Flag;
 
 typedef u32 com_writer_Flags;
@@ -18,7 +24,6 @@ typedef struct com_writer_s com_writer;
 
 typedef struct com_writer_s {
     bool _valid;
-    // default and supported flags for this writer
     com_writer_Flags _default_flags;
     com_writer_Flags _supported_flags;
 
@@ -34,6 +39,9 @@ typedef struct com_writer_s {
 
     // query how many bytes are available in the underlying resource
     usize (*_query_fn)(const com_writer*);
+
+    // flush to underlying resource
+    void  (*_flush_fn)(const com_writer*);
 
     // destroy writer wrapper
     void (*_destroy_fn)(com_writer*);
@@ -56,7 +64,7 @@ com_writer_Flags com_writer_supports(const com_writer *w);
 /** appends `data.len` bytes of `data` to the writer `w`
  * REQUIRES: `data` is a valid com_str
  * REQUIRES: `w` is a valid pointer to a valid com_writer
- * REQUIRES: if the underlying resource supports `com_writer_BYTES_LIMITED`, then `com_writer_query(w)` >= `data.len`
+ * REQUIRES: if the underlying resource supports `com_writer_LIMITED`, then `com_writer_query(w)` >= `data.len`
  * GUARANTEES: the behaviour of this method is identical to repeatedly calling `append_u8`
  * GUARANTEES: will stop writing on an the first error encountered
  * GUARANTEES: returns the number of bytes successfully written
@@ -66,7 +74,7 @@ usize com_writer_append_str(const com_writer* w, const com_str data);
 
 /** appends `u8` to the writer `w`
  * REQUIRES: `w` is a valid pointer to a valid com_writer
- * REQUIRES: if the underlying resource supports `com_writer_BYTES_LIMITED` then `com_writer_query(w)` > 0
+ * REQUIRES: if the underlying resource supports `com_writer_LIMITED` then `com_writer_query(w)` > 0
  * GUARANTEES: writes `data` to `w`
  * GUARANTEES: if the operation succeeds, will return true
  * GUARANTEES: if the operation fails, will return false
@@ -75,10 +83,17 @@ bool com_writer_append_u8(const com_writer* w, const u8 data);
 
 /** query how many bytes are available in the underlying resource (if applicable)
  * REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
- * REQUIRES: `w` must support `com_writer_BYTES_LIMITED`
+ * REQUIRES: `w` must support `com_writer_LIMITED`
  * GUARANTEES: returns how many more bytes may safely be written to the writer
  */
 usize com_writer_query(const com_writer *w);
+
+/** flush all buffered changes to the underlying resource (if applicable)
+ * REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
+ * REQUIRES: `w` must support `com_writer_BUFFERED`
+ * GUARANTEES: all writes made will be flushed from the buffer and into the underlying resource
+ */
+void com_writer_flush(const com_writer *w);
 
 /** destroys the writer
  * REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`

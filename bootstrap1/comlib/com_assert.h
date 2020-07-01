@@ -2,7 +2,9 @@
 #define COM_ASSERT_H
 
 #include "com_define.h"
+#include "com_str.h"
 
+// clang-format off
 /**
  * Displays an error message to stderr and terminates the program with `com_os_exit_panic()`
  * REQUIRES: `condition` is a null terminated string containing the text of the expression evaluating to false
@@ -13,7 +15,7 @@
  * GUARANTEES: will attempt to terminate the program execution and print a human readable error message
  * GUARANTEES: returns false if the program execution was unable to terminate
  */
-bool attr_NORETURN com_assert_fail(const u8* condition, const u8 *message, const u8* file, const u64 line, const u8* function);
+bool attr_NORETURN com_assert_fail(com_str condition, com_str message, com_str file, u64 line, com_str function);
 
 /**
  * Displays an error message and terminates the program with `com_os_abort`
@@ -23,7 +25,7 @@ bool attr_NORETURN com_assert_fail(const u8* condition, const u8 *message, const
  * REQUIRES: `line` is the number of the line this expression was at
  * GUARANTEES: will attempt to output this data in a human readable format and then terminate the program using `com_os_exit_panic()` 
  */
-void attr_NORETURN com_assert_unreachable(const u8* message, const u8* file, const u64 line, const u8* function);
+void attr_NORETURN com_assert_unreachable(com_str message, com_str file, u64 line, com_str function);
 
 /**
  * If `expr` evaluates to false, will invoke `com_assert_fail()` with local values
@@ -31,16 +33,21 @@ void attr_NORETURN com_assert_unreachable(const u8* message, const u8* file, con
  * REQUIRES: `failmsg` is a null terminated string
  * GUARANTEES: when `expr` is false, `com_assert_fail` will be evaluated
  */
-#define com_assert_m(expr, failmsg) ((expr) \
-            ? true \
-            : com_assert_fail((u8*)(#expr), (u8*)(failmsg), (u8*)__FILE__, __LINE__, (u8*)__func__))
 
+// clang-format on
 
-/** 
+#define com_assert_m(expr, failmsg)                                            \
+  ((expr) ? true                                                               \
+          : com_assert_fail(com_str_lit_m(#expr), com_str_lit_m(failmsg),      \
+                            com_str_lit_m(__FILE__), __LINE__,                 \
+                            com_str_lit_m(__func__)))
+
+/**
  * Will invoke `com_assert_unreachable()` with local values
  * REQUIRES: `failmsg` is a null terminated string
  */
-#define com_assert_unreachable_m(failmsg) com_assert_unreachable((u8*)(failmsg), (u8*)__FILE__, __LINE__, (u8*)__func__)
+#define com_assert_unreachable_m(failmsg)                                      \
+  com_assert_unreachable(com_str_lit_m(failmsg), com_str_lit_m(__FILE__),      \
+                         __LINE__, com_str_lit_m(__func__))
 
 #endif
-

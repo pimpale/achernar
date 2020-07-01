@@ -3,7 +3,7 @@
 
 #include "com_define.h"
 #include "com_allocator.h"
-#include "com_vec.h"
+#include "com_writer.h"
 #include "com_str.h"
 
 typedef enum {
@@ -31,44 +31,44 @@ typedef struct {
 #define com_format_ZERO_PADDING(len) ((com_format_PadData) { .pad_char='0', .min_width=(len)})
 #define com_format_SPACE_PADDING(len) ((com_format_PadData) { .pad_char=' ', .min_width=(len)})
 
-/** Interprets `data` as a char and appends it to `builder` without escaping
- * REQUIRES: `builder` is a pointer to a valid vector of u8s
- * GUARANTEES: `data` will be interpreted as an ascii character and appended to the builder
+/** Interprets `data` as a char and appends it to `w` without escaping
+ * REQUIRES: `w` is a pointer to a valid vector of u8s
+ * GUARANTEES: `data` will be interpreted as an ascii character and appended to the w
  */
-void com_format_u8_char(com_vec* builder, u8 data);
-/** Appends the contents of `data` to `builder` by copying
- * REQUIRES: `builder` is a valid pointer to a valid com_vec
+void com_format_u8_char(com_writer* w, u8 data);
+/** Appends the contents of `data` to `w` by copying
+ * REQUIRES: `w` is a valid pointer to a valid com_writer
  * REQUIRES: `data` is a valid pointer to a valid `com_str`
  * GUARANTEES: `data` is unaltered
- * GUARANTEES: `builder` is data->len bytes longer
- * GUARANTEES: the `data->len` bytes of the contents of `data` are appended to `builder`
+ * GUARANTEES: `w` is data->len bytes longer
+ * GUARANTEES: the `data->len` bytes of the contents of `data` are appended to `w`
  */
-void com_format_str(com_vec* builder, const com_str data);
+void com_format_str(com_writer* w, const com_str data);
 
-/** Converts `data` to a string format with radix `radix` and then append to builder
- * REQUIRES: `builder` is a valid pointer to a valid com_vec
+/** Converts `data` to a string format with radix `radix` and then append to w
+ * REQUIRES: `w` is a valid pointer to a valid com_writer
  * REQUIRES: `flags` is a valid com_format_Flags object
  * REQUIRES: `pad_data` is a valid com_format_PadData object
  * REQUIRES: `radix` > 1 && `radix` <= 36
- * GUARANTEES: will losslessly append data to `builder`
+ * GUARANTEES: will losslessly append data to `w`
  */
-void com_format_i64(com_vec* builder, u8 radix, i64 data, com_format_Flags flags, com_format_PadData pad_data);
-void com_format_u64(com_vec* builder, u8 radix, u64 data, com_format_Flags flags, com_format_PadData pad_data);
+void com_format_i64(com_writer* w, u8 radix, i64 data, com_format_Flags flags, com_format_PadData pad_data);
+void com_format_u64(com_writer* w, u8 radix, u64 data, com_format_Flags flags, com_format_PadData pad_data);
 
 
 
-void com_format_f32(com_vec* builder, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data);
-void com_format_f64(com_vec* builder, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data);
+void com_format_f32(com_writer* w, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data);
+void com_format_f64(com_writer* w, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data);
 
 // may be lossy
 // TODO: write full description from wikipedia
 //  https://en.wikipedia.org/wiki/Printf_format_string
-void com_format_f32_exp(com_vec* builder, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
-void com_format_f64_exp(com_vec* builder, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
+void com_format_f32_exp(com_writer* w, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
+void com_format_f64_exp(com_writer* w, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
 
-/** Interprets `data` as a char and appends it to `builder` escaping non plaintext characters
- * REQUIRES: `builder` is a pointer to a valid vector of u8s
- * GUARANTEES: `data` will be interpreted as an ascii character and appended to the builder, with exceptions for:
+/** Interprets `data` as a char and appends it to `w` escaping non plaintext characters
+ * REQUIRES: `w` is a pointer to a valid vector of u8s
+ * GUARANTEES: `data` will be interpreted as an ascii character and appended to the w, with exceptions for:
  * \b
  * \f
  * \n
@@ -78,16 +78,16 @@ void com_format_f64_exp(com_vec* builder, u8 radix, f64 data, com_format_Flags f
  * \
  * And any character under 0x1F
  */
-void com_format_u8_char_checked(com_vec* builder, u8 data); 
+void com_format_u8_char_checked(com_writer* w, u8 data); 
 // does the same thing but for a string
-void com_format_str_checked(com_vec* builder, const com_str data);
+void com_format_str_checked(com_writer* w, const com_str data);
 
-/** Converts a utf code point to characters and puts it into `builder`
+/** Converts a utf code point to characters and puts it into `w`
  * REQUIRES: `utf` is a valid utf codepoint
- * REQUIRES: `builder` is a valid pointer to a valid com_vec
- * GUARANTEES: `utf` will be converted into utf8 and appended to builder
+ * REQUIRES: `w` is a valid pointer to a valid com_writer
+ * GUARANTEES: `utf` will be converted into utf8 and appended to w
  */
-void com_format_append_utf_codepoint(com_vec* builder, u32 utf);
+void com_format_append_utf_codepoint(com_writer* w, u32 utf);
 
 
 #endif

@@ -43,7 +43,7 @@ void *com_vec_release(com_vec *vec);
  * GUARANTEES: until the subsequent operation, return value will be a valid
  *             pointer to the `loc`'th byte of the vector's data
  */
-void *com_vec_get(com_vec *vec, size_t loc);
+void *com_vec_get(com_vec *vec, usize loc);
 
 /// Inserts `len` bytes of memory
 /// REQUIRES: `vec` is a pointer to a a valid com_vec
@@ -53,7 +53,7 @@ void *com_vec_get(com_vec *vec, size_t loc);
 /// GUARANTEES: returns a pointer to the `loc`'th byte of `vec`'s data
 /// GUARANTEES: all data previously located at or after `loc` will be moved to
 ///             the right by `len` bytes
-void *com_vec_insert(com_vec *vec, size_t loc, size_t len);
+void *com_vec_insert(com_vec *vec, usize loc, usize len);
 
 /// Removes `len` bytes of memory
 /// If `data` is not NULL, the removed memory will be copied to `data`
@@ -66,7 +66,7 @@ void *com_vec_insert(com_vec *vec, size_t loc, size_t len);
 /// GUARANTEES: vector's byes from [loc, `loc` + len) will be removed
 /// GUARANTEES: the remainder of the vector will be moved backward `len` bytes
 /// GUARANTEES: `len` bytes at data will be overwritten with the removed data
-void com_vec_remove(com_vec *vec, void *data, size_t loc, size_t len);
+void com_vec_remove(com_vec *vec, void *data, usize loc, usize len);
 
 /// Appends `len` bytes of memory to the end of `vec`
 /// REQUIRES: `vec` is a pointer to a valid com_vec
@@ -74,7 +74,7 @@ void com_vec_remove(com_vec *vec, void *data, size_t loc, size_t len);
 ///             bytes of valid memory
 /// GUARANTEES: return value will be located directly after the current last
 ///             byte of `vec`
-void *com_vec_push(com_vec *vec, size_t len);
+void *com_vec_push(com_vec *vec, usize len);
 
 /// Deletes `len` bytes of memory from the end of `vec`
 /// If `data` is not NULL, the removed memory will be copied to `data`
@@ -85,17 +85,17 @@ void *com_vec_push(com_vec *vec, size_t len);
 /// GUARANTEES: the vector's length is decreased by `len` bytes
 /// GUARANTEES: if `data` is NULL, the bytes from the end of the array will be lost
 /// GUARANTEES: if `data` is not NULL, the last `len` bytes from the array will be copied to `data`
-void com_vec_pop(com_vec *vec, void *data, size_t len);
+void com_vec_pop(com_vec *vec, void *data, usize len);
 
 /// Returns the length of `vec`
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// GUARANTEES: returns the current length of the vector in bytes
-size_t com_vec_length(const com_vec *vec);
+usize com_vec_length(const com_vec *vec);
 
 /// Returns the capacity of `vec`
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// GUARANTEES: returns the current capacity of `vec` in bytes
-size_t com_vec_capacity(const com_vec *vec);
+usize com_vec_capacity(const com_vec *vec);
 
 // Appends the contents of src to dest and destroys src
 /// REQUIRES: `dest` is a valid pointer to a valid com_vec
@@ -104,6 +104,14 @@ size_t com_vec_capacity(const com_vec *vec);
 /// GUARANTEES: `dest`'s length is now `dest`'s length + `src`'s length
 /// GUARANTEES: the contents of `src` are appended to `dest`
 void com_vec_append(com_vec* dest, com_vec* src);
+
+// Sets the length of `vec`, potentially deleting from the end or extending
+/// REQUIRES: `vec` is a valid pointer to a valid com_vec
+/// REQUIRES: `len` is the new length of the vector that it will be resized to in bytes
+/// GUARANTEES: `vec` is now `len` bytes long
+/// GUARANTEES: if `vec` is longer than `len` then the extra data will be truncated
+/// GUARANTEES: if `vec` is shorter than `len` then the additional space will be undefined contents
+void com_vec_set_len(com_vec* vec, usize len);
 
 // Releases `vec` and turns it into a string
 // REQUIRES: `vec` is a valid com_vec

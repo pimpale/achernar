@@ -7,12 +7,12 @@
 
 
 #define DEFINE_TYPE(i_type_m)  \
-  i_type_m com_math_##i_type_m##min(i_type_m a, i_type_m b); \
-  i_type_m com_math_##i_type_m##max(i_type_m a, i_type_m b); \
-  i_type_m com_math_##i_type_m##clamp(i_type_m a, i_type_m min, i_type_m max); \
+  i_type_m com_imath_##i_type_m##_min(i_type_m a, i_type_m b); \
+  i_type_m com_imath_##i_type_m##_max(i_type_m a, i_type_m b); \
+  i_type_m com_imath_##i_type_m##_clamp(i_type_m a, i_type_m min, i_type_m max); \
 
 #define IDEFINE_TYPE(i_type_m)  \
-  i_type_m com_math_##i_type_m##abs(i_type_m a); \
+  i_type_m com_imath_##i_type_m##_abs(i_type_m a); \
   DEFINE_TYPE(i_type_m)
 
 

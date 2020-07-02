@@ -6,7 +6,6 @@
 
 #include "com_writer.h"
 
-com_writer com_os_io_out_writer_create(void);
 com_writer com_os_io_err_writer_create(void);
 
 #endif // COM_OS_IO_OUT

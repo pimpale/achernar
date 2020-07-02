@@ -6,26 +6,25 @@
 
 // TODO do ifdef cancer
 #include <stdint.h>
-#define i64 int64_t
-#define u64  uint64_t
-#define i32 int32_t
-#define u32  uint32_t
-#define i16 int16_t
-#define u16 uint16_t
-#define i8 int8_t
-#define u8 uint8_t
+typedef int64_t i64;
+typedef uint64_t u64;
+typedef int32_t i32;
+typedef uint32_t u32;
+typedef int16_t i16;
+typedef uint16_t u16;
+typedef int8_t i8;
+typedef uint8_t u8;
 
 // TODO do ifdef cancer
 #include <stddef.h>
-#define usize size_t
-#define isize ptrdiff_t
-
+typedef size_t usize;
+typedef ptrdiff_t isize;
 
 // TODO do ifdef cancer
-#define f64 double
-#define f32 float
+typedef double f64;
+typedef float f32;
 
-#define attr_UNUSED __attribute__ ((unused))
+#define attr_UNUSED __attribute__((unused))
 #define attr_NORETURN __attribute__((noreturn))
 
 #endif

@@ -3,21 +3,21 @@
 #include "com_imath.h"
 
 #define GEN_TYPE_DEFS(i_type_m)                                                  \
-  i_type_m com_math_##i_type_m##min(i_type_m a, i_type_m b) {                  \
+  i_type_m com_imath_##i_type_m##_min(i_type_m a, i_type_m b) {                  \
     if (a < b) {                                                               \
       return a;                                                                \
     } else {                                                                   \
       return b;                                                                \
     }                                                                          \
   }                                                                            \
-  i_type_m com_math_##i_type_m##max(i_type_m a, i_type_m b) {                  \
+  i_type_m com_imath_##i_type_m##_max(i_type_m a, i_type_m b) {                  \
     if (a > b) {                                                               \
       return a;                                                                \
     } else {                                                                   \
       return b;                                                                \
     }                                                                          \
   }                                                                            \
-  i_type_m com_math_##i_type_m##clamp(i_type_m a, i_type_m min,                \
+  i_type_m com_imath_##i_type_m##_clamp(i_type_m a, i_type_m min,                \
                                       i_type_m max) {                          \
     if (a > max) {                                                             \
       return max;                                                              \
@@ -29,7 +29,7 @@
   }
 
 #define IGEN_TYPE_DEFS(i_type_m)                                                 \
-  i_type_m com_math_##i_type_m##abs(i_type_m a) {                              \
+  i_type_m com_imath_##i_type_m##_abs(i_type_m a) {                              \
     if (a < 0) {                                                               \
       return -a;                                                               \
     } else {                                                                   \

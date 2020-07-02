@@ -1,5 +1,6 @@
 #include "com_writer_str.h"
 #include "com_mem.h"
+#include "com_imath.h"
 #include "com_assert.h"
 
 usize query_fn(const com_writer *w) {
@@ -28,14 +29,16 @@ usize append_str_fn(const com_writer *w, const com_str data) {
   com_writer_str_backing *backing = w->_backing;
 
   // check write ok
+  usize readlen = com_imath_usize_min(query_fn(w), data.len);
 
   com_assert_m(query_fn(w) >= data.len, "buffer overflow");
 
   // update data
   com_str* dest = backing->_str;
-  com_mem_move(&dest->data[backing->_index], data.data, data.len);
-  backing->_index += data.len;
-  return data.len;
+  com_mem_move(&dest->data[backing->_index], data.data, readlen);
+  backing->_index += readlen;
+
+  return readlen;
 }
 
 void attr_NORETURN flush_fn(attr_UNUSED const com_writer *w) {

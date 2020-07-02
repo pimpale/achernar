@@ -24,11 +24,9 @@ typedef struct com_writer_s com_writer;
 
 typedef struct com_writer_s {
     bool _valid;
-    com_writer_Flags _default_flags;
-    com_writer_Flags _supported_flags;
 
     // flags used for this instance of the writer
-    com_writer_Flags _used_flags;
+    com_writer_Flags _flags;
 
     // opaque pointer to the backing of this writer
     void* _backing; 
@@ -52,14 +50,7 @@ typedef struct com_writer_s {
  * REQUIRES: `w` is a valid pointer to a com_writer
  * GUARANTEES: returns flags supported by default by `w`
  */
-com_writer_Flags com_writer_defaults(const com_writer *w);
-
-/** flags that are valid for `w` (may be enabled)
- * REQUIRES: `w` is a valid pointer to a com_writer
- * GUARANTEES: returns flags supported by default by `w`
- */
-com_writer_Flags com_writer_supports(const com_writer *w);
-
+com_writer_Flags com_writer_flags(const com_writer *w);
 
 /** appends `data.len` bytes of `data` to the writer `w`
  * REQUIRES: `data` is a valid com_str

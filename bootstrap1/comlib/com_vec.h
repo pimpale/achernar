@@ -132,5 +132,6 @@ com_str com_vec_to_str(com_vec* vec);
 #define com_vec_push_m(vector, type) ((type *)com_vec_push((vector), sizeof(type)))
 #define com_vec_pop_m(vector, data, type) com_vec_pop(vector, (data), sizeof(type))
 #define com_vec_len_m(vector, type) (com_vec_length(vector) / sizeof(type))
+#define com_vec_set_len_m(vector, len, type) (com_vec_set_len((vector), (len)* sizeof(type))
 
 #endif

@@ -4,7 +4,7 @@
 #include "com_vec.h"
 
 typedef struct {
-  com_Vec _backing;
+  com_vec _backing;
   int64_t _offset;
 } com_Queue;
 
@@ -14,7 +14,7 @@ typedef struct {
 /// GUARANTEES: returns a valid com_Queue
 /// GUARANTEES: returned com_queue uses the same memory as `vector`
 /// GUARANTEES: returned com_queue has the same length as `vector`
-com_Queue com_queue_create(com_Vec vector);
+com_Queue com_queue_create(com_vec vector);
 
 // com_Enqueues an element with `len` bytes of memory.
 /// REQUIRES: `queue` is a valid pointer to a com_Queue
@@ -51,7 +51,7 @@ void *queue_get(com_Queue *queue, size_t loc);
 /// GUARANTEES: the returned vector has the same length as `queue`
 /// GUARANTEES: `queue`, and any pointers to its elements, are no longer valid
 /// GUARANTEES: the contents of `queue` will be the pushed elements in order of their insertion
-com_Vec com_queue_release(com_Queue *queue);
+com_vec com_queue_release(com_Queue *queue);
 
 // destroys the com_queue
 /// REQUIRES: `queue` is a valid pointer to a com_Queue

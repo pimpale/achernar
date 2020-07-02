@@ -3,7 +3,7 @@
 
 #include "com_assert.h"
 
-com_Queue queue_create(com_Vec vector) {
+com_Queue queue_create(com_vec vector) {
   // it currently has zer
   return (com_Queue) {
     ._backing = vector,
@@ -44,7 +44,7 @@ void * queue_get(com_Queue* queue, size_t loc) {
   return com_vec_get(&queue->_backing, loc + (size_t)queue->_offset);
 }
 
-com_Vec queue_release(com_Queue* queue) {
+com_vec queue_release(com_Queue* queue) {
   // delete padding from beginning
   com_vec_remove(&queue->_backing, NULL, 0, (size_t)queue->_offset);
   return queue->_backing;

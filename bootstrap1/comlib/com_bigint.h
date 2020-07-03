@@ -42,7 +42,7 @@ void com_bigint_set_i64(com_bigint* dest, i64 val);
  * REQUIRES: `a` is a valid pointer to a valid `com_bigint`
  * GUARANTEES: returnst the value of `i64` closest to the value of `a`
  */
-i64 com_bigint_get(const com_bigint* a);
+i64 com_bigint_get_i64(const com_bigint* a);
 
 
 /** Copies the value of a bigint to a bigint

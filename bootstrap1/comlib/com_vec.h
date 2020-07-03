@@ -43,7 +43,7 @@ void *com_vec_release(com_vec *vec);
  * GUARANTEES: until the subsequent operation, return value will be a valid
  *             pointer to the `loc`'th byte of the vector's data
  */
-void *com_vec_get(com_vec *vec, usize loc);
+void *com_vec_get(const com_vec *vec, usize loc);
 
 /// Inserts `len` bytes of memory
 /// REQUIRES: `vec` is a pointer to a a valid com_vec
@@ -114,12 +114,12 @@ void com_vec_append(com_vec* dest, com_vec* src);
 void com_vec_set_len(com_vec* vec, usize len);
 
 // Releases `vec` and turns it into a string
-// REQUIRES: `vec` is a valid com_vec
-// REQUIRES: `vec`contains a valid utf8 string
-// GUARANTEES: returns a valid `com_str`
-// GUARANTEES: returned com_str has a length equivalent to `vec`'s length
-// GUARANTEES: returned com_str vector
-// GUARANTEES: `vec` is released
+/// REQUIRES: `vec` is a valid com_vec
+/// REQUIRES: `vec`contains a valid utf8 string
+/// GUARANTEES: returns a valid `com_str`
+/// GUARANTEES: returned com_str has a length equivalent to `vec`'s length
+/// GUARANTEES: returned com_str vector
+/// GUARANTEES: `vec` is released
 com_str com_vec_to_str(com_vec* vec);
 
 // Macros to help work with vectors
@@ -132,6 +132,6 @@ com_str com_vec_to_str(com_vec* vec);
 #define com_vec_push_m(vector, type) ((type *)com_vec_push((vector), sizeof(type)))
 #define com_vec_pop_m(vector, data, type) com_vec_pop(vector, (data), sizeof(type))
 #define com_vec_len_m(vector, type) (com_vec_length(vector) / sizeof(type))
-#define com_vec_set_len_m(vector, len, type) (com_vec_set_len((vector), (len)* sizeof(type))
+#define com_vec_set_len_m(vector, len, type) com_vec_set_len((vector), (len)*sizeof(type))
 
 #endif

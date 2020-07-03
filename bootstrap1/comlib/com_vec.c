@@ -56,7 +56,7 @@ void *com_vec_release(com_vec *vector) {
   return vector->_data;
 }
 
-void *com_vec_get(com_vec *vector, usize loc) {
+void *com_vec_get(const com_vec *vector, usize loc) {
   com_assert_m(loc <= vector->_length, "out of bounds vector access");
   u8 *data = vector->_data;
   return data + loc;

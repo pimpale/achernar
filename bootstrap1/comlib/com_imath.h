@@ -31,35 +31,5 @@ DEFINE_TYPE(usize)
 #undef DEFINE_TYPE
 #undef IDEFINE_TYPE
 
-#define MAX_UNSIGNED_VAL(type) x
-
-
-#define com_imath_i8_minval_m (-0x80)
-#define com_imath_i8_maxval_m ( 0x7F)
-
-#define com_imath_i16_minval_m (-0x8000)
-#define com_imath_i16_maxval_m ( 0x7FFF)
-
-#define com_imath_i32_minval_m (-0x80000000)
-#define com_imath_i32_maxval_m ( 0x7FFFFFFF)
-
-#define com_imath_i64_minval_m (-0x8000000000000000)
-#define com_imath_i64_maxval_m ( 0x7FFFFFFFFFFFFFFF)
-
-#define com_imath_u8_maxval_m (0xFF)
-#define com_imath_u8_msb_m (0x80)
-
-#define com_imath_u16_maxval_m (0xFFFF)
-#define com_imath_u16_msb_m (0x8000)
-
-#define com_imath_u32_maxval_m (0xFFFFFFFF)
-#define com_imath_u32_msb_m (0x80000000)
-
-#define com_imath_u64_maxval_m (0xFFFFFFFFFFFFFFFF)
-#define com_imath_u64_msb_m (0x8000000000000000)
-
-#define com_imath_u64_maxval_m (0xFFFFFFFFFFFFFFFF)
-#define com_imath_u64_msb_m (0x8000000000000000)
-
 #endif
 

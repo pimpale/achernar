@@ -17,6 +17,10 @@ bool com_reader_read_u8(const com_reader* w, u8* data) {
   return w->_read_u8_fn(w, data);
 }
 
+bool com_reader_drop_u8(const com_reader *w) {
+  u8 c;
+  return com_reader_read_u8(w, &c);
+}
 
 bool com_reader_peek_u8(const com_reader* w, usize n, u8* data) {
   com_assert_m(w->_valid, "reader is invalid");

@@ -2,7 +2,6 @@
 #include "com_format.h"
 #include "com_assert.h"
 
-#define ERROR(k, l) ((com_json_Error){.kind = k, .span = l})
 
 
 // emits str with quotation marks
@@ -97,6 +96,17 @@ static bool com_json_isdigit(u8 c) {
   return c >= '0' && c <= '9';
 }
 
+static bool com_json_islowercasealpha(u8 c) {
+  return c >= 'a' && c <= 'z';
+}
+
+static bool com_json_isuppercasealpha(u8 c) {
+  return c >= 'A' && c <= 'Z';
+}
+
+static bool com_json_isalpha(u8 c) {
+  return com_json_islowercasealpha(c) ||  com_json_isuppercasealpha(c);
+}
 
 static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_vec *diagnostics,
                                         com_Allocator *a) {
@@ -111,8 +121,6 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
     com_reader_read_u8(reader, &c);
   }
 
-  if(rea
-
   com_bigint integer_value = com_bigint_create(com_allocator_alloc(a, (com_allocator_HandleData) { 
       // no hard cap on number size
       .flags = com_allocator_defaults(a) | com_allocator_REALLOCABLE, 
@@ -122,7 +130,8 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
 
   while ((readsuccess = com_reader_peek_u8(reader, 1, &c))) {
     if (com_json_isdigit(c)) {
-      com_bigint_fma_u32_u32(&integer_value, 10, c - (u8)'0');
+      // integer value * 10 + c -10
+      com_bigint_fma_u32_u32(&integer_value, &integer_value, 10, c - (u8)'0');
       com_reader_read_u8(reader, &c);
     } else {
       break;
@@ -134,17 +143,17 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
   bool fractional = false;
   if (c  == '.') {
     fractional = true;
-    lex_next(l);
+    readsuccess = com_reader_read_u8(reader, &c);
   }
 
   double fractional_component = 0;
   if (fractional) {
     double place = 1;
-    while ((c = lex_peek(l)) != EOF) {
-      if (isdigit(c)) {
+    while ((readsuccess  = com_reader_peek_u8(reader, 1, &c))) {
+      if (com_json_isdigit(c)) {
         place *= 10;
         fractional_component += (c - '0')/place;
-        lex_next(l);
+        com_reader_read_u8(reader, &c);
       } else {
         break;
       }
@@ -153,10 +162,12 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
 
   bool positive_exponent = false;
   bool negative_exponent = false;
-  c = lex_peek(l);
+
+  readsuccess = com_reader_peek_u8(reader, 1, &c);
   if (c == 'E' || c == 'e') {
-    lex_next(l);
-    switch (lex_next(l)) {
+    com_reader_read_u8(reader, &c);
+    com_reader_read_u8(reader, &c);
+    switch (c) {
     case '+': {
       positive_exponent = true;
       break;
@@ -166,19 +177,19 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
       break;
     }
     default: {
-      *VEC_PUSH(diagnostics, com_json_Error) =
-          ERROR(com_json_NumExponentExpectedSign, l->position);
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_NumExponentExpectedSign, com_reader_position(reader));
       break;
     }
     }
   }
 
-  uint32_t exponential_integer = 0;
+  u32 exponential_integer = 0;
   if (positive_exponent || negative_exponent) {
-    while ((c = lex_peek(l)) != EOF) {
-      if (isdigit(c)) {
-        exponential_integer = exponential_integer * 10 + (uint8_t)(c - '0');
-        lex_next(l);
+    while ((readsuccess = com_reader_peek_u8(reader, 1, &c))) {
+      if (com_json_isdigit(c)) {
+        exponential_integer = exponential_integer * 10 + (c - (u8)'0');
+        com_reader_read_u8(reader, &c);
       } else {
         break;
       }
@@ -187,7 +198,8 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
 
   if (fractional || negative_exponent || positive_exponent) {
     // Decimalish
-    double num = (double)integer_value + fractional_component;
+    double num = com_bigint_get_f64(&integer_value) + fractional_component;
+    com_bigint_release(&integer_value);
     if (positive_exponent) {
       for (size_t i = 0; i < exponential_integer; i++) {
         num *= 10;
@@ -198,43 +210,40 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
         num /= 10;
       }
     }
-    return J_NUM_ELEM(num);
+    if(negative) {
+        num = -num;
+    }
+    return com_json_num_m(num);
   } else {
-    // Integer
-    uint64_t num = integer_value;
-    return J_INT_ELEM(J_INT(negative, num));
+     if(negative) {
+      com_bigint_negate(&integer_value);
+     }
+    return com_json_int_m(integer_value);
   }
 }
 
-static com_json_Elem com_json_certain_parseLiteralElem(com_reader *l, Vector *diagnostics,
-                                         UNUSED Allocator *a) {
-  LnCol start = l->position;
+static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader, com_vec  *diagnostics,
+                                         com_Allocator *a) {
+  com_streamposition_LnCol start = com_reader_position(reader);
 
-  // Fixed buffer size
-  char buffer[6]; // this is long enough to hold false\0
-  bool toolong = false;
-  size_t index = 0;
-  while (true) {
-    int32_t c = lex_peek(l);
-    if (isalpha(c)) {
-      // Fill up buffer
-      if (index < 5) {
-        buffer[index] = (char)c;
-        index++;
-      } else {
-        toolong = true;
-      }
-      // even if the buffer is finished we must continue on (but mark it as
-      // (toolong)
-      lex_next(l);
+  com_vec data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
+      .flags = com_allocator_supports(a) | com_allocator_REALLOCABLE,
+      .len = 6
+  }));
+
+  u8 c;
+  while(com_reader_peek_u8(reader, 1, &c)) {
+    if(com_json_isalpha(c)) {
+      *com_vec_push_m(&data, u8) = c;
+      com_reader_drop
     } else {
       break;
     }
   }
-  // Terminate with string length
-  buffer[5] = '\0';
 
-  if (!toolong && !strcmp("null", buffer)) {
+
+
+  if (com_str_equal() {
     return J_NULL_ELEM;
   } else if (!toolong && !strcmp("true", buffer)) {
     return J_BOOL_ELEM(true);

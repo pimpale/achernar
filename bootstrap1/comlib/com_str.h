@@ -27,5 +27,11 @@ com_str com_str_asciiz(u8* asciiz);
  */
 #define com_str_lit_m(literal) com_str_create((u8*)(literal), sizeof(literal)-1)
 
+/* compares two strs with each other
+ * REQUIRES: `a` and `b` are both valid com_strs
+ * GUARANTEES: returns true if `a` and `b` are equal in value, else returns `false` 
+ */
+bool com_str_equal(const com_str a, const com_str b);
+
 #endif
 

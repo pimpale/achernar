@@ -25,12 +25,12 @@ com_bigint com_bigint_create(com_allocator_Handle h);
 
 // bigint destruction
 
-/** frees bigint and returns the closest valid i64
+/** frees bigint
  * REQUIRES: `a` is a valid pointer to a `com_bigint`
  * GUARANTEES:  `a` is no longer a valid `com_bigint`
  * GUARANTEES: all memory associated with `a` will be deallocated
  */
-i64 com_bigint_release(com_bigint* a);
+void com_bigint_release(com_bigint* a);
 
 /** Sets the value of a bigint to a i64
  * REQUIRES: `dest` is a valid pointer to a valid `com_bigint`
@@ -38,12 +38,17 @@ i64 com_bigint_release(com_bigint* a);
  */
 void com_bigint_set_i64(com_bigint* dest, i64 val);
 
-/** Returns the nearest value the value of a bigint 
+/** Returns the nearest value the value of a bigint as an i64
  * REQUIRES: `a` is a valid pointer to a valid `com_bigint`
- * GUARANTEES: returnst the value of `i64` closest to the value of `a`
+ * GUARANTEES: returns the value of `i64` closest to the value of `a`
  */
 i64 com_bigint_get_i64(const com_bigint* a);
 
+/** Returns the nearest value of a bigint as a f64
+ * REQUIRES: `a` is a valid pointer to a valid `com_bigint`
+ * GUARANTEES: returns the value of `f64` closest to the value of `a`
+ */
+f64 com_bigint_get_f64(const com_bigint* a);
 
 /** Copies the value of a bigint to a bigint
  * REQUIRES: `dest` is a valid pointer to a valid `com_bigint`
@@ -72,6 +77,9 @@ void com_bigint_rshift(com_bigint* dest, const com_bigint* a, const u64 nbits);
 // constant version
 void com_bigint_fma_u32_u32(com_bigint* dest, const com_bigint* src, u32 mul, u32 add);
 void com_bigint_fma(com_bigint* dest, const com_bigint *src, const com_bigint *mul, const com_bigint *add);
+
+// flips negative sign
+void com_bigint_negate(com_bigint* dest);
 
 com_math_cmptype com_bigint_cmp(const com_bigint* a, const com_bigint* b);
 com_math_cmptype com_bigint_cmp_i64(const com_bigint* a, i64 b);

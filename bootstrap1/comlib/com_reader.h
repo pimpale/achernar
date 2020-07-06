@@ -69,6 +69,14 @@ usize com_reader_read_str(const com_reader* r, com_str* data);
  */
 bool com_reader_read_u8(const com_reader* r,  u8* data); 
 
+/** reads u8 from the reader `r` and discards the result
+ * REQUIRES: `r` is a valid dpointer to a valid `com_reader`
+ * GUARANTEES: if `r` supports `com_reader_LIMITED` any reads beyond the length will not succeed
+ * GUARANTEES: if the operation succeeds, will return true
+ * GUARANTEES; if the operation fails, will return false
+ */
+bool com_reader_drop_u8(const com_reader* r);
+
 /** peeks the `n`th u8 from the reader `r` and sets `data`
  * REQUIRES: `r` is a valid pointer to a valid com_reader
  * REQUIRES: `r` must support `com_reader_BUFFERED`

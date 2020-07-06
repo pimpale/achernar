@@ -77,8 +77,10 @@ typedef enum {
 
 typedef struct {
   com_json_ErrorKind kind;
-  com_streamposition_Span span;
-} j_Error;
+  com_streamposition_LnCol loc;
+} com_json_Error;
+
+#define com_json_error_m(k, l) ((com_json_Error){.kind = k, .loc = l})
 
 // serializes json to a writer (100% static no allocator needed)
 void com_json_serialize(com_json_Elem* elem, com_writer* writer);

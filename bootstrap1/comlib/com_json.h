@@ -10,6 +10,7 @@
 typedef enum {
   com_json_NULL,
   com_json_BOOL,
+  com_json_BIGINT,
   com_json_INT,
   com_json_NUM,
   com_json_STR,
@@ -25,7 +26,8 @@ typedef struct com_json_Elem_s {
   union {
     bool boolean;
     double number;
-    com_bigint integer;
+    i64 integer;
+    com_bigint bigint;
     com_str string;
     struct {
       com_json_Elem *values;
@@ -49,13 +51,17 @@ typedef struct com_json_Prop_s {
   ((com_json_Elem){.kind = com_json_BOOL, .boolean = (v)})
 #define com_json_int_m(v)                                                      \
   ((com_json_Elem){.kind = com_json_INT, .integer = (v)})
+#define com_json_bigint_m(v)                                                      \
+  ((com_json_Elem){.kind = com_json_BIGINT, .bigint = (v)})
 #define com_json_num_m(v) ((com_json_Elem){.kind = com_json_NUM, .number = (v)})
 #define com_json_str_m(v) ((com_json_Elem){.kind = com_json_STR, .string = (v)})
 #define com_json_array_m(v, len)                                               \
-  ((j_Elem){.kind = com_json_ARRAY, .array = {.values = (v), .length = (len)}})
+  ((com_json_Elem){.kind = com_json_ARRAY, .array = {.values = (v), .length = (len)}})
 #define com_json_obj_m(v, len)                                                 \
-  ((j_Elem){.kind = com_json_OBJ, .object = {.props = (v), .length = (len)}})
+  ((com_json_Elem){.kind = com_json_OBJ, .object = {.props = (v), .length = (len)}})
 
+#define com_json_obj_lit_m(arr) com_json_obj_m((arr), sizeof(arr))
+#define com_json_arr_lit_m(arr) com_json_array_m((arr), sizeof(arr))
 
 // Parse JSON
 // JSON Parsing errors

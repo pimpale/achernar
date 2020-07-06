@@ -15,7 +15,7 @@
  * GUARANTEES: will attempt to terminate the program execution and print a human readable error message
  * GUARANTEES: returns false if the program execution was unable to terminate
  */
-bool attr_NORETURN com_assert_fail(com_str condition, com_str message, com_str file, u64 line, com_str function);
+bool attr_NORETURN com_assert_fail(com_str condition, com_str message, com_str file, u32 line, com_str function);
 
 /**
  * Displays an error message and terminates the program with `com_os_abort`
@@ -25,7 +25,7 @@ bool attr_NORETURN com_assert_fail(com_str condition, com_str message, com_str f
  * REQUIRES: `line` is the number of the line this expression was at
  * GUARANTEES: will attempt to output this data in a human readable format and then terminate the program using `com_os_exit_panic()` 
  */
-void attr_NORETURN com_assert_unreachable(com_str message, com_str file, u64 line, com_str function);
+void attr_NORETURN com_assert_unreachable(com_str message, com_str file, u32 line, com_str function);
 
 /**
  * If `expr` evaluates to false, will invoke `com_assert_fail()` with local values

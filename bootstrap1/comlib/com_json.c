@@ -118,7 +118,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
   if (c  == '-') {
     negative = true;
     // drop char
-    com_reader_read_u8(reader, &c);
+    com_reader_drop_u8(reader);
   }
 
   com_bigint integer_value = com_bigint_create(com_allocator_alloc(a, (com_allocator_HandleData) { 
@@ -132,7 +132,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
     if (com_json_isdigit(c)) {
       // integer value * 10 + c -10
       com_bigint_fma_u32_u32(&integer_value, &integer_value, 10, c - (u8)'0');
-      com_reader_read_u8(reader, &c);
+      com_reader_drop_u8(reader);
     } else {
       break;
     }
@@ -227,7 +227,7 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader, com_v
   com_streamposition_LnCol start = com_reader_position(reader);
 
   com_vec data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
-      .flags = com_allocator_supports(a) | com_allocator_REALLOCABLE,
+      .flags = com_allocator_defaults(a) | com_allocator_REALLOCABLE,
       .len = 6
   }));
 
@@ -235,32 +235,35 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader, com_v
   while(com_reader_peek_u8(reader, 1, &c)) {
     if(com_json_isalpha(c)) {
       *com_vec_push_m(&data, u8) = c;
-      com_reader_drop
+      com_reader_drop_u8(reader);
     } else {
       break;
     }
   }
 
+  com_str data_str = com_vec_to_str(&data);
 
-
-  if (com_str_equal() {
-    return J_NULL_ELEM;
-  } else if (!toolong && !strcmp("true", buffer)) {
-    return J_BOOL_ELEM(true);
-  } else if (!toolong && !strcmp("false", buffer)) {
-    return J_BOOL_ELEM(false);
+  if (com_str_equal(data_str, com_str_lit_m("null"))) {
+    return com_json_null_m;
+  } else if (com_str_equal(data_str, com_str_lit_m("true"))) {
+    return com_json_bool_m(true);
+  } else if (com_str_equal(data_str, com_str_lit_m("false"))) {
+    return com_json_bool_m(false);
   } else {
-    *VEC_PUSH(diagnostics, com_json_Error) = ERROR(com_json_MalformedLiteral, start);
-    return J_NULL_ELEM;
+    *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_MalformedLiteral, start);
+    return com_json_null_m;
   }
 }
 
-static com_json_Str com_json_parseStr(com_reader *l, Vector *diagnostics, Allocator *a) {
-  LnCol start = l->position;
-  skipWhitespace(l);
-  int32_t c = lex_next(l);
+static com_str com_json_parseStr(com_reader *reader, Vector *diagnostics, Allocator *a) {
+  com_streamposition_LnCol start = com_reader_position(reader);
+  skipWhitespace(reader);
+
+  u8 c;
+  com_reader_read_u8(reader, &c);
+
   if (c != '\"') {
-    *VEC_PUSH(diagnostics, com_json_Error) = ERROR(com_json_StrExpectedDoubleQuote, start);
+    *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_StrExpectedDoubleQuote, start);
   }
 
   typedef enum {
@@ -269,14 +272,14 @@ static com_json_Str com_json_parseStr(com_reader *l, Vector *diagnostics, Alloca
     StringParserUnicode,
   } StringParserState;
 
-  Vector data = vec_create(a);
+  com_vec data = com_vec_create(a);
 
   StringParserState state = StringParserText;
 
   while (true) {
     switch (state) {
     case StringParserText: {
-      c = lex_next(l);
+      com_reader_read_u8(reader, &c);
       switch (c) {
       case '\\': {
         state = StringParserBackslash;
@@ -285,13 +288,8 @@ static com_json_Str com_json_parseStr(com_reader *l, Vector *diagnostics, Alloca
       case '\"': {
         goto LOOPEND;
       }
-      case EOF: {
-        *VEC_PUSH(diagnostics, com_json_Error) =
-            ERROR(com_json_StrExpectedDoubleQuote, l->position);
-        goto LOOPEND;
-      }
       default: {
-        *VEC_PUSH(&data, char) = (char)c;
+        *com_vec_push_m(&data, char) = (char)c;
         break;
       }
       }
@@ -301,42 +299,42 @@ static com_json_Str com_json_parseStr(com_reader *l, Vector *diagnostics, Alloca
       c = lex_next(l);
       switch (c) {
       case '\"': {
-        *VEC_PUSH(&data, char) = '\"';
+        *com_vec_push_m(&data, char) = '\"';
         state = StringParserText;
         break;
       }
       case '\\': {
-        *VEC_PUSH(&data, char) = '\\';
+        *com_vec_push_m(&data, char) = '\\';
         state = StringParserText;
         break;
       }
       case '/': {
-        *VEC_PUSH(&data, char) = '/';
+        *com_vec_push_m(&data, char) = '/';
         state = StringParserText;
         break;
       }
       case 'b': {
-        *VEC_PUSH(&data, char) = '\b';
+        *com_vec_push_m(&data, char) = '\b';
         state = StringParserText;
         break;
       }
       case 'f': {
-        *VEC_PUSH(&data, char) = '\f';
+        *com_vec_push_m(&data, char) = '\f';
         state = StringParserText;
         break;
       }
       case 'n': {
-        *VEC_PUSH(&data, char) = '\n';
+        *com_vec_push_m(&data, char) = '\n';
         state = StringParserText;
         break;
       }
       case 'r': {
-        *VEC_PUSH(&data, char) = '\r';
+        *com_vec_push_m(&data, char) = '\r';
         state = StringParserText;
         break;
       }
       case 't': {
-        *VEC_PUSH(&data, char) = '\t';
+        *com_vec_push_m(&data, char) = '\t';
         state = StringParserText;
         break;
       }
@@ -345,8 +343,8 @@ static com_json_Str com_json_parseStr(com_reader *l, Vector *diagnostics, Alloca
         break;
       }
       default: {
-        *VEC_PUSH(diagnostics, com_json_Error) =
-            ERROR(com_json_StrInvalidControlChar, l->position);
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_StrInvalidControlChar, l->position);
         state = StringParserText;
         break;
       }

@@ -56,7 +56,6 @@ void com_format_i64(com_writer* w, u8 radix, i64 data, com_format_Flags flags, c
 void com_format_u64(com_writer* w, u8 radix, u64 data, com_format_Flags flags, com_format_PadData pad_data);
 
 
-
 void com_format_f32(com_writer* w, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data);
 void com_format_f64(com_writer* w, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data);
 

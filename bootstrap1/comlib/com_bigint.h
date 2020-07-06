@@ -55,7 +55,10 @@ void com_bigint_set(com_bigint* dest, const com_bigint* src);
 void com_bigint_add(com_bigint* dest, const com_bigint* a, const com_bigint* b);
 void com_bigint_sub(com_bigint* dest, const com_bigint* a, const com_bigint* b);
 void com_bigint_mul(com_bigint* dest, const com_bigint* a, const com_bigint* b);
-void com_bigint_div(com_bigint* quotient, com_bigint* remainder, const com_bigint* a, const com_bigint* b);
+void com_bigint_div(com_bigint* quotient,  const com_bigint* a, const com_bigint* b);
+void com_bigint_mod(com_bigint* remainder, const com_bigint* a, const com_bigint* b);
+void com_bigint_div_mod(com_bigint* quotient, com_bigint* remainder, const com_bigint* a, const com_bigint* b);
+
 
 /* Bitwise operations: */
 void com_bigint_and(com_bigint* dest, const com_bigint* a, const com_bigint* b); 
@@ -65,6 +68,11 @@ void com_bigint_lshift(com_bigint* dest, const com_bigint* a, const u64 nbits);
 void com_bigint_rshift(com_bigint* dest, const com_bigint* a, const u64 nbits); 
 
 /* Special operators and comparison */
+
+// constant version
+void com_bigint_fma_u32_u32(com_bigint* dest, const com_bigint* src, u32 mul, u32 add);
+void com_bigint_fma(com_bigint* dest, const com_bigint *src, const com_bigint *mul, const com_bigint *add);
+
 com_math_cmptype com_bigint_cmp(const com_bigint* a, const com_bigint* b);
 com_math_cmptype com_bigint_cmp_i64(const com_bigint* a, i64 b);
 com_math_signtype com_bigint_sign(com_bigint* n);

@@ -164,6 +164,15 @@ static com_math_cmptype internal_value_cmp_u32_arr(u32 *a, usize alen, u32 *b,
   return com_math_EQUAL;
 }
 
+com_math_cmptype com_bigint_cmp(const com_bigint* a, const com_bigint* b) {
+  usize alen = com_vec_len_m(&a->_array, u32);
+  usize blen = com_vec_len_m(&b->_array, u32);
+  if(blen > alen) {
+    return com
+  }
+}
+
+
 // sets DEST to a - b
 // REQUIRES: `dest` is a pointer to a valid com_bigint
 // REQUIRES: `a` is a pointer to an array of at least `alen` u32s

@@ -218,7 +218,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader, com_ve
      if(negative) {
       com_bigint_negate(&integer_value);
      }
-    return com_json_int_m(integer_value);
+    return com_json_bigint_m(integer_value);
   }
 }
 
@@ -376,8 +376,8 @@ static com_str com_json_parseStr(com_reader *reader, Vector *diagnostics, Alloca
   }
 
 LOOPEND:;
-  size_t len = VEC_LEN(&data, char);
-  *VEC_PUSH(&data, char) = '\0';
+  usize len = com_vec_len_m(&data, char);
+  *vec_push_m(&data, char) = '\0';
   return J_STR(vec_release(&data), len);
 }
 

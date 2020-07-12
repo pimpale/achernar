@@ -44,6 +44,13 @@ void com_bigint_set_i64(com_bigint* dest, i64 val);
  */
 i64 com_bigint_get_i64(const com_bigint* a);
 
+
+/** Returns if `a` can be losslessly represented as a i64
+ * REQUIRES: `a` is a valid pointer to a valid `com_bigint`
+ * GUARANTEES: returns `true` if the value of `a` is between i64_min_m and i64_max_m else false
+ */
+bool com_bigint_fits_i64(const com_bigint* a);
+
 /** Returns the nearest value of a bigint as a f64
  * REQUIRES: `a` is a valid pointer to a valid `com_bigint`
  * GUARANTEES: returns the value of `f64` closest to the value of `a`

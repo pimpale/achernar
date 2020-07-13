@@ -82,6 +82,8 @@ void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
 /* Special operators and comparison */
 
 // constant version
+void com_bignum_add_u32(com_biguint *a, u32 b);
+void com_bignum_sub_u32(com_biguint *a, u32 b);
 void com_biguint_fma_u32_u32(com_biguint *dest, const com_biguint *src, u32 mul,
                              u32 add);
 void com_biguint_fma(com_biguint *dest, const com_biguint *src,

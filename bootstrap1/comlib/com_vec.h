@@ -48,11 +48,12 @@ void *com_vec_get(const com_vec *vec, usize loc);
 /// Inserts `len` bytes of memory
 /// REQUIRES: `vec` is a pointer to a a valid com_vec
 /// REQUIRES: `loc` < `vec`'s current length
+/// GUARANTEES: returns a pointer to the `loc`'th byte of `vec`'s data
 /// GUARANTEES: until the subsequent operation, return value will point to `len`
 ///             bytes of valid memory
-/// GUARANTEES: returns a pointer to the `loc`'th byte of `vec`'s data
 /// GUARANTEES: all data previously located at or after `loc` will be moved to
 ///             the right by `len` bytes
+/// GUARANTEES: the `len` bytes of data following the `loc`'th byte will be uninitialized
 void *com_vec_insert(com_vec *vec, usize loc, usize len);
 
 /// Removes `len` bytes of memory
@@ -70,10 +71,12 @@ void com_vec_remove(com_vec *vec, void *data, usize loc, usize len);
 
 /// Appends `len` bytes of memory to the end of `vec`
 /// REQUIRES: `vec` is a pointer to a valid com_vec
+/// GUARANTEES: returns a pointer to `len` bytes of memory located at the end of `vec`
 /// GUARANTEES: until the subsequent operation, return value will point to `len`
 ///             bytes of valid memory
 /// GUARANTEES: return value will be located directly after the current last
 ///             byte of `vec`
+/// GUARANTEES: the memory added has an undefined value
 void *com_vec_push(com_vec *vec, usize len);
 
 /// Deletes `len` bytes of memory from the end of `vec`

@@ -15,13 +15,17 @@ void com_biguint_set_u64(com_biguint *dest, u64 val) {
   com_assert_m(dest != NULL, "dest is null");
   // u64 means only 2 u32 s are needed in the vector
   com_vec *v = &dest->_array;
-  com_vec_set_len_m(v, 2, u32);
-
-  u32 *arr = com_vec_get(v, 0);
-  // first is lower 32 bits of input
-  arr[0] = val & 0x00000000FFFFFFFFu;
-  // next is the upper 32 bits
-  arr[1] = val >> (u64)32;
+  if (val == 0) {
+    com_vec_set_len(v, 0);
+  } else if (val <= u32_max_m) {
+    com_vec_set_len(v, 1);
+    *com_vec_get_m(v, 0, u32) = val;
+  } else {
+    com_vec_set_len_m(v, 2, u32);
+    *com_vec_get_m(v, 0, u32) = val & 0x00000000FFFFFFFFu;
+    // guaranteed to fit in 32 bits
+    *com_vec_get_m(v, 1, u32) = val >> (u64)32;
+  }
 }
 
 u64 com_biguint_get_u64(const com_biguint *a) {
@@ -47,8 +51,8 @@ u64 com_biguint_get_u64(const com_biguint *a) {
 // REQUIRES: `b` is a pointer to an array of at least `blen` u32s
 // REQUIRES: alen >= blen
 // GUARANTEES: `dest` will contain the sum of a and b
-static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a, usize alen,
-                                       const u32 *b, usize blen) {
+static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a,
+                                       usize alen, const u32 *b, usize blen) {
   com_assert_m(alen >= blen, "alen is less than blen");
   // first we have to find the size of the result
   // NOTE: Thanks to carrying, the result size could be 1 larger than this
@@ -87,7 +91,7 @@ static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a, usize al
 
   // this is essentially the loop where we are finished adding,
   // and are just handling any times where carrying the 1 forward will cause
-  // overflow and require another carry 
+  // overflow and require another carry
   // this also handles the part of a unaffected by the addition
 
   // in this for loop, only a[i] is valid
@@ -116,30 +120,20 @@ static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a, usize al
 // compares the magnitude of b with reference to a
 /// REQUIRES: `a` is a pointer to an array of at least `alen` u32s
 /// REQUIRES: `b` is a pointer to an array of at least `blen` u32s
-/// REQUIRES: alen >= blen
-static com_math_cmptype internal_value_cmp_u32_arr(const u32 *a, usize alen, const u32 *b,
-                                                   usize blen) {
-  com_assert_m(alen >= blen, "alen is less than blen");
-
-  // compare backwards
-
-  // first we compare where only A is defined
-
-  for (usize i = alen; i > blen; i--) {
-    // in this form,  i will always be 1 greater than what we want
-    u32 aval = a[i - 1];
-    // since bval is not defined here we default to zero
-    u32 bval = 0;
-
-    if (aval < bval) {
+static com_math_cmptype internal_value_cmp_u32_arr(const u32 *a, usize alen,
+                                                   const u32 *b, usize blen) {
+  // eliminate the easy cases where one is obviously less or greater than the other
+  if(blen > alen) {
       return com_math_GREATER;
-    } else if (aval > bval) {
+  } else if(blen < alen) {
       return com_math_LESS;
-    }
   }
 
-  // next compare where both a and b are defined
-  for (usize i = blen; i != 0; i--) {
+  // if control flow reaches here, alen and blen are the same
+  usize len = alen;
+
+  // compare backwards where both a and b are defined
+  for (usize i = len; i != 0; i--) {
     // note that in this form, i will always be 1 greater than what we want
     u32 aval = a[i - 1];
     u32 bval = b[i - 1];
@@ -160,39 +154,10 @@ com_math_cmptype com_biguint_cmp(const com_biguint *a, const com_biguint *b) {
   usize alen = com_vec_len_m(&a->_array, u32);
   usize blen = com_vec_len_m(&b->_array, u32);
 
-  // get a pointer to the beginning of the array
-  u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
-  u32 *b_arr = com_vec_get_m(&b->_array, 0, u32);
+      u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
+      u32 *b_arr = com_vec_get_m(&b->_array, 0, u32);
 
-  // if alen >= blen, compare them forward and return result normally
-  // else, we swap them and then reverse the result before returning
-
-  if (alen >= blen) {
-    // return the result of the comparison
     return internal_value_cmp_u32_arr(a_arr, alen, b_arr, blen);
-  } else {
-    // means we have to swap A and B and then swap the result before returning
-    // We do this to respect the requirement that the first value provided
-    // always is >= than the second value
-    usize small_len = alen;
-    usize big_len = blen;
-    u32 *small_arr = a_arr;
-    u32 *big_arr = b_arr;
-    com_math_cmptype ret =
-        internal_value_cmp_u32_arr(big_arr, big_len, small_arr, small_len);
-    // reverse the result before returning
-    switch (ret) {
-    case com_math_EQUAL: {
-      return com_math_EQUAL;
-    }
-    case com_math_GREATER: {
-      return com_math_LESS;
-    }
-    case com_math_LESS: {
-      return com_math_GREATER;
-    }
-    }
-  }
 }
 
 // sets DEST to a - b
@@ -202,13 +167,13 @@ com_math_cmptype com_biguint_cmp(const com_biguint *a, const com_biguint *b) {
 // REQUIRES: alen >= blen
 // REQUIRES: the value held by a is greater than the value held by
 // GUARANTEES: `dest` will contain the difference of a and b
-static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a, usize alen,
-                                       const u32 *b, usize blen) {
+static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a,
+                                       usize alen, const u32 *b, usize blen) {
   com_assert_m(alen >= blen, "alen is less than blen");
   com_assert_m(internal_value_cmp_u32_arr(a, alen, b, blen) != com_math_LESS,
                "a < b");
 
-  // in general, it is critical to make sure that we account for the fact that 
+  // in general, it is critical to make sure that we account for the fact that
   // dest could be aliased to a or b
 
   // first we have to find the size of the result
@@ -219,7 +184,7 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a, usize al
   // resize dest_vec to the new size, we will trim later if necessary
   com_vec_set_len(&dest->_array, alen);
 
-  u32* dest_arr =  com_vec_get_m(&dest->_array, 0, u32);
+  u32 *dest_arr = com_vec_get_m(&dest->_array, 0, u32);
 
   // represents the amount to be borrowed if necessary
   u8 borrow = 0;
@@ -241,12 +206,12 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a, usize al
       // if the value overflows the capacity of a u32
       // Means we didn't need the borrow
       borrow = 0;
-      dest_arr[i]  = tmp - u32_max_m;
+      dest_arr[i] = tmp - u32_max_m;
     } else {
       // if the value can fit in a u32
       // Means we needed the borrow
       borrow = 1;
-       dest_arr[i] = tmp;
+      dest_arr[i] = tmp;
     }
   }
 
@@ -262,13 +227,13 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a, usize al
 
     if (tmp > u32_max_m) {
       // if the value overflows the capacity of a u32
-       dest_arr[i]= tmp - u32_max_m;
+      dest_arr[i] = tmp - u32_max_m;
       // means we didn't need to borrow
       borrow = 0;
     } else {
       // if the value can fit in a u32
       // Means we needed the borrow
-       dest_arr[i] = tmp;
+      dest_arr[i] = tmp;
       borrow = 1;
     }
   }
@@ -296,8 +261,11 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a, usize al
   com_vec_set_len_m(&dest->_array, dest_len - zeros_len, u32);
 }
 
-void com_bignum_add_u32(com_biguint *a, u32 b) {
+void com_biguint_add_u32(com_biguint *a, u32 b) {
   com_assert_m(a != NULL, "a is null");
+  if(b == 0) {
+    return;
+  }
   usize a_len = com_vec_len_m(&a->_array, u32);
   u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
   if (a_len == 0) {
@@ -309,8 +277,11 @@ void com_bignum_add_u32(com_biguint *a, u32 b) {
   }
 }
 
-void com_bignum_sub_u32(com_biguint *a, u32 b) {
+void com_biguint_sub_u32(com_biguint *a, u32 b) {
   com_assert_m(a != NULL, "a is null");
+  if(b == 0) {
+    return;
+  }
   usize a_len = com_vec_len_m(&a->_array, u32);
   u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
   // we treat the `b` like a 1 length array
@@ -340,8 +311,28 @@ void com_biguint_add(com_biguint *dest, const com_biguint *a,
   // if alen >= blen, add normally
   // else flip order before calling interally
   if (alen >= blen) {
-      internal_value_add_u32_arr(dest, 
+    internal_value_add_u32_arr(dest, a_arr, alen, b_arr, blen);
+  } else {
+    internal_value_add_u32_arr(dest, b_arr, blen, a_arr, alen);
   }
 }
 void com_biguint_sub(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b);
+                     const com_biguint *b) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_assert_m(com_biguint_cmp(a, b) != com_math_GREATER, "b > a, subtraction would be invalid");
+
+  usize alen = com_vec_len_m(&a->_array, u32);
+  usize blen = com_vec_len_m(&b->_array, u32);
+
+  // get a pointer to the beginning of the array
+  u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
+  u32 *b_arr = com_vec_get_m(&b->_array, 0, u32);
+
+  // this is safe because we know that if alen > blen, then a > b, because we prohibit leading zeros
+  internal_value_add_u32_arr(dest, a_arr, alen, b_arr, blen);
+}
+
+
+

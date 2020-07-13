@@ -57,69 +57,61 @@ typedef struct com_Allocator_s {
   void (*_destroy_allocator_fn)(com_Allocator*);
 } com_Allocator;
 
-/** flags that are enabled by default for an allocator (cannot be disabled)
- * REQUIRES: `a` is a valid pointer to a com_Allocator
- * GUARANTEES: returns flags supported by default by `a`
- */
+///  flags that are enabled by default for an allocator (cannot be disabled)
+/// REQUIRES: `a` is a valid pointer to a com_Allocator
+/// GUARANTEES: returns flags supported by default by `a`
 com_allocator_Flags com_allocator_defaults(const com_Allocator * a);
 
-/** flags that are valid for `a` (may be enabled)
- * REQUIRES: `a` is a valid pointer to a com_Allocator
- * GUARANTEES: returns flags supported by default by `a`
- */
+///  flags that are valid for `a` (may be enabled)
+/// REQUIRES: `a` is a valid pointer to a com_Allocator
+/// GUARANTEES: returns flags supported by default by `a`
 com_allocator_Flags com_allocator_supports(const com_Allocator * a);
 
-/** allocate memory
- * REQUIRES: `a` is a valid pointer to a com_Allocator
- * GUARANTEES: if allocation succeeds, a valid com_allocator_Handle will be returned representing an allocation for `data.len` bytes of memory
- * GUARANTEES: if allocation succeeds, the memory returned will have the properties specified by the `data.flags`
- * GUARANTEES: if allocation fails, an invalid com_allocator_Handle will be returned
- * GUARANTEES: the memory will be allocated with default properties of the implementing allocator
- */
+///  allocate memory
+/// REQUIRES: `a` is a valid pointer to a com_Allocator
+/// GUARANTEES: if allocation succeeds, a valid com_allocator_Handle will be returned representing an allocation for `data.len` bytes of memory
+/// GUARANTEES: if allocation succeeds, the memory returned will have the properties specified by the `data.flags`
+/// GUARANTEES: if allocation fails, an invalid com_allocator_Handle will be returned
+/// GUARANTEES: the memory will be allocated with default properties of the implementing allocator
 com_allocator_Handle com_allocator_alloc(const com_Allocator *a, com_allocator_HandleData data) ;
 
-/** deallocate memory
- * REQUIRES: `a` is a valid pointer to a com_Allocator
- * REQUIRES: `handle` is a valid com_allocator_Handle
- * GUARANTEES: the memory represented by `handle` will be freed if possible, with memory returning to the OS
- */
+///  deallocate memory
+/// REQUIRES: `a` is a valid pointer to a com_Allocator
+/// REQUIRES: `handle` is a valid com_allocator_Handle
+/// GUARANTEES: the memory represented by `handle` will be freed if possible, with memory returning to the OS
 void com_allocator_dealloc(com_allocator_Handle handle);
 
-/** reallocate memory
- * REQUIRES: `a` is a valid pointer to a com_Allocator
- * REQUIRES: `handle` is a valid com_allocator_Handle returned by a previous call to `com_allocator_alloc_flags` using `a` with the `A_REALLOCABLE` bit enabled
- * GUARANTEES: if `len` is 0, the allocation represented by `handle` will be deallocated
- * GUARANTEES: if allocation succeeds, the `len` bytes of contiguous memory will be allocated, preserving data
- * GUARANTEES: if allocation succeeds, a possibly different com_allocator_Handle will be returned representing the new memory
- * GUARANTEES: if allocation succeeds, allocated memory will have the same properties as `ptr`
- * GUARANTEES: all pointers previously got from `handle` are invalidated
- * GUARANTEES: if the reallocation fails, an invalid com_allocator_Handle will be returned, but `handle` will still be valid
- */
+///  reallocate memory
+/// REQUIRES: `a` is a valid pointer to a com_Allocator
+/// REQUIRES: `handle` is a valid com_allocator_Handle returned by a previous call to `com_allocator_alloc_flags` using `a` with the `A_REALLOCABLE` bit enabled
+/// GUARANTEES: if `len` is 0, the allocation represented by `handle` will be deallocated
+/// GUARANTEES: if allocation succeeds, the `len` bytes of contiguous memory will be allocated, preserving data
+/// GUARANTEES: if allocation succeeds, a possibly different com_allocator_Handle will be returned representing the new memory
+/// GUARANTEES: if allocation succeeds, allocated memory will have the same properties as `ptr`
+/// GUARANTEES: all pointers previously got from `handle` are invalidated
+/// GUARANTEES: if the reallocation fails, an invalid com_allocator_Handle will be returned, but `handle` will still be valid
 com_allocator_Handle com_allocator_realloc(com_allocator_Handle handle, usize len);
 
 
-/** query info from handle
- * REQUIRES: `handle` is a valid com_allocator_Handle
- * GUARANTEES: returns the data associated with `handle` 
- */
+///  query info from handle
+/// REQUIRES: `handle` is a valid com_allocator_Handle
+/// GUARANTEES: returns the data associated with `handle` 
 com_allocator_HandleData com_allocator_handle_query(com_allocator_Handle handle);
 
 
-/** get memory from handle
- * REQUIRES: `handle` is a valid com_allocator_Handle
- * GUARANTEES: the returned value will be a pointer to the start of a block of contiguous memory represented by `handle`
- * GUARANTEES: this memory is valid till a subsequent call to `com_allocator_dealloc` or `com_allocator_realloc` with the `handle` as an argument
- * GUARANTEES: this memory may be invalidated if the allocator used to create `handle` is destroyed
- */
+///  get memory from handle
+/// REQUIRES: `handle` is a valid com_allocator_Handle
+/// GUARANTEES: the returned value will be a pointer to the start of a block of contiguous memory represented by `handle`
+/// GUARANTEES: this memory is valid till a subsequent call to `com_allocator_dealloc` or `com_allocator_realloc` with the `handle` as an argument
+/// GUARANTEES: this memory may be invalidated if the allocator used to create `handle` is destroyed
 void* com_allocator_handle_get(com_allocator_Handle handle);
 
 
-/** destroy allocator
- * REQUIRES: `a` is a valid pointer to a com_Allocator
- * GUARANTEES: `a` is no longer a valid pointer to a com_Allocator
- * GUARANTEES: all memory held by `a` is in an UNDEFINED state
- * NOT GUARANTEED: it is not guaranteed that all memory held by the allocator will be returned to the OS. it is implementation specific
- */
+///  destroy allocator
+/// REQUIRES: `a` is a valid pointer to a com_Allocator
+/// GUARANTEES: `a` is no longer a valid pointer to a com_Allocator
+/// GUARANTEES: all memory held by `a` is in an UNDEFINED state
+/// NOT GUARANTEED: it is not guaranteed that all memory held by the allocator will be returned to the OS. it is implementation specific
 void com_allocator_destroy(com_Allocator *a);
 
 // Created this macro for type safety + convenience

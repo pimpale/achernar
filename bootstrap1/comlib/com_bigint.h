@@ -31,6 +31,11 @@ const com_biguint* com_bigint_magnitude(const com_bigint* a);
 /// GUARANTEES: `a` is no longer a valid com_bigint
 void com_bigint_destroy(com_bigint *a);
 
+/// sets `dest` to `a`
+/// REQUIRES: `dest` is a valid pointer to a valid `com_bigint`
+/// GUARANTEES: `dest` is set to the value of `a`
+void com_bigint_set_i64(com_bigint *dest, i64 a);
+
 /// returns the nearest value of a bigint as an i64
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigint `
 /// GUARANTEES: `a` is no longer a  

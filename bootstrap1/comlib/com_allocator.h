@@ -7,9 +7,9 @@ typedef enum {
   com_allocator_FLAGS_NONE = 0,
   /// lensize of this memory allocation can be grown by a call to `com_allocator_realloc`
   com_allocator_REALLOCABLE = 1<<0,
-  /// The memory will NOT be cleaned up when the allocator is destroyed (can cause resource leak)
-  /// You are responsible for cleaning up this memory, and the means of doing so will vary per implementation
-  com_allocator_PERSISTENT = 1<<1,
+  /// The memory will be cleaned up when the allocator is destroyed (can cause resource leak)
+  /// If this flag is not set, you are responsible for cleaning up this memory, and the means of doing so will vary per implementation
+  com_allocator_NOLEAK = 1<<1,
   /// specifically should align memory to sixteen bytes 
   /// (the max value necessary for floats. If disabled, then alignment is undefined)
   com_allocator_ALIGNED_16 = 1<<2,

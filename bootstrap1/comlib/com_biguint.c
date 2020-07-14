@@ -1,5 +1,6 @@
 #include "com_biguint.h"
 #include "com_assert.h"
+#include "com_mem.h"
 #include "com_imath.h"
 
 com_biguint com_biguint_create(com_allocator_Handle h) {
@@ -74,8 +75,8 @@ static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a,
 
   // in this for loop, a[i] and b[i] are both valid
   for (usize i = 0; i < blen; i++) {
-    u32 aval = a[i];
-    u32 bval = b[i];
+    u64 aval = a[i];
+    u64 bval = b[i];
     u64 tmp = aval + bval + carry;
 
     if (tmp > u32_max_m) {
@@ -165,7 +166,7 @@ com_math_cmptype com_biguint_cmp(const com_biguint *a, const com_biguint *b) {
 // REQUIRES: `a` is a pointer to an array of at least `alen` u32s
 // REQUIRES: `b` is a pointer to an array of at least `blen` u32s
 // REQUIRES: alen >= blen
-// REQUIRES: the value held by a is greater than the value held by
+// REQUIRES: the value held by a is greater than the value held by b
 // GUARANTEES: `dest` will contain the difference of a and b
 static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a,
                                        usize alen, const u32 *b, usize blen) {
@@ -261,8 +262,9 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a,
   com_vec_set_len_m(&dest->_array, dest_len - zeros_len, u32);
 }
 
-void com_biguint_add_u32(com_biguint *a, u32 b) {
+void com_biguint_add_u32(com_biguint* dest, const com_biguint *a, u32 b) {
   com_assert_m(a != NULL, "a is null");
+  com_assert_m(dest != NULL, "dest is null");
   if(b == 0) {
     return;
   }
@@ -270,15 +272,16 @@ void com_biguint_add_u32(com_biguint *a, u32 b) {
   u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
   if (a_len == 0) {
     // if a_len is 0, then the value of a is zero, so we can just set it
-    com_biguint_set_u64(a, b);
+    com_biguint_set_u64(dest, b);
   } else {
     // we treat the `b` like a 1 length array
-    internal_value_add_u32_arr(a, a_arr, a_len, &b, 1u);
+    internal_value_add_u32_arr(dest, a_arr, a_len, &b, 1u);
   }
 }
 
-void com_biguint_sub_u32(com_biguint *a, u32 b) {
+void com_biguint_sub_u32(com_biguint* dest, const com_biguint *a, u32 b) {
   com_assert_m(a != NULL, "a is null");
+  com_assert_m(dest != NULL, "dest is null");
   if(b == 0) {
     return;
   }
@@ -292,7 +295,7 @@ void com_biguint_sub_u32(com_biguint *a, u32 b) {
                  "trying to subtract a nonzero number from a zero biguint");
     return;
   } else {
-    internal_value_sub_u32_arr(a, a_arr, a_len, &b, 1u);
+    internal_value_sub_u32_arr(dest, a_arr, a_len, &b, 1u);
   }
 }
 
@@ -316,6 +319,7 @@ void com_biguint_add(com_biguint *dest, const com_biguint *a,
     internal_value_add_u32_arr(dest, b_arr, blen, a_arr, alen);
   }
 }
+
 void com_biguint_sub(com_biguint *dest, const com_biguint *a,
                      const com_biguint *b) {
   com_assert_m(a != NULL, "a is null");
@@ -334,5 +338,121 @@ void com_biguint_sub(com_biguint *dest, const com_biguint *a,
   internal_value_add_u32_arr(dest, a_arr, alen, b_arr, blen);
 }
 
+// Sets dest to a * b
+// REQUIRES: `dest` is a valid pointer to a valid com_biguint
+// REQUIRES: `a` is a valid pointer at least `alen` u32s
+// GUARANTEES: dest will be set to a*b
+static void internal_value_mul_u32_arr_u32(com_biguint* dest, const u32* a, usize alen, u32 b) {
+  com_vec *dest_vec = &dest->_array;
+  // extend array to the size of alen
+  com_vec_set_len_m(dest_vec, alen, u32);
 
+  u32* dest_arr = com_vec_get_m(dest_vec, 0, u32);
+
+  u32 carry = 0;
+  for(usize i = 0; i < alen; i++) {
+      u64 aval = a[i];
+      // this will never overflow since aval * b is promoted to u64 before adding carry
+      u64 tmp = aval * b + carry;
+      // the upper half of u32
+      // Represents the value that can't be fit into the current value
+      carry = tmp >> 32;
+      // push the lower half of tmp
+      dest_arr[i] = tmp & 0x00000000FFFFFFFFu;
+    }
+
+    // if we still have something to carry add it in
+    if(carry != 0) {
+      *com_vec_push_m(dest_vec, u32) = carry;
+    }
+}
+
+void com_biguint_mul_u32(com_biguint* dest, const com_biguint *a, u32 b) {
+  internal_value_mul_u32_arr_u32(dest, com_vec_get_m(&a->_array, 0, u32), com_vec_len_m(&a->_array, u32), b);
+}
+
+// sets dest to a * b
+// REQUIRES: `dest` is a pointer to a valid com_biguint
+// REQUIRES: `a` is a pointer to an array of at least `alen` u32s
+// REQUIRES: `b` is a pointer to an array of at least `blen` u32s
+// REQUIRES: `tmp` is a temporary biguint that will be overwritten
+// REQUIRES: dest->_array._data MUST NOT overlap with a or b, as dest will be modified before the end
+// GUARANTEES: dest will contain the product of a and b
+// GUARANTEES: tmp will be undefined
+static void internal_value_mul_u32_arr(com_biguint* dest, const u32* a, usize alen, const u32* b, usize blen, com_biguint* tmp) {
+  // algorithm is the same as normal multiplication
+  // Start with 0
+  // For each digit in b, multiply a by that digit of b, shift by the index and add it to the running total
+
+  // zero initialize dest, we will later add the result of each submultiplication to it
+  com_biguint_set_u64(dest, 0);
+
+  for(usize i = 0; i< blen; i++) {
+
+    // we know ahead of time that the maximum size that this temp thing can be is 
+    // alen + blen 
+    // this variable represents the product of a with a single digit of b
+
+    // multiply
+    internal_value_mul_u32_arr_u32(tmp, a, alen, b[i]);
+
+    // shift right by the current place, zero fill
+    usize len = sizeof(u32)*i;
+    com_mem_zero(com_vec_insert(&tmp->_array, 0, len), len);
+
+    // add result to dest
+    com_biguint_add(dest, dest, tmp);
+  }
+}
+
+void com_biguint_mul(com_biguint* dest, const com_biguint* a, const com_biguint* b, com_Allocator* allocator) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_assert_m(allocator != NULL, "allocator is null");
+
+  usize alen = com_vec_len_m(&a->_array, u32);
+  usize blen = com_vec_len_m(&b->_array, u32);
+
+  // get a pointer to the beginning of the array
+  u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
+  u32 *b_arr = com_vec_get_m(&b->_array, 0, u32);
+
+  // allocate a tmp object
+  com_biguint tmp = com_biguint_create(com_allocator_alloc(allocator, (com_allocator_HandleData) {
+      // technically could overflow, but won't because if alen and blen are really that long, 
+      // then all the address space is already used up by those
+      .len = alen + blen + 1,
+      // we don't need to reallocate since the max len tmp could go through is already covered by our len
+      .flags = com_allocator_defaults(allocator)
+  }));
+
+  // if any of the arguments are aliased with dest, then we need to create a new dest
+  if(dest == b || dest == a) {
+    com_biguint newdest = com_biguint_create(com_allocator_alloc(allocator, (com_allocator_HandleData) {
+      .len = alen + blen + 1,
+      .flags = com_allocator_defaults(allocator)
+    }));
+    internal_value_mul_u32_arr(&newdest, a_arr, alen, b_arr, blen, &tmp);
+    com_biguint_set(dest, &newdest);
+    // free newdest
+    com_biguint_destroy(&newdest);
+  } else {
+    // means that none of the arguments are aliased with each other
+    internal_value_mul_u32_arr(dest, a_arr, alen, b_arr, blen, &tmp);
+  }
+
+  // free tmp
+  com_biguint_destroy(&tmp);
+}
+
+void com_biguint_div(com_biguint* dest, const com_biguint* a, const com_biguint* b, com_Allocator* allocator) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_assert_m(allocator != NULL, "allocator is null");
+
+  // TODO
+
+}
 

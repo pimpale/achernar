@@ -27,7 +27,7 @@ com_biguint com_biguint_create(com_allocator_Handle h);
 /// REQUIRES: `a` is a valid pointer to a `com_biguint`
 /// GUARANTEES:  `a` is no longer a valid `com_biguint`
 /// GUARANTEES: all memory associated with `a` will be deallocated
-void com_biguint_release(com_biguint *a);
+void com_biguint_destroy(com_biguint *a);
 
 ///  Sets the value of a biguint to a u64
 /// REQUIRES: `dest` is a valid pointer to a valid `com_biguint`
@@ -61,11 +61,11 @@ void com_biguint_add(com_biguint *dest, const com_biguint *a,
 void com_biguint_sub(com_biguint *dest, const com_biguint *a,
                      const com_biguint *b);
 void com_biguint_mul(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b);
+                     const com_biguint *b, com_Allocator* allocator);
 void com_biguint_div(com_biguint *quotient, const com_biguint *a,
-                     const com_biguint *b);
+                     const com_biguint *b, com_Allocator* allocator);
 void com_biguint_mod(com_biguint *remainder, const com_biguint *a,
-                     const com_biguint *b);
+                     const com_biguint *b, com_Allocator* allocator);
 void com_biguint_div_mod(com_biguint *quotient, com_biguint *remainder,
                          const com_biguint *a, const com_biguint *b);
 
@@ -84,12 +84,9 @@ void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
 /* Special operators and comparison */
 
 // constant version
-void com_biguint_add_u32(com_biguint *a, u32 b);
-void com_biguint_sub_u32(com_biguint *a, u32 b);
-void com_biguint_fma_u32_u32(com_biguint *dest, const com_biguint *src, u32 mul,
-                             u32 add);
-void com_biguint_fma(com_biguint *dest, const com_biguint *src,
-                     const com_biguint *mul, const com_biguint *add);
+void com_biguint_add_u32(com_biguint* dest, const com_biguint *a, u32 b);
+void com_biguint_sub_u32(com_biguint* dest, const com_biguint *a, u32 b);
+void com_biguint_mul_u32(com_biguint* dest, const com_biguint *a, u32 b);
 
 com_math_cmptype com_biguint_cmp(const com_biguint *a, const com_biguint *b);
 com_math_cmptype com_biguint_cmp_u64(const com_biguint *a, u64 b);

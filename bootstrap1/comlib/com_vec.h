@@ -9,7 +9,6 @@ typedef struct {
   usize _capacity;
   com_allocator_Handle _handle;
   void *_data;
-  bool _resizeable;
 } com_vec;
 
 /** Creates a vector using the memory held by `handle`
@@ -99,14 +98,6 @@ usize com_vec_length(const com_vec *vec);
 /// REQUIRES: `vec` is a pointer to a valid vector
 /// GUARANTEES: returns the current capacity of `vec` in bytes
 usize com_vec_capacity(const com_vec *vec);
-
-// Appends the contents of src to dest and destroys src
-/// REQUIRES: `dest` is a valid pointer to a valid com_vec
-/// REQUIRES: `src` is a valid pointer to a valid com_vec
-/// GUARANTEES: `src` is no longer valid
-/// GUARANTEES: `dest`'s length is now `dest`'s length + `src`'s length
-/// GUARANTEES: the contents of `src` are appended to `dest`
-void com_vec_append(com_vec* dest, com_vec* src);
 
 // Sets the length of `vec`, potentially deleting from the end or extending
 /// REQUIRES: `vec` is a valid pointer to a valid com_vec

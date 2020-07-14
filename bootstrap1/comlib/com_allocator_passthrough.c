@@ -121,8 +121,8 @@ com_allocator_passthrough(void *ptr, usize len,
   return (com_Allocator){
       // user is responsible for cleaning up data
       ._valid = true,
-      ._default_flags = com_allocator_PERSISTENT | com_allocator_REALLOCABLE,
-      ._supported_flags = com_allocator_PERSISTENT | com_allocator_REALLOCABLE,
+      ._default_flags = com_allocator_REALLOCABLE,
+      ._supported_flags = com_allocator_REALLOCABLE,
       ._backing = backing_storage,
       ._allocator_fn = handle_allocator_fn,
       ._deallocator_fn = handle_deallocator_fn,

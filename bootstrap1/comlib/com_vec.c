@@ -26,9 +26,9 @@ void com_vec_setCapacity(com_vec *vector, usize size) {
   vector->_data = com_allocator_handle_get(vector->_handle);
 }
 
-// increases the capacity of the vector in order to fit an element of this size in
+// increases the capacity of the vector in order to fit an element of this size
+// in
 void com_vec_resize(com_vec *vector, usize size) {
-  com_assert_m(vector->_resizeable, "vector is not resizable");
   // This is the new size of the vector if we used the loadFactor
   usize newCapacity = (usize)((vector->_length + size) * LOAD_FACTOR);
   com_vec_setCapacity(vector, newCapacity);
@@ -41,8 +41,7 @@ com_vec com_vec_create(com_allocator_Handle handle) {
   return (com_vec){._length = 0,
                    ._capacity = hdata.len,
                    ._handle = handle,
-                   ._data = com_allocator_handle_get(handle),
-                   ._resizeable = hdata.flags & com_allocator_REALLOCABLE};
+                   ._data = com_allocator_handle_get(handle)};
 }
 
 com_vec *com_vec_destroy(com_vec *vector) {
@@ -99,21 +98,12 @@ void com_vec_remove(com_vec *vector, void *data, usize loc, usize len) {
   com_mem_move(dest, src, vector->_length - loc);
 }
 
-void com_vec_set_len(com_vec* vec, usize len) {
-  com_assert_m(vector->_resizeable, "vector is not resizable");
-  if(vec->_capacity < len) {
+void com_vec_set_len(com_vec *vec, usize len) {
+  if (vec->_capacity < len) {
     com_vec_setCapacity(vec, len);
   }
   vec->_length = len;
 }
-    
-void com_vec_append(com_vec *dest, com_vec *src) {
-  usize len = com_vec_length(src);
-  com_vec_pop(src, com_vec_push(dest, len), len);
-  com_vec_destroy(src);
-}
-
-
 
 com_str com_vec_to_str(com_vec *vec) {
   usize len = com_vec_len_m(vec, u8);

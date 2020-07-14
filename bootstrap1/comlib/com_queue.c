@@ -3,6 +3,8 @@
 
 #include "com_assert.h"
 
+// TODO convert to circular buffer
+
 com_Queue queue_create(com_vec vector) {
   // it currently has zer
   return (com_Queue) {

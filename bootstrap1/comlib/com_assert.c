@@ -14,7 +14,7 @@ bool attr_NORETURN com_assert_fail(com_str condition, com_str message,
       com_json_Prop_m(com_str_lit_m("message"), com_json_str_m(message)),
       com_json_Prop_m(com_str_lit_m("file"), com_json_str_m(file)),
       com_json_Prop_m(com_str_lit_m("function"), com_json_str_m(function)),
-      com_json_Prop_m(com_str_lit_m("line"), com_json_str_m(function))
+      com_json_Prop_m(com_str_lit_m("line"), com_json_int_m(line))
   }));
 
   com_json_serialize(&elem, &err);
@@ -30,7 +30,7 @@ void attr_NORETURN com_assert_unreachable(com_str message, com_str file, u32 lin
       com_json_Prop_m(com_str_lit_m("message"), com_json_str_m(message)),
       com_json_Prop_m(com_str_lit_m("file"), com_json_str_m(file)),
       com_json_Prop_m(com_str_lit_m("function"), com_json_str_m(function)),
-      com_json_Prop_m(com_str_lit_m("line"), com_json_str_m(function))
+      com_json_Prop_m(com_str_lit_m("line"), com_json_int_m(line))
   }));
 
   com_json_serialize(&elem, &err);

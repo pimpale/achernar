@@ -57,7 +57,6 @@ void com_biguint_set(com_biguint *dest, const com_biguint *src);
 
 /* Basic arithmetic operations: */
 
-
 /// dest := a + b
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
@@ -79,36 +78,37 @@ void com_biguint_sub(com_biguint *dest, const com_biguint *a,
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `dest` is a valid pointer to a valid `com_biguint`
-/// REQUIRES: `allocator` is a valid `com_allocator` to allocate temporaries with
+/// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` * `b`
 void com_biguint_mul(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator* allocator);
+                     const com_biguint *b, com_Allocator *allocator);
 /// dest := a / b
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `dest` is a valid pointer to a valid `com_biguint`
-/// REQUIRES: `allocator` is a valid `com_allocator` to allocate temporaries with
+/// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` / `b`
 void com_biguint_div(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator* allocator);
+                     const com_biguint *b, com_Allocator *allocator);
 
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `dest` is a valid pointer to a valid `com_biguint`
-/// REQUIRES: `allocator` is a valid `com_allocator` to allocate temporaries with
+/// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` % `b`
-void com_biguint_mod(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator* allocator);
+void com_biguint_rem(com_biguint *dest, const com_biguint *a,
+                     const com_biguint *b, com_Allocator *allocator);
 
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `quotient` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `remainder` is a valid pointer to a valid `com_biguint`
-/// REQUIRES: `allocator` is a valid `com_allocator` to allocate temporaries with
+/// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `quotient` will be overwritten by `a` / `b`
 /// GUARANTEES: `remainder` will be overwritten by `a` % `b`
-void com_biguint_div_mod(com_biguint *quotient, com_biguint *remainder,
-                         const com_biguint *a, const com_biguint *b);
+void com_biguint_div_rem(com_biguint *quotient, com_biguint *remainder,
+                         const com_biguint *a, const com_biguint *b,
+                         com_Allocator *allocator);
 
 /* Bitwise operations: */
 void com_biguint_and(com_biguint *dest, const com_biguint *a,
@@ -125,15 +125,18 @@ void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
 // compares the magnitude of b with reference to a
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
-/// GUARANTEES: if `b`'s value is greater than `a`'value will return com_math_GREATER
-/// GUARANTEES: if `b`'s value is less than `a`'value will return com_math_LESS
-/// GUARANTEES: if `b`'s value is equal to `a`'value will return com_math_EQUAL
+/// GUARANTEES: if `b` is greater than `a` will return com_math_GREATER
+/// GUARANTEES: if `b` is less than `a` will return com_math_LESS
+/// GUARANTEES: if `b` is equal to `a` will return com_math_EQUAL
 com_math_cmptype com_biguint_cmp(const com_biguint *a, const com_biguint *b);
 
 // constant version
-void com_biguint_add_u32(com_biguint* dest, const com_biguint *a, u32 b);
-void com_biguint_sub_u32(com_biguint* dest, const com_biguint *a, u32 b);
-void com_biguint_mul_u32(com_biguint* dest, const com_biguint *a, u32 b);
+void com_biguint_add_u32(com_biguint *dest, const com_biguint *a, u32 b);
+void com_biguint_sub_u32(com_biguint *dest, const com_biguint *a, u32 b);
+void com_biguint_mul_u32(com_biguint *dest, const com_biguint *a, u32 b);
+
 com_math_cmptype com_biguint_cmp_u64(const com_biguint *a, u64 b);
+
+bool com_biguint_is_zero(const com_biguint *a);
 
 #endif

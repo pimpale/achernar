@@ -19,6 +19,11 @@ typedef enum {
 
 typedef u32 com_writer_Flags;
 
+typedef struct {
+    bool valid;
+} com_writer_WriteResult;
+
+
 // forward declare writer struct
 typedef struct com_writer_s com_writer;
 
@@ -33,7 +38,7 @@ typedef struct com_writer_s {
 
     // allows you to write to the writer
     usize (*_append_str_fn)(const com_writer*, const com_str data);
-    bool (*_append_u8_fn)(const com_writer*, const u8 data);
+    com_writer_WriteResult (*_append_u8_fn)(const com_writer*, const u8 data);
 
     // query how many bytes are available in the underlying resource
     usize (*_query_fn)(const com_writer*);
@@ -46,50 +51,44 @@ typedef struct com_writer_s {
 } com_writer;
 
 
-/** flags that are enabled by default for an writer (cannot be disabled)
- * REQUIRES: `w` is a valid pointer to a com_writer
- * GUARANTEES: returns flags supported by default by `w`
- */
+/// flags that are enabled by default for an writer (cannot be disabled)
+/// REQUIRES: `w` is a valid pointer to a com_writer
+/// GUARANTEES: returns flags supported by default by `w`
 com_writer_Flags com_writer_flags(const com_writer *w);
 
-/** appends `data.len` bytes of `data` to the writer `w`
- * REQUIRES: `data` is a valid com_str
- * REQUIRES: `w` is a valid pointer to a valid com_writer
- * REQUIRES: if the underlying resource supports `com_writer_LIMITED`, then `com_writer_query(w)` >= `data.len`
- * GUARANTEES: the behaviour of this method is identical to repeatedly calling `append_u8`
- * GUARANTEES: will stop writing on an the first error encountered
- * GUARANTEES: returns the number of bytes successfully written
- */
+///  appends `data.len` bytes of `data` to the writer `w`
+/// REQUIRES: `data` is a valid com_str
+/// REQUIRES: `w` is a valid pointer to a valid com_writer
+/// REQUIRES: if the underlying resource supports `com_writer_LIMITED`, then `com_writer_query(w)` >= `data.len`
+/// GUARANTEES: the behaviour of this method is identical to repeatedly calling `append_u8`
+/// GUARANTEES: will stop writing on an the first error encountered
+/// GUARANTEES: returns the number of bytes successfully written
 usize com_writer_append_str(const com_writer* w, const com_str data);
 
 
-/** appends `u8` to the writer `w`
- * REQUIRES: `w` is a valid pointer to a valid com_writer
- * REQUIRES: if the underlying resource supports `com_writer_LIMITED` then `com_writer_query(w)` > 0
- * GUARANTEES: writes `data` to `w`
- * GUARANTEES: if the operation succeeds, will return true
- * GUARANTEES: if the operation fails, will return false
- */
-bool com_writer_append_u8(const com_writer* w, const u8 data); 
+///  appends `u8` to the writer `w`
+/// REQUIRES: `w` is a valid pointer to a valid com_writer
+/// REQUIRES: if the underlying resource supports `com_writer_LIMITED` then `com_writer_query(w)` > 0
+/// GUARANTEES: writes `data` to `w`
+/// GUARANTEES: if the operation succeeds, will return true
+/// GUARANTEES: if the operation fails, will return false
+com_writer_WriteResult com_writer_append_u8(const com_writer* w, const u8 data); 
 
-/** query how many bytes are available in the underlying resource (if applicable)
- * REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
- * REQUIRES: `w` must support `com_writer_LIMITED`
- * GUARANTEES: returns how many more bytes may safely be written to the writer
- */
+///  query how many bytes are available in the underlying resource (if applicable)
+/// REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
+/// REQUIRES: `w` must support `com_writer_LIMITED`
+/// GUARANTEES: returns how many more bytes may safely be written to the writer
 usize com_writer_query(const com_writer *w);
 
-/** flush all buffered changes to the underlying resource (if applicable)
- * REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
- * REQUIRES: `w` must support `com_writer_BUFFERED`
- * GUARANTEES: all writes made will be flushed from the buffer and into the underlying resource
- */
+///  flush all buffered changes to the underlying resource (if applicable)
+/// REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
+/// REQUIRES: `w` must support `com_writer_BUFFERED`
+/// GUARANTEES: all writes made will be flushed from the buffer and into the underlying resource
 void com_writer_flush(const com_writer *w);
 
-/** destroys the writer
- * REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
- * GUARANTEES: `w` is no longer a valid `com_writer`
- */
+///  destroys the writer
+/// REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
+/// GUARANTEES: `w` is no longer a valid `com_writer`
 void com_writer_destroy(com_writer* w);
 
 #endif

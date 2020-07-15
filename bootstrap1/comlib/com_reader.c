@@ -12,20 +12,19 @@ usize com_reader_read_str(const com_reader* w, com_str* data) {
   return w->_read_str_fn(w, data);
 }
 
-bool com_reader_read_u8(const com_reader* w, u8* data) {
+com_reader_ReadResult com_reader_read_u8(const com_reader* w) {
   com_assert_m(w->_valid, "reader is invalid");
-  return w->_read_u8_fn(w, data);
+  return w->_read_u8_fn(w);
 }
 
-bool com_reader_drop_u8(const com_reader *w) {
-  u8 c;
-  return com_reader_read_u8(w, &c);
+void com_reader_drop_u8(const com_reader *w) {
+  com_reader_read_u8(w);
 }
 
-bool com_reader_peek_u8(const com_reader* w, usize n, u8* data) {
+com_reader_ReadResult com_reader_peek_u8(const com_reader* w, usize n) {
   com_assert_m(w->_valid, "reader is invalid");
   com_assert_m(com_reader_flags(w) & com_reader_BUFFERED, "reader doesn't support peeking forward");
-  return w->_peek_u8_fn(w, n, data);
+  return w->_peek_u8_fn(w, n);
 }
 
 usize com_reader_query(const com_reader *w) {

@@ -8,9 +8,9 @@
 #include "com_reader.h"
 
 typedef enum {
+  com_json_INVALID = 0,
   com_json_NULL,
   com_json_BOOL,
-  com_json_BIGINT,
   com_json_INT,
   com_json_NUM,
   com_json_STR,
@@ -27,7 +27,6 @@ typedef struct com_json_Elem_s {
     bool boolean;
     double number;
     i64 integer;
-    com_bigint bigint;
     com_str string;
     struct {
       com_json_Elem *values;
@@ -47,12 +46,11 @@ typedef struct com_json_Prop_s {
 
 #define com_json_Prop_m(k, v) ((com_json_Prop){.key = (k), .value = (v)})
 #define com_json_null_m ((com_json_Elem){.kind = com_json_NULL})
+#define com_json_invalid_m ((com_json_Elem){.kind = com_json_NULL})
 #define com_json_bool_m(v)                                                     \
   ((com_json_Elem){.kind = com_json_BOOL, .boolean = (v)})
 #define com_json_int_m(v)                                                      \
   ((com_json_Elem){.kind = com_json_INT, .integer = (v)})
-#define com_json_bigint_m(v)                                                      \
-  ((com_json_Elem){.kind = com_json_BIGINT, .bigint = (v)})
 #define com_json_num_m(v) ((com_json_Elem){.kind = com_json_NUM, .number = (v)})
 #define com_json_str_m(v) ((com_json_Elem){.kind = com_json_STR, .string = (v)})
 #define com_json_array_m(v, len)                                               \

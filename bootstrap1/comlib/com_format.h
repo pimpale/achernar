@@ -6,19 +6,16 @@
 #include "com_writer.h"
 #include "com_str.h"
 
-typedef enum {
-  com_format_FLAGS_NONE = 0,
-  // if true will display plus
-  // ignored for unsigned
-  com_format_PLUS_VISIBLE = 1<<2,
-  // if true will display minus
-  // ignored for unsigned
-  com_format_MINUS_VISIBLE = 1<<3,
-  // which direction to pad in
-  com_format_HEX_UPPER= 1<<4,
-} com_format_Flag;
+typedef struct {
+  // radix between 2 and 36, inclusive
+  u8 radix;
+  bool uppercaseAlphabet;
+  bool showMinus;
+  bool showPlus;
+} com_format_Settings;
 
-typedef u32 com_format_Flags;
+#define com_format_HEX_UNSIGNED_SETTING ((com_format_Settings) {.radix=16, .uppercaseAlphabet=true, .showMinus=false, .showPlus=false})
+#define com_format_DEFAULT_SETTING ((com_format_Settings) {.radix=10, .uppercaseAlphabet=false, .showMinus=true, .showPlus=false})
 
 typedef struct {
     // char to print on the left side if the length of the printed string is less than `min_width`
@@ -47,23 +44,25 @@ void com_format_str(com_writer* w, const com_str data);
 
 /** Converts `data` to a string format with radix `radix` and then append to w
  * REQUIRES: `w` is a valid pointer to a valid com_writer
- * REQUIRES: `flags` is a valid com_format_Flags object
+ * REQUIRES: `setting` is a valid com_format_Settings object
  * REQUIRES: `pad_data` is a valid com_format_PadData object
- * REQUIRES: `radix` > 1 && `radix` <= 36
+ * REQUIRES: `setting.radix` >= 2 && `setting.radix` <= 36
  * GUARANTEES: will losslessly append data to `w`
  */
-void com_format_i64(com_writer* w, u8 radix, i64 data, com_format_Flags flags, com_format_PadData pad_data);
-void com_format_u64(com_writer* w, u8 radix, u64 data, com_format_Flags flags, com_format_PadData pad_data);
+void com_format_i64(com_writer* w, i64 data, com_format_Settings setting, com_format_PadData pad_data);
+void com_format_u64(com_writer* w, u64 data, com_format_Settings setting, com_format_PadData pad_data);
 
 
-void com_format_f32(com_writer* w, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data);
-void com_format_f64(com_writer* w, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data);
+typedef struct {
+  // radix between 2 and 36, inclusive
+  u32 significant_digits;
+  bool exponential;
+} com_format_FloatData;
 
-// may be lossy
-// TODO: write full description from wikipedia
-//  https://en.wikipedia.org/wiki/Printf_format_string
-void com_format_f32_exp(com_writer* w, u8 radix, f32 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
-void com_format_f64_exp(com_writer* w, u8 radix, f64 data, com_format_Flags flags, com_format_PadData pad_data, u32 sig_digits);
+
+void com_format_f32(com_writer* w, f32 data, com_format_Settings setting, com_format_PadData pad_data, com_format_FloatData float_data);
+void com_format_f64(com_writer* w, f64 data, com_format_Settings setting, com_format_PadData pad_data, com_format_FloatData float_data);
+
 
 /** Interprets `data` as a char and appends it to `w` escaping non plaintext characters
  * REQUIRES: `w` is a pointer to a valid vector of u8s

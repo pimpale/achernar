@@ -11,7 +11,7 @@ usize com_writer_append_str(const com_writer* w, const com_str data) {
   return w->_append_str_fn(w, data);
 }
 
-bool com_writer_append_u8(const com_writer* w, const u8 data) {
+com_writer_WriteResult com_writer_append_u8(const com_writer* w, const u8 data) {
   com_assert_m(w->_valid, "writer is invalid");
   return w->_append_u8_fn(w, data);
 }

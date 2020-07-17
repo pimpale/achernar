@@ -57,7 +57,7 @@ com_reader_Flags com_reader_supports(const com_reader *r);
 ///  reads at most `data.len` bytes of `r` into `data.data` and returns the number of bytes read
 /// REQUIRES: `data` is a valid com_str
 /// REQUIRES: `r` is a valid pointer to a valid com_reader
-/// GUARANTEES: the behaviour of this method is identical to repeatedly calling `read_u8`
+/// GUARANTEES: the behavior of this method is identical to repeatedly calling `read_u8`
 /// GUARANTEES: will stop reading on an the first error encountered
 /// GUARANTEES: returns the number of bytes successfully read
 usize com_reader_read_str(const com_reader* r, com_str* data);

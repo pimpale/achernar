@@ -1,6 +1,6 @@
 #include "com_json.h"
-#include "com_fmath.h"
 #include "com_assert.h"
+#include "com_fmath.h"
 #include "com_format.h"
 
 // emits str with quotation marks
@@ -20,6 +20,10 @@ static void com_json_emitProp(com_writer *writer, com_json_Prop *prop) {
 
 static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
   switch (j->kind) {
+  case com_json_INVALID: {
+    com_assert_m(j->kind != com_json_INVALID, "invalid elem type");
+    break;
+  }
   case com_json_NULL: {
     com_format_str(writer, com_str_lit_m("null"));
     break;
@@ -76,25 +80,25 @@ void com_json_serialize(com_json_Elem *elem, com_writer *writer) {
 // Parsing
 static void skipWhitespace(com_reader *reader) {
   u8 c;
-  while(true) {
+  while (true) {
     com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
-    if(ret.valid) {
-        switch(ret.value) {
-    case ' ':
-    case '\t':
-    case '\r':
-    case '\n': {
-      // discard whitespace
-      com_reader_drop_u8(reader);
-      break;
-    }
-    default: {
+    if (ret.valid) {
+      switch (ret.value) {
+      case ' ':
+      case '\t':
+      case '\r':
+      case '\n': {
+        // discard whitespace
+        com_reader_drop_u8(reader);
+        break;
+      }
+      default: {
         return;
-    }
-    }
+      }
+      }
     } else {
-        return;
-  }
+      return;
+    }
   }
 }
 
@@ -108,19 +112,24 @@ static bool com_json_isalpha(u8 c) {
   return com_json_islowercasealpha(c) || com_json_isuppercasealpha(c);
 }
 
+static bool com_json_isalphadigit(u8 c) {
+  return com_json_isdigit(c) || com_json_isalpha(c);
+}
+
 static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
                                                       com_vec *diagnostics,
                                                       com_Allocator *a) {
 
   bool negative = false;
   com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
-  if(ret.valid) {
-      if (ret.value == '-') {
-        negative = true;
-        com_reader_drop_u8(reader);
-      }
+  if (ret.valid) {
+    if (ret.value == '-') {
+      negative = true;
+      com_reader_drop_u8(reader);
+    }
   } else {
-    *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+    *com_vec_push_m(diagnostics, com_json_Error) =
+        com_json_error_m(com_json_ElemEof, com_reader_position(reader));
     return com_json_invalid_m;
   }
 
@@ -128,44 +137,45 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
   bool has_fractional_component;
   while (true) {
     ret = com_reader_peek_u8(reader, 1);
-    if(ret.valid) {
+    if (ret.valid) {
       u8 c = ret.value;
-      if(com_json_isdigit(c)) {
+      if (com_json_isdigit(c)) {
         integer_value = integer_value * 10 + c - 10;
         com_reader_drop_u8(reader);
-      }  else if(c == '.') {
-    has_fractional_component = true;
+      } else if (c == '.') {
+        has_fractional_component = true;
         com_reader_drop_u8(reader);
-      }  else {
-    has_fractional_component = false;
-          break;
+      } else {
+        has_fractional_component = false;
+        break;
       }
     } else {
-      *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_ElemEof, com_reader_position(reader));
       return com_json_invalid_m;
     }
   }
-
 
   double fractional_component = 0;
   if (has_fractional_component) {
     double place = 1;
 
-    while(true) {
+    while (true) {
       ret = com_reader_peek_u8(reader, 1);
-      if(ret.valid) {
-          u8 c = ret.value;
-      if (com_json_isdigit(c)) {
-        place *= 10;
-        fractional_component += (c - '0') / place;
-        com_reader_drop_u8(reader);
-      } else {
-        break;
-      }
+      if (ret.valid) {
+        u8 c = ret.value;
+        if (com_json_isdigit(c)) {
+          place *= 10;
+          fractional_component += (c - '0') / place;
+          com_reader_drop_u8(reader);
+        } else {
+          break;
+        }
 
       } else {
-      *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_ElemEof, com_reader_position(reader));
-      return com_json_invalid_m;
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+        return com_json_invalid_m;
       }
     }
   }
@@ -179,73 +189,75 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
   ExponentState exponentState;
 
   ret = com_reader_peek_u8(reader, 1);
-  if(ret.valid) {
+  if (ret.valid) {
     u8 c = ret.value;
-  if (c == 'E' || c == 'e') {
-    com_reader_drop_u8(reader);
+    if (c == 'E' || c == 'e') {
+      com_reader_drop_u8(reader);
 
-    ret = com_reader_peek_u8(reader, 1);
-    if(ret.valid) {
-        switch(ret.value) {
-            case '+': {
-                exponentState = PositiveExponent;
-                com_reader_drop_u8(reader);
-                break;
+      ret = com_reader_peek_u8(reader, 1);
+      if (ret.valid) {
+        switch (ret.value) {
+        case '+': {
+          exponentState = PositiveExponent;
+          com_reader_drop_u8(reader);
+          break;
         }
         case '-': {
-            exponentState = NegativeExponent;
-            com_reader_drop_u8(reader);
-            break;
+          exponentState = NegativeExponent;
+          com_reader_drop_u8(reader);
+          break;
         }
         default: {
           exponentState = PositiveExponent;
           break;
         }
         }
+      } else {
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+        return com_json_invalid_m;
+      }
     } else {
-      *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_ElemEof, com_reader_position(reader));
-      return com_json_invalid_m;
+      exponentState = NoExponent;
     }
   } else {
-      exponentState = NoExponent;
-  }
-  } else {
-      *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_ElemEof, com_reader_position(reader));
-      return com_json_invalid_m;
+    *com_vec_push_m(diagnostics, com_json_Error) =
+        com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+    return com_json_invalid_m;
   }
 
   u32 exponential_integer = 0;
   if (exponentState != NoExponent) {
     while (true) {
       ret = com_reader_read_u8(reader);
-      if(ret.valid) {
-          u8 c = ret.value;
-          if (com_json_isdigit(c)) {
-            exponential_integer = exponential_integer * 10 + (c - (u8)'0');
-            com_reader_drop_u8(reader);
-          } else {
-            break;
-          }
+      if (ret.valid) {
+        u8 c = ret.value;
+        if (com_json_isdigit(c)) {
+          exponential_integer = exponential_integer * 10 + (c - (u8)'0');
+          com_reader_drop_u8(reader);
+        } else {
+          break;
+        }
       } else {
-        *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_ElemEof, com_reader_position(reader));
         return com_json_invalid_m;
       }
     }
   }
 
-  if (fractional || negative_exponent || positive_exponent) {
-    // Decimalish
+  if (has_fractional_component || (exponentState != NoExponent)) {
+    // means we have to be floating point
     double num = integer_value + fractional_component;
-    if (positive_exponent) {
-      for (size_t i = 0; i < exponential_integer; i++) {
-        num *= 10;
+
+    if (exponentState != NoExponent) {
+      f64 exponent = exponential_integer;
+      if (exponentState == NegativeExponent) {
+        exponent = -exponent;
       }
+      num = com_fmath_f64_pow(num, exponent);
     }
-    if (negative_exponent) {
-      for (size_t i = 0; i < exponential_integer; i++) {
-        num /= 10;
-      }
-    }
+
     if (negative) {
       num = -num;
     }
@@ -263,31 +275,63 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
                                                        com_Allocator *a) {
   com_streamposition_LnCol start = com_reader_position(reader);
 
-  com_vec data = com_vec_create(com_allocator_alloc(
-      a, (com_allocator_HandleData){.flags = com_allocator_defaults(a) |
-                                             com_allocator_REALLOCABLE,
-                                    .len = 6}));
+  bool overflow = false;
 
-  while(true) {
+  u8 buffer[6];
+  usize index = 0;
+
+  while (true) {
     com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
-    if(ret.valid) {
+    if (ret.valid) {
       u8 c = ret.value;
-
-    } else {
-
+      if (com_json_isalphadigit(c)) {
+        // if we are able to put it in the buffer
+        if (index < sizeof(buffer)) {
+          // insert it in
+          buffer[index++] = c;
+          // get next
+          com_reader_drop_u8(reader);
+        } else {
+          // overflow
+          overflow = true;
+          break;
+        }
+      } else {
+        // stop recoding
         break;
-    }
-  }
-  while (com_reader_peek_u8(reader, 1, &c)) {
-    if (com_json_isalpha(c)) {
-      *com_vec_push_m(&data, u8) = c;
-      com_reader_drop_u8(reader);
+      }
     } else {
-      break;
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+      return com_json_invalid_m;
     }
   }
 
-  com_str data_str = com_vec_to_str(&data);
+  // if we have an overflow we need to read out the rest of the term and then
+  // return an invalid
+  if (overflow) {
+    while (true) {
+      com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
+      if (ret.valid) {
+        u8 c = ret.value;
+        if (com_json_isalphadigit(c)) {
+          // drop if is an alph or digit
+          com_reader_drop_u8(reader);
+        } else {
+            // otherwise break
+            break;
+        }
+      } else {
+        // if invalid write return it
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_ElemEof, com_reader_position(reader));
+        return com_json_invalid_m;
+      }
+    }
+    return com_json_invalid_m;
+  }
+
+  com_str data_str = com_str_create(buffer, index);
 
   if (com_str_equal(data_str, com_str_lit_m("null"))) {
     return com_json_null_m;
@@ -302,18 +346,25 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
   }
 }
 
-static com_str com_json_certain_parseStr(com_reader *reader, Vector *diagnostics,
-                                 Allocator *a) {
+
+static bool com_json_parseStr(com_writer* destination, com_reader *reader, com_vec *diagnostics) {
   com_streamposition_LnCol start = com_reader_position(reader);
   skipWhitespace(reader);
 
-  u8 c;
-  com_reader_read_u8(reader, &c);
+	com_reader_ReadResult ret =  com_reader_read_u8(reader);
 
-  if (c != '\"') {
+	if(ret.valid) {
+  	if (ret.value != '\"') {
+  	  *com_vec_push_m(diagnostics, com_json_Error) =
+  	      com_json_error_m(com_json_StrExpectedDoubleQuote, start);
+  	      return false;
+  	}
+	} else {
+    // TODO need better description here than elem eof
     *com_vec_push_m(diagnostics, com_json_Error) =
-        com_json_error_m(com_json_StrExpectedDoubleQuote, start);
-  }
+        com_json_error_m(com_json_ElemEof, start);
+    	return false;
+
 
   typedef enum {
     StringParserText,

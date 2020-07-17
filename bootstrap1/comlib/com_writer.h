@@ -20,7 +20,10 @@ typedef enum {
 typedef u32 com_writer_Flags;
 
 typedef struct {
+    // if the operation was successful
     bool valid;
+    // how many bytes were written
+    usize written;
 } com_writer_WriteResult;
 
 
@@ -37,7 +40,7 @@ typedef struct com_writer_s {
     void* _backing; 
 
     // allows you to write to the writer
-    usize (*_append_str_fn)(const com_writer*, const com_str data);
+    com_writer_WriteResult (*_append_str_fn)(const com_writer*, const com_str data);
     com_writer_WriteResult (*_append_u8_fn)(const com_writer*, const u8 data);
 
     // query how many bytes are available in the underlying resource
@@ -78,7 +81,7 @@ com_writer_WriteResult com_writer_append_u8(const com_writer* w, const u8 data);
 /// REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
 /// REQUIRES: `w` must support `com_writer_LIMITED`
 /// GUARANTEES: returns how many more bytes may safely be written to the writer
-usize com_writer_query(const com_writer *w);
+com_writer_WriteResult com_writer_query(const com_writer *w);
 
 ///  flush all buffered changes to the underlying resource (if applicable)
 /// REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`

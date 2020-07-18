@@ -2,19 +2,20 @@
 #include "com_assert.h"
 #include "com_fmath.h"
 #include "com_format.h"
+#include "com_scan.h"
 
 // emits str with quotation marks
 static void com_json_emitStr(com_writer *writer, com_str str) {
-  com_format_u8_char(writer, '\"');
+  com_writer_append_u8(writer, '\"');
   com_format_str_checked(writer, str);
-  com_format_u8_char(writer, '\"');
+  com_writer_append_u8(writer, '\"');
 }
 
 static void com_json_emitElem(com_writer *writer, com_json_Elem *j);
 
 static void com_json_emitProp(com_writer *writer, com_json_Prop *prop) {
   com_json_emitStr(writer, prop->key);
-  com_format_u8_char(writer, ':');
+  com_writer_append_u8(writer, ':');
   com_json_emitElem(writer, &prop->value);
 }
 
@@ -38,36 +39,35 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
     break;
   }
   case com_json_INT: {
-    com_format_i64(writer, j->integer, com_format_DEFAULT_SETTING,
-                   com_format_NO_PADDING);
+    com_format_i64(writer, j->integer, com_format_DEFAULT_SETTING);
     break;
   }
   case com_json_NUM: {
     com_format_f64(writer, j->number, com_format_DEFAULT_SETTING,
-                   com_format_NO_PADDING);
+                   com_format_FloatDefault);
     break;
   }
   case com_json_ARRAY: {
-    com_format_u8_char(writer, '[');
+    com_writer_append_u8(writer, '[');
     for (size_t i = 0; i < j->array.length; i++) {
       com_json_emitElem(writer, &j->array.values[i]);
       // if we are not on the ultimate element of the lsit
       if (i + 1 != j->array.length) {
-        com_format_u8_char(writer, ',');
+        com_writer_append_u8(writer, ',');
       }
     }
-    com_format_u8_char(writer, ']');
+    com_writer_append_u8(writer, ']');
     break;
   }
   case com_json_OBJ: {
-    com_format_u8_char(writer, '{');
+    com_writer_append_u8(writer, '{');
     for (size_t i = 0; i < j->object.length; i++) {
       com_json_emitProp(writer, &j->object.props[i]);
       if (i + 1 != j->object.length) {
-        com_format_u8_char(writer, ',');
+        com_writer_append_u8(writer, ',');
       }
     }
-    com_format_u8_char(writer, '}');
+    com_writer_append_u8(writer, '}');
     break;
   }
   }
@@ -75,45 +75,6 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
 
 void com_json_serialize(com_json_Elem *elem, com_writer *writer) {
   com_json_emitElem(writer, elem);
-}
-
-// Parsing
-static void skipWhitespace(com_reader *reader) {
-  u8 c;
-  while (true) {
-    com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
-    if (ret.valid) {
-      switch (ret.value) {
-      case ' ':
-      case '\t':
-      case '\r':
-      case '\n': {
-        // discard whitespace
-        com_reader_drop_u8(reader);
-        break;
-      }
-      default: {
-        return;
-      }
-      }
-    } else {
-      return;
-    }
-  }
-}
-
-static bool com_json_isdigit(u8 c) { return c >= '0' && c <= '9'; }
-
-static bool com_json_islowercasealpha(u8 c) { return c >= 'a' && c <= 'z'; }
-
-static bool com_json_isuppercasealpha(u8 c) { return c >= 'A' && c <= 'Z'; }
-
-static bool com_json_isalpha(u8 c) {
-  return com_json_islowercasealpha(c) || com_json_isuppercasealpha(c);
-}
-
-static bool com_json_isalphadigit(u8 c) {
-  return com_json_isdigit(c) || com_json_isalpha(c);
 }
 
 static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
@@ -139,7 +100,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
     ret = com_reader_peek_u8(reader, 1);
     if (ret.valid) {
       u8 c = ret.value;
-      if (com_json_isdigit(c)) {
+      if (com_format_is_digit(c)) {
         integer_value = integer_value * 10 + c - 10;
         com_reader_drop_u8(reader);
       } else if (c == '.') {
@@ -164,7 +125,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
       ret = com_reader_peek_u8(reader, 1);
       if (ret.valid) {
         u8 c = ret.value;
-        if (com_json_isdigit(c)) {
+        if (com_format_is_digit(c)) {
           place *= 10;
           fractional_component += (c - '0') / place;
           com_reader_drop_u8(reader);
@@ -232,7 +193,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
       ret = com_reader_read_u8(reader);
       if (ret.valid) {
         u8 c = ret.value;
-        if (com_json_isdigit(c)) {
+        if (com_format_is_digit(c)) {
           exponential_integer = exponential_integer * 10 + (c - (u8)'0');
           com_reader_drop_u8(reader);
         } else {
@@ -284,7 +245,7 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
     com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
     if (ret.valid) {
       u8 c = ret.value;
-      if (com_json_isalphadigit(c)) {
+      if (com_format_is_alphanumeric(c)) {
         // if we are able to put it in the buffer
         if (index < sizeof(buffer)) {
           // insert it in
@@ -314,7 +275,7 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
       com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
       if (ret.valid) {
         u8 c = ret.value;
-        if (com_json_isalphadigit(c)) {
+        if (com_format_is_alphanumeric(c)) {
           // drop if is an alph or digit
           com_reader_drop_u8(reader);
         } else {
@@ -345,16 +306,20 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
     return com_json_null_m;
   }
 }
-static com_json_Prop com_json_parseProp(com_reader *l, Vector *diagnostics,
-                                        Allocator *a);
+static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
+                                        com_Allocator *a);
 
 static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
-                                                     Vector *diagnostics,
-                                                     Allocator *a) {
-  assert(lex_next(l) == '[');
+                                                     com_vec *diagnostics,
+                                                     com_Allocator *a) {
+  com_reader_ReadResult ret = com_reader_read_u8(l);
+  com_assert_m(ret.valid && ret.value == '[', "expected [");
 
   // vector of elements
-  Vector elems = vec_create(a);
+  com_vec elems = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
+      .flags= com_allocator_defaults(a) | com_allocator_NOLEAK | com_allocator_REALLOCABLE,
+      .len = 12
+  }));
 
   typedef enum {
     ArrayParseStart,
@@ -367,7 +332,13 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
   while (true) {
     switch (state) {
     case ArrayParseStart: {
-      skipWhitespace(l);
+      com_scan_skip_whitespace(l);
+  		com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+  		if(!ret.valid) {
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_ElemEof, com_reader_position(l));
+        return com_json_invalid_m;
+  		}
       if (lex_peek(l) == ']') {
         goto CLEANUP;
       } else {
@@ -376,7 +347,8 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
       break;
     }
     case ArrayParseExpectCommaOrEnd: {
-      skipWhitespace(l);
+      com_scan_skip_whitespace(l);
+
       int32_t c = lex_peek(l);
       switch (c) {
       case ',': {
@@ -409,19 +381,20 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
     }
     }
   }
+
 CLEANUP:;
-  size_t len = VEC_LEN(&elems, com_json_Elem);
-  return J_ARRAY_ELEM(vec_release(&elems), len);
+  usize len = com_vec_len_m(&elems, com_json_Elem);
+  return com_json_array_m(com_vec_release(&elems), len);
 }
 
 static com_json_Elem com_json_certain_parseStrElem(com_reader *l,
-                                                   Vector *diagnostics,
+                                                   com_vec *diagnostics,
                                                    Allocator *a) {
   assert(lex_peek(l) == '\"');
   return J_STR_ELEM(com_json_parseStr(l, diagnostics, a));
 }
 
-static com_json_Prop com_json_parseProp(com_reader *l, Vector *diagnostics,
+static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
                                         Allocator *a) {
   com_json_Str key = com_json_parseStr(l, diagnostics, a);
   skipWhitespace(l);
@@ -434,12 +407,12 @@ static com_json_Prop com_json_parseProp(com_reader *l, Vector *diagnostics,
 }
 
 static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
-                                                      Vector *diagnostics,
+                                                      com_vec *diagnostics,
                                                       Allocator *a) {
   assert(lex_next(l) == '{');
 
   // vector of properties
-  Vector props = vec_create(a);
+  com_vec props = vec_create(a);
 
   typedef enum {
     ObjectParseStart,
@@ -498,9 +471,11 @@ CLEANUP:;
   return J_OBJECT_ELEM(vec_release(&props), len);
 }
 
-com_json_Elem com_json_parseElem(com_reader *l, Vector *diagnostics,
-                                 Allocator *a) {
-  skipWhitespace(l);
+void internal_set_quoted_string
+
+com_json_Elem com_json_parseElem(com_reader *l, com_vec *diagnostics,
+                                 com_Allocator *a) {
+  com_scan_skip_whitespce(l);
 
   int32_t c = lex_peek(l);
   switch (c) {

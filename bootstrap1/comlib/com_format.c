@@ -36,27 +36,122 @@ void com_format_append_utf_codepoint(com_writer *w, u32 utf) {
   }
 }
 
-void com_format_append_u8_char(com_writer *w, u8 data) {
-  com_writer_append_u8(w, data);
+// GUARANTEES:  returns true if c is a digit (0-9) else false
+bool com_format_is_digit(u8 c) { return c >= '0' && c <= '9'; }
+
+// GUARANTEES: returns true if c is a-z else false
+bool com_format_is_lower_alpha(u8 c) { return c >= 'a' && c <= 'z'; }
+// GUARANTEES: returns true if c is A-Z else false
+bool com_format_is_upper_alpha(u8 c) { return c >= 'A' && c <= 'Z'; }
+// GUARANTEES: returns true if c is A-Z or a-z else false
+bool com_format_is_alpha(u8 c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-static u8 toHex(u8 x, bool capital) {
-  if (x < 10) {
-    return '0' + (char)x;
+// GUARANTEES: returns true if c is A-Z, a-z, or 0-9 else false
+bool com_format_is_alphanumeric(u8 c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9');
+}
+
+// GUARANTEES: follows https://tools.ietf.org/html/rfc4627 specification
+// GUARANTEES: returns true if `c` is \u0020, \u009, \u00A, \u000D else false
+bool com_format_is_whitespace(u8 c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+// GUARANTEES: returns true if `c` is 0-9 a-f A-F else false
+bool com_format_is_hex(u8 c);
+
+// REQUIRES: `c` is 0-9 a-f A-F
+// GUARANTEES: returns a number 0-15
+u8 com_format_from_hex(u8 c) {
+  switch (c) {
+  case '0': {
+    return 0x0;
+  }
+  case '1': {
+    return 0x1;
+  }
+  case '2': {
+    return 0x2;
+  }
+  case '3': {
+    return 0x3;
+  }
+  case '4': {
+    return 0x4;
+  }
+  case '5': {
+    return 0x5;
+  }
+  case '6': {
+    return 0x6;
+  }
+  case '7': {
+    return 0x7;
+  }
+  case '8': {
+    return 0x8;
+  }
+  case '9': {
+    return 0x9;
+  }
+  case 'a': {
+    return 0xa;
+  }
+  case 'b': {
+    return 0xb;
+  }
+  case 'c': {
+    return 0xc;
+  }
+  case 'd': {
+    return 0xd;
+  }
+  case 'e': {
+    return 0xe;
+  }
+  case 'f': {
+    return 0xf;
+  }
+  case 'A': {
+    return 0xA;
+  }
+  case 'B': {
+    return 0xB;
+  }
+  case 'C': {
+    return 0xC;
+  }
+  case 'D': {
+    return 0xD;
+  }
+  case 'E': {
+    return 0xE;
+  }
+  case 'F': {
+    return 0xF;
+  }
+  default: {
+    com_assert_unreachable_m("c has an invalid value");
+  }
+  }
+}
+
+u8 com_format_to_hex(u8 c, bool upper) {
+  if (c < 10) {
+    return '0' + c;
   } else {
-    if (capital) {
-      return 'A' + (char)x;
+    if (upper) {
+      return 'A' + c;
     } else {
-      return 'a' + (char)x;
+      return 'a' + c;
     }
   }
 }
 
-void com_format_str(com_writer *w, const com_str data) {
-  com_writer_append_str(w, data);
-}
-
-void com_format_u8_char_checked(com_writer *w, u8 data) {
+void com_writer_append_u8_checked(com_writer *w, u8 data) {
   // convert stuff that could break a string into non string breaking
   switch (data) {
   case '\b': {
@@ -94,29 +189,22 @@ void com_format_u8_char_checked(com_writer *w, u8 data) {
       com_format_u64(w, 16, data, com_format_FLAGS_NONE,
                      com_format_ZERO_PADDING(4));
     } else {
-      com_format_u8_char(w, data);
+      com_writer_append_u8(w, data);
     }
     break;
   }
-  }
-}
-
-// Checks for special characters
-void com_format_str_checked(com_writer *w, const com_str data) {
+  }}
+// Checks for special charactersvoid com_format_str_checked(com_writer *w, const com_str data) {
   for (usize i = 0; i < data.len; i++) {
-    com_format_u8_char_checked(w, data.data[i]);
-  }
-}
-
-// internal method to handle both i64 and u64
-static void format_u64_negative(com_writer *w, u8 radix, u64 data,
+    com_writer_append_u8_checked(w, data.data[i]);
+  }}
+// internal method to handle both i64 and u64static void format_u64_negative(com_writer *w, u8 radix, u64 data,
                                 bool negative, com_format_Flags flags,
                                 com_format_PadData pad_data) {
   com_assert_m(radix >= 2 && radix <= 36, "radix must be between 2 and 36");
 
-  // buffer to push to (even with base 2 should be enough since there are still
-  // only 64 bits)
-  // extra byte is for the 65
+  // buffer to push to (even with base 2 should be enough since there are
+  // still only 64 bits) extra byte is for the 65
   char buffer[65];
 
   u64 digit = data;
@@ -142,45 +230,34 @@ static void format_u64_negative(com_writer *w, u8 radix, u64 data,
 
   // this always pads left
   i64 num_pad_needed = (i64)pad_data.min_width - index;
-  for(u64 i = 0; i < num_pad_needed; i++) {
+  for (u64 i = 0; i < num_pad_needed; i++) {
     com_writer_append_u8(w, pad_data.pad_char);
   }
 
   // push buffer in reverse order
   while (index >= 0) {
-    com_format_u8_char(w, buffer[index]);
+    com_writer_append_u8(w, buffer[index]);
     index--;
-  }
-}
-
+  }}
 u64 safe_abs(i64 val) {
   if (val < 0) {
     return (u64)-val;
   } else {
     return (u64)val;
-  }
-}
-
+  }}
 void com_format_i64(com_writer *w, u8 radix, i64 data, com_format_Flags flags,
                     com_format_PadData pad_data) {
   bool negative = data < 0;
-  format_u64_negative(w, radix, safe_abs(data), negative, flags, pad_data);
-}
-
+  format_u64_negative(w, radix, safe_abs(data), negative, flags, pad_data);}
 void com_format_u64(com_writer *w, u8 radix, u64 data, com_format_Flags flags,
                     com_format_PadData pad_data) {
-  format_u64_negative(w, radix, data, false, flags, pad_data);
-}
-
+  format_u64_negative(w, radix, data, false, flags, pad_data);}
 void com_format_f32(com_writer *w, u8 radix, f32 data, com_format_Flags flags,
+                    com_format_PadData pad_data);void com_format_f64(com_writer *w, u8 radix, f64 data, com_format_Flags flags,
                     com_format_PadData pad_data);
-void com_format_f64(com_writer *w, u8 radix, f64 data, com_format_Flags flags,
-                    com_format_PadData pad_data);
-
 void com_format_f32_exp(com_writer *w, u8 radix, f32 data,
                         com_format_Flags flags, com_format_PadData pad_data,
                         u32 sig_digits) {}
-
 void com_format_f64_exp(com_writer *w, u8 radix, f64 data,
                         com_format_Flags flags, com_format_PadData pad_data,
                         u32 sig_digits) {}

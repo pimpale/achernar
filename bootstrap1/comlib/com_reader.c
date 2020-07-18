@@ -27,7 +27,7 @@ com_reader_ReadResult com_reader_peek_u8(const com_reader* w, usize n) {
   return w->_peek_u8_fn(w, n);
 }
 
-usize com_reader_query(const com_reader *w) {
+u64 com_reader_query(const com_reader *w) {
   com_assert_m(w->_valid, "reader is invalid");
   com_assert_m(com_reader_flags(w) & com_reader_LIMITED, "reader doesn't support querying remaining length");
   return w->_query_fn(w);

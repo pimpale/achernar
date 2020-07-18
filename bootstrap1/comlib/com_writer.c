@@ -6,7 +6,7 @@ com_writer_Flags com_writer_flags(const com_writer *w) {
   return w->_flags;
 }
 
-usize com_writer_append_str(const com_writer* w, const com_str data) {
+com_writer_WriteResult com_writer_append_str(const com_writer* w, const com_str data) {
   com_assert_m(w->_valid, "writer is invalid");
   return w->_append_str_fn(w, data);
 }
@@ -16,7 +16,7 @@ com_writer_WriteResult com_writer_append_u8(const com_writer* w, const u8 data) 
   return w->_append_u8_fn(w, data);
 }
 
-usize com_writer_query(const com_writer *w) {
+u64 com_writer_query(const com_writer *w) {
   com_assert_m(w->_valid, "writer is invalid");
   com_assert_m(com_writer_flags(w) & com_writer_LIMITED, "writer doesn't support querying remaining length");
   return w->_query_fn(w);

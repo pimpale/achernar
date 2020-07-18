@@ -7,14 +7,13 @@
 
 // TODO add more scan options for integers and doubles
 
-
 typedef struct {
     bool successful;
     // how many bytes were written to destination
-    usize written;
+    u64 written;
     // how many bytes were read from source
-    usize read;
-} com_scan_ScanResult;
+    u64 read;
+} com_scan_UntilResult;
 
 /// read until `c` is encountered in the stream
 /// REQUIRES: `destination` is a valid pointer to a valid `com_writer`
@@ -25,18 +24,7 @@ typedef struct {
 /// GUARANTEES: reads until `c` 
 /// or min(flags(source) & limited ? source.limit : usize_max, flags(destination) & limited ? destination.limit : usize_max)
 /// GUARANTEES: returns successful if no unexpected errors encountered
-com_scan_ScanResult com_scan_until(com_writer* destination, com_reader* source, u8 c);
-
-/// read until (platform defined) newline, not including it in the writer
-/// REQUIRES: `destination` is a valid pointer to a valid `com_writer`
-/// REQUIRES: `source` is a valid pointer to a valid `com_reader`
-/// GUARANTEES: will not write newline into the destination
-/// GUARANTEES: if a read from source or a write to destination fails, will cease copying
-/// GUARANTEES: is not atomic
-/// GUARANTEES: reads until newline
-/// or min(flags(source) & limited ? source.limit : usize_max, flags(destination) & limited ? destination.limit : usize_max)
-/// GUARANTEES: returns successful if no unexpected errors encountered
-com_scan_ScanResult com_scan_line(com_writer* destination, com_reader* source);
+com_scan_UntilResult com_scan_until(com_writer* destination, com_reader* source, u8 c);
 
 typedef enum {
   com_scan_CheckedStrExpectedDoubleQuote,
@@ -47,10 +35,10 @@ typedef enum {
 // Result of reading a checked str
 typedef struct {
     // always defined
-    usize written;
+    u64 written;
     // always defined
-    usize read;
-    // if the read was successful
+    u64 read;
+    // if the read was (no unexpected errors)
     bool successful;
     // only defined if !successful
     com_scan_CheckedStrErrorKind error;
@@ -70,7 +58,6 @@ com_scan_CheckedStrResult com_scan_checked_str(com_writer* destination, com_read
 /// parses checked string until syntax error or unescaped close double quote
 /// REQUIRES: `destination` is a valid pointer to a valid com_writer
 /// REQUIRES: `source` is a valid pointer to a valid com_reader
-/// REQUIRES: `n` is the number of character to read
 /// GUARANTEES: will read "characters" from reader until an unescaped `"` is encountered
 /// GUARANTEES: will write the unescaped string to destination
 /// GUARANTEES: if a syntax error is encountered, will immediately halt reading

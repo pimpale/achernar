@@ -42,7 +42,7 @@ typedef struct com_reader_s {
     com_streamposition_LnCol (*_position_fn)(const com_reader*);
 
     // query how many bytes are available in the underlying resource
-    usize (*_query_fn)(const com_reader*);
+    u64 (*_query_fn)(const com_reader*);
 
     // destroy reader wrapper
     void (*_destroy_fn)(com_reader*);
@@ -51,8 +51,7 @@ typedef struct com_reader_s {
 ///  flags that are valid for `r`
 /// REQUIRES: `r` is a valid pointer to a com_reader
 /// GUARANTEES: returns flags supported by default by `r`
-com_reader_Flags com_reader_supports(const com_reader *r);
-
+com_reader_Flags com_reader_flags(const com_reader *r);
 
 ///  reads at most `data.len` bytes of `r` into `data.data` and returns the number of bytes read
 /// REQUIRES: `data` is a valid com_str
@@ -86,7 +85,7 @@ com_reader_ReadResult com_reader_peek_u8(const com_reader* r, usize n);
 /// REQUIRES: `r` is a valid pointer pointing to a valid `com_reader`
 /// REQUIRES: `r` must support `com_reader_LIMITED`
 /// GUARANTEES: returns how many more bytes may safely be read from the reader
-usize com_reader_query(const com_reader *r);
+u64 com_reader_query(const com_reader *r);
 
 ///  query the current locaation of the reader 
 /// REQUIRES: `r` is a valid pointer pointing to a valid `com_reader`

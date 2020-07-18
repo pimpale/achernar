@@ -23,7 +23,7 @@ typedef struct {
     // if the operation was successful
     bool valid;
     // how many bytes were written
-    usize written;
+    u64 written;
 } com_writer_WriteResult;
 
 
@@ -44,7 +44,7 @@ typedef struct com_writer_s {
     com_writer_WriteResult (*_append_u8_fn)(const com_writer*, const u8 data);
 
     // query how many bytes are available in the underlying resource
-    usize (*_query_fn)(const com_writer*);
+    u64 (*_query_fn)(const com_writer*);
 
     // flush to underlying resource
     void  (*_flush_fn)(const com_writer*);
@@ -66,7 +66,7 @@ com_writer_Flags com_writer_flags(const com_writer *w);
 /// GUARANTEES: the behaviour of this method is identical to repeatedly calling `append_u8`
 /// GUARANTEES: will stop writing on an the first error encountered
 /// GUARANTEES: returns the number of bytes successfully written
-usize com_writer_append_str(const com_writer* w, const com_str data);
+com_writer_WriteResult com_writer_append_str(const com_writer* w, const com_str data);
 
 
 ///  appends `u8` to the writer `w`
@@ -81,7 +81,7 @@ com_writer_WriteResult com_writer_append_u8(const com_writer* w, const u8 data);
 /// REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`
 /// REQUIRES: `w` must support `com_writer_LIMITED`
 /// GUARANTEES: returns how many more bytes may safely be written to the writer
-com_writer_WriteResult com_writer_query(const com_writer *w);
+u64 com_writer_query(const com_writer *w);
 
 ///  flush all buffered changes to the underlying resource (if applicable)
 /// REQUIRES: `w` is a valid pointer pointing to a valid `com_writer`

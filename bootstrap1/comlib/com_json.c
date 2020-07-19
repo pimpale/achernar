@@ -355,7 +355,7 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
       com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) =
-            com_json_error_m(com_json_ElemEof, com_reader_position(l));
+            com_json_error_m(com_json_ArrayExpectedRightBracket, com_reader_position(l));
         return com_json_invalid_m;
       }
       switch (ret.value) {
@@ -511,58 +511,76 @@ static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
   while (true) {
     switch (state) {
     case ObjectParseStart: {
-      skipWhitespace(l);
-      if (lex_peek(l) == '}') {
+      com_scan_skip_whitespace(l);
+      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      if (!ret.valid) {
+        *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
+            com_json_ObjectExpectedProp, com_reader_position(l));
+        return com_json_invalid_m;
+      }
+      if (ret.value == '}') {
+        com_reader_drop_u8(l);
         goto CLEANUP;
       } else {
         state = ObjectParseExpectProp;
       }
       break;
     }
+    case ObjectParseExpectProp: {
+      *com_vec_push_m(&props, com_json_Prop) =
+          com_json_parseProp(l, diagnostics, a);
+      state = ObjectParseExpectCommaOrEnd;
+      break;
+    }
     case ObjectParseExpectCommaOrEnd: {
-      skipWhitespace(l);
-      switch (lex_peek(l)) {
+      com_scan_skip_whitespace(l);
+      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      if (!ret.valid) {
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_ObjectExpectedRightBrace, com_reader_position(l));
+        return com_json_invalid_m;
+      }
+      switch (ret.value) {
       case ',': {
-        lex_next(l);
-        state = ObjectParseExpectProp;
+        com_reader_drop_u8(l);
+        state = ObjectParseExpectCommaOrEnd;
         break;
       }
       case '}': {
-        lex_next(l);
-        goto CLEANUP;
-      }
-      case EOF: {
-        *VEC_PUSH(diagnostics, com_json_Error) =
-            ERROR(com_json_ArrayExpectedJsonElem, l->position);
+        com_reader_drop_u8(l);
         goto CLEANUP;
       }
       default: {
-        *VEC_PUSH(diagnostics, com_json_Error) =
-            ERROR(com_json_ArrayExpectedRightBracket, l->position);
-        lex_next(l);
+        // emit error
+        *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
+            com_json_ObjectExpectedRightBrace, com_reader_position(l));
+        // drop char
+        com_reader_drop_u8(l);
         break;
       }
       }
-      break;
-    }
-    case ObjectParseExpectProp: {
-      *VEC_PUSH(&props, com_json_Prop) = com_json_parseProp(l, diagnostics, a);
-      state = ObjectParseExpectCommaOrEnd;
       break;
     }
     }
   }
 CLEANUP:;
-  size_t len = VEC_LEN(&props, com_json_Prop);
-  return J_OBJECT_ELEM(vec_release(&props), len);
+  usize len = com_vec_len_m(&props, com_json_Prop);
+  return com_json_obj_m(com_vec_release(&props), len);
 }
 
 com_json_Elem com_json_parseElem(com_reader *l, com_vec *diagnostics,
                                  com_Allocator *a) {
-	com_assert_m(com_reader_flags(l) & com_reader_BUFFERED, 
+	com_assert_m(com_reader_flags(l) & com_reader_BUFFERED, "reader is not buffered");
   com_scan_skip_whitespace(l);
-  int32_t c = lex_peek(l);
-  switch (c) {
+
+  com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+  if(!ret.valid) {
+    *com_vec_push_m(diagnostics, com_json_Error) =
+        com_json_error_m(com_json_ElemEof, com_reader_position(l));
+    return com_json_invalid_m;
+  }
+
+  switch (ret.value) {
   case '0':
   case '1':
   case '2':
@@ -590,16 +608,10 @@ com_json_Elem com_json_parseElem(com_reader *l, com_vec *diagnostics,
   case '{': {
     return com_json_certain_parseObjectElem(l, diagnostics, a);
   }
-  case EOF: {
-    *VEC_PUSH(diagnostics, com_json_Error) =
-        ERROR(com_json_ElemEof, l->position);
-    return J_NULL_ELEM;
-  }
   default: {
-    *VEC_PUSH(diagnostics, com_json_Error) =
-        ERROR(com_json_ElemUnknownCharacter, l->position);
-    lex_next(l);
-    return J_NULL_ELEM;
+    *com_vec_push_m(diagnostics, com_json_Error) =
+        com_json_error_m(com_json_ElemUnknownCharacter, com_reader_position(l));
+    return com_json_invalid_m;
   }
   }
 }

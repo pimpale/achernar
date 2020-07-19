@@ -74,7 +74,7 @@ typedef enum {
   com_json_ArrayExpectedRightBracket,
   com_json_ArrayExpectedJsonElem,
   com_json_ObjectExpectedRightBrace,
-  com_json_ObjectExpectedJsonKV,
+  com_json_ObjectExpectedProp,
   com_json_PropExpectedDoubleQuote,
   com_json_PropExpectedColon,
   com_json_PropExpectedValue,
@@ -91,7 +91,7 @@ typedef struct {
 void com_json_serialize(com_json_Elem* elem, com_writer* writer);
 
 // converts an inputstream into a json DOM
-com_json_Elem com_json_parse(com_reader* reader, com_Allocator* allocator);
+com_json_Elem com_json_parseElem(com_reader* reader, com_vec* diagnostics,  com_Allocator* allocator);
 
 #endif
 

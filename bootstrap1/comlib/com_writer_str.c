@@ -16,30 +16,31 @@ com_writer_WriteResult append_u8_fn(const com_writer *w, const u8 data) {
 
   // check write ok
   if (query_fn(w) == 0) {
-    return (com_writer_WriteResult){false};
+    return (com_writer_WriteResult){.valid = false, .written = 0};
   }
 
   // update data
   backing->_str->data[backing->_index] = data;
   backing->_index++;
-  return (com_writer_WriteResult){true};
+  return (com_writer_WriteResult){.valid = true, .written = 1};
 }
 
-usize append_str_fn(const com_writer *w, const com_str data) {
+com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
   // get backing
   com_writer_str_backing *backing = w->_backing;
 
   // check write ok
-  usize readlen = com_imath_usize_min(query_fn(w), data.len);
+  usize writelen = com_imath_usize_min(query_fn(w), data.len);
 
   com_assert_m(query_fn(w) >= data.len, "buffer overflow");
 
   // update data
   com_str *dest = backing->_str;
-  com_mem_move(&dest->data[backing->_index], data.data, readlen);
-  backing->_index += readlen;
-
-  return readlen;
+  com_mem_move(&dest->data[backing->_index], data.data, writelen);
+  backing->_index += writelen;
+  // success if we were able to write all bytes
+  return (com_writer_WriteResult){.valid = writelen == data.len,
+                                  .written = writelen};
 }
 
 void attr_NORETURN flush_fn(attr_UNUSED const com_writer *w) {

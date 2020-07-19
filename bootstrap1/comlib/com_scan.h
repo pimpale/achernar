@@ -31,7 +31,6 @@ com_scan_UntilResult com_scan_until(com_writer* destination, com_reader* source,
 typedef enum {
   com_scan_CheckedStrSuccessful,
   com_scan_CheckedStrReadFailed,
-  com_scan_CheckedStrExpectedDoubleQuote,
   com_scan_CheckedStrInvalidControlChar,
   com_scan_CheckedStrInvalidUnicodeSpecifier,
 } com_scan_CheckedStrErrorKind;

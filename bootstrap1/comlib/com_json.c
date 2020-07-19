@@ -3,6 +3,8 @@
 #include "com_fmath.h"
 #include "com_format.h"
 #include "com_scan.h"
+#include "com_writer_vec.h"
+#include "com_writer_null.h"
 
 // emits str with quotation marks
 static void com_json_emitStr(com_writer *writer, com_str str) {
@@ -279,8 +281,8 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
           // drop if is an alph or digit
           com_reader_drop_u8(reader);
         } else {
-            // otherwise break
-            break;
+          // otherwise break
+          break;
         }
       } else {
         // if invalid write return it
@@ -303,7 +305,7 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
   } else {
     *com_vec_push_m(diagnostics, com_json_Error) =
         com_json_error_m(com_json_MalformedLiteral, start);
-    return com_json_null_m;
+    return com_json_invalid_m;
   }
 }
 static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
@@ -316,10 +318,11 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
   com_assert_m(ret.valid && ret.value == '[', "expected [");
 
   // vector of elements
-  com_vec elems = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
-      .flags= com_allocator_defaults(a) | com_allocator_NOLEAK | com_allocator_REALLOCABLE,
-      .len = 12
-  }));
+  com_vec elems = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.flags = com_allocator_defaults(a) |
+                                             com_allocator_NOLEAK |
+                                             com_allocator_REALLOCABLE,
+                                    .len = 12}));
 
   typedef enum {
     ArrayParseStart,
@@ -333,13 +336,14 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
     switch (state) {
     case ArrayParseStart: {
       com_scan_skip_whitespace(l);
-  		com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
-  		if(!ret.valid) {
-        *com_vec_push_m(diagnostics, com_json_Error) =
-            com_json_error_m(com_json_ElemEof, com_reader_position(l));
+      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      if (!ret.valid) {
+        *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
+            com_json_ArrayExpectedJsonElem, com_reader_position(l));
         return com_json_invalid_m;
-  		}
-      if (lex_peek(l) == ']') {
+      }
+      if (ret.value == ']') {
+        com_reader_drop_u8(l);
         goto CLEANUP;
       } else {
         state = ArrayParseExpectElem;
@@ -348,34 +352,36 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
     }
     case ArrayParseExpectCommaOrEnd: {
       com_scan_skip_whitespace(l);
-
-      int32_t c = lex_peek(l);
-      switch (c) {
+      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      if (!ret.valid) {
+        *com_vec_push_m(diagnostics, com_json_Error) =
+            com_json_error_m(com_json_ElemEof, com_reader_position(l));
+        return com_json_invalid_m;
+      }
+      switch (ret.value) {
       case ',': {
-        lex_next(l);
+        com_reader_drop_u8(l);
         state = ArrayParseExpectElem;
         break;
       }
       case ']': {
-        lex_next(l);
-        goto CLEANUP;
-      }
-      case EOF: {
-        *VEC_PUSH(diagnostics, com_json_Error) =
-            ERROR(com_json_ArrayExpectedJsonElem, l->position);
+        com_reader_drop_u8(l);
         goto CLEANUP;
       }
       default: {
-        *VEC_PUSH(diagnostics, com_json_Error) =
-            ERROR(com_json_ArrayExpectedRightBracket, l->position);
-        lex_next(l);
+        // emit error
+        *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
+            com_json_ArrayExpectedRightBracket, com_reader_position(l));
+        // drop char
+        com_reader_drop_u8(l);
         break;
       }
       }
       break;
     }
     case ArrayParseExpectElem: {
-      *VEC_PUSH(&elems, com_json_Elem) = com_json_parseElem(l, diagnostics, a);
+      *com_vec_push_m(&elems, com_json_Elem) =
+          com_json_parseElem(l, diagnostics, a);
       state = ArrayParseExpectCommaOrEnd;
       break;
     }
@@ -387,32 +393,112 @@ CLEANUP:;
   return com_json_array_m(com_vec_release(&elems), len);
 }
 
-static com_json_Elem com_json_certain_parseStrElem(com_reader *l,
+static com_str certain_internal_str_parse(com_reader *l, com_vec *diagnostics,
+                                          com_Allocator *a) {
+  // note that we don't want to read the first quote
+  com_reader_ReadResult ret = com_reader_read_u8(l);
+  com_assert_m(ret.valid && ret.value == '\"', "expected \"");
+
+  // parse into vec writer until we get a success or a read error log errors
+  // along the way
+
+  // create vector writer
+  com_vec vec = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){
+             .flags = com_allocator_defaults(a) | com_allocator_NOLEAK |
+                      com_allocator_REALLOCABLE,
+             // let's just go with 12 for now as initial capacity
+             .len = 12}));
+  com_writer writer = com_writer_vec_create(&vec);
+
+  while (true) {
+    com_scan_CheckedStrResult ret =
+        com_scan_checked_str_until_quote(&writer, l);
+    switch (ret.result) {
+    case com_scan_CheckedStrSuccessful: {
+      // We're finished, we can deallocate writer and release vec into a string
+      // that we return as an element
+      com_writer_destroy(&writer);
+      return com_vec_to_str(&vec);
+    }
+    case com_scan_CheckedStrReadFailed: {
+      // deallocate resources
+      com_writer_destroy(&writer);
+      // give error
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_StrExpectedDoubleQuote, ret.location);
+      // return invalid
+      return com_vec_to_str(&vec);
+    }
+    case com_scan_CheckedStrInvalidControlChar: {
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_StrInvalidControlChar, ret.location);
+      break;
+    }
+    case com_scan_CheckedStrInvalidUnicodeSpecifier: {
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_StrInvalidUnicodeSpecifier, ret.location);
+      break;
+    }
+    }
+  }
+}
+
+static com_json_Elem com_json_certain_parseStrElem(com_reader *reader,
                                                    com_vec *diagnostics,
-                                                   Allocator *a) {
-  assert(lex_peek(l) == '\"');
-  return J_STR_ELEM(com_json_parseStr(l, diagnostics, a));
+                                                   com_Allocator *a) {
+  return com_json_str_m(certain_internal_str_parse(reader, diagnostics, a));
 }
 
 static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
-                                        Allocator *a) {
-  com_json_Str key = com_json_parseStr(l, diagnostics, a);
-  skipWhitespace(l);
-  if (lex_next(l) != ':') {
-    *VEC_PUSH(diagnostics, com_json_Error) =
-        ERROR(com_json_PropExpectedColon, l->position);
+                                        com_Allocator *a) {
+  com_scan_skip_whitespace(l);
+  com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+
+	// short circuit prevents issues
+  if (!ret.valid || ret.value != '\"') {
+    *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
+        com_json_PropExpectedDoubleQuote, com_reader_position(l));
+    return com_json_prop_m(com_str_lit_m(""), com_json_invalid_m);
   }
+
+  com_str key = certain_internal_str_parse(l, diagnostics, a);
+
+  // resync up to colon
+  com_scan_skip_whitespace(l);
+  ret = com_reader_peek_u8(l, 1);
+
+
+  if (!ret.valid) {
+    *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
+        com_json_PropExpectedColon, com_reader_position(l));
+    return com_json_prop_m(key, com_json_invalid_m);
+  }
+
+  if(ret.value != ':') {
+    *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
+        com_json_PropExpectedDoubleQuote, com_reader_position(l));
+		// must sync to a colon in order to be robust
+		com_writer nw = com_writer_null();
+		// zoom up to and accept colon
+		com_scan_until(&nw, l, ':');
+  }
+
   com_json_Elem value = com_json_parseElem(l, diagnostics, a);
-  return J_PROP(key, value);
+  return com_json_prop_m(key, value);
 }
 
 static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
                                                       com_vec *diagnostics,
-                                                      Allocator *a) {
-  assert(lex_next(l) == '{');
+                                                      com_Allocator *a) {
+  com_reader_ReadResult ret = com_reader_read_u8(l);
+  com_assert_m(ret.valid && (ret.value  == '{'), "expected {'");
 
   // vector of properties
-  com_vec props = vec_create(a);
+  com_vec props = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
+      .len=0,
+      .flags = com_allocator_defaults(a) | com_allocator_REALLOCABLE | com_allocator_NOLEAK
+  }));
 
   typedef enum {
     ObjectParseStart,
@@ -471,12 +557,10 @@ CLEANUP:;
   return J_OBJECT_ELEM(vec_release(&props), len);
 }
 
-void internal_set_quoted_string
-
 com_json_Elem com_json_parseElem(com_reader *l, com_vec *diagnostics,
                                  com_Allocator *a) {
-  com_scan_skip_whitespce(l);
-
+	com_assert_m(com_reader_flags(l) & com_reader_BUFFERED, 
+  com_scan_skip_whitespace(l);
   int32_t c = lex_peek(l);
   switch (c) {
   case '0':

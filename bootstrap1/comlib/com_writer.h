@@ -12,7 +12,7 @@ typedef enum {
   // If a writer has this flag enabled, it must be able to query how many bytes can still be written
   com_writer_LIMITED  = 1<<1,
   // whether the  writer is buffered (uses an internal buffer to speed up writing to the underlying resource)
-  // Solely memory based writers donn't need this flag, because there's no need to `lush` them
+  // Solely memory based writers don't need this flag, because there's no need to `lush` them
   // If this flag is enabled, the writer must support the `flush` operation
   com_writer_BUFFERED = 1 << 2,
 } com_writer_Flag;

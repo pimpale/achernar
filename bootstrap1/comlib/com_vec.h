@@ -25,23 +25,22 @@ com_vec com_vec_create(com_allocator_Handle handle);
  */
 com_vec *com_vec_destroy(com_vec *vec);
 
-/** Return the data held by `vec`, and invalidates `vec`
- * REQUIRES: `vec` is a pointer to a valid com_vec
- * GUARANTEES: `vec` is no longer valid
- * GUARANTEES: if length of `vec` is 0, will return NULL pointer
- * GUARANTEES: if length of `vec` is greater than 0, returns a pointer to a
- *             valid section of memory  at least the length of the `vec`
- *             containing the contents of `vec`'s data
- */
+///  Return the data held by `vec`, and invalidates `vec`
+/// REQUIRES: `vec` is a pointer to a valid com_vec
+/// GUARANTEES: `vec` is no longer valid
+/// GUARANTEES: if length of `vec` is 0, will return NULL pointer
+/// GUARANTEES: if length of `vec` is greater than 0, returns a pointer to a
+///             valid section of memory  at least the length of the `vec`
+///             containing the contents of `vec`'s data
 void *com_vec_release(com_vec *vec);
 
-/** Gets a pointer to the `loc`'th byte of the vector's memory that is valid
- * till the next operation performed on the memory
- * REQUIRES: `vec` is a pointer to a valid com_vec
- * REQUIRES: `loc` < vector's length
- * GUARANTEES: until the subsequent operation, return value will be a valid
- *             pointer to the `loc`'th byte of the vector's data
- */
+///  Gets a pointer to the `loc`'th byte of the vector's memory that is valid
+/// till the next operation performed on the memory
+/// REQUIRES: `vec` is a pointer to a valid com_vec
+/// REQUIRES: `loc` < vector's length
+/// GUARANTEES: until the subsequent operation, return value will be a valid
+///             pointer to the `loc`'th byte of the vector's data
+/// 
 void *com_vec_get(const com_vec *vec, usize loc);
 
 /// Inserts `len` bytes of memory

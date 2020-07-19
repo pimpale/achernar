@@ -44,7 +44,7 @@ typedef struct com_json_Prop_s {
   com_json_Elem value;
 } com_json_Prop;
 
-#define com_json_Prop_m(k, v) ((com_json_Prop){.key = (k), .value = (v)})
+#define com_json_prop_m(k, v) ((com_json_Prop){.key = (k), .value = (v)})
 #define com_json_null_m ((com_json_Elem){.kind = com_json_NULL})
 #define com_json_invalid_m ((com_json_Elem){.kind = com_json_NULL})
 #define com_json_bool_m(v)                                                     \
@@ -75,6 +75,7 @@ typedef enum {
   com_json_ArrayExpectedJsonElem,
   com_json_ObjectExpectedRightBrace,
   com_json_ObjectExpectedJsonKV,
+  com_json_PropExpectedDoubleQuote,
   com_json_PropExpectedColon,
   com_json_PropExpectedValue,
 } com_json_ErrorKind;

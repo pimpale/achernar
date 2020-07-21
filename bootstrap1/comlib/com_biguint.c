@@ -17,9 +17,9 @@ void com_biguint_set_u64(com_biguint *dest, u64 val) {
   // u64 means only 2 u32 s are needed in the vector
   com_vec *v = &dest->_array;
   if (val == 0) {
-    com_vec_set_len(v, 0);
+    com_vec_set_len_m(v, 0, u32);
   } else if (val <= u32_max_m) {
-    com_vec_set_len(v, 1);
+    com_vec_set_len_m(v, 1, u32);
     *com_vec_get_m(v, 0, u32) = val;
   } else {
     com_vec_set_len_m(v, 2, u32);
@@ -53,6 +53,205 @@ bool com_biguint_fits_u64(const com_biguint *a) {
   return com_vec_len_m(&a->_array, u32) <= 2;
 }
 
+// bitwise functions
+
+// sets dest to a & b
+// REQUIRES: `dest` is a valid pointer to a valid com_biguint
+// REQUIRES: `a` is a valid pointer to `alen` u32s
+// REQUIRES: `b` is a valid pointer to `blen` u32s
+// REQUIRES: alen >= blen
+// GUARANTEES: `dest` will be set to the value of `a` & `b`
+static void internal_value_and(com_biguint* dest, const u32* a, usize alen, const u32* b, usize blen) {
+  com_assert_m(alen >= blen, "alen isn't greater than blen");
+  // algorithm is to loop through where both are valid and then trim off any excess
+
+  // for now, we'll set the dest len to blen, as this is the largest it could possibly be
+  // length of dest
+  usize dest_len = blen;
+
+  com_vec_set_len_m(&dest->_array, dest_len, u32);
+  u32* dest_arr = com_vec_get(&dest->_array, 0);
+  for(usize i = 0; i < dest_len; i++) {
+		dest_arr[i] = a[i] & b[i];
+  }
+
+  // first start at the end of the array and then count the number of zeros
+  // going backwards
+  usize zeros_len = 0;
+  for (usize i = dest_len; i > 0; i--) {
+    // here I is the index + 1 (did this to prevent overflow)
+
+    // note that i-1 can never overflow because i > 0 at all times in the loop
+    if (dest_arr[i-1] == 0) {
+      zeros_len++;
+    } else {
+      break;
+    }
+  }
+
+  // now actually remove zeros by truncating the vector
+  // This is safe because zeros_len is always less than dest_len
+  com_vec_set_len_m(&dest->_array, dest_len - zeros_len, u32);
+}
+
+void com_biguint_and(com_biguint *dest, const com_biguint *a,
+                     const com_biguint *b) {
+	com_assert_m(dest != NULL, "dest is null");
+	com_assert_m(a != NULL, "a is null");
+	com_assert_m(b != NULL, "b is null");
+
+	u32* a_arr =  com_vec_get(&a->_array, 0);
+	u32* b_arr = com_vec_get(&b->_array, 0);
+
+	usize alen = com_vec_len_m(&a->_array, u32);
+	usize blen = com_vec_len_m(&b->_array, u32);
+
+	if(blen > alen) {
+		internal_value_and(dest, b_arr, blen, a_arr, alen);
+	} else {
+		internal_value_and(dest, b_arr, blen, a_arr, alen);
+	}
+}
+
+static void internal_value_or(com_biguint* dest, const u32* a, usize alen, const u32* b, usize blen) {
+	com_assert_m(alen >= blen, "alen isn't greater than blen");
+
+	// the result is guaranteed to be exactly alen long
+	usize dest_len = alen;
+  com_vec_set_len_m(&dest->_array, dest_len, u32);
+   u32* dest_arr = com_vec_get(&dest->_array, 0);
+
+   // for this part of the array, both a and b are defined
+  for(usize i = 0; i < blen; i++) {
+		dest_arr[i] = a[i] | b[i];
+  }
+
+  // for this part only a is defined
+  for(usize i = blen; i < dest_len; i++) {
+		dest_arr[i] = a[i];
+  }
+}
+
+void com_biguint_or(com_biguint *dest, const com_biguint *a,
+                    const com_biguint *b) {
+	com_assert_m(dest != NULL, "dest is null");
+	com_assert_m(a != NULL, "a is null");
+	com_assert_m(b != NULL, "b is null");
+
+	u32* a_arr =  com_vec_get(&a->_array, 0);
+	u32* b_arr = com_vec_get(&b->_array, 0);
+
+	usize alen = com_vec_len_m(&a->_array, u32);
+	usize blen = com_vec_len_m(&b->_array, u32);
+
+	if(blen > alen) {
+		internal_value_or(dest, b_arr, blen, a_arr, alen);
+	} else {
+		internal_value_or(dest, b_arr, blen, a_arr, alen);
+	}
+}
+
+static void internal_value_xor(com_biguint* dest, const u32* a, usize alen, const u32* b, usize blen) {
+  com_assert_m(alen >= blen, "alen isn't greater than blen");
+  // algorithm is to loop through where both are valid and then trim off any excess
+
+  // for now, we'll set the dest len to blen, as this is the largest it could possibly be
+  // length of dest
+  usize dest_len = blen;
+
+  com_vec_set_len_m(&dest->_array, dest_len, u32);
+  u32* dest_arr = com_vec_get(&dest->_array, 0);
+  for(usize i = 0; i < dest_len; i++) {
+		dest_arr[i] = a[i] ^ b[i];
+  }
+
+  // first start at the end of the array and then count the number of zeros
+  // going backwards
+  usize zeros_len = 0;
+  for (usize i = dest_len; i > 0; i--) {
+    // here I is the index + 1 (did this to prevent overflow)
+
+    // note that i-1 can never overflow because i > 0 at all times in the loop
+    if (dest_arr[i-1] == 0) {
+      zeros_len++;
+    } else {
+      break;
+    }
+  }
+
+  // now actually remove zeros by truncating the vector
+  // This is safe because zeros_len is always less than dest_len
+  com_vec_set_len_m(&dest->_array, dest_len - zeros_len, u32);
+}
+
+void com_biguint_xor(com_biguint *dest, const com_biguint *a,
+                     const com_biguint *b) {
+	com_assert_m(dest != NULL, "dest is null");
+	com_assert_m(a != NULL, "a is null");
+	com_assert_m(b != NULL, "b is null");
+
+	u32* a_arr =  com_vec_get(&a->_array, 0);
+	u32* b_arr = com_vec_get(&b->_array, 0);
+
+	usize alen = com_vec_len_m(&a->_array, u32);
+	usize blen = com_vec_len_m(&b->_array, u32);
+
+	if(blen > alen) {
+		internal_value_xor(dest, b_arr, blen, a_arr, alen);
+	} else {
+		internal_value_xor(dest, b_arr, blen, a_arr, alen);
+	}
+}
+
+
+void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
+                        const u32 bits)  {
+	com_assert_m(dest != NULL, "dest is null");
+	com_assert_m(a != NULL, "a is null");
+
+	com_vec *dvec = &dest->_array;
+	const com_vec *avec = &a->_array;
+
+	const u32* a_arr = com_vec_get(avec, 0);
+	u32 alen = com_vec_len_m(avec, u32);
+
+  u32 words = bits / 32;
+  u32 rbits = bits % 32;
+
+	// set dest length to a's length + words shifted + (1 if last word will overflow)
+
+	// if the last word of a will overflow
+	// Means that we need to allocate one more wordof space
+	bool lastwordoverflow = alen > 0 && (u64)a_arr[alen-1] << rbits > u32_max_m;
+
+	// set length of destvec
+  // since this is left shift we are increasing the size of the number 
+	com_vec_set_len_m(dvec, com_vec_len_m(avec, u32) + words + (lastwordoverflow ? 1 : 0), u32);
+
+	// get array
+	u32* dest_arr = com_vec_get(dvec, 0);
+
+	// set first `word` bytes to zero
+	// this shifts it `word` words to the left
+	com_mem_zero_arr_m(dest_arr, words, u32);
+
+
+
+  if (nbits != 0)
+  {
+    int i;
+    for (i = (BN_ARRAY_SIZE - 1); i > 0; --i)
+    {
+      b->array[i] = (b->array[i] << nbits) | (b->array[i - 1] >> ((8 * WORD_SIZE) - nbits));
+    }
+    b->array[i] <<= nbits;
+  }	
+}
+
+void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
+                        const u32 nbits);
+
+
 // Adds together a and b into DEST
 // REQUIRES: `dest` is a pointer to a valid com_biguint
 // REQUIRES: `a` is a pointer to an array of at least `alen` u32s
@@ -68,7 +267,7 @@ static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a,
   usize dest_len = alen;
 
   // extend dest arr to new size
-  com_vec_set_len(&dest->_array, dest_len);
+  com_vec_set_len_m(&dest->_array, dest_len, u32);
 
   // get destination array
   u32 *dest_arr = com_vec_get_m(&dest->_array, 0, u32);
@@ -208,7 +407,7 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a,
   // and also that a - b will always be less than or equal to a
 
   // resize dest_vec to the new size, we will trim later if necessary
-  com_vec_set_len(&dest->_array, alen);
+  com_vec_set_len_m(&dest->_array, alen, u32);
 
   u32 *dest_arr = com_vec_get_m(&dest->_array, 0, u32);
 
@@ -273,9 +472,11 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a,
   // first start at the end of the array and then count the number of zeros
   // going backwards
   usize zeros_len = 0;
-  for (usize i = dest_len; i > 0; i++) {
+  for (usize i = dest_len; i > 0; i--) {
+    // here I is the index + 1 (did this to prevent overflow)
+
     // note that i-1 can never overflow because i > 0 at all times in the loop
-    if (dest_arr[i] == 0) {
+    if (dest_arr[i-1] == 0) {
       zeros_len++;
     } else {
       break;
@@ -397,6 +598,9 @@ static void internal_value_mul_u32_arr_u32(com_biguint *dest, const u32 *a,
 }
 
 void com_biguint_mul_u32(com_biguint *dest, const com_biguint *a, u32 b) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(dest != NULL, "dest is null");
+
   internal_value_mul_u32_arr_u32(dest, com_vec_get_m(&a->_array, 0, u32),
                                  com_vec_len_m(&a->_array, u32), b);
 }
@@ -407,7 +611,8 @@ void com_biguint_mul_u32(com_biguint *dest, const com_biguint *a, u32 b) {
 // REQUIRES: `b` is a pointer to an array of at least `blen` u32s
 // REQUIRES: `tmp` is a temporary biguint that will be overwritten
 // REQUIRES: dest->_array._data MUST NOT overlap with a or b, as dest will be
-// modified before the end GUARANTEES: dest will contain the product of a and b
+// modified before the end 
+// GUARANTEES: dest will contain the product of a and b
 // GUARANTEES: tmp will be undefined
 static void internal_value_mul_u32_arr(com_biguint *dest, const u32 *a,
                                        usize alen, const u32 *b, usize blen,
@@ -493,3 +698,4 @@ void com_biguint_div(com_biguint *dest, const com_biguint *a,
 
   // TODO
 }
+

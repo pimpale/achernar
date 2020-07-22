@@ -215,41 +215,66 @@ void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
 	const u32* a_arr = com_vec_get(avec, 0);
 	u32 alen = com_vec_len_m(avec, u32);
 
+	// if a is zero exit fast
+	if(alen == 0) {
+    com_biguint_set_u64(dest, 0);
+		return;
+	}
+
+	// in general, the plan is to go in reverse
+	// This enables in place mutation, should the user provide the same destination and operator
+
   u32 words = bits / 32;
   u32 rbits = bits % 32;
 
-	// set dest length to a's length + words shifted + (1 if last word will overflow)
-
-	// if the last word of a will overflow
-	// Means that we need to allocate one more wordof space
-	bool lastwordoverflow = alen > 0 && (u64)a_arr[alen-1] << rbits > u32_max_m;
-
-	// set length of destvec
+	// set dest length to a's length + words shifted 
+	// (we'll add an extra one if it overflows later)
   // since this is left shift we are increasing the size of the number 
-	com_vec_set_len_m(dvec, com_vec_len_m(avec, u32) + words + (lastwordoverflow ? 1 : 0), u32);
+	com_vec_set_len_m(dvec, com_vec_len_m(avec, u32) + words, u32);
+
+	// get the overflow from the last digit
+	u32 overflow = ((u64)a_arr[alen-1] << (u64)rbits) >> 32;
+	// handle final overflow if it exists
+	if(overflow != 0) {
+		*com_vec_push_m(dvec, u32) = overflow;
+	}
 
 	// get array
 	u32* dest_arr = com_vec_get(dvec, 0);
 
+	// get normal 
+	for(usize i = alen-1; i > 0; i--) {
+   	u64 ret = (u64)a_arr[i] << rbits;
+   	// must account for lower bits being shifted into upper bytes
+		dest_arr[i+words] = (a_arr[i] << rbits) | (a_arr[i - 1] >> (32 - rbits));
+	}
+
+	dest_arr[0] <<= rbits;
+
 	// set first `word` bytes to zero
-	// this shifts it `word` words to the left
 	com_mem_zero_arr_m(dest_arr, words, u32);
-
-
-
-  if (nbits != 0)
-  {
-    int i;
-    for (i = (BN_ARRAY_SIZE - 1); i > 0; --i)
-    {
-      b->array[i] = (b->array[i] << nbits) | (b->array[i - 1] >> ((8 * WORD_SIZE) - nbits));
-    }
-    b->array[i] <<= nbits;
-  }	
 }
 
 void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
-                        const u32 nbits);
+                        const u32 bits) {
+	com_assert_m(dest != NULL, "dest is null");
+	com_assert_m(a != NULL, "a is null");
+
+	
+	com_vec *dvec = &dest->_array;
+	const com_vec *avec = &a->_array;
+
+	const u32* a_arr = com_vec_get(avec, 0);
+	u32 alen = com_vec_len_m(avec, u32);
+
+  u32 words = bits / 32;
+  u32 rbits = bits % 32;
+
+  // idea is to first subtract the lowest words and then proceed to
+  
+
+
+}
 
 
 // Adds together a and b into DEST

@@ -212,7 +212,6 @@ void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
 	com_vec *dvec = &dest->_array;
 	const com_vec *avec = &a->_array;
 
-	const u32* a_arr = com_vec_get(avec, 0);
 	u32 alen = com_vec_len_m(avec, u32);
 
 	// if a is zero exit fast
@@ -232,20 +231,22 @@ void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
   // since this is left shift we are increasing the size of the number 
 	com_vec_set_len_m(dvec, com_vec_len_m(avec, u32) + words, u32);
 
+
 	// get the overflow from the last digit
-	u32 overflow = ((u64)a_arr[alen-1] << (u64)rbits) >> 32;
+	u32 overflow = ((u64)*com_vec_get_m(avec, alen-1, u32) << (u64)rbits) >> 32;
 	// handle final overflow if it exists
 	if(overflow != 0) {
 		*com_vec_push_m(dvec, u32) = overflow;
 	}
+
+	const u32* a_arr = com_vec_get(avec, 0);
 
 	// get array
 	u32* dest_arr = com_vec_get(dvec, 0);
 
 	// get normal 
 	for(usize i = alen-1; i > 0; i--) {
-   	u64 ret = (u64)a_arr[i] << rbits;
-   	// must account for lower bits being shifted into upper bytes
+   	// must account for lower bytes being shifted into upper bytes
 		dest_arr[i+words] = (a_arr[i] << rbits) | (a_arr[i - 1] >> (32 - rbits));
 	}
 
@@ -260,20 +261,39 @@ void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
 	com_assert_m(dest != NULL, "dest is null");
 	com_assert_m(a != NULL, "a is null");
 
-	
 	com_vec *dvec = &dest->_array;
 	const com_vec *avec = &a->_array;
 
-	const u32* a_arr = com_vec_get(avec, 0);
 	u32 alen = com_vec_len_m(avec, u32);
+
+	// have to set it exactly large to avoid issues
+	// if aliasing
+	com_vec_set_len_m(dvec, alen, u32);
 
   u32 words = bits / 32;
   u32 rbits = bits % 32;
 
-  // idea is to first subtract the lowest words and then proceed to
-  
+  if(words > alen) {
+		com_biguint_set_u64(dest, 0);
+		return;
+  }
 
+	const u32* a_arr = com_vec_get(avec, 0);
+	u32* dest_arr = com_vec_get(dvec, 0);
 
+	for(usize i = words; i < alen - 1; i++)
+  {
+    // Handle bits from the next bytes shifting into place
+    dest_arr[i-words] = (a_arr[i] >> rbits) | (a_arr[i + 1] << (32 - rbits));
+  }
+
+  u32 last = a_arr[alen-1] >> rbits;
+  if(last != 0) {
+    dest_arr[alen-words-1] = last;
+		com_vec_set_len_m(dvec, alen-words, u32);
+  } else {
+		com_vec_set_len_m(dvec, alen-words-1, u32);
+  }
 }
 
 

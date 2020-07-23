@@ -1,4 +1,5 @@
-#include "com_os_allocator.h"
+#include "com_allocator_os.h"
+#include "com_os_mem_alloc.h"
 #include "com_assert.h"
 
 typedef struct {
@@ -20,7 +21,7 @@ static usize push_entry(StdAllocator *b, void *entry, com_allocator_HandleData d
   // Ensure that there is enough room for the allocation
   if (b->ptrs_len + 1 >= b->ptrs_cap) {
     b->ptrs_cap = b->ptrs_cap * 2;
-    b->ptrs = realloc(b->ptrs, b->ptrs_cap * sizeof(AllocEntry));
+    b->ptrs = com_os_mem_realloc(b->ptrs, b->ptrs_cap * sizeof(AllocEntry));
   }
   // Add to the top of the stack
   usize index = b->ptrs_len;
@@ -34,11 +35,11 @@ static usize push_entry(StdAllocator *b, void *entry, com_allocator_HandleData d
   return index;
 }
 
-static inline StdAllocator *std_create() {
-  StdAllocator *sa = malloc(sizeof(StdAllocator));
+static StdAllocator *std_create() {
+  StdAllocator *sa = com_os_mem_alloc(sizeof(StdAllocator));
   com_assert_m(sa != NULL, "failed to allocate StdAllocator object");
 
-  void *ptr = malloc(2 * sizeof(AllocEntry));
+  void *ptr = com_os_mem_alloc(2 * sizeof(AllocEntry));
   com_assert_m(ptr != NULL, "failed to allocate internal StdAllocator vector");
 
   // allocate once to form the standard allocator
@@ -50,17 +51,17 @@ static inline StdAllocator *std_create() {
   return sa;
 }
 
-static inline void std_destroy(StdAllocator *backing) {
-  // free all unfreed things
+static  void std_destroy(StdAllocator *backing) {
+  // com_os_mem_dealloc all uncom_os_mem_deallocd things
   for (usize i = 0; i < backing->ptrs_len; i++) {
     if (backing->ptrs[i].valid) {
-      free(backing->ptrs[i].ptr);
+      com_os_mem_dealloc(backing->ptrs[i].ptr);
     }
   }
-  // free the array
-  free(backing->ptrs);
-  // free the allocator itself
-  free(backing);
+  // com_os_mem_dealloc the array
+  com_os_mem_dealloc(backing->ptrs);
+  // com_os_mem_dealloc the allocator itself
+  com_os_mem_dealloc(backing);
 }
 
 // Shim methods
@@ -73,7 +74,7 @@ static com_allocator_Handle std_allocator_fn(const com_Allocator *allocator,
     return (com_allocator_Handle){._id = 0, .valid = true};
   }
 
-  void *ptr = malloc(data.len);
+  void *ptr = com_os_mem_alloc(data.len);
   usize index = push_entry(backing, ptr, data);
   return (com_allocator_Handle){._id = index, .valid = true};
 }
@@ -83,7 +84,7 @@ static void std_deallocator_fn(com_allocator_Handle id) {
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   AllocEntry *ae = &backing->ptrs[id._id];
   ae->valid = false;
-  free(ae->ptr);
+  com_os_mem_dealloc(ae->ptr);
 }
 
 // normalize realloc behavior
@@ -108,7 +109,7 @@ static com_allocator_Handle std_reallocator_fn(com_allocator_Handle id,
   }
 
   AllocEntry *ae = &backing->ptrs[id._id];
-  void *ret = realloc(ae->ptr, size);
+  void *ret = com_os_mem_realloc(ae->ptr, size);
   if (ret == NULL) {
     // realloc failed, old handle is good though
     return (com_allocator_Handle){.valid = false};

@@ -5,7 +5,7 @@
 #include "com_writer.h"
 
 // creates a writer out of a single function that can push a com_str and return the length
-com_writer com_writer_fn_create(usize (*write_fn)(const com_str data));
+com_writer com_writer_fn_create(usize (*write_fn)(com_str data));
 
 #endif 
 

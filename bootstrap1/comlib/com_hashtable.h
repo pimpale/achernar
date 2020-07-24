@@ -1,11 +1,8 @@
-#ifndef HASHTABLE_H
-#define HASHTABLE_H
+#ifndef COM_HASHTABLE_H
+#define COM_HASHTABLE_H
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-
-#include "allocator.h"
+#include "com_define.h"
+#include "com_allocator.h"
 
 typedef struct {
   // if this value exists

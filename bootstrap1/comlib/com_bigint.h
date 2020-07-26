@@ -80,7 +80,7 @@ void com_bigint_sub(com_bigint *dest, const com_bigint *a, const com_bigint *b);
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` * `b`
 void com_bigint_mul(com_bigint *dest, const com_bigint *a, const com_bigint *b,
-                    com_Allocator *allocator);
+                    com_allocator *allocator);
 /// dest := a / b
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_bigint`
@@ -88,7 +88,7 @@ void com_bigint_mul(com_bigint *dest, const com_bigint *a, const com_bigint *b,
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` / `b`
 void com_bigint_div(com_bigint *dest, const com_bigint *a, const com_bigint *b,
-                    com_Allocator *allocator);
+                    com_allocator *allocator);
 
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_bigint`
@@ -96,7 +96,7 @@ void com_bigint_div(com_bigint *dest, const com_bigint *a, const com_bigint *b,
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` % `b`
 void com_bigint_rem(com_bigint *dest, const com_bigint *a, const com_bigint *b,
-                    com_Allocator *allocator);
+                    com_allocator *allocator);
 
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_bigint`
@@ -107,7 +107,7 @@ void com_bigint_rem(com_bigint *dest, const com_bigint *a, const com_bigint *b,
 /// GUARANTEES: `remainder` will be overwritten by `a` % `b`
 void com_bigint_div_rem(com_bigint *quotient, com_bigint *remainder,
                         const com_bigint *a, const com_bigint *b,
-                        com_Allocator *allocator);
+                        com_allocator *allocator);
 
 /* Special operators and comparison */
 

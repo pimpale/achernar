@@ -91,7 +91,7 @@ typedef struct {
 void com_json_serialize(com_json_Elem* elem, com_writer* writer);
 
 // converts an inputstream into a json DOM
-com_json_Elem com_json_parseElem(com_reader* reader, com_vec* diagnostics,  com_Allocator* allocator);
+com_json_Elem com_json_parseElem(com_reader* reader, com_vec* diagnostics,  com_allocator* allocator);
 
 #endif
 

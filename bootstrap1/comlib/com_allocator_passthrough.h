@@ -26,7 +26,7 @@ typedef struct  {
  * GUARANTEES: `backing_storage` will be overwritten
  * GUARANTEES: on the first call to allocate memory, will return a handle representing `ptr` with length `len`
  */
-com_Allocator com_allocator_passthrough(void* ptr, usize len, com_allocator_passthrough_Backing* backing_storage);
+com_allocator com_allocator_passthrough(void* ptr, usize len, com_allocator_passthrough_Backing* backing_storage);
 
 #endif
 

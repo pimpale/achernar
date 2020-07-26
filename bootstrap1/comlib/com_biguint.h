@@ -81,7 +81,7 @@ void com_biguint_sub(com_biguint *dest, const com_biguint *a,
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` * `b`
 void com_biguint_mul(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator *allocator);
+                     const com_biguint *b, com_allocator *allocator);
 /// dest := a / b
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
@@ -89,7 +89,7 @@ void com_biguint_mul(com_biguint *dest, const com_biguint *a,
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` / `b`
 void com_biguint_div(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator *allocator);
+                     const com_biguint *b, com_allocator *allocator);
 
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
@@ -97,7 +97,7 @@ void com_biguint_div(com_biguint *dest, const com_biguint *a,
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` % `b`
 void com_biguint_rem(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator *allocator);
+                     const com_biguint *b, com_allocator *allocator);
 
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
 /// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
@@ -108,7 +108,7 @@ void com_biguint_rem(com_biguint *dest, const com_biguint *a,
 /// GUARANTEES: `remainder` will be overwritten by `a` % `b`
 void com_biguint_div_rem(com_biguint *quotient, com_biguint *remainder,
                          const com_biguint *a, const com_biguint *b,
-                         com_Allocator *allocator);
+                         com_allocator *allocator);
 
 /* Bitwise operations: */
 void com_biguint_and(com_biguint *dest, const com_biguint *a,

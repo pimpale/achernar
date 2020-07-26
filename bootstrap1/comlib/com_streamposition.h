@@ -5,11 +5,11 @@
 
 // Wrap Lns and Cols in their own struct so you can't get confused
 typedef struct {
-  uint64_t val;
+  u64 val;
 } com_streamposition_Ln;
 
 typedef struct {
-  uint64_t val;
+  u64 val;
 } com_streamposition_Col;
 
 typedef struct LnCol_s {

@@ -149,7 +149,7 @@ void com_bigint_sub(com_bigint *dest, const com_bigint *a,
 }
 
 void com_bigint_mul(com_bigint *dest, const com_bigint *a, const com_bigint *b,
-                    com_Allocator *allocator) {
+                    com_allocator *allocator) {
   // if one of them is negative but not the other, it is negative
   // if both of them are the same kind, then it is not negative
   dest->_negative = a->_negative != b->_negative;
@@ -157,7 +157,7 @@ void com_bigint_mul(com_bigint *dest, const com_bigint *a, const com_bigint *b,
 }
 
 void com_bigint_div(com_bigint *dest, const com_bigint *a, const com_bigint *b,
-                    com_Allocator *allocator) {
+                    com_allocator *allocator) {
   // if one of them is negative but not the other, it is negative
   // if both of them are the same kind, then it is not negative
   dest->_negative = a->_negative != b->_negative;
@@ -165,7 +165,7 @@ void com_bigint_div(com_bigint *dest, const com_bigint *a, const com_bigint *b,
 }
 
 void com_bigint_rem(com_bigint *dest, const com_bigint *a, const com_bigint *b,
-                    com_Allocator *allocator) {
+                    com_allocator *allocator) {
   // remainder (%) always takes the sign of the dividend
   dest->_negative = a->_negative;
   com_biguint_rem(&dest->_magnitude, &a->_magnitude, &b->_magnitude, allocator);
@@ -173,7 +173,7 @@ void com_bigint_rem(com_bigint *dest, const com_bigint *a, const com_bigint *b,
 
 void com_bigint_div_rem(com_bigint *quotient, com_bigint *remainder,
                         const com_bigint *a, const com_bigint *b,
-                        com_Allocator *allocator) {
+                        com_allocator *allocator) {
   // if one of them is negative but not the other, it is negative
   // if both of them are the same kind, then it is not negative
   quotient->_negative = a->_negative != b->_negative;

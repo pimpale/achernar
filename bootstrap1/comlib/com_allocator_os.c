@@ -8,14 +8,14 @@ typedef struct {
   com_allocator_HandleData data;
 } AllocEntry;
 
-typedef struct StdAllocator_s {
+typedef struct Stdallocator_s {
   // this is essentially a vector of
   AllocEntry *ptrs;
   usize ptrs_len;
   usize ptrs_cap;
-} StdAllocator;
+} Stdallocator;
 
-static usize push_entry(StdAllocator *b, void *entry, com_allocator_HandleData data) {
+static usize push_entry(Stdallocator *b, void *entry, com_allocator_HandleData data) {
   // The system has a null zero range
   com_assert_m(b->ptrs_cap > 0, "internal allocator vector is corrupt");
   // Ensure that there is enough room for the allocation
@@ -35,12 +35,12 @@ static usize push_entry(StdAllocator *b, void *entry, com_allocator_HandleData d
   return index;
 }
 
-static StdAllocator *std_create() {
-  StdAllocator *sa = com_os_mem_alloc(sizeof(StdAllocator));
-  com_assert_m(sa != NULL, "failed to allocate StdAllocator object");
+static Stdallocator *std_create() {
+  Stdallocator *sa = com_os_mem_alloc(sizeof(Stdallocator));
+  com_assert_m(sa != NULL, "failed to allocate Stdallocator object");
 
   void *ptr = com_os_mem_alloc(2 * sizeof(AllocEntry));
-  com_assert_m(ptr != NULL, "failed to allocate internal StdAllocator vector");
+  com_assert_m(ptr != NULL, "failed to allocate internal Stdallocator vector");
 
   // allocate once to form the standard allocator
   sa->ptrs = ptr;
@@ -51,7 +51,7 @@ static StdAllocator *std_create() {
   return sa;
 }
 
-static  void std_destroy(StdAllocator *backing) {
+static  void std_destroy(Stdallocator *backing) {
   // com_os_mem_dealloc all uncom_os_mem_deallocd things
   for (usize i = 0; i < backing->ptrs_len; i++) {
     if (backing->ptrs[i].valid) {
@@ -65,9 +65,9 @@ static  void std_destroy(StdAllocator *backing) {
 }
 
 // Shim methods
-static com_allocator_Handle std_allocator_fn(const com_Allocator *allocator,
+static com_allocator_Handle std_allocator_fn(const com_allocator *allocator,
                                              com_allocator_HandleData data) {
-  StdAllocator *backing = allocator->_backing;
+  Stdallocator *backing = allocator->_backing;
 
   if (data.len == 0) {
     // return the dummy null entry
@@ -80,7 +80,7 @@ static com_allocator_Handle std_allocator_fn(const com_Allocator *allocator,
 }
 
 static void std_deallocator_fn(com_allocator_Handle id) {
-  StdAllocator *backing = id._allocator->_backing;
+  Stdallocator *backing = id._allocator->_backing;
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   AllocEntry *ae = &backing->ptrs[id._id];
   ae->valid = false;
@@ -90,7 +90,7 @@ static void std_deallocator_fn(com_allocator_Handle id) {
 // normalize realloc behavior
 static com_allocator_Handle std_reallocator_fn(com_allocator_Handle id,
                                                usize size) {
-  StdAllocator *backing = id._allocator->_backing;
+  Stdallocator *backing = id._allocator->_backing;
 
   // deallocate if we have resized to zero bytes
   if (size == 0) {
@@ -124,25 +124,25 @@ static com_allocator_Handle std_reallocator_fn(com_allocator_Handle id,
 }
 
 static void *std_get_fn(const com_allocator_Handle id) {
-  StdAllocator *backing = id._allocator->_backing;
+  Stdallocator *backing = id._allocator->_backing;
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   return backing->ptrs[id._id].ptr;
 }
 
 static com_allocator_HandleData 
 std_query_fn(const com_allocator_Handle id) {
-  StdAllocator *backing = id._allocator->_backing;
+  Stdallocator *backing = id._allocator->_backing;
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   return backing->ptrs[id._id].data;
 }
 
-static void std_destroy_allocator_fn(com_Allocator *allocator) {
-  std_destroy((StdAllocator *)allocator->_backing);
+static void std_destroy_allocator_fn(com_allocator *allocator) {
+  std_destroy((Stdallocator *)allocator->_backing);
 }
 
-// Allocator constant struct variable
-com_Allocator std_allocator(void) {
-  return (com_Allocator){._valid = true,
+// allocator constant struct variable
+com_allocator std_allocator(void) {
+  return (com_allocator){._valid = true,
                          ._default_flags = com_allocator_NOLEAK,
                          ._supported_flags =
                              com_allocator_NOLEAK | com_allocator_REALLOCABLE,

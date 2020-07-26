@@ -4,6 +4,6 @@
 #include "com_define.h"
 #include "com_allocator.h"
 
-com_Allocator com_os_allocator(void);
+com_allocator com_os_allocator(void);
 
 #endif

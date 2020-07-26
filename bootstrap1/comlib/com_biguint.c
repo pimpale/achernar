@@ -690,7 +690,7 @@ static void internal_value_mul_u32_arr(com_biguint *dest, const u32 *a,
 }
 
 void com_biguint_mul(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator *allocator) {
+                     const com_biguint *b, com_allocator *allocator) {
   com_assert_m(a != NULL, "a is null");
   com_assert_m(b != NULL, "b is null");
   com_assert_m(dest != NULL, "dest is null");
@@ -735,7 +735,7 @@ void com_biguint_mul(com_biguint *dest, const com_biguint *a,
 }
 
 void com_biguint_div(com_biguint *dest, const com_biguint *a,
-                     const com_biguint *b, com_Allocator *allocator) {
+                     const com_biguint *b, com_allocator *allocator) {
   com_assert_m(a != NULL, "a is null");
   com_assert_m(b != NULL, "b is null");
   com_assert_m(dest != NULL, "dest is null");

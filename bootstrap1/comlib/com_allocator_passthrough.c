@@ -2,7 +2,7 @@
 
 #include "com_assert.h"
 
-static com_allocator_Handle handle_allocator_fn(const com_Allocator *allocator,
+static com_allocator_Handle handle_allocator_fn(const com_allocator *allocator,
                                                 com_allocator_HandleData data) {
 
   com_allocator_passthrough_Backing *backing = allocator->_backing;
@@ -30,7 +30,7 @@ static com_allocator_Handle handle_allocator_fn(const com_Allocator *allocator,
 
 void handle_deallocator_fn(const com_allocator_Handle handle) {
   // get allocator and backing
-  const com_Allocator *allocator = handle._allocator;
+  const com_allocator *allocator = handle._allocator;
   com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // perform checks
@@ -47,7 +47,7 @@ static com_allocator_Handle handle_reallocator_fn(com_allocator_Handle handle,
                                                   usize len) {
 
   // get allocator and backing
-  const com_Allocator *allocator = handle._allocator;
+  const com_allocator *allocator = handle._allocator;
   com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // check that we've allocated an id yet
@@ -76,7 +76,7 @@ static com_allocator_Handle handle_reallocator_fn(com_allocator_Handle handle,
 
 static void *handle_get_fn(const com_allocator_Handle handle) {
   // get allocator and backing
-  const com_Allocator *allocator = handle._allocator;
+  const com_allocator *allocator = handle._allocator;
   com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // perform checks
@@ -91,7 +91,7 @@ static void *handle_get_fn(const com_allocator_Handle handle) {
 static com_allocator_HandleData
 handle_query_fn(const com_allocator_Handle handle) {
   // get allocator and backing
-  const com_Allocator *allocator = handle._allocator;
+  const com_allocator *allocator = handle._allocator;
   com_allocator_passthrough_Backing *backing = allocator->_backing;
 
   // perform checks
@@ -104,12 +104,12 @@ handle_query_fn(const com_allocator_Handle handle) {
                                     .flags = backing->_input_flags};
 }
 
-static void destroy_fn(com_Allocator *allocator) {
+static void destroy_fn(com_allocator *allocator) {
   com_allocator_passthrough_Backing *backing = allocator->_backing;
   allocator->_valid = false;
 }
 
-com_Allocator
+com_allocator
 com_allocator_passthrough(void *ptr, usize len,
                           com_allocator_passthrough_Backing *backing_storage) {
   *backing_storage =
@@ -118,7 +118,7 @@ com_allocator_passthrough(void *ptr, usize len,
                                           ._input_ptr = ptr,
                                           ._original_input_len = len,
                                           ._input_len = len};
-  return (com_Allocator){
+  return (com_allocator){
       // user is responsible for cleaning up data
       ._valid = true,
       ._default_flags = com_allocator_REALLOCABLE,

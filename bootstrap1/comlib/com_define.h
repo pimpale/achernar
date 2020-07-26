@@ -1,6 +1,8 @@
 #ifndef COM_DEFINE_H
 #define COM_DEFINE_H
 
+#define NULL ((void*)0)
+
 // TODO 
 // what to do if your compiler isn't gcc/clang
 

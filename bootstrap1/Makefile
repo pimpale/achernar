@@ -1,9 +1,9 @@
-TARGET_EXEC ?= bpc
+TARGET_EXEC ?= achernar
 
 BUILD_DIR ?= ./obj
-SRC_DIRS ?= $(shell find . -type d -name src)
+SRC_DIRS ?= comlib src
 
-SRCS := $(shell find $(SRC_DIRS) -name *.c)
+SRCS := $(shell find $(SRC_DIRS) -type f -name *.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 
 INC_DIRS := $(shell find . -type d -name inc)

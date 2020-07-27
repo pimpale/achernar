@@ -12,6 +12,8 @@ int main() {
   Lexer lexer = lex_fromFile(stdin);
   AstFromCodeConstructor parser = ast_create(&lexer, &pool);
 
+	
+
   // Print
   print_stream(&parser, stdout);
 

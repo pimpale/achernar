@@ -13,6 +13,8 @@ typedef enum {
   /// specifically should align memory to sixteen bytes 
   /// (the max value necessary for floats. If disabled, then alignment is undefined)
   com_allocator_ALIGNED_16 = 1<<2,
+  // zeros memory before providing it
+  com_allocator_ZERO,
 } com_allocator_Flag;
 
 typedef u32 com_allocator_Flags;

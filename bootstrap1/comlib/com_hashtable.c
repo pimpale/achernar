@@ -1,73 +1,91 @@
 #include "com_hashtable.h"
+#include "com_mem.h"
 #include "com_assert.h"
 
-#define MIN_LOAD_FACTOR 0.01
-#define OPT_LOAD_FACTOR 0.05
-#define MAX_LOAD_FACTOR 0.2
-
-#define DEFAULT_INITIAL_CAPACITY 1
+// you can modify these
+#define MIN_LOAD_FACTOR 0.1
+#define OPT_LOAD_FACTOR 0.3
+#define MAX_LOAD_FACTOR 0.6
 
 typedef struct {
-  // if the kv pair exists at all
-  bool existent;
+  // if the kv pair was never initialized
+  bool initialized;
 
 	com_str key;
   com_allocator_Handle key_handle;
 
+	// pointer to the value
 	void* value;
 
+	// how many probes were necessary to create this
+	usize probe_sequence;
 } KVPair;
 
 
 /* copies data to mapping pointer */
 static KVPair kvpair_init(const com_str src, void* value, com_allocator* a) {
-  com_allocator_Handle key_handle = com_allocator_alloc(a, (com_allocator_HandleData)
-	KVPair p = {
-    	.existent=true;
-  kvp->existent = true;
+  com_allocator_Handle key_handle = com_allocator_alloc(a, (com_allocator_HandleData) {
+      .flags=com_allocator_defaults(a),
+      .len=src.len
+  });
 
-  kvp->keylen = keylen;
-  kvp->key_allocId = a_alloc(a, keylen);
-  kvp->key = a_get(a, kvp->key_allocId);
-  memcpy(kvp->key, key, keylen);
+  u8* key_data = com_allocator_handle_get(key_handle);
+	com_mem_move(key_data, src.data, src.len);
 
+  com_str key = com_str_create(
+  	key_data,
+  	src.len
+  );
+
+	return (KVPair) {
+    	.initialized=true,
+    	.key=key,
+    	.key_handle=key_handle,
+    	.value=value,
+    	.probe_count=0
+	};
 }
 
-static void kvp_destroy(KVPair *kvp, Allocator *a) {
-  com_assert_m(kvp->existent, );
-  a_dealloc(a, kvp->key_allocId);
-  a_dealloc(a, kvp->value_allocId);
+static void kvpair_destroy(KVPair *kvp) {
+  com_assert_m(kvp->existent, "kvpair is invalid or nonexistent");
+  com_allocator_dealloc(kvp->key_handle);
   kvp->existent = false;
 }
 
-// Creates table with default initial capacity
-HashTable hashtable_create(Allocator *a) { 
-  return hashtable_createWithCapacity(a, INITIAL_CAPACITY); 
-}
-
 // Initializes the memory pointed to as a table with given capacity
-HashTable hashtable_createWithCapacity(Allocator *a, size_t capacity) {
-  HashTable table;
-  table.a = a;
-  table.pair_count= 0;
-  table.pairs_capacity = capacity;
-  // Initialize array to zero
-  size_t arr_size = capacity * sizeof(KVPair);
-  table.pairs_allocId = a_alloc(a, arr_size);
-  table.pairs = a_get(a, table.pairs_allocId);
-  memset(table.pairs, 0, arr_size);
-  return table;
+com_hashtable com_hashtable_createSettings(com_allocator *a, com_hashtable_Settings settings) {
+  com_assert_m(com_allocator_supports(a) & com_allocator_REALLOCABLE, "allocator is unsuitable for this hashtable, must support reallocable");
+
+  return (com_hashtable) {
+  ._allocator = a,
+  ._hasher=settings.hasher,
+  ._pairs = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
+      .len=settings.starting_capacity,
+      .flags=com_allocator_defaults(a) | com_allocator_REALLOCABLE
+  })),
+  };
 }
 
-void hashtable_destroy(HashTable *hashtable) {
+// Creates table with default initial capacity
+com_hashtable hashtable_create(com_allocator *a) { 
+  return com_hashtable_createSettings(a, com_hashtable_DEFAULT_SETTINGS);
+}
+
+
+void com_hashtable_destroy(com_hashtable *hashtable) {
   // Free all mappings
-  for (size_t i = 0; i < hashtable->pairs_capacity; i++) {
-    if (hashtable->pairs[i].existent) {
-      kvp_destroy(&hashtable->pairs[i], hashtable->a);
+  com_vec* pairs_vec = &hashtable->_pairs;
+  KVPair* pairs = com_vec_get(pairs_vec, 0);
+  usize pairs_len = com_vec_len_m(pairs_vec, KVPair);
+
+  for (usize i = 0; i < pairs_len; i++) {
+    if (pairs[i].existent) {
+      kvpair_destroy(&pairs[i]);
     }
   }
+
   // Now free memory
-  a_dealloc(hashtable->a, hashtable->pairs_allocId);
+  com_vec_destroy(pairs_vec);
 }
 
 /* Resizes table to the given number of spots, and then attempts to fit all

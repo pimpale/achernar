@@ -7,6 +7,7 @@
 typedef struct {
   usize _length;
   usize _capacity;
+  usize _length_to_shrink;
   com_allocator_Handle _handle;
   void *_data;
 } com_vec;

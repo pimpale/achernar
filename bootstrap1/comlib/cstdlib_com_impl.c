@@ -2,11 +2,13 @@
 #include "com_os_exit.h"
 #include "com_os_iostream.h"
 #include "com_os_mem_alloc.h"
+#include "com_os_time.h"
 
 // now include the c standard library functions
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 // com_os_exit
 
@@ -47,3 +49,11 @@ com_str com_os_iostream_read_in(u8* buffer, usize buflen) {
 	return com_str_create(buffer, bytes_read);
 }
 
+// com_os_time
+u64 com_os_time_monotonic() {
+	return clock();
+}
+
+u64 com_os_time_unix() {
+	return time(NULL);
+}

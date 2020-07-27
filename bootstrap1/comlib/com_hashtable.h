@@ -1,53 +1,82 @@
 #ifndef COM_HASHTABLE_H
 #define COM_HASHTABLE_H
 
-// somewhat fast robin hood open addressing hashtable
-// hashmap owns keys but stores only a pointer to the value
+// somewhat fast robin hood open addressing linear probing hashtable
+// hashmap owns keys but only stores a pointer to the value
 
 #include "com_allocator.h"
 #include "com_define.h"
 #include "com_hash.h"
 #include "com_str.h"
-#include "com_vec.h"
 
 typedef struct {
 	bool valid;
 	void* value_ptr;
 } com_hashtable_Result;
 
+
+// the key, a cache of its hash and a handle for the memory allocated for it
+typedef struct {
+  u64 _hash_cache;
+  com_str _key;
+} com_hashtable_Key;
+
+typedef struct {
+	com_hashtable_Key _key;
+  // pointer to the value
+  void *_value;
+
+  // how many probes were necessary to create this
+  usize _probe_count;
+} com_hashtable_KeyValuePair;
+
+typedef struct {
+  bool _initialized;
+  com_hashtable_KeyValuePair _pair;
+} com_hashtable_Bucket;
+
 // Do not manually modify
 typedef struct {
-  // allocator to use
-  com_allocator *_allocator;
   // hasher fn
   com_hash_fn _hasher;
+
+  // the seed for this particular table hasher
+  u64 _seed0;
+  u64 _seed1;
+
   // where the key value pairs are stored
-  com_vec _pairs;
+  com_hashtable_Bucket* _buckets;
+  usize _buckets_capacity;
+
+	com_allocator_Handle _buckets_handle;
 } com_hashtable;
 
 typedef struct {
-  // how large the hashtable starts off as
-  // It may reallocate as necessary
-  usize starting_capacity;
+	// if the hashtable is allowed to expand
+  bool fixed_size;
+
   // hasher function to use
+  // sip is reccomended for security from DOS, although fnv1a may be faster
   com_hash_fn hasher;
+
   // whether to randomly generate the seed for the hasher fn
   bool randomly_generate_seed;
+
   // seed for the hasher function
-  // will only work if randomly_generate_seed is false
+  // ignored if randomly_generate_seed is true
   u64 seed;
 } com_hashtable_Settings;
 
 #define com_hashtable_DEFAULT_SETTINGS                                         \
-  ((com_hashtable_Settings){.starting_capacity = 16,                           \
+  ((com_hashtable_Settings){.fixed_size=false,                                 \
                             .hasher = com_hash_sip,                            \
                             .randomly_generate_seed = true,                    \
-                            .seed = 0})
+                            .seed = 1})
 
 // Creates a hashtable using memory allocated from `a` with default capacity
 /// REQUIRES: `a` is a valid pointer to an allocator with REALLOCABLE supported
 /// GUARANTEES: returns a valid com_hashtable
-com_hashtable com_hashtable_create(com_allocator *a);
+com_hashtable com_hashtable_create(com_allocator_Handle *handle);
 
 // Creates a hashtable using memory allocated from `a` with a settings
 /// REQUIRES: `a` is a valid pointer to an allocator

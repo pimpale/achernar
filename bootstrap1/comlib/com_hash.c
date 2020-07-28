@@ -79,8 +79,8 @@ static inline u64 SIP64(const u8 *in, const usize inlen,
     return out;
 }
 
-u64 com_hash_fnv1a(u64 seed0, u64 seed1, const com_str data) {
-  u64 hash = seed0 ^ seed1;
+u64 com_hash_fnv1a(u64 seed, const com_str data) {
+  u64 hash = seed;
 
   for (usize i = 0; i < data.len; i++) {
     hash ^= data.data[i];
@@ -89,7 +89,8 @@ u64 com_hash_fnv1a(u64 seed0, u64 seed1, const com_str data) {
   return hash;
 }
 
-u64 com_hash_sip(u64 seed0, u64 seed1, const com_str data) {
-	return SIP64(data.data, data.len, seed0, seed1);
+u64 com_hash_sip(u64 seed, const com_str data) {
+  // not really as secure as it could be, but good enough for practical purposes
+	return SIP64(data.data, data.len, 0, seed);
 }
 

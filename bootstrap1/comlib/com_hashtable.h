@@ -30,8 +30,16 @@ typedef struct {
   usize _probe_count;
 } com_hashtable_KeyValuePair;
 
+// the color is used when resizing the table in place
+// it ensures that we don't waste time checking if elements are in the right place
+typedef enum {
+com_hashtable_RED,
+com_hashtable_BLUE,
+} com_hashtable_ResizeColor;
+
 typedef struct {
   bool _initialized;
+  com_hashtable_ResizeColor _resize_color;
   com_hashtable_KeyValuePair _pair;
 } com_hashtable_Bucket;
 
@@ -41,14 +49,33 @@ typedef struct {
   com_hash_fn _hasher;
 
   // the seed for this particular table hasher
-  u64 _seed0;
-  u64 _seed1;
+  u64 _seed;
+
+	// memory allocation for `_buckets`
+	com_allocator_Handle _buckets_handle;
 
   // where the key value pairs are stored
   com_hashtable_Bucket* _buckets;
+  // how many buckets are avaliable in `_buckets`
   usize _buckets_capacity;
+  // how many buckets are currently initialized
+  usize _buckets_used;
 
-	com_allocator_Handle _buckets_handle;
+	// the number of buckets used above which we must expand
+	usize _buckets_expand_threshold;
+
+	// the number of buckets used below which we must shrink
+	usize _buckets_shrink_threshold;
+
+	// current resizing color (will swap everytime the buckets are resized)
+	com_hashtable_ResizeColor _resize_color;
+
+	// if we're allowed to expand or shrink the hashmap
+	bool _fixed;
+
+	// the max probe length (provides the upper limit on lookups)
+	usize _max_probe_length;
+
 } com_hashtable;
 
 typedef struct {
@@ -70,19 +97,19 @@ typedef struct {
 #define com_hashtable_DEFAULT_SETTINGS                                         \
   ((com_hashtable_Settings){.fixed_size=false,                                 \
                             .hasher = com_hash_sip,                            \
-                            .randomly_generate_seed = true,                    \
+                            .randomly_generate_seed=true,                    \
                             .seed = 1})
 
 // Creates a hashtable using memory allocated from `a` with default capacity
 /// REQUIRES: `a` is a valid pointer to an allocator with REALLOCABLE supported
 /// GUARANTEES: returns a valid com_hashtable
-com_hashtable com_hashtable_create(com_allocator_Handle *handle);
+com_hashtable com_hashtable_create(com_allocator_Handle handle);
 
 // Creates a hashtable using memory allocated from `a` with a settings
 /// REQUIRES: `a` is a valid pointer to an allocator
 /// REQUIRES: `settings` is a valid com_hashtable_settings
 /// GUARANTEES: returns a valid com_hashtable adhering to the settings provided
-com_hashtable com_hashtable_createSettings(com_allocator *a,
+com_hashtable com_hashtable_createSettings(com_allocator_Handle handle,
                                        com_hashtable_Settings settings);
 
 // frees all memory associated with this hashtable

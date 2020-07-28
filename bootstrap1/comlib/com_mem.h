@@ -19,7 +19,6 @@ void com_mem_zero(void* ptr, const usize len);
 /// GUARANTEES: all bytes of `ptr` will be set to zero
 #define com_mem_zero_arr_m(ptr, n, type) com_mem_zero((ptr), (n)*sizeof(type))
 
-
 /// sets the `len` bytes located at `ptr` to the value `byte`
 /// REQUIRES: `ptr` is a valid pointer
 /// REQUIRES: `len`  is the number of bytes to set to 0
@@ -31,8 +30,15 @@ void com_mem_set(void* ptr, const usize len, const u8 byte);
 /// REQUIRES: `dest` is a valid pointer to at least `n` bytes of memory
 /// REQUIRES: `src` is a valid pointer to at least `n` bytes of memory
 /// REQUIRES: `n` is a digit representing the number of bytes to copy from `src` to `dest`
-/// GUARANTEES: the first `n` bytes at `dest` are identical to the first `n` bytes at `src`
+/// GUARANTEES: the first `n` bytes at `*dest` are identical to the first `n` bytes at `*src`
 void com_mem_move(void* dest, const void* src, usize n);
+
+/// swaps `n` bytes of memory between `a` and `b`
+/// REQUIRES: `a` is a valid pointer to at least `n` bytes of memory
+/// REQUIRES: `b` is a valid pointer to at least `n` bytes of memory
+/// GUARANTEES: the first `n` bytes at `*a` are equal to the first `n` bytes at `\old(*b)`
+/// GUARANTEES: the first `n` bytes at `*b` are equal to the first `n` bytes at `\old(*a)`
+void com_mem_swap(void* a, void* b, usize n);
 
 #endif
 

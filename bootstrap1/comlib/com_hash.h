@@ -19,6 +19,6 @@ u64 com_hash_fnv1a(u64 seed, const com_str data);
 /// REQUIRES: `seed` is a seed for the hash function
 /// REQUIRES: `data` is a valid com_str
 /// GUARANTEES: returns a u64 value based on a hash
-u64 com_hash_sip(u64 seed0, u64 seed1, const com_str data);
+u64 com_hash_sip(u64 seed, const com_str data);
 
 #endif 

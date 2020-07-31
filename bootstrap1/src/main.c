@@ -1,6 +1,5 @@
-#include <stdio.h>
 
-#include "allocator.h"
+#include "com_allocator.h"
 #include "std_allocator.h"
 #include "lexer.h"
 #include "code_to_tokens.h"

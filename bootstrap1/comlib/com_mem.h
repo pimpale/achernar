@@ -24,7 +24,7 @@ void com_mem_zero(void* ptr, const usize len);
 /// REQUIRES: `len`  is the number of bytes to set to 0
 /// REQUIRES: `byte` is the value to overwrite each byte with
 /// GUARANTEES: `len` bytes of memory located at `ptr` will be set to 0
-void com_mem_set(void* ptr, const usize len, const u8 byte);
+void com_mem_set(void* ptr, usize len, const u8 byte);
 
 /// copies `n` bytes of memory from `src` to `dest` (even if they overlap)
 /// REQUIRES: `dest` is a valid pointer to at least `n` bytes of memory
@@ -36,9 +36,23 @@ void com_mem_move(void* dest, const void* src, usize n);
 /// swaps `n` bytes of memory between `a` and `b`
 /// REQUIRES: `a` is a valid pointer to at least `n` bytes of memory
 /// REQUIRES: `b` is a valid pointer to at least `n` bytes of memory
-/// GUARANTEES: the first `n` bytes at `*a` are equal to the first `n` bytes at `\old(*b)`
-/// GUARANTEES: the first `n` bytes at `*b` are equal to the first `n` bytes at `\old(*a)`
+/// GUARANTEES: the first `n` bytes at `*a` are equal to the first `n` bytes at old `*b`
+/// GUARANTEES: the first `n` bytes at `*b` are equal to the first `n` bytes at old `*a`
 void com_mem_swap(void* a, void* b, usize n);
+
+/// rotates `len` bytes of memory following `src` `n` bytes to the right
+/// REQUIRES: `src` is a valid pointer to at least `len` bytes
+/// GUARANTEES: bytes up to `src + len` will be affected
+/// GUARANTEES: if a byte's location would be outside of the `len` bytes, 
+/// it will loop back to the beginning of the array provided
+void com_mem_rotate_right(void* src, usize len, usize n);
+
+/// rotates `len` bytes of memory following `src` `n` bytes to the left
+/// REQUIRES: `src` is a valid pointer to at least `len` bytes
+/// GUARANTEES: bytes up to `src + len` will be affected
+/// GUARANTEES: if a byte's location would be below `src`, 
+/// it will loop back to the end of the array provided
+void com_mem_rotate_left(void* src, usize len, usize n);
 
 #endif
 

@@ -34,7 +34,7 @@ com_hashtable com_hashtable_createSettings(com_allocator_Handle handle,
       // an empty hashmap cannot yet be shrunk
       ._buckets_shrink_threshold = 0,
       // the load factor = used/capacity
-      ._buckets_expand_threshold = MAX_LOAD_FACTOR * capacity,
+      ._buckets_expand_threshold = (usize)(MAX_LOAD_FACTOR * (double)capacity),
       // any color will do
       ._resize_color = com_hashtable_RED,
       ._fixed = settings.fixed_size};
@@ -179,8 +179,8 @@ static void internal_hashtable_resize(com_hashtable *ht, usize new_capacity) {
   ht->_buckets = buckets;
   ht->_buckets_capacity = new_capacity;
   ht->_buckets_used = old_used;
-  ht->_buckets_expand_threshold = MAX_LOAD_FACTOR * new_capacity;
-  ht->_buckets_shrink_threshold = MIN_LOAD_FACTOR * new_capacity;
+  ht->_buckets_expand_threshold = (usize)(MAX_LOAD_FACTOR * (double)new_capacity);
+  ht->_buckets_shrink_threshold = (usize)(MIN_LOAD_FACTOR * (double)new_capacity);
   ht->_resize_color = new_color;
 }
 
@@ -195,7 +195,7 @@ void com_hashtable_set(com_hashtable *ht, const com_str key, void *value) {
   // if we aren't fixed, check if we need to resize and do so
   if (!ht->_fixed) {
     if (ht->_buckets_used + 1 > ht->_buckets_expand_threshold) {
-      internal_hashtable_resize(ht, (ht->_buckets_used + 1) / OPT_LOAD_FACTOR);
+      internal_hashtable_resize(ht, (usize)((double)(ht->_buckets_used + 1) / OPT_LOAD_FACTOR));
     }
   }
 
@@ -305,7 +305,7 @@ com_hashtable_Result com_hashtable_remove(com_hashtable *ht,
     ht->_buckets_used--;
 
     if (!ht->_fixed && ht->_buckets_used < ht->_buckets_shrink_threshold) {
-      internal_hashtable_resize(ht, (ht->_buckets_used) / OPT_LOAD_FACTOR);
+      internal_hashtable_resize(ht, (usize)((double)ht->_buckets_used / OPT_LOAD_FACTOR));
     }
   }
   return ret;

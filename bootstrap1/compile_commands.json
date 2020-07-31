@@ -1,0 +1,202 @@
+[
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_scan.c.o",
+            "comlib/com_scan.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_scan.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_mem.c.o",
+            "comlib/com_mem.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_mem.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_biguint.c.o",
+            "comlib/com_biguint.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_biguint.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_bigint.c.o",
+            "comlib/com_bigint.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_bigint.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_allocator_passthrough.c.o",
+            "comlib/com_allocator_passthrough.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_allocator_passthrough.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_hashtable.c.o",
+            "comlib/com_hashtable.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_hashtable.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_queue.c.o",
+            "comlib/com_queue.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_queue.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_assert.c.o",
+            "comlib/com_assert.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_assert.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_writer_fn.c.o",
+            "comlib/com_writer_fn.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_writer_fn.c"
+    },
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-std=c11",
+            "-O0",
+            "-g3",
+            "-Wall",
+            "-Weverything",
+            "-pedantic",
+            "-Wno-padded",
+            "-Wno-switch-enum",
+            "-Wno-format-nonliteral",
+            "-o",
+            "obj/comlib/com_writer.c.o",
+            "comlib/com_writer.c"
+        ],
+        "directory": "/home/fidgetsinner/workspace/achernar/bootstrap1",
+        "file": "comlib/com_writer.c"
+    }
+]

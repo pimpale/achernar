@@ -20,7 +20,7 @@ com_scan_UntilResult com_scan_until(com_writer *destination, com_reader *source,
   // For now using naiive method
 
   for (usize i = 0; no_max_read || i < max_read; i++) {
-    com_reader_ReadResult read_ret = com_reader_read_u8(source);
+    com_reader_ReadU8Result read_ret = com_reader_read_u8(source);
 
     // fail on invalid read
     if (!read_ret.valid) {
@@ -65,7 +65,7 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
   while (true) {
     switch (state) {
     case StringParserText: {
-      com_reader_ReadResult read_ret = com_reader_read_u8(reader);
+      com_reader_ReadU8Result read_ret = com_reader_read_u8(reader);
       if (!read_ret.valid) {
         return (com_scan_CheckedStrResult){
             .result = com_scan_CheckedStrReadFailed,
@@ -91,7 +91,7 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
       break;
     }
     case StringParserBackslash: {
-      com_reader_ReadResult read_ret = com_reader_read_u8(reader);
+      com_reader_ReadU8Result read_ret = com_reader_read_u8(reader);
       if (!read_ret.valid) {
         return (com_scan_CheckedStrResult){
             .result = com_scan_CheckedStrReadFailed,
@@ -155,7 +155,7 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
     case StringParserUnicode: {
       u32 code_point = 0;
       for (usize i = 0; i < 4; i++) {
-        com_reader_ReadResult read_ret = com_reader_read_u8(reader);
+        com_reader_ReadU8Result read_ret = com_reader_read_u8(reader);
         if (!read_ret.valid) {
           return (com_scan_CheckedStrResult){
               .result = com_scan_CheckedStrReadFailed,
@@ -183,7 +183,7 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
 void com_scan_skip_whitespace(com_reader *reader) {
   com_assert_m(com_reader_flags(reader) & com_reader_BUFFERED, "reader must support peeking");
 	while(true) {
-		com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
+		com_reader_ReadU8Result ret = com_reader_peek_u8(reader, 1);
 		if(!ret.valid) {
     	// TODO do error or something
 			return;

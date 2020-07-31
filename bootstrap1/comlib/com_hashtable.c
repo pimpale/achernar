@@ -31,7 +31,6 @@ com_hashtable com_hashtable_createSettings(com_allocator_Handle handle,
       ._buckets_capacity = capacity,
       ._buckets_handle = handle,
       ._buckets_used = 0,
-      ._max_probe_length = 0,
       // an empty hashmap cannot yet be shrunk
       ._buckets_shrink_threshold = 0,
       // the load factor = used/capacity
@@ -68,17 +67,16 @@ static com_hashtable_ResizeColor invert_color(com_hashtable_ResizeColor c) {
 /// inserts Key `key` into the `buckets` vector following robin hood hashing
 /// rules
 /// REQUIRES: `buckets` is a valid pointer to at least `bckts_len`
-/// com_hashtable_Bucket s REQUIRES: `key` is a valid `com_hashtable_Key`
+/// `com_hashtable_Bucket`s
+/// REQUIRES: `key` is a valid `com_hashtable_Key`
 /// REQUIRES: `buckets_used_ptr` is a valid pointer to the number of buckets in
-/// use before adding this one REQUIRES: `max_probe_len_ptr` is a valid pointer
-/// to the maximum number of probes that any one element took to insert
+/// use before adding this one
 /// REQUIRES: `resize_color` is the current color of the hashmap;
 /// GUARANTEES: returns true if a new pair was created, and false if otherwise
 static bool internal_hashtable_set(com_hashtable_Bucket *buckets,
-                                   usize bckts_len, com_hashtable_Key key,
-                                   void *value, usize *max_probe_len_ptr,
+                                   usize bckts_len, const com_hashtable_Key key,
+                                   void *value,
                                    com_hashtable_ResizeColor resize_color) {
-
   // this is the current key to insert
   com_hashtable_KeyValuePair current_pair = (com_hashtable_KeyValuePair){
       ._key = key,
@@ -97,9 +95,6 @@ static bool internal_hashtable_set(com_hashtable_Bucket *buckets,
         b->_pair._value = value;
         b->_resize_color = resize_color;
 
-        // set the probe count to however many it took
-        *max_probe_len_ptr =
-            com_imath_usize_max(b->_pair._probe_count, *max_probe_len_ptr);
         return false;
       } else if (b->_pair._probe_count < current_pair._probe_count ||
                  b->_resize_color != resize_color) {
@@ -127,10 +122,6 @@ static bool internal_hashtable_set(com_hashtable_Bucket *buckets,
       b->_initialized = true;
       b->_resize_color = resize_color;
       b->_pair = current_pair;
-
-      // set the probe count to whatever it took
-      *max_probe_len_ptr =
-          com_imath_usize_max(b->_pair._probe_count, *max_probe_len_ptr);
       return true;
     }
   }
@@ -158,18 +149,15 @@ static void internal_hashtable_resize(com_hashtable *ht, usize new_capacity) {
   const com_hashtable_ResizeColor old_color = ht->_resize_color;
   const com_hashtable_ResizeColor new_color = invert_color(old_color);
 
-  usize new_max_probe_len = 0;
-
   for (usize i = 0; i < old_capacity; i++) {
     com_hashtable_Bucket *b = &buckets[i];
     if (b->_initialized && b->_resize_color == old_color) {
       b->_initialized = false;
       internal_hashtable_set(
-          buckets,       // buckets array
-          new_capacity,  // we use new capacity so it can distribute evenly 
-          b->_pair._key, // clone key
-          b->_pair._value,    // clone value
-          &new_max_probe_len, //  a pointer to the new max probe length
+          buckets,         // buckets array
+          new_capacity,    // we use new capacity so it can distribute evenly
+          b->_pair._key,   // clone key
+          b->_pair._value, // clone value
           new_color // we give it the new color so that it knows to displace old
                     // colors that it may encounter
       );
@@ -194,7 +182,6 @@ static void internal_hashtable_resize(com_hashtable *ht, usize new_capacity) {
   ht->_buckets_expand_threshold = MAX_LOAD_FACTOR * new_capacity;
   ht->_buckets_shrink_threshold = MIN_LOAD_FACTOR * new_capacity;
   ht->_resize_color = new_color;
-  ht->_max_probe_length = new_max_probe_len;
 }
 
 void com_hashtable_set(com_hashtable *ht, const com_str key, void *value) {
@@ -215,39 +202,111 @@ void com_hashtable_set(com_hashtable *ht, const com_str key, void *value) {
   com_hashtable_Key keyobj = (com_hashtable_Key){
       ._key = key, ._hash_cache = ht->_hasher(ht->_seed, key)};
 
-  bool newcreated =
-      internal_hashtable_set(ht->_buckets, ht->_buckets_capacity, keyobj, value,
-                             &ht->_max_probe_length, ht->_resize_color);
+  bool newcreated = internal_hashtable_set(ht->_buckets, ht->_buckets_capacity,
+                                           keyobj, value, ht->_resize_color);
 
   if (newcreated) {
     ht->_buckets_used++;
   }
 }
 
+com_hashtable_Result com_hashtable_get(const com_hashtable *ht,
+                                       const com_str key) {
+  const com_hashtable_Key keyobj = (com_hashtable_Key){
+      ._key = key, ._hash_cache = ht->_hasher(ht->_seed, key)};
 
+  usize probe_count = 0;
+  while (true) {
+    // we use linear probing
+    usize i = keyobj._hash_cache + probe_count;
+    com_hashtable_Bucket *b = &ht->_buckets[i % ht->_buckets_capacity];
 
-void hashtable_remove(HashTable *hashtable, void *key, size_t keylen) {
-  KVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
-  kvp_destroy(kvp, hashtable->a);
-
-  if ((double)(hashtable->pair_count) / (double)(hashtable->pairs_capacity) <
-      MIN_LOAD_FACTOR) {
-    // resize so that the table is at the OPT_LOAD_FACTOR
-    hashtable_resize(hashtable, (size_t)(((double)hashtable->pair_count + 1) /
-                                         OPT_LOAD_FACTOR));
+    // if we encounter an uninitialized value we can end our search since
+    // the linear probing pattern we use always places the key-value pair in the
+    // first uninitialized bucket
+    if (!b->_initialized) {
+      return (com_hashtable_Result){.valid = false};
+    } else {
+      if (internal_key_eq(keyobj, b->_pair._key)) {
+        return (com_hashtable_Result){.valid = true, .value = b->_pair._value};
+      } else {
+        probe_count++;
+        // if we've checked all spaces (possible only on a fully filled hashmap)
+        if (probe_count < ht->_buckets_capacity) {
+          return (com_hashtable_Result){.valid = false};
+        }
+      }
+    }
   }
 }
 
-HashTableValueLength hashtable_valueLength(const HashTable *hashtable,
-                                           void *key, size_t keylen) {
-  KVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
-  // If m exists, return the valuelen, otherwise return 0
-  return (HashTableValueLength){.exists = kvp->existent,
-                                .length = kvp->valuelen};
+static com_hashtable_Result
+internal_hashtable_remove(com_hashtable_Bucket *buckets, usize buckets_capacity,
+                          const com_hashtable_Key key) {
+  usize probe_count = 0;
+  while (true) {
+    // we use linear probing
+    usize i = key._hash_cache + probe_count;
+    com_hashtable_Bucket *b = &buckets[i % buckets_capacity];
+
+    // if we encounter an uninitialized value we can end our search since
+    // the linear probing pattern we use always places the key-value pair in the
+    // first uninitialized bucket
+    if (!b->_initialized) {
+      return (com_hashtable_Result){.valid = false};
+    } else {
+      if (internal_key_eq(key, b->_pair._key)) {
+        // save the value
+        com_hashtable_Result ret =
+            (com_hashtable_Result){.valid = true, .value = b->_pair._value};
+
+        // deinitialize this bucket
+        b->_initialized = false;
+
+        while (true) {
+          // get the previous and current bucket
+          com_hashtable_Bucket *prev = &buckets[i % buckets_capacity];
+          com_hashtable_Bucket *current = &buckets[(i + 1) % buckets_capacity];
+          if (!current->_initialized || current->_pair._probe_count == 0) {
+            // if the next bucket isn't initialized  or has a zero probe cout
+            // then we've hit the end of the probing sequence and  can exit
+            break;
+          } else {
+            // otherwise it's part of the probing sequence and we can move it
+            // back one slot while decrementing the probe count
+            *prev = *current;
+            prev->_pair._probe_count--;
+            i++;
+          }
+        }
+
+        return ret;
+      } else {
+        probe_count++;
+        // if we've checked all spaces (possible only on a fully filled hashmap)
+        if (probe_count < buckets_capacity) {
+          return (com_hashtable_Result){.valid = false};
+        }
+      }
+    }
+  }
 }
 
-void *hashtable_get(const HashTable *hashtable, void *key, size_t keylen) {
-  KVPair *kvp = hashtable_getKVPair(hashtable, key, keylen);
-  assert(kvp->existent);
-  return kvp->value;
+com_hashtable_Result com_hashtable_remove(com_hashtable *ht,
+                                          const com_str key) {
+  const com_hashtable_Key keyobj = (com_hashtable_Key){
+      ._key = key, ._hash_cache = ht->_hasher(ht->_seed, key)};
+  com_hashtable_Result ret =
+      internal_hashtable_remove(ht->_buckets, ht->_buckets_capacity, keyobj);
+
+	// update metadata 
+  if (ret.valid) {
+    // means we managed to take one out
+    ht->_buckets_used--;
+
+    if (!ht->_fixed && ht->_buckets_used < ht->_buckets_shrink_threshold) {
+      internal_hashtable_resize(ht, (ht->_buckets_used) / OPT_LOAD_FACTOR);
+    }
+  }
+  return ret;
 }

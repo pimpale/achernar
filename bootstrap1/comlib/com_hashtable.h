@@ -11,7 +11,7 @@
 
 typedef struct {
 	bool valid;
-	void* value_ptr;
+	void* value;
 } com_hashtable_Result;
 
 
@@ -72,10 +72,6 @@ typedef struct {
 
 	// if we're allowed to expand or shrink the hashmap
 	bool _fixed;
-
-	// the max probe length (provides the upper limit on lookups)
-	usize _max_probe_length;
-
 } com_hashtable;
 
 typedef struct {
@@ -135,7 +131,7 @@ void com_hashtable_set(com_hashtable *hashtable, const com_str key, void *value)
 /// REQUIRES: `key` is a valid pointer to `keylen` bytes of memory
 /// REQUIRES: `keylen` is greater than 0
 /// REQUIRES: `value` is a valid pointer to `valuelen` bytes of memory
-/// GUARANTEES: returns a pointer to the the value of the KV pair or a .valid=false
+/// GUARANTEES: returns the pointer stored in the KV pair or a .valid=false
 /// GUARANTEES: this pointer is valid until the next operation on `table`
 com_hashtable_Result com_hashtable_get(const com_hashtable *table, const com_str key);
 
@@ -146,6 +142,7 @@ com_hashtable_Result com_hashtable_get(const com_hashtable *table, const com_str
 /// REQUIRES: a KV pair with key `key` exists
 /// GUARANTEES: memory for the key and the value will be deallocated
 /// GUARANTEES: there are no KV pairs with key `key`
-void com_hashtable_remove(com_hashtable *table, const com_str key);
+/// GUARANTEES: returns the pointer stored in the KV pair or a .valid=false
+com_hashtable_Result com_hashtable_remove(com_hashtable *table, const com_str key);
 
 #endif

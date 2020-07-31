@@ -27,11 +27,11 @@ void com_bigint_set_i64(com_bigint *dest, i64 a) {
     if (a == i64_min_m) {
       normalized = positive_i64_min_m;
     } else {
-      normalized = -a;
+      normalized = (u64)-a;
     }
   } else {
     dest->_negative = false;
-    normalized = a;
+    normalized = (u64)a;
   }
   com_biguint_set_u64(&dest->_magnitude, normalized);
 }
@@ -45,7 +45,7 @@ i64 com_bigint_get_i64(const com_bigint *a) {
   if (a->_negative) {
     return -(i64)com_imath_u64_max(magnitude, positive_i64_min_m);
   } else {
-    return com_imath_u64_max(magnitude, i64_max_m);
+    return (i64)com_imath_u64_max(magnitude, (u64)i64_max_m);
   }
 }
 

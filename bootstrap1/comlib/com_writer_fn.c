@@ -2,7 +2,7 @@
 #include "com_assert.h"
 
 
-com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
+static com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
 	usize (*write_fn)(const com_str data) = w->_backing;
 
     usize ret = write_fn(data);
@@ -12,21 +12,21 @@ com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
      };
 }
 
-com_writer_WriteResult append_u8_fn(const com_writer *w, u8 data) {
+static com_writer_WriteResult append_u8_fn(const com_writer *w, u8 data) {
   // calls the function with a 1 long string
 	return append_str_fn(w, com_str_create(&data, 1));
 }
 
-usize attr_NORETURN query_fn(const com_writer* w) {
+static usize attr_NORETURN query_fn(attr_UNUSED const com_writer* w) {
     com_assert_unreachable_m("fn writer does not support querying for length");
 }
 
-void attr_NORETURN flush_fn(const com_writer* w) {
+static void attr_NORETURN flush_fn(attr_UNUSED const com_writer* w) {
     com_assert_unreachable_m("fn writer does not support flushing");
 }
 
 
-void destroy_fn(com_writer* w) {
+static void destroy_fn(com_writer* w) {
     w->_valid = false;
 }
 

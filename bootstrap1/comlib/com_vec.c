@@ -23,7 +23,7 @@ void internal_vec_setCapacity(com_vec *vector, usize size) {
   com_assert_m(vector->_handle.valid, "allocation failure");
 
   vector->_capacity = size;
-  vector->_length_to_shrink = (usize) (vector->_capacity * SHRINK_THRESHOLD_RATIO);
+  vector->_length_to_shrink = (usize) ((double)vector->_capacity * SHRINK_THRESHOLD_RATIO);
 
   // the vector's base pointer may change during this operation
   vector->_data = com_allocator_handle_get(vector->_handle);
@@ -32,14 +32,14 @@ void internal_vec_setCapacity(com_vec *vector, usize size) {
 // increases the capacity of the vector in order to fit an element of this size
 void internal_vec_expand(com_vec *vector, usize size) {
   // This is the new size of the vector if we used the loadFactor
-  usize newCapacity = (usize)((vector->_length + size) * EXPANSION_FACTOR);
+  usize newCapacity = (usize)((double)(vector->_length + size) * EXPANSION_FACTOR);
   internal_vec_setCapacity(vector, newCapacity);
 }
 
 // shrinks the capacity of the vector if the length is too small
 void internal_vec_shrink(com_vec *vector) {
 	if(vector->_length_to_shrink > vector->_length) {
-		internal_vec_setCapacity(vector, vector->_capacity * SHRINK_GOAL_RATIO);
+		internal_vec_setCapacity(vector, (usize)((double)vector->_capacity * SHRINK_GOAL_RATIO));
 	}
 }
 

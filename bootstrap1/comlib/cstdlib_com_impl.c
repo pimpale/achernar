@@ -51,9 +51,9 @@ com_str com_os_iostream_read_in(u8* buffer, usize buflen) {
 
 // com_os_time
 u64 com_os_time_monotonic() {
-	return clock();
+	return (u64)clock();
 }
 
 u64 com_os_time_unix() {
-	return time(NULL);
+	return (u64)time(NULL);
 }

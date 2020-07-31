@@ -7,11 +7,6 @@ com_biguint com_biguint_create(com_allocator_Handle h) {
   return (com_biguint){._array = com_vec_create(h)};
 }
 
-void com_biguint_release(com_biguint *a) {
-  com_assert_m(a != NULL, "a is null");
-  com_vec_destroy(&a->_array);
-}
-
 void com_biguint_set_u64(com_biguint *dest, u64 val) {
   com_assert_m(dest != NULL, "dest is null");
   // u64 means only 2 u32 s are needed in the vector
@@ -20,12 +15,13 @@ void com_biguint_set_u64(com_biguint *dest, u64 val) {
     com_vec_set_len_m(v, 0, u32);
   } else if (val <= u32_max_m) {
     com_vec_set_len_m(v, 1, u32);
-    *com_vec_get_m(v, 0, u32) = val;
+    *com_vec_get_m(v, 0, u32) = (u32)val;
   } else {
     com_vec_set_len_m(v, 2, u32);
-    *com_vec_get_m(v, 0, u32) = val & 0x00000000FFFFFFFFu;
+    // downcasting it will get rid of the upper 32 bits
+    *com_vec_get_m(v, 0, u32) = (u32)val;
     // guaranteed to fit in 32 bits
-    *com_vec_get_m(v, 1, u32) = val >> (u64)32;
+    *com_vec_get_m(v, 1, u32) = val >> 32;
   }
 }
 
@@ -212,7 +208,7 @@ void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
 	com_vec *dvec = &dest->_array;
 	const com_vec *avec = &a->_array;
 
-	u32 alen = com_vec_len_m(avec, u32);
+	usize alen = com_vec_len_m(avec, u32);
 
 	// if a is zero exit fast
 	if(alen == 0) {
@@ -264,7 +260,7 @@ void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
 	com_vec *dvec = &dest->_array;
 	const com_vec *avec = &a->_array;
 
-	u32 alen = com_vec_len_m(avec, u32);
+	usize alen = com_vec_len_m(avec, u32);
 
 	// have to set it exactly large to avoid issues
 	// if aliasing
@@ -333,11 +329,11 @@ static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a,
     if (tmp > u32_max_m) {
       // if the value overflows the capacity of a u32
       carry = 1;
-      dest_arr[i] = tmp - u32_max_m;
+      dest_arr[i] = (u32)(tmp - u32_max_m);
     } else {
       // if the value can fit in a u32
       carry = 0;
-      dest_arr[i] = tmp;
+      dest_arr[i] = (u32)tmp;
     }
   }
 
@@ -353,11 +349,11 @@ static void internal_value_add_u32_arr(com_biguint *dest, const u32 *a,
 
     if (tmp > u32_max_m) {
       // if the value overflows the capacity of a u32
-      dest_arr[i] = tmp - u32_max_m;
+      dest_arr[i] = (u32)(tmp - u32_max_m);
       carry = 1;
     } else {
       // if the value can fit in a u32
-      dest_arr[i] = tmp;
+      dest_arr[i] = (u32)tmp;
       carry = 0;
     }
   }
@@ -415,7 +411,6 @@ com_math_cmptype com_biguint_cmp(const com_biguint *a, const com_biguint *b) {
 
 com_math_cmptype com_biguint_cmp_u64(const com_biguint *a, u64 b) {
   com_assert_m(a != NULL, "a is null");
-  usize alen = com_vec_len_m(&a->_array, u32);
   if (com_biguint_fits_u64(a)) {
     u64 aval = com_biguint_get_u64(a);
     if (b == aval) {
@@ -476,12 +471,12 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a,
       // if the value overflows the capacity of a u32
       // Means we didn't need the borrow
       borrow = 0;
-      dest_arr[i] = tmp - u32_max_m;
+      dest_arr[i] = (u32)(tmp - u32_max_m);
     } else {
       // if the value can fit in a u32
       // Means we needed the borrow
       borrow = 1;
-      dest_arr[i] = tmp;
+      dest_arr[i] = (u32)tmp;
     }
   }
 
@@ -497,13 +492,13 @@ static void internal_value_sub_u32_arr(com_biguint *dest, const u32 *a,
 
     if (tmp > u32_max_m) {
       // if the value overflows the capacity of a u32
-      dest_arr[i] = tmp - u32_max_m;
+      dest_arr[i] = (u32)(tmp - u32_max_m);
       // means we didn't need to borrow
       borrow = 0;
     } else {
       // if the value can fit in a u32
       // Means we needed the borrow
-      dest_arr[i] = tmp;
+      dest_arr[i] = (u32)tmp;
       borrow = 1;
     }
   }

@@ -4,14 +4,11 @@
 // creates a circular buffer based queue based on a vector
 
 #include "com_define.h"
-#include "com_allocator.h"
+#include "com_vec.h"
 
 typedef struct {
-  usize _length;
-  usize _capacity;
-  usize _length_to_shrink;
-  com_allocator_Handle _handle;
-  void *_data;
+	com_vec _backing;
+  usize _offset;
 } com_queue;
 
 // Creates a com_queue from a preinitialized vector
@@ -58,6 +55,12 @@ void *com_queue_get(com_queue *queue, usize loc);
 /// GUARANTEES: memory held by `queue` will be released
 void com_queue_destroy(com_queue *com_queue);
 
+// releases the backing memory of the com_queue as a vector
+/// REQUIRES: `queue` is a valid pointer to a com_Queue
+/// GUARANTEES: the returned vector has the same length as `queue`
+/// GUARANTEES: `queue`, and any pointers to its elements, are no longer valid
+/// GUARANTEES: the contents of `queue` will be the pushed elements in order of their insertion
+com_vec com_queue_release(com_queue *queue);
 // Returns the length of the com_queue's data in bytes.
 /// REQUIRES: `queue` is a valid pointer to a com_queue
 /// GUARANTEES: returned value is length of com_queue's data in bytes.

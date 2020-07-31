@@ -56,10 +56,9 @@ static bool internal_key_eq(const com_hashtable_Key a,
 }
 
 static com_hashtable_ResizeColor invert_color(com_hashtable_ResizeColor c) {
-  switch (c) {
-  case com_hashtable_RED:
+  if (c == com_hashtable_RED) {
     return com_hashtable_BLUE;
-  case com_hashtable_BLUE:
+  } else {
     return com_hashtable_RED;
   }
 }
@@ -179,8 +178,10 @@ static void internal_hashtable_resize(com_hashtable *ht, usize new_capacity) {
   ht->_buckets = buckets;
   ht->_buckets_capacity = new_capacity;
   ht->_buckets_used = old_used;
-  ht->_buckets_expand_threshold = (usize)(MAX_LOAD_FACTOR * (double)new_capacity);
-  ht->_buckets_shrink_threshold = (usize)(MIN_LOAD_FACTOR * (double)new_capacity);
+  ht->_buckets_expand_threshold =
+      (usize)(MAX_LOAD_FACTOR * (double)new_capacity);
+  ht->_buckets_shrink_threshold =
+      (usize)(MIN_LOAD_FACTOR * (double)new_capacity);
   ht->_resize_color = new_color;
 }
 
@@ -195,7 +196,8 @@ void com_hashtable_set(com_hashtable *ht, const com_str key, void *value) {
   // if we aren't fixed, check if we need to resize and do so
   if (!ht->_fixed) {
     if (ht->_buckets_used + 1 > ht->_buckets_expand_threshold) {
-      internal_hashtable_resize(ht, (usize)((double)(ht->_buckets_used + 1) / OPT_LOAD_FACTOR));
+      internal_hashtable_resize(
+          ht, (usize)((double)(ht->_buckets_used + 1) / OPT_LOAD_FACTOR));
     }
   }
 
@@ -299,13 +301,14 @@ com_hashtable_Result com_hashtable_remove(com_hashtable *ht,
   com_hashtable_Result ret =
       internal_hashtable_remove(ht->_buckets, ht->_buckets_capacity, keyobj);
 
-	// update metadata 
+  // update metadata
   if (ret.valid) {
     // means we managed to take one out
     ht->_buckets_used--;
 
     if (!ht->_fixed && ht->_buckets_used < ht->_buckets_shrink_threshold) {
-      internal_hashtable_resize(ht, (usize)((double)ht->_buckets_used / OPT_LOAD_FACTOR));
+      internal_hashtable_resize(
+          ht, (usize)((double)ht->_buckets_used / OPT_LOAD_FACTOR));
     }
   }
   return ret;

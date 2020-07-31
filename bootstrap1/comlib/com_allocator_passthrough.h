@@ -8,7 +8,6 @@
 #include "com_allocator.h"
 
 typedef struct  {
-  bool _input_valid;
   bool _input_used;
   com_allocator_Flags _input_flags;
   void* _input_ptr;

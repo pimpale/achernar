@@ -10,23 +10,23 @@ void com_format_append_utf_codepoint(com_writer *w, u32 utf) {
 
   if (utf <= 0x7F) {
     // Plain ASCII
-    u8 bytes[] = (u8[]){(u8)utf};
+    u8 bytes[] = {(u8)utf};
     com_writer_append_str(w, com_str_lit_m(bytes));
   } else if (utf <= 0x07FF) {
     // 2-byte unicode
-    u8 bytes[] = (u8[]){(u8)(((utf >> 6) & 0x1F) | 0xC0),
+    u8 bytes[] = {(u8)(((utf >> 6) & 0x1F) | 0xC0),
                         (u8)(((utf >> 0) & 0x3F) | 0x80)};
     com_writer_append_str(w, com_str_lit_m(bytes));
   } else if (utf <= 0xFFFF) {
     // 3-byte unicode
-    u8 bytes[] = (u8[]){
+    u8 bytes[] = {
         (u8)(((utf >> 12) & 0x0F) | 0xE0),
         (u8)(((utf >> 6) & 0x3F) | 0x80),
         (u8)(((utf >> 0) & 0x3F) | 0x80),
     };
     com_writer_append_str(w, com_str_lit_m(bytes));
   } else if (utf <= 0x10FFFF) {
-    u8 bytes[] = (u8[]){
+    u8 bytes[] = {
         (u8)(((utf >> 18) & 0x07) | 0xF0),
         (u8)(((utf >> 12) & 0x3F) | 0x80),
         (u8)(((utf >> 6) & 0x3F) | 0x80),
@@ -55,7 +55,7 @@ bool com_format_is_alphanumeric(u8 c) {
 }
 
 // GUARANTEES: follows https://tools.ietf.org/html/rfc4627 specification
-// GUARANTEES: returns true if `c` is \u0020, \u009, \u00A, \u000D else false
+// GUARANTEES: returns true if `c` is 0x20, 0x09, 0x0A, 0x0D else false
 bool com_format_is_whitespace(u8 c) {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
@@ -151,41 +151,41 @@ u8 com_format_to_hex(u8 c, bool upper) {
   }
 }
 
-void com_writer_append_u8_checked(com_writer *w, u8 data) {
+void com_format_u8_char_checked(com_writer *w, u8 data) {
   // convert stuff that could break a string into non string breaking
   switch (data) {
   case '\b': {
-    com_format_str(w, com_str_lit_m("\\b"));
+    com_writer_append_str(w, com_str_lit_m("\\b"));
     break;
   }
   case '\f': {
-    com_format_str(w, com_str_lit_m("\\f"));
+    com_writer_append_str(w, com_str_lit_m("\\f"));
     break;
   }
   case '\n': {
-    com_format_str(w, com_str_lit_m("\\n"));
+    com_writer_append_str(w, com_str_lit_m("\\n"));
     break;
   }
   case '\r': {
-    com_format_str(w, com_str_lit_m("\\r"));
+    com_writer_append_str(w, com_str_lit_m("\\r"));
     break;
   }
   case '\t': {
-    com_format_str(w, com_str_lit_m("\\t"));
+    com_writer_append_str(w, com_str_lit_m("\\t"));
     break;
   }
   case '\"': {
-    com_format_str(w, com_str_lit_m("\\\""));
+    com_writer_append_str(w, com_str_lit_m("\\\""));
     break;
   }
   case '\\': {
-    com_format_str(w, com_str_lit_m("\\\\"));
+    com_writer_append_str(w, com_str_lit_m("\\\\"));
     break;
   }
   default: {
     // convert low unicode to safe representation
     if (data <= 0x001F) {
-      com_format_str(w, com_str_lit_m("\\u"));
+      com_writer_append_str(w, com_str_lit_m("\\u"));
       com_format_u64(w, 16, data, com_format_FLAGS_NONE,
                      com_format_ZERO_PADDING(4));
     } else {

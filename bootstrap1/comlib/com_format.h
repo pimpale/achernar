@@ -50,15 +50,6 @@ typedef struct {
     .precision = 16                                                            \
   }
 
-///  Appends the contents of `data` to `w` by copying
-/// REQUIRES: `w` is a valid pointer to a valid com_writer
-/// REQUIRES: `data` is a valid pointer to a valid `com_str`
-/// GUARANTEES: `data` is unaltered
-/// GUARANTEES: `w` is data->len bytes longer
-/// GUARANTEES: the `data->len` bytes of the contents of `data` are appended to
-/// `w`
-void com_format_str(com_writer *w, const com_str data);
-
 ///  Converts `data` to a string format with radix `radix` and then append to w
 /// REQUIRES: `w` is a valid pointer to a valid com_writer
 /// REQUIRES: `setting` is a valid com_format_Settings object
@@ -79,17 +70,17 @@ void com_format_f32(com_writer *w, f32 data, com_format_FormatData fmtdata,
 void com_format_f64(com_writer *w, f64 data, com_format_FormatData fmtdata,
                     com_format_FloatKind kind);
 
-///  Interprets `data` as a char and appends it to `w` escaping non plaintext
-///  characters
+/// Interprets `data` as a char and appends it to `w` escaping non plaintext
+/// characters
 /// REQUIRES: `w` is a pointer to a valid vector of u8s
 /// GUARANTEES: `data` will be interpreted as an ascii character and appended to
-/// the w, with exceptions for: '\b' '\f' '\n' '\r' '\' '\"' '\\'
+/// the w, with exceptions for: backslash, newline, single quote, double quote, and tab
 /// And any character under 0x1F
 void com_format_u8_char_checked(com_writer *w, u8 data);
 // does the same thing but for a string
 void com_format_str_checked(com_writer *w, const com_str data);
 
-///  Converts a utf code point to characters and puts it into `w`
+/// Converts a utf code point to characters and puts it into `w`
 /// REQUIRES: `utf` is a valid utf codepoint
 /// REQUIRES: `w` is a valid pointer to a valid com_writer
 /// GUARANTEES: `utf` will be converted into utf8 and appended to w
@@ -106,7 +97,7 @@ bool com_format_is_alpha(u8 c);
 // GUARANTEES: returns true if c is A-Z, a-z, or 0-9 else false
 bool com_format_is_alphanumeric(u8 c);
 // GUARANTEES: follows https://tools.ietf.org/html/rfc4627 specification
-// GUARANTEES: returns true if `c` is \u0020, \u009, \u00A, \u000D else false
+// GUARANTEES: returns true if `c` is 0x20, 0x09, 0x0A, 0x0D else false
 bool com_format_is_whitespace(u8 c);
 
 // GUARANTEES: returns true if `c` is 0-9 a-f A-F else false

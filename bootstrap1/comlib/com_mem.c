@@ -74,7 +74,7 @@ void com_mem_swap(void *a, void *b, usize n) {
 }
 
 // https://en.wikipedia.org/wiki/Binary_GCD_algorithm
-usize internal_gcd(usize u, usize v) {
+static usize internal_gcd(usize u, usize v) {
   usize shift = 0;
 
   // GCD(0,v) == v;

@@ -1,7 +1,7 @@
 #include "com_reader_fn.h"
 #include "com_assert.h"
 
-com_reader_ReadStrResult read_str_fn(const com_reader *w, com_str buffer) {
+static com_reader_ReadStrResult read_str_fn(const com_reader *w, com_str buffer) {
 	com_str (*read_fn)(u8* buffer, usize buflen) = w->_backing;
 
   com_str ret = read_fn(buffer.data, buffer.len);
@@ -11,7 +11,7 @@ com_reader_ReadStrResult read_str_fn(const com_reader *w, com_str buffer) {
      };
 }
 
-com_reader_ReadU8Result read_u8_fn(const com_reader *w) {
+static com_reader_ReadU8Result read_u8_fn(const com_reader *w) {
 	com_str (*read_fn)(u8* buffer, usize buflen) = w->_backing;
   // calls the function with a 1 long string
   u8 c;
@@ -22,19 +22,19 @@ com_reader_ReadU8Result read_u8_fn(const com_reader *w) {
      };
 }
 
-u64 attr_NORETURN query_fn(attr_UNUSED const com_reader* w) {
+static u64 attr_NORETURN query_fn(attr_UNUSED const com_reader* w) {
     com_assert_unreachable_m("fn reader does not support querying for length");
 }
 
-com_reader_ReadU8Result attr_NORETURN peek_u8_fn(attr_UNUSED const com_reader* w, attr_UNUSED usize n) {
+static com_reader_ReadU8Result attr_NORETURN peek_u8_fn(attr_UNUSED const com_reader* w, attr_UNUSED usize n) {
     com_assert_unreachable_m("fn reader does not support peeking");
 }
 
-com_streamposition_LnCol attr_NORETURN position_fn(const com_reader* w) {
+static com_streamposition_LnCol attr_NORETURN position_fn(const com_reader* w) {
     com_assert_unreachable_m("fn reader does not support querying position");
 }
 
-void destroy_fn(com_reader* w) {
+static void destroy_fn(com_reader* w) {
     w->_valid = false;
 }
 

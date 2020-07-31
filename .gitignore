@@ -2,3 +2,4 @@ obj/
 .clangd/
 vgcore.*
 .gdb_history
+compile_commands.json

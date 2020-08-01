@@ -27,7 +27,7 @@ typedef struct {
 
 typedef struct {
   bool valid;
-  com_str value;
+  com_str_mut value;
 } com_reader_ReadStrResult;
 
 typedef struct com_reader_s {
@@ -38,7 +38,7 @@ typedef struct com_reader_s {
     void* _backing;
 
     // allows you to read from the reader
-    com_reader_ReadStrResult(*_read_str_fn)(const com_reader*, com_str buffer);
+    com_reader_ReadStrResult(*_read_str_fn)(const com_reader*, com_str_mut buffer);
     com_reader_ReadU8Result (*_read_u8_fn)(const com_reader*);
 
     // allows you to peek forward any number of bytes (if supported)
@@ -66,7 +66,7 @@ com_reader_Flags com_reader_flags(const com_reader *r);
 /// GUARANTEES: will stop reading on an the first error encountered
 /// GUARANTEES: if the buffer provided was completely filled with no errors encountered, .valid=true
 /// GUARANTEES: .value= a com_str with .value=buffer and .length=how many bytes were able to read successfully
-com_reader_ReadStrResult com_reader_read_str(const com_reader* r, com_str buffer);
+com_reader_ReadStrResult com_reader_read_str(const com_reader* r, com_str_mut buffer);
 
 ///  reads u8 from the reader `r`
 /// REQUIRES: `r` is a valid pointer to a valid com_reader

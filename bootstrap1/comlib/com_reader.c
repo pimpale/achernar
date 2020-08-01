@@ -7,7 +7,7 @@ com_reader_Flags com_reader_flags(const com_reader *w) {
   return w->_flags;
 }
 
-com_reader_ReadStrResult com_reader_read_str(const com_reader* w, com_str buffer) {
+com_reader_ReadStrResult com_reader_read_str(const com_reader* w, com_str_mut buffer) {
   com_assert_m(w->_valid, "reader is invalid");
   return w->_read_str_fn(w, buffer);
 }

@@ -28,7 +28,7 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
     break;
   }
   case com_json_NULL: {
-    com_format_str(writer, com_str_lit_m("null"));
+    com_writer_append_str(writer, com_str_lit_m("null"));
     break;
   }
   case com_json_STR: {
@@ -36,7 +36,7 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
     break;
   }
   case com_json_BOOL: {
-    com_format_str(writer,
+    com_writer_append_str(writer,
                    j->boolean ? com_str_lit_m("true") : com_str_lit_m("false"));
     break;
   }
@@ -51,7 +51,7 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
   }
   case com_json_ARRAY: {
     com_writer_append_u8(writer, '[');
-    for (size_t i = 0; i < j->array.length; i++) {
+    for (usize i = 0; i < j->array.length; i++) {
       com_json_emitElem(writer, &j->array.values[i]);
       // if we are not on the ultimate element of the lsit
       if (i + 1 != j->array.length) {
@@ -63,7 +63,7 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
   }
   case com_json_OBJ: {
     com_writer_append_u8(writer, '{');
-    for (size_t i = 0; i < j->object.length; i++) {
+    for (usize i = 0; i < j->object.length; i++) {
       com_json_emitProp(writer, &j->object.props[i]);
       if (i + 1 != j->object.length) {
         com_writer_append_u8(writer, ',');
@@ -81,10 +81,10 @@ void com_json_serialize(com_json_Elem *elem, com_writer *writer) {
 
 static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
                                                       com_vec *diagnostics,
-                                                      com_Allocator *a) {
+                                                      attr_UNUSED com_allocator *a) {
 
   bool negative = false;
-  com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
+  com_reader_ReadU8Result ret = com_reader_peek_u8(reader, 1);
   if (ret.valid) {
     if (ret.value == '-') {
       negative = true;
@@ -119,9 +119,9 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
     }
   }
 
-  double fractional_component = 0;
+  f64 fractional_component = 0;
   if (has_fractional_component) {
-    double place = 1;
+    f64 place = 1;
 
     while (true) {
       ret = com_reader_peek_u8(reader, 1);
@@ -211,7 +211,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
 
   if (has_fractional_component || (exponentState != NoExponent)) {
     // means we have to be floating point
-    double num = integer_value + fractional_component;
+    f64 num = (double)integer_value + fractional_component;
 
     if (exponentState != NoExponent) {
       f64 exponent = exponential_integer;
@@ -235,7 +235,7 @@ static com_json_Elem com_json_certain_parseNumberElem(com_reader *reader,
 
 static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
                                                        com_vec *diagnostics,
-                                                       com_Allocator *a) {
+                                                       com_allocator *a) {
   com_streamposition_LnCol start = com_reader_position(reader);
 
   bool overflow = false;
@@ -244,7 +244,7 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
   usize index = 0;
 
   while (true) {
-    com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
+    com_reader_ReadU8Result ret = com_reader_peek_u8(reader, 1);
     if (ret.valid) {
       u8 c = ret.value;
       if (com_format_is_alphanumeric(c)) {
@@ -274,7 +274,7 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
   // return an invalid
   if (overflow) {
     while (true) {
-      com_reader_ReadResult ret = com_reader_peek_u8(reader, 1);
+      com_reader_ReadU8Result ret = com_reader_peek_u8(reader, 1);
       if (ret.valid) {
         u8 c = ret.value;
         if (com_format_is_alphanumeric(c)) {
@@ -309,12 +309,12 @@ static com_json_Elem com_json_certain_parseLiteralElem(com_reader *reader,
   }
 }
 static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
-                                        com_Allocator *a);
+                                        com_allocator *a);
 
 static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
                                                      com_vec *diagnostics,
-                                                     com_Allocator *a) {
-  com_reader_ReadResult ret = com_reader_read_u8(l);
+                                                     com_allocator *a) {
+  com_reader_ReadU8Result ret = com_reader_read_u8(l);
   com_assert_m(ret.valid && ret.value == '[', "expected [");
 
   // vector of elements
@@ -336,7 +336,7 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
     switch (state) {
     case ArrayParseStart: {
       com_scan_skip_whitespace(l);
-      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
             com_json_ArrayExpectedJsonElem, com_reader_position(l));
@@ -352,7 +352,7 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
     }
     case ArrayParseExpectCommaOrEnd: {
       com_scan_skip_whitespace(l);
-      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) =
             com_json_error_m(com_json_ArrayExpectedRightBracket, com_reader_position(l));
@@ -394,9 +394,9 @@ CLEANUP:;
 }
 
 static com_str certain_internal_str_parse(com_reader *l, com_vec *diagnostics,
-                                          com_Allocator *a) {
+                                          com_allocator *a) {
   // note that we don't want to read the first quote
-  com_reader_ReadResult ret = com_reader_read_u8(l);
+  com_reader_ReadU8Result ret = com_reader_read_u8(l);
   com_assert_m(ret.valid && ret.value == '\"', "expected \"");
 
   // parse into vec writer until we get a success or a read error log errors
@@ -446,14 +446,14 @@ static com_str certain_internal_str_parse(com_reader *l, com_vec *diagnostics,
 
 static com_json_Elem com_json_certain_parseStrElem(com_reader *reader,
                                                    com_vec *diagnostics,
-                                                   com_Allocator *a) {
+                                                   com_allocator *a) {
   return com_json_str_m(certain_internal_str_parse(reader, diagnostics, a));
 }
 
 static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
-                                        com_Allocator *a) {
+                                        com_allocator *a) {
   com_scan_skip_whitespace(l);
-  com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+  com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
 
 	// short circuit prevents issues
   if (!ret.valid || ret.value != '\"') {
@@ -490,8 +490,8 @@ static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
 
 static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
                                                       com_vec *diagnostics,
-                                                      com_Allocator *a) {
-  com_reader_ReadResult ret = com_reader_read_u8(l);
+                                                      com_allocator *a) {
+  com_reader_ReadU8Result ret = com_reader_read_u8(l);
   com_assert_m(ret.valid && (ret.value  == '{'), "expected {'");
 
   // vector of properties
@@ -512,7 +512,7 @@ static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
     switch (state) {
     case ObjectParseStart: {
       com_scan_skip_whitespace(l);
-      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) = com_json_error_m(
             com_json_ObjectExpectedProp, com_reader_position(l));
@@ -534,7 +534,7 @@ static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
     }
     case ObjectParseExpectCommaOrEnd: {
       com_scan_skip_whitespace(l);
-      com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+      com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) =
             com_json_error_m(com_json_ObjectExpectedRightBrace, com_reader_position(l));
@@ -569,11 +569,11 @@ CLEANUP:;
 }
 
 com_json_Elem com_json_parseElem(com_reader *l, com_vec *diagnostics,
-                                 com_Allocator *a) {
+                                 com_allocator *a) {
 	com_assert_m(com_reader_flags(l) & com_reader_BUFFERED, "reader is not buffered");
   com_scan_skip_whitespace(l);
 
-  com_reader_ReadResult ret = com_reader_peek_u8(l, 1);
+  com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
   if(!ret.valid) {
     *com_vec_push_m(diagnostics, com_json_Error) =
         com_json_error_m(com_json_ElemEof, com_reader_position(l));

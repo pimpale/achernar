@@ -1,12 +1,9 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-
-#include "diagnostic.h"
-#include "lncol.h"
+#include "com_define.h"
+#include "com_streamposition.h"
+#include "com_str.h"
 
 typedef enum {
   // These are not tokens, and do not contain token data
@@ -94,45 +91,47 @@ typedef enum {
   tk_Comment, // #{ comment }# and # comment
 } tk_Kind;
 
-const char *tk_strKind(tk_Kind val);
+const u8 *tk_strKind(tk_Kind val);
 
 typedef struct Token_s {
-  tk_Kind kind; // The type of this token
-  Span span;    // position in the file
+  // The type of this token
+  tk_Kind kind;
+  // position in the file
+  com_streamposition_Span span;
   // This points to
   // null terminated string in case of identifier, tk_StringLiteral,
-  // tk_Comment, tk_Documentation, or tk_Annotation uint64_t in case of
+  // tk_Comment, tk_Documentation, or tk_Annotation u64 in case of
   // tk_IntLiteral double double in case of tk_FloatLiteral Otherwise must
   // be null
   union {
     struct {
-      char *data;
+      com_str_mut data;
     } identifierToken;
     struct {
-      char *data;
+      com_str_mut data;
     } macroToken;
     struct {
-      char *data;
+      com_str_mut data;
     } labelToken;
     struct {
-      char *comment;
-      char *scope;
+      com_str_mut comment;
+      com_str_mut scope;
     } commentToken;
     struct {
       bool data;
     } boolToken;
     struct {
-      char *data;
-      size_t data_len;
+      u8 *data;
+      usize data_len;
     } stringToken;
     struct {
-      uint64_t data;
+      u64 data;
     } intToken;
     struct {
-      double data;
+      f64 data;
     } floatToken;
     struct {
-      char data;
+      u8 data;
     } charToken;
   };
 } Token;

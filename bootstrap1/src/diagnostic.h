@@ -1,8 +1,6 @@
 #ifndef DIAGNOSTIC_H
 #define DIAGNOSTIC_H
 
-#include <stddef.h>
-
 #include "lncol.h"
 #include "allocator.h"
 #include "vector.h"

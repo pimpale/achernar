@@ -6,7 +6,7 @@ SRC_DIRS ?= comlib src
 SRCS := $(shell find $(SRC_DIRS) -type f -name *.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 
-INC_DIRS := $(shell find . -type d -name inc)
+INC_DIRS := comlib
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 LDFLAGS :=

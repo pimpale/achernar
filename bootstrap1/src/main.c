@@ -1,13 +1,10 @@
-
 #include "com_allocator.h"
-#include "std_allocator.h"
-#include "lexer.h"
 #include "code_to_tokens.h"
 #include "tokens_to_ast.h"
 #include "ast_to_json.h"
 
 int main() {
-  Allocator pool = std_allocator();
+  com_allocator pool = std_allocator();
   Lexer lexer = lex_fromFile(stdin);
   AstFromCodeConstructor parser = ast_create(&lexer, &pool);
 

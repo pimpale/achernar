@@ -40,19 +40,17 @@ void com_mem_move(void* dest, const void* src, usize n);
 /// GUARANTEES: the first `n` bytes at `*b` are equal to the first `n` bytes at old `*a`
 void com_mem_swap(void* a, void* b, usize n);
 
-/// rotates `len` bytes of memory following `src` `n` bytes to the right
-/// REQUIRES: `src` is a valid pointer to at least `len` bytes
+/// rotates `nmemb` elements of size `size` following `src` `delta` places forward
+/// REQUIRES: `src` is a valid pointer to at least `size*nmemb` bytes
 /// GUARANTEES: bytes up to `src + len` will be affected
 /// GUARANTEES: if a byte's location would be outside of the `len` bytes, 
 /// it will loop back to the beginning of the array provided
-void com_mem_rotate_right(void* src, usize len, usize n);
+void com_mem_rotate(void* src, usize size, usize nmemb, isize delta);
 
-/// rotates `len` bytes of memory following `src` `n` bytes to the left
-/// REQUIRES: `src` is a valid pointer to at least `len` bytes
-/// GUARANTEES: bytes up to `src + len` will be affected
-/// GUARANTEES: if a byte's location would be below `src`, 
-/// it will loop back to the end of the array provided
-void com_mem_rotate_left(void* src, usize len, usize n);
+// reverses an array of `nmemb` members of size `size` at src
+// REQUIRES: `src` is a pointer to at least `size*nmemb` bytes
+// GUARANTEES: each element at position `i` will be swapped with `nmemb-i-1`
+void com_mem_reverse(void* src, usize size, usize nmemb);
 
 #endif
 

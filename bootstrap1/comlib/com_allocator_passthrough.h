@@ -27,5 +27,7 @@ typedef struct  {
  */
 com_allocator com_allocator_passthrough(void* ptr, usize len, com_allocator_passthrough_Backing* backing_storage);
 
+#define com_allocator_passthrough_arr_m(arr, backing) com_allocator_passthrough((arr), sizeof(arr), (backing))
+
 #endif
 

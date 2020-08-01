@@ -9,7 +9,6 @@ void com_mem_zero(void *ptr, const usize len) { com_mem_set(ptr, len, 0); }
 
 // straightforward naiive implementation
 void com_mem_set(void *ptr, const usize len, const u8 byte) {
-  com_assert_m(ptr != NULL, "ptr may not be NULL");
   u8 *bytes = ptr;
   for (usize i = 0; i < len; i++) {
     bytes[len] = byte;
@@ -22,9 +21,6 @@ void com_mem_set(void *ptr, const usize len, const u8 byte) {
 // the beginning of src and going to the end We do this to prevent overwriting
 // the area we're going to read from next
 void com_mem_move(void *dest, const void *src, usize n) {
-  com_assert_m(dest != NULL, "dest may not be NULL");
-  com_assert_m(src != NULL, "src may not be NULL");
-
   u8 *dest_bytes = dest;
   const u8 *src_bytes = src;
 
@@ -47,8 +43,6 @@ void com_mem_move(void *dest, const void *src, usize n) {
 
 // essentially the same algorithm as com_mem_move, except uses a tmp to swap
 void com_mem_swap(void *a, void *b, usize n) {
-  com_assert_m(a != NULL, "a may not be NULL");
-  com_assert_m(b != NULL, "b may not be NULL");
   u8 *a_bytes = a;
   u8 *b_bytes = b;
 
@@ -133,41 +127,47 @@ static usize internal_gcd(usize u, usize v) {
 // so, we calculate the GCD, and perform iterations of simple rotating
 // with offsets from [0, GCD(len, n))
 
-void com_mem_rotate_right(void *src, usize len, usize n) {
-  com_assert_m(src != NULL, "src may not be NULL");
-
-  u8* src_bytes = src;
-
-  n %= len;
-
+// REQUIRES: `src` is a pointer to `len` bytes of memory
+// REQUIRES: `n` is the number of bytes to rotate to the right where n < len
+static void internal_rotate_right(u8* src, usize len, usize n) {
   const usize gcd = internal_gcd(len, n);
 
 	for(usize off = 0; off < gcd; off++) {
-    u8 prev = src_bytes[off];
+    u8 prev = src[off];
 		for(usize i = off+n; i < len; i += n) {
-    	const u8 tmp = src_bytes[i];
-			src_bytes[i] = prev;
+    	const u8 tmp = src[i];
+			src[i] = prev;
 			prev = tmp;
 		}
-		src_bytes[off] = prev;
+		src[off] = prev;
 	}
 }
 
-void com_mem_rotate_left(void *src, usize len, usize n) {
-  com_assert_m(src != NULL, "src may not be NULL");
-
-  u8* src_bytes = src;
-
-  n %= len;
-
+static void internal_rotate_left(u8 *src, usize len, usize n) {
   const usize gcd = internal_gcd(len, n);
 
 	for(usize off = 0; off < gcd; off++) {
-    u8 first = src_bytes[off];
+    u8 first = src[off];
 		usize i;
 		for(i=off; i < len-n; i += n) {
-			src_bytes[i] = src_bytes[i+n];
+			src[i] = src[i+n];
 		}
-		src_bytes[i] = first;
+		src[i] = first;
+	}
+}
+
+void com_mem_rotate(void *src, usize size, usize nmemb, isize delta) {
+	delta %= nmemb;
+  if(delta < 0) {
+			internal_rotate_left(src, size*nmemb, (usize)-delta*size);
+	} else {
+			internal_rotate_right(src, size*nmemb, (usize)delta*size);
+	}
+}
+
+void com_mem_reverse(void* src, usize size, usize nmemb) {
+  u8* src_bytes = src;
+	for(usize i = 0; i < nmemb; i++) {
+		com_mem_swap(src_bytes+i*size, src_bytes+(nmemb-i-1)*size, size);
 	}
 }

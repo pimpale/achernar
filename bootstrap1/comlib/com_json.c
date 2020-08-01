@@ -108,6 +108,7 @@ com_json_certain_parseNumberElem(
       } else if (c == '.') {
         has_fractional_component = true;
         com_reader_drop_u8(reader);
+        break;
       } else {
         has_fractional_component = false;
         break;

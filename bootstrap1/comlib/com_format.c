@@ -1,7 +1,10 @@
 #include "com_format.h"
+#include "com_allocator_passthrough.h"
 #include "com_assert.h"
 #include "com_mem.h"
+#include "com_queue.h"
 #include "com_str.h"
+#include "com_vec.h"
 
 // Accepts Vector<char>, pushes as many chars points as needed to encode the
 // data
@@ -206,62 +209,55 @@ void com_format_str_checked(com_writer *w, const com_str data) {
 }
 
 // internal method to handle both i64 and u64
-static void internal_u64_negative(com_writer *w, u64 data,
-                                  bool negative, com_format_FormatData s) {
+static void internal_u64_negative(com_writer *w, u64 data, bool negative,
+                                  com_format_FormatData s) {
 
   com_assert_m(s.radix >= 2 && s.radix <= 36, "radix must be between 2 and 36");
 
   // buffer to push to (even with base 2 should be enough since there are
-  // still only 64 bits) extra byte is for the 65
+  // still only 64 bits) extra byte is for the sign if necessary 65
   u8 buffer[65];
+  usize index = 0;
 
-  u64 digit = data;
-
-  i64 index = 0;
-  while (index < 64) {
-    buffer[index] = com_format_to_hex(digit % s.radix, s.upper);
-    digit /= s.radix;
-    if (digit == 0) {
+  while (true) {
+    buffer[index++] = com_format_to_hex(data % s.radix, s.upper);
+    data /= s.radix;
+    if (data == 0) {
       break;
     }
-    index++;
   }
 
   // handle signs by pushing them at the end
-  if (negative && (s.sign == com_format_SignMinus || com_format_SignPlusMinus)) {
-    buffer[index] = '-';
-    index++;
+  if (negative &&
+      (s.sign == com_format_SignMinus || com_format_SignPlusMinus)) {
+    buffer[index++] = '-';
   } else if (s.sign == com_format_SignPlusMinus) {
-    buffer[index] = '+';
-    index++;
+    buffer[index++] = '+';
   }
 
-  i64 num_pad_needed = (i64)s.min_width - index;
+  i64 num_pad_needed = (i64)s.min_width - (i64)index;
 
-	if(s.alignment == com_format_AlignmentLeft) {
+  if (s.alignment == com_format_AlignmentLeft) {
     // this always pads left
     for (i64 i = 0; i < num_pad_needed; i++) {
       com_writer_append_u8(w, s.pad_char);
     }
-	}
-
-  // push buffer in reverse order
-  while (index >= 0) {
-    com_writer_append_u8(w, buffer[index]);
-    index--;
   }
 
-	if(s.alignment == com_format_AlignmentRight) {
+  // push buffer in reverse
+  com_mem_reverse(buffer, sizeof(u8), index);
+  com_writer_append_str(w, (com_str){.data = buffer, .len = index});
+
+  if (s.alignment == com_format_AlignmentRight) {
     // this always pads left
     for (i64 i = 0; i < num_pad_needed; i++) {
       com_writer_append_u8(w, s.pad_char);
     }
-	}
+  }
 }
 
-
 void com_format_u64(com_writer *w, u64 data, com_format_FormatData fmtdata) {
-	internal_u64_negative(w, data, false, fmtdata);
+  internal_u64_negative(w, data, false, fmtdata);
 }
 
 void com_format_i64(com_writer *w, i64 data, com_format_FormatData fmtdata) {

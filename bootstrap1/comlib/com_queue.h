@@ -23,7 +23,7 @@ com_queue com_queue_create(com_vec vector);
 /// REQUIRES: `queue` is a valid pointer to a com_queue
 /// GUARANTEES: until a subsequent operation to `queue`,
 ///             the returned pointer will point to `len` bytes of memory
-void *queue_push(com_queue *queue, usize len);
+void *com_queue_push(com_queue *queue, usize len);
 
 // com_Dequeues an element with `len` bytes of memory
 // If `data` is not NULL, the removed memory will be copied to `data`
@@ -65,6 +65,14 @@ com_vec com_queue_release(com_queue *queue);
 /// REQUIRES: `queue` is a valid pointer to a com_queue
 /// GUARANTEES: returned value is length of com_queue's data in bytes.
 usize com_queue_length(const com_queue *queue);
+
+// Releases `queue` and turns it into a mutable array
+/// REQUIRES: `queue` is a valid com_queue
+/// GUARANTEES: returns a valid `com_str`
+/// GUARANTEES: returned com_str has a length equivalent to `queue`'s length
+/// GUARANTEES: returned com_str queuetor
+/// GUARANTEES: `queue` is released
+com_str_mut com_queue_to_str(com_queue* queue);
 
 // Macros to help work with com_queues
 

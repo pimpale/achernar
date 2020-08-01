@@ -1,24 +1,22 @@
 #ifndef AST_H
 #define AST_H
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-
-#include "lncol.h"
+#include "com_define.h"
+#include "com_str.h"
+#include "com_streamposition.h"
 #include "token.h"
 
 typedef struct {
-  Span span;
-  char *scope;
-  char *data;
+  com_streamposition_Span span;
+  com_str scope;
+  com_str data;
 } ast_Comment;
 
 typedef struct {
-  Span span;
-  char *name;
+  com_streamposition_Span span;
+  com_str name;
   Token *tokens;
-  size_t tokens_len;
+  usize tokens_len;
 } ast_Macro;
 
 typedef enum {
@@ -27,11 +25,11 @@ typedef enum {
 } ast_NamespaceBindingKind;
 
 typedef struct {
-  Span span;
+  com_streamposition_Span span;
   ast_NamespaceBindingKind kind;
   union {
     struct {
-      char *value;
+      com_str value;
     } binding;
   };
 } ast_NamespaceBinding;
@@ -42,12 +40,12 @@ typedef enum {
 } ast_NamespaceReferenceKind;
 
 typedef struct {
-  Span span;
+  com_streamposition_Span span;
   ast_NamespaceReferenceKind kind;
   union {
     struct {
-      char **segments;
-      size_t segments_len;
+      com_str *segments;
+      usize segments_len;
     } reference;
   };
 } ast_NamespaceReference;
@@ -61,12 +59,12 @@ typedef enum {
 typedef struct ast_Reference_s ast_Reference;
 
 typedef struct ast_Reference_s {
-  Span span;
+  com_streamposition_Span span;
   ast_ReferenceKind kind;
   union {
     struct {
-      char **segments;
-      size_t segments_len;
+      com_str *segments;
+      usize segments_len;
     } reference;
   };
 } ast_Reference;
@@ -78,11 +76,11 @@ typedef enum {
 } ast_BindingKind;
 
 typedef struct {
-  Span span;
+  com_streamposition_Span span;
   ast_BindingKind kind;
   union {
     struct {
-      char *val;
+      com_str val;
     } bind;
   };
 } ast_Binding;
@@ -94,22 +92,22 @@ typedef enum {
 } ast_FieldKind;
 
 typedef struct {
-  Span span;
+  com_streamposition_Span span;
   ast_FieldKind kind;
   union {
     struct {
-      char *val;
+      com_str val;
     } strField;
     struct {
-      uint64_t val;
+      u64 val;
     } intField;
   };
 } ast_Field;
 
 typedef struct {
-  Span span;
+  com_streamposition_Span span;
   ast_Comment *comments;
-  size_t comments_len;
+  usize comments_len;
 } ast_Common;
 
 typedef struct ast_Type_s ast_Type;
@@ -184,7 +182,7 @@ typedef struct ast_Pat_s {
     } typeRestriction;
     struct {
       ast_PatStructMember *members;
-      size_t members_len;
+      usize members_len;
     } structExpr;
     struct {
       ast_Pat *inner;
@@ -267,11 +265,11 @@ typedef struct ast_Type_s {
     struct {
       ast_TypeStructKind kind;
       ast_TypeStructMember *members;
-      size_t members_len;
+      usize members_len;
     } structExpr;
     struct {
       ast_Type *parameters;
-      size_t parameters_len;
+      usize parameters_len;
       ast_Type *type;
     } fn;
     struct {
@@ -322,11 +320,11 @@ typedef enum {
 } ast_LabelBindingKind;
 
 typedef struct {
-  Span span;
+  com_streamposition_Span span;
   ast_LabelBindingKind kind;
   union {
     struct {
-      char *label;
+      com_str label;
     } label;
   };
 } ast_LabelBinding;
@@ -337,11 +335,11 @@ typedef enum {
 } ast_LabelReferenceKind;
 
 typedef struct {
-  Span span;
+  com_streamposition_Span span;
   ast_LabelReferenceKind kind;
   union {
     struct {
-      char *label;
+      com_str label;
     } label;
   };
 } ast_LabelReference;
@@ -434,21 +432,21 @@ typedef struct ast_Val_s {
       bool value;
     } boolLiteral;
     struct {
-      uint64_t value;
+      u64 value;
     } intLiteral;
     struct {
-      double value;
+      f64 value;
     } floatLiteral;
     struct {
-      char value;
+      u8 value;
     } charLiteral;
     struct {
-      char *value;
-      size_t value_len;
+      com_str value;
+      usize value_len;
     } stringLiteral;
     struct {
       ast_ValStructMember *members;
-      size_t members_len;
+      usize members_len;
     } structExpr;
     struct {
       ast_Val *root;
@@ -477,11 +475,11 @@ typedef struct ast_Val_s {
     struct {
       ast_Val *function;
       ast_Val *parameters;
-      size_t parameters_len;
+      usize parameters_len;
     } call;
     struct {
       ast_Pat *parameters;
-      size_t parameters_len;
+      usize parameters_len;
       ast_Type *type;
       ast_Val *body;
     } fn;
@@ -492,12 +490,12 @@ typedef struct ast_Val_s {
     struct {
       ast_Val *root;
       ast_MatchCase *cases;
-      size_t cases_len;
+      usize cases_len;
     } match;
     struct {
       ast_LabelBinding *label;
       ast_Stmnt *stmnts;
-      size_t stmnts_len;
+      usize stmnts_len;
     } block;
   };
 } ast_Val;
@@ -537,7 +535,7 @@ typedef struct ast_Stmnt_s {
     struct {
       ast_NamespaceBinding *binding;
       ast_Stmnt *stmnts;
-      size_t stmnts_len;
+      usize stmnts_len;
     } namespaceStmnt;
     struct {
       ast_Macro *macro;
@@ -552,26 +550,26 @@ typedef struct ast_Stmnt_s {
   };
 } ast_Stmnt;
 
-const char *ast_strPatValRestrictionKind(ast_PatValRestrictionKind val);
-const char *ast_strPatKind(ast_PatKind val);
-const char *ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
-const char *ast_strPatStructMemberKind(ast_PatStructMemberKind val);
-const char *ast_strTypeKind(ast_TypeKind val);
-const char *ast_strTypeStructKind(ast_TypeStructKind val);
-const char *ast_strTypeStructMemberKind(ast_TypeStructMemberKind val);
-const char *ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val);
-const char *ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val);
-const char *ast_strValKind(ast_ValKind val);
-const char *ast_strLabelReferenceKind(ast_LabelReferenceKind val);
-const char *ast_strLabelBindingKind(ast_LabelBindingKind val);
-const char *ast_strMatchCaseKind(ast_MatchCaseKind val);
-const char *ast_strValStructMemberKind(ast_ValStructMemberKind val);
-const char *ast_strValUnaryOpKind(ast_ValUnaryOpKind val);
-const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
-const char *ast_strStmntKind(ast_StmntKind val);
-const char *ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
-const char *ast_strBindingKind(ast_BindingKind val);
-const char *ast_strFieldKind(ast_FieldKind val);
-const char *ast_strReferenceKind(ast_ReferenceKind val);
+com_str ast_strPatValRestrictionKind(ast_PatValRestrictionKind val);
+com_str ast_strPatKind(ast_PatKind val);
+com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
+com_str ast_strPatStructMemberKind(ast_PatStructMemberKind val);
+com_str ast_strTypeKind(ast_TypeKind val);
+com_str ast_strTypeStructKind(ast_TypeStructKind val);
+com_str ast_strTypeStructMemberKind(ast_TypeStructMemberKind val);
+com_str ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val);
+com_str ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val);
+com_str ast_strValKind(ast_ValKind val);
+com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
+com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
+com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
+com_str ast_strValStructMemberKind(ast_ValStructMemberKind val);
+com_str ast_strValUnaryOpKind(ast_ValUnaryOpKind val);
+com_str ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
+com_str ast_strStmntKind(ast_StmntKind val);
+com_str ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
+com_str ast_strBindingKind(ast_BindingKind val);
+com_str ast_strFieldKind(ast_FieldKind val);
+com_str ast_strReferenceKind(ast_ReferenceKind val);
 
 #endif

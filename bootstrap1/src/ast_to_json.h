@@ -1,10 +1,10 @@
 #ifndef AST_TO_JSON
 #define AST_TO_JSON
 
-#include <stdio.h>
-
+#include "com_define.h"
+#include "com_writer.h"
 #include "tokens_to_ast.h"
 
-void print_stream(AstConstructor *parser, FILE *file);
+void print_stream(AstConstructor *parser, com_writer *w);
 
 #endif

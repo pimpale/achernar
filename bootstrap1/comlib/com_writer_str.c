@@ -3,14 +3,14 @@
 #include "com_imath.h"
 #include "com_mem.h"
 
-usize query_fn(const com_writer *w) {
+static usize query_fn(const com_writer *w) {
   com_writer_str_backing *backing = w->_backing;
   com_assert_m(backing->_index <= backing->_str->len,
                "buffer has already overflown");
   return backing->_str->len - backing->_index;
 }
 
-com_writer_WriteResult append_u8_fn(const com_writer *w, const u8 data) {
+static com_writer_WriteResult append_u8_fn(const com_writer *w, const u8 data) {
   // get backing
   com_writer_str_backing *backing = w->_backing;
 
@@ -25,7 +25,7 @@ com_writer_WriteResult append_u8_fn(const com_writer *w, const u8 data) {
   return (com_writer_WriteResult){.valid = true, .written = 1};
 }
 
-com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
+static com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
   // get backing
   com_writer_str_backing *backing = w->_backing;
 
@@ -35,7 +35,7 @@ com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
   com_assert_m(query_fn(w) >= data.len, "buffer overflow");
 
   // update data
-  com_str *dest = backing->_str;
+  com_str_mut *dest = backing->_str;
   com_mem_move(&dest->data[backing->_index], data.data, writelen);
   backing->_index += writelen;
   // success if we were able to write all bytes
@@ -43,13 +43,13 @@ com_writer_WriteResult append_str_fn(const com_writer *w, const com_str data) {
                                   .written = writelen};
 }
 
-void attr_NORETURN flush_fn(attr_UNUSED const com_writer *w) {
+static void attr_NORETURN flush_fn(attr_UNUSED const com_writer *w) {
   com_assert_unreachable_m("str_writer does not support flushing");
 }
 
-void destroy_fn(com_writer *w) { w->_valid = false; }
+static void destroy_fn(com_writer *w) { w->_valid = false; }
 
-com_writer com_writer_str_create(com_str *destination, usize offset,
+com_writer com_writer_str_create(com_str_mut *destination, usize offset,
                                  com_writer_str_backing *backing) {
   *backing = (com_writer_str_backing){
       ._str = destination,

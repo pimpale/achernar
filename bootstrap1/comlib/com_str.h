@@ -14,7 +14,9 @@ typedef struct {
 } com_str_mut;
 
 // converts a com_str_mut into a com_str
-#define com_str_demut(mutstr) (com_str){data=(mutstr).data, .len=(mutstr).len)
+// REQUIRES: `mutstr` is a valid `com_str_mut`
+// GUARANTEES: returns a valid `com_str` with the data and len of `mutstr`
+com_str com_str_demut(com_str_mut mutstr);
 
 /// converts a null terminated string to a valid `com_str`
 /// REQUIRES: `asciiz` is a pointer to a null terminated string

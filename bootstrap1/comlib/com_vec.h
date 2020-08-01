@@ -107,14 +107,14 @@ usize com_vec_capacity(const com_vec *vec);
 /// GUARANTEES: if `vec` is shorter than `len` then the additional space will be undefined contents
 void com_vec_set_len(com_vec* vec, usize len);
 
-// Releases `vec` and turns it into a string
+// Releases `vec` and turns it into a mutable array
 /// REQUIRES: `vec` is a valid com_vec
 /// REQUIRES: `vec`contains a valid utf8 string
 /// GUARANTEES: returns a valid `com_str`
 /// GUARANTEES: returned com_str has a length equivalent to `vec`'s length
 /// GUARANTEES: returned com_str vector
 /// GUARANTEES: `vec` is released
-com_str com_vec_to_str(com_vec* vec);
+com_str_mut com_vec_to_str(com_vec* vec);
 
 // Macros to help work with vectors
 #define com_vec_get_m(vector, index, type)                                           \

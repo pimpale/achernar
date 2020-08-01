@@ -117,10 +117,13 @@ void com_vec_set_len(com_vec *vec, usize len) {
   internal_vec_shrink(vec);
 }
 
-com_str com_vec_to_str(com_vec *vec) {
+com_str_mut com_vec_to_str(com_vec *vec) {
   usize len = com_vec_len_m(vec, u8);
   u8 *data = com_vec_release(vec);
-  return com_str_create(data, len);
+  return (com_str_mut) {
+      .data=data,
+      .len=len
+  };
 }
 
 usize com_vec_length(const com_vec *vector) { return vector->_length; }

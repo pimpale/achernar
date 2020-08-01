@@ -1,7 +1,7 @@
-#ifndef Hir_CONSTRUCT_H
-#define Hir_CONSTRUCT_H
+#ifndef HIR_CONSTRUCT_H
+#define HIR_CONSTRUCT_H
 
-#include "allocator.h"
+#include "com_allocator.h"
 #include "hir.h"
 #include "tokens_to_ast.h"
 
@@ -11,18 +11,18 @@
 // Resolve Variable Names
 
 typedef struct {
-  Allocator *a;
-  AstConstructor *parser;
+  com_allocator *_a;
+  AstConstructor *_parser;
 
-  // Vector[Identifier]
+  // com_vec[Identifier]
   // Each index points to an identifier located in identifier_table
-  Vector scope;
+  com_vec _scope;
   // the actual vector holding everything
-  Vector identifier_table;
+  com_vec _identifier_table;
 
 } HirConstructor;
 
-HirConstructor hir_create(AstConstructor *parser, Allocator *a);
+HirConstructor hir_create(AstConstructor *parser, com_allocator *a);
 
 bool hir_nextStmntAndCheckNext(hir_Stmnt *stmnt, DiagnosticLogger *diagnostics,
                                HirConstructor *constructor);

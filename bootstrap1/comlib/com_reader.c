@@ -45,4 +45,3 @@ void com_reader_destroy(com_reader *w) {
   w->_destroy_fn(w);
   com_assert_m(!w->_valid, "reader is still valid after destroy");
 }
-

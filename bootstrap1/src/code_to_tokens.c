@@ -1,48 +1,44 @@
 #include "code_to_tokens.h"
 
-#include <ctype.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "constants.h"
 #include "diagnostic.h"
-#include "std_allocator.h"
-#include "vector.h"
+#include "com_allocator.h"
+#include "com_vec.h"
+#include "com_assert.h"
+#include "com_format.h"
 
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes comments
-static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
-                        Allocator *a) {
+static Token lexComment(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics,
+                        com_allocator *a) {
 
-  LnCol start = lex_position(lexer);
+  com_streamposition_LnCol start = com_reader_position(r);
 
-  int32_t c = lex_next(lexer);
-  assert(c == '#');
+  com_reader_ReadU8Result c = com_reader_read_u8(r);
+  com_assert_m(c.valid && c.value=='#', "expected #");
 
-  c = LEX_PEEK(lexer);
+  c = com_reader_peek_u8(r, 1);
 
   // Determine the scope of the
-  char *scope = "";
-  if (c == '@') {
-    lex_next(lexer);
+  com_str scope;
+  if (c.valid && c.value == '@') {
+    com_reader_drop_u8(r);
 
-    Vector data = vec_create(a);
-    while ((c = LEX_PEEK(lexer)) != EOF) {
-      if (isalnum(c) || c == '/') {
-        *VEC_PUSH(&data, char) = (char)c;
-        lex_next(lexer);
+    com_vec data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
+        .len=10,
+        .flags=com_allocator_defaults(a) | com_allocator_NOLEAK | com_allocator_REALLOCABLE
+    }));
+    while (true) {
+  		c = com_reader_peek_u8(r, 1);
+      if (c.valid && (com_format_is_alphanumeric(c.value) || c.value == '/')) {
+        *com_vec_push_m(&data, u8) = (u8)c.value;
+    		com_reader_drop_u8(r);
       } else {
         break;
       }
     }
-    *VEC_PUSH(&data, char) = '\0';
-    scope = vec_release(&data);
-  } else {
+    scope = com_str_demut(com_vec_to_str(&data));
   }
 
   // Now we determine the type of comment as well as gather the comment data
@@ -53,7 +49,7 @@ static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
     // also nestable
     // #{ Comment }#
     Vector data = vec_create(a);
-    size_t stackDepth = 1;
+    usize stackDepth = 1;
     char lastChar = '\0';
 
     // Drop initial {
@@ -118,8 +114,8 @@ static Token lexComment(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics,
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
-static Token lexStringLiteral(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
-  LnCol start = lex_position(lexer);
+static Token lexStringLiteral(com_reader* r, DiagnosticLogger* diagnostics, com_allocator *a) {
+  com_streamposition_LnCol start = lex_position(lexer);
   // Skip first quote
   int32_t c = lex_next(lexer);
   assert(c == '\"');
@@ -171,7 +167,7 @@ static Token lexStringLiteral(Lexer *lexer, DiagnosticLogger* diagnostics, Alloc
         break;
       }
       default: {
-        // keep going till we hit an end double quote
+        // keep going till we hit an end f64 quote
         while ((c = lex_next(lexer)) != EOF) {
           if (c == '\"') {
             break;
@@ -191,7 +187,7 @@ static Token lexStringLiteral(Lexer *lexer, DiagnosticLogger* diagnostics, Alloc
   }
 
 CLEANUP:;
-  size_t len = VEC_LEN(&data, char);
+  usize len = VEC_LEN(&data, char);
   char *ptr = vec_release(&data);
   // Return data
   return (Token){
@@ -202,9 +198,9 @@ CLEANUP:;
 }
 
 // Parses integer with radix
-static uint64_t parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
+static u64 parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
                                       uint8_t radix) {
-  uint64_t integer_value = 0;
+  u64 integer_value = 0;
   int32_t c;
   while ((c = LEX_PEEK(l)) != EOF) {
     uint8_t digit_val;
@@ -234,7 +230,7 @@ static uint64_t parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
     }
 
     // now we can
-    uint64_t old_integer_value = integer_value;
+    u64 old_integer_value = integer_value;
     integer_value = integer_value * radix + digit_val;
     if (old_integer_value > integer_value) {
       *dlogger_append(diagnostics) = diagnostic_standalone(
@@ -247,7 +243,7 @@ static uint64_t parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
   return integer_value;
 }
 
-static double parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostics,
+static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostics,
                                           uint8_t radix) {
   // reused character variable
   int32_t c;
@@ -256,10 +252,10 @@ static double parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostic
   // EX: at 0.1 will be 10 when parsing the 1
   // EX: at 0.005 will be 1000 when parsing the 5
   // This is because representing decimals is lossy
-  double place = 1;
+  f64 place = 1;
 
   // fractional component being computed
-  double fractional_value = 0;
+  f64 fractional_value = 0;
 
   while ((c = LEX_PEEK(l)) != EOF) {
     uint8_t digit_val;
@@ -301,9 +297,9 @@ static double parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostic
 // Returns control right after the number is finished
 // This function returns a Token or the error
 static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
-                              UNUSED Allocator *a) {
+                              attr_UNUSED com_allocator *a) {
 
-  LnCol start = l->position;
+  com_streamposition_LnCol start = l->position;
 
   uint8_t radix;
 
@@ -339,7 +335,7 @@ static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
     radix = 10;
   }
 
-  uint64_t base_component = parseNumBaseComponent(l, diagnostics, radix);
+  u64 base_component = parseNumBaseComponent(l, diagnostics, radix);
 
   bool fractional = false;
   if (LEX_PEEK(l) == '.') {
@@ -348,11 +344,11 @@ static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
   }
 
   if (fractional) {
-    double fractional_component =
+    f64 fractional_component =
         parseNumFractionalComponent(l, diagnostics, radix);
     return (Token){
         .kind = tk_Float,
-        .floatToken = {.data = (fractional_component + (double)base_component)},
+        .floatToken = {.data = (fractional_component + (f64)base_component)},
         .span = SPAN(start, l->position)};
   } else {
     return (Token){.kind = tk_Int,
@@ -364,9 +360,9 @@ static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
   }
 }
 
-static Token lexCharLiteralOrLabel(Lexer *lexer, DiagnosticLogger* diagnostics,
-                                   Allocator *a) {
-  LnCol start = lex_position(lexer);
+static Token lexCharLiteralOrLabel(com_reader* r, DiagnosticLogger* diagnostics,
+                                   com_allocator *a) {
+  com_streamposition_LnCol start = lex_position(lexer);
   // Skip first quote
   assert(lex_next(lexer) == '\'');
 
@@ -517,9 +513,9 @@ EXIT_LOOP:;
 }
 
 // Parses an identifer or macro or builtin
-static Token lexWord(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics, Allocator *a) {
+static Token lexWord(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics, com_allocator *a) {
 
-  LnCol start = lex_position(lexer);
+  com_streamposition_LnCol start = lex_position(lexer);
 
   Vector data = vec_create(a);
 
@@ -618,7 +614,7 @@ static Token lexWord(Lexer *lexer, UNUSED DiagnosticLogger* diagnostics, Allocat
   lex_next(lexer);                                                             \
   RETURN_RESULT_TOKEN(tokenType)
 
-Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
+Token tk_next(com_reader* r, DiagnosticLogger* diagnostics, com_allocator *a) {
   int32_t c;
 
   // Set c to first nonblank character
@@ -630,7 +626,7 @@ Token tk_next(Lexer *lexer, DiagnosticLogger* diagnostics, Allocator *a) {
     }
   }
 
-  LnCol start = lex_position(lexer);
+  com_streamposition_LnCol start = lex_position(lexer);
 
   if (isalpha(c) || c == '_') {
     return lexWord(lexer, diagnostics, a);

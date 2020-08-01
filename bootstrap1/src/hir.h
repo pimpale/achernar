@@ -1,14 +1,12 @@
 #ifndef HIR_H
 #define HIR_H
 
-#include <stdint.h>
-
+#include "com_define.h"
 #include "ast.h"
-#include "vector.h"
 
 typedef struct {
   bool valid;
-  size_t id;
+  usize id;
 } IdentifierId;
 
 typedef enum {
@@ -65,7 +63,7 @@ typedef struct {
   union {
     struct {
         IdentifierId id;
-        char* full;
+        com_str full;
     } label;
   };
 } hir_LabelBinding;
@@ -159,7 +157,7 @@ typedef struct hir_Pat_s {
     } typeRestrictionBinding;
     struct {
       hir_PatStructMember *members;
-      size_t members_len;
+      usize members_len;
     } structExpr;
     struct {
       hir_PatUnaryOpKind op;
@@ -230,11 +228,11 @@ typedef struct hir_Type_s {
     struct {
       hir_TypeStructKind kind;
       hir_TypeStructMember *members;
-      size_t members_len;
+      usize members_len;
     } structExpr;
     struct {
       hir_Type *parameters;
-      size_t parameters_len;
+      usize parameters_len;
       hir_Type *type;
     } fn;
     struct {
@@ -353,21 +351,21 @@ typedef struct hir_Val_s {
       bool value;
     } boolLiteral;
     struct {
-      uint64_t value;
+      u64 value;
     } intLiteral;
     struct {
-      double value;
+      f64 value;
     } floatLiteral;
     struct {
-      char value;
+      u8 value;
     } charLiteral;
     struct {
-      char *value;
-      size_t value_len;
+      com_str value;
+      usize value_len;
     } stringLiteral;
     struct {
       hir_ValStructMember *members;
-      size_t members_len;
+      usize members_len;
     } structExpr;
     struct {
       hir_Val *root;
@@ -396,11 +394,11 @@ typedef struct hir_Val_s {
     struct {
       hir_Val *function;
       hir_Val *parameters;
-      size_t parameters_len;
+      usize parameters_len;
     } call;
     struct {
       hir_Pat *parameters;
-      size_t parameters_len;
+      usize parameters_len;
       hir_Type *type;
       hir_Val *body;
     } fn;
@@ -411,12 +409,12 @@ typedef struct hir_Val_s {
     struct {
       hir_Val *root;
       hir_MatchCase *cases;
-      size_t cases_len;
+      usize cases_len;
     } match;
     struct {
       hir_LabelBinding *label;
       hir_Stmnt *stmnts;
-      size_t stmnts_len;
+      usize stmnts_len;
     } block;
   };
 } hir_Val;
@@ -450,26 +448,26 @@ typedef struct hir_Stmnt_s {
   };
 } hir_Stmnt;
 
-const char *hir_strPatValRestrictionKind(hir_PatValRestrictionKind val);
-const char *hir_strPatKind(hir_PatKind val);
-const char *hir_strPatBinaryOpKind(hir_PatBinaryOpKind val);
-const char *hir_strPatStructMemberKind(hir_PatStructMemberKind val);
-const char *hir_strTypeKind(hir_TypeKind val);
-const char *hir_strTypeStructKind(hir_TypeStructKind val);
-const char *hir_strTypeStructMemberKind(hir_TypeStructMemberKind val);
-const char *hir_strTypeUnaryOpKind(hir_TypeUnaryOpKind val);
-const char *hir_strTypeBinaryOpKind(hir_TypeBinaryOpKind val);
-const char *hir_strValKind(hir_ValKind val);
-const char *hir_strLabelReferenceKind(hir_LabelReferenceKind val);
-const char *hir_strLabelBindingKind(hir_LabelBindingKind val);
-const char *hir_strMatchCaseKind(hir_MatchCaseKind val);
-const char *hir_strValStructMemberKind(hir_ValStructMemberKind val);
-const char *hir_strValUnaryOpKind(hir_ValUnaryOpKind val);
-const char *hir_strValBinaryOpKind(hir_ValBinaryOpKind val);
-const char *hir_strStmntKind(hir_StmntKind val);
-const char *hir_strPatUnaryOpKind(hir_PatUnaryOpKind val);
-const char *hir_strBindingKind(hir_BindingKind val);
-const char *hir_strFieldKind(hir_FieldKind val);
-const char *hir_strReferenceKind(hir_ReferenceKind val);
+com_str hir_strPatValRestrictionKind(hir_PatValRestrictionKind val);
+com_str hir_strPatKind(hir_PatKind val);
+com_str hir_strPatBinaryOpKind(hir_PatBinaryOpKind val);
+com_str hir_strPatStructMemberKind(hir_PatStructMemberKind val);
+com_str hir_strTypeKind(hir_TypeKind val);
+com_str hir_strTypeStructKind(hir_TypeStructKind val);
+com_str hir_strTypeStructMemberKind(hir_TypeStructMemberKind val);
+com_str hir_strTypeUnaryOpKind(hir_TypeUnaryOpKind val);
+com_str hir_strTypeBinaryOpKind(hir_TypeBinaryOpKind val);
+com_str hir_strValKind(hir_ValKind val);
+com_str hir_strLabelReferenceKind(hir_LabelReferenceKind val);
+com_str hir_strLabelBindingKind(hir_LabelBindingKind val);
+com_str hir_strMatchCaseKind(hir_MatchCaseKind val);
+com_str hir_strValStructMemberKind(hir_ValStructMemberKind val);
+com_str hir_strValUnaryOpKind(hir_ValUnaryOpKind val);
+com_str hir_strValBinaryOpKind(hir_ValBinaryOpKind val);
+com_str hir_strStmntKind(hir_StmntKind val);
+com_str hir_strPatUnaryOpKind(hir_PatUnaryOpKind val);
+com_str hir_strBindingKind(hir_BindingKind val);
+com_str hir_strFieldKind(hir_FieldKind val);
+com_str hir_strReferenceKind(hir_ReferenceKind val);
 
 #endif

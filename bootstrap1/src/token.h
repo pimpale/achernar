@@ -8,6 +8,7 @@
 typedef enum {
   // These are not tokens, and do not contain token data
   tk_Eof,
+  // if it's tk none you can't assume anything
   tk_None,
   // function, type, or variable
   tk_Identifier,
@@ -91,7 +92,6 @@ typedef enum {
   tk_Comment, // #{ comment }# and # comment
 } tk_Kind;
 
-const u8 *tk_strKind(tk_Kind val);
 
 typedef struct Token_s {
   // The type of this token
@@ -105,23 +105,23 @@ typedef struct Token_s {
   // be null
   union {
     struct {
-      com_str_mut data;
+      com_str data;
     } identifierToken;
     struct {
-      com_str_mut data;
+      com_str data;
     } macroToken;
     struct {
-      com_str_mut data;
+      com_str data;
     } labelToken;
     struct {
-      com_str_mut comment;
-      com_str_mut scope;
+      com_str comment;
+      com_str scope;
     } commentToken;
     struct {
       bool data;
     } boolToken;
     struct {
-      u8 *data;
+      com_str data;
       usize data_len;
     } stringToken;
     struct {
@@ -135,5 +135,7 @@ typedef struct Token_s {
     } charToken;
   };
 } Token;
+
+com_str tk_strKind(tk_Kind val);
 
 #endif

@@ -39,88 +39,90 @@ static Token lexComment(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics
       }
     }
     scope = com_str_demut(com_vec_to_str(&data));
+  } else {
+		scope = com_str_lit_m("");
   }
 
+    com_vec data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
+        .len=10,
+        .flags=com_allocator_defaults(a) | com_allocator_REALLOCABLE | com_allocator_NOLEAK}));
+
   // Now we determine the type of comment as well as gather the comment data
-  switch (c) {
-  case '{': {
+  if(c.valid && c.value == '{') {
     // This is a comment. It will continue until another quote asterix is found.
     // These strings are preserved in the AST. They are nestable
     // also nestable
     // #{ Comment }#
-    Vector data = vec_create(a);
+
     usize stackDepth = 1;
-    char lastChar = '\0';
 
     // Drop initial {
-    lex_next(lexer);
-    while ((c = lex_next(lexer)) != EOF) {
-      if (c == '#' && lastChar == '}') {
-        // If we see a "# to pair off the starting #"
-        stackDepth--;
-        if (stackDepth == 0) {
+    com_reader_drop_u8(r);
+
+    while (true) {
+      com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
+      com_reader_ReadU8Result nc = com_reader_peek_u8(r, 2);
+      if(cc.valid) {
+				if(cc.value == '}' && nc.valid && nc.value == '#') {
+					stackDepth--;
+					if(stackDepth == 0) {
+    					break;
+					}
+				} else if(cc.value == '#' && nc.valid && nc.value =='{') {
+    				stackDepth++;
+				}
+				*com_vec_push_m(&data, u8) = cc.value;
+      } else {
           break;
-        }
-      } else if (c == '{' && lastChar == '#') {
-        stackDepth++;
       }
-      *VEC_PUSH(&data, char) = (char)c;
-      lastChar = (char)c;
     }
-    // Pop last bracket
-    VEC_POP(&data, NULL, char);
-    // Push null byte
-    *VEC_PUSH(&data, char) = '\0';
 
     // Return data
     return (Token){
         .kind = tk_Comment,
-        .commentToken =
-            {
+        .commentToken = {
                 .scope = scope,
-                .comment = vec_release(&data),
+                .comment = com_str_demut(com_vec_to_str(&data)),
             },
-        .span = SPAN(start, lex_position(lexer)),
+        .span = com_streamposition_span_m(start, com_reader_position(r)),
     };
-  }
-  default: {
+  } else  {
     // If we don't recognize any of these characters, it's just a normal single
     // line comment. These are not nestable, and continue till the end of line.
     // # comment
-    Vector data = vec_create(a);
-    while ((c = lex_next(lexer)) != EOF) {
-      if (c != '\n') {
-        *VEC_PUSH(&data, char) = (char)c;
+    while (true) {
+      com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
+      if(!cc.valid || cc.value == '\n') {
+          break;
       } else {
-        break;
+		    *com_vec_push_m(&data, u8) = (u8)cc.value;
       }
     }
-    *VEC_PUSH(&data, char) = '\0';
 
     // Return data
-    return (Token){
+    return (Token) {
         .kind = tk_Comment,
-        .commentToken =
-            {
+        .commentToken = {
                 .scope = scope,
-                .comment = vec_release(&data),
+                .comment = com_str_demut(com_vec_to_str(&data)),
             },
-        .span = SPAN(start, lex_position(lexer)),
+        .span = com_streamposition_span_m(start, com_reader_position(r)),
     };
-  }
   }
 }
 
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
-static Token lexStringLiteral(com_reader* r, DiagnosticLogger* diagnostics, com_allocator *a) {
-  com_streamposition_LnCol start = lex_position(lexer);
+static Token 
+lexStringLiteral(com_reader* r, DiagnosticLogger* diagnostics, com_allocator *a) {
+  com_streamposition_LnCol start = com_reader_position(r);
+
   // Skip first quote
   int32_t c = lex_next(lexer);
   assert(c == '\"');
 
-  Vector data = vec_create(a);
+  com_vec data = com_vec_create(a);
 
   while ((c = lex_next(lexer)) != EOF) {
     if (c == '\\') {
@@ -379,7 +381,7 @@ static Token lexCharLiteralOrLabel(com_reader* r, DiagnosticLogger* diagnostics,
   // if it is a char literal, only this variable will be used
   char char_literal = 'a';
   // label data will be uninitialized unless it is a label
-  Vector label_data;
+  com_vec label_data;
   LexCharState state = LCS_Initial;
 
   // reused char variable
@@ -464,7 +466,7 @@ static Token lexCharLiteralOrLabel(com_reader* r, DiagnosticLogger* diagnostics,
           // we are dealing with a label
           label = true;
           // initialize label data vector
-          label_data = vec_create(a);
+          label_data = com_vec_create(a);
           // push first char into vec
           *VEC_PUSH(&label_data, char) = char_literal;
           // set state
@@ -517,7 +519,7 @@ static Token lexWord(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics, c
 
   com_streamposition_LnCol start = lex_position(lexer);
 
-  Vector data = vec_create(a);
+  com_vec data = com_vec_create(a);
 
   bool macro = false;
 

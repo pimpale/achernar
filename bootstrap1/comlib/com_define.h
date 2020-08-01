@@ -52,5 +52,6 @@ typedef _Bool bool;
 
 #define attr_UNUSED __attribute__((unused))
 #define attr_NORETURN __attribute__((noreturn))
+#define attr_FALLTHROUGH __attribute__((fallthrough))
 
 #endif

@@ -7,7 +7,7 @@
 #include "com_writer.h"
 
 // returns a writer that does not remember data
-com_writer com_writer_null();
+com_writer com_writer_null(void);
 
 #endif
 

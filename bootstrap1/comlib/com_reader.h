@@ -12,6 +12,7 @@ typedef enum {
   com_reader_LIMITED = 1 << 1,
   // you can query n number of bytes into the future <use queue>
   com_reader_BUFFERED = 1 << 2,
+  // if you can tell the position
   com_reader_POSITION = 1 << 3,
 } com_reader_Flag;
 
@@ -43,6 +44,8 @@ typedef struct com_reader_s {
 
     // allows you to peek forward any number of bytes (if supported)
     com_reader_ReadU8Result(*_peek_u8_fn)(const com_reader*, usize n);
+    // allows you to peek the span of any number of bytes forward (if supported)
+    com_loc_Span(*_peek_span_u8_fn)(const com_reader*, usize n);
 
     // query stream position (if supported)
     com_loc_LnCol (*_position_fn)(const com_reader*);
@@ -87,6 +90,9 @@ void com_reader_drop_u8(const com_reader* r);
 /// GUARANTEES: if the operation succeeds, will return .valid=true and .value=the nth char of the reader
 /// GUARANTEES: if the operation fails, will return .valid=false and .value=undefined
 com_reader_ReadU8Result com_reader_peek_u8(const com_reader* r, usize n); 
+
+// TODO annotate
+com_loc_Span com_reader_peek_span_u8(const com_reader* r, usize n); 
 
 ///  query how many bytes are available in the underlying resource (if applicable)
 /// REQUIRES: `r` is a valid pointer pointing to a valid `com_reader`

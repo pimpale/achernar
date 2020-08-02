@@ -65,11 +65,12 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
   while (true) {
     switch (state) {
     case StringParserText: {
+      com_loc_LnCol startloc = com_reader_position(reader);
       com_reader_ReadU8Result read_ret = com_reader_read_u8(reader);
       if (!read_ret.valid) {
         return (com_scan_CheckedStrResult){
             .result = com_scan_CheckedStrReadFailed,
-            .location = com_reader_position(reader)};
+            .span = com_loc_span_m(startloc, com_reader_position(reader))};
       }
       u8 c = read_ret.value;
 
@@ -81,7 +82,7 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
       case '\"': {
         return (com_scan_CheckedStrResult){
             .result = com_scan_CheckedStrSuccessful,
-            .location = com_reader_position(reader)};
+            .span = com_loc_span_m(startloc, com_reader_position(reader))};
       }
       default: {
         com_writer_append_u8(destination, c);
@@ -91,11 +92,12 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
       break;
     }
     case StringParserBackslash: {
+      com_loc_LnCol startloc = com_reader_position(reader);
       com_reader_ReadU8Result read_ret = com_reader_read_u8(reader);
       if (!read_ret.valid) {
         return (com_scan_CheckedStrResult){
             .result = com_scan_CheckedStrReadFailed,
-            .location = com_reader_position(reader)};
+            .span = com_loc_span_m(startloc, com_reader_position(reader))};
       }
       u8 c = read_ret.value;
 
@@ -146,27 +148,29 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
       }
       default: {
         return (com_scan_CheckedStrResult){
-            .result= com_scan_CheckedStrInvalidControlChar,
-            .location = com_reader_position(reader)};
+            .result = com_scan_CheckedStrInvalidControlChar,
+            .span = com_loc_span_m(startloc, com_reader_position(reader))};
       }
       }
       break;
     }
     case StringParserUnicode: {
+      com_loc_LnCol startloc = com_reader_position(reader);
       u32 code_point = 0;
       for (usize i = 0; i < 4; i++) {
+        com_loc_LnCol readstart = com_reader_position(reader);
         com_reader_ReadU8Result read_ret = com_reader_read_u8(reader);
+
         if (!read_ret.valid) {
           return (com_scan_CheckedStrResult){
               .result = com_scan_CheckedStrReadFailed,
-              .location = com_reader_position(reader)};
+              .span = com_loc_span_m(readstart, com_reader_position(reader))};
         }
-
         u8 digit = read_ret.value;
         if (!com_format_is_hex(digit)) {
           return (com_scan_CheckedStrResult){
               .result = com_scan_CheckedStrInvalidUnicodeSpecifier,
-              .location = com_reader_position(reader)};
+              .span = com_loc_span_m(startloc, com_reader_position(reader))};
         }
 
         u8 value = com_format_from_hex(digit);
@@ -181,18 +185,15 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
 }
 
 void com_scan_skip_whitespace(com_reader *reader) {
-  com_assert_m(com_reader_flags(reader) & com_reader_BUFFERED, "reader must support peeking");
-	while(true) {
-		com_reader_ReadU8Result ret = com_reader_peek_u8(reader, 1);
-		if(!ret.valid) {
-    	// TODO do error or something
-			return;
-		}
-		if(com_format_is_whitespace(ret.value)) {
-    		com_reader_drop_u8(reader);
-		} else {
-    	// success
-			return;
-		}
-	}
+  com_assert_m(com_reader_flags(reader) & com_reader_BUFFERED,
+               "reader must support peeking");
+  while (true) {
+    com_reader_ReadU8Result ret = com_reader_peek_u8(reader, 1);
+    if (ret.valid && com_format_is_whitespace(ret.value)) {
+      com_reader_drop_u8(reader);
+    } else {
+      // not whitespace so we can return
+      return;
+    }
+  }
 }

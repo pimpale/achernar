@@ -82,10 +82,10 @@ typedef enum {
 
 typedef struct {
   com_json_ErrorKind kind;
-  com_loc_LnCol loc;
+  com_loc_Span span;
 } com_json_Error;
 
-#define com_json_error_m(k, l) ((com_json_Error){.kind = k, .loc = l})
+#define com_json_error_m(k, s) ((com_json_Error){.kind = k, .span= s})
 
 // serializes json to a writer (100% static no allocator needed)
 void com_json_serialize(com_json_Elem* elem, com_writer* writer);

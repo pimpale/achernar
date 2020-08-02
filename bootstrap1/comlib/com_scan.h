@@ -37,9 +37,8 @@ typedef enum {
 
 // Result of reading a checked str
 typedef struct {
-    // only defined if !successful
     com_scan_CheckedStrErrorKind result;
-    com_loc_Span location;
+    com_loc_Span span;
 } com_scan_CheckedStrResult;
 
 /// parses checked string until syntax error or unescaped close double quote

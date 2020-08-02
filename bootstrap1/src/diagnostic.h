@@ -2,7 +2,7 @@
 #define DIAGNOSTIC_H
 
 #include "com_define.h"
-#include "com_streamposition.h"
+#include "com_loc.h"
 #include "com_allocator.h"
 #include "com_vec.h"
 
@@ -16,9 +16,9 @@ typedef enum {
 com_str strDiagnosticSeverityKind(DiagnosticSeverityKind val);
 
 typedef struct Diagnostic_s {
-  com_streamposition_Span span;
+  com_loc_Span span;
   DiagnosticSeverityKind severity;
-  com_str* message;
+  com_str message;
   struct Diagnostic_s* children;
   usize children_len;
 } Diagnostic;

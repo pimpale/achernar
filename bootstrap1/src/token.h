@@ -2,7 +2,7 @@
 #define TOKEN_H
 
 #include "com_define.h"
-#include "com_streamposition.h"
+#include "com_loc.h"
 #include "com_str.h"
 
 typedef enum {
@@ -97,7 +97,7 @@ typedef struct Token_s {
   // The type of this token
   tk_Kind kind;
   // position in the file
-  com_streamposition_Span span;
+  com_loc_Span span;
   // This points to
   // null terminated string in case of identifier, tk_StringLiteral,
   // tk_Comment, tk_Documentation, or tk_Annotation u64 in case of

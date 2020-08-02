@@ -3,17 +3,17 @@
 
 #include "com_define.h"
 #include "com_str.h"
-#include "com_streamposition.h"
+#include "com_loc.h"
 #include "token.h"
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   com_str scope;
   com_str data;
 } ast_Comment;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   com_str name;
   Token *tokens;
   usize tokens_len;
@@ -25,7 +25,7 @@ typedef enum {
 } ast_NamespaceBindingKind;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_NamespaceBindingKind kind;
   union {
     struct {
@@ -40,7 +40,7 @@ typedef enum {
 } ast_NamespaceReferenceKind;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_NamespaceReferenceKind kind;
   union {
     struct {
@@ -59,7 +59,7 @@ typedef enum {
 typedef struct ast_Reference_s ast_Reference;
 
 typedef struct ast_Reference_s {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_ReferenceKind kind;
   union {
     struct {
@@ -76,7 +76,7 @@ typedef enum {
 } ast_BindingKind;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_BindingKind kind;
   union {
     struct {
@@ -92,7 +92,7 @@ typedef enum {
 } ast_FieldKind;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_FieldKind kind;
   union {
     struct {
@@ -105,7 +105,7 @@ typedef struct {
 } ast_Field;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_Comment *comments;
   usize comments_len;
 } ast_Common;
@@ -320,7 +320,7 @@ typedef enum {
 } ast_LabelBindingKind;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_LabelBindingKind kind;
   union {
     struct {
@@ -335,7 +335,7 @@ typedef enum {
 } ast_LabelReferenceKind;
 
 typedef struct {
-  com_streamposition_Span span;
+  com_loc_Span span;
   ast_LabelReferenceKind kind;
   union {
     struct {

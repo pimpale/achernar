@@ -2,6 +2,8 @@
 
 #include "com_allocator.h"
 #include "com_assert.h"
+#include "com_bigint.h"
+#include "com_biguint.h"
 #include "com_format.h"
 #include "com_scan.h"
 #include "com_vec.h"
@@ -130,6 +132,9 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
   com_reader_ReadU8Result c = com_reader_read_u8(r);
   com_assert_m(c.valid && c.value == '\"', "expected quotation mark");
 
+  // parse into vec writer until we get a success or a read error log errors
+  // along the way
+
   // create vector writer
   com_vec vec = com_vec_create(com_allocator_alloc(
       a, (com_allocator_HandleData){
@@ -137,43 +142,53 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
                       com_allocator_REALLOCABLE,
              // let's just go with 12 for now as initial capacity
              .len = 12}));
-
   com_writer writer = com_writer_vec_create(&vec);
 
   while (true) {
     com_scan_CheckedStrResult ret =
-        com_scan_checked_str_until_quote(&writer, l);
+        com_scan_checked_str_until_quote(&writer, r);
     switch (ret.result) {
     case com_scan_CheckedStrSuccessful: {
       // We're finished, we can deallocate writer and release vec into a string
       // that we return as an element
       com_writer_destroy(&writer);
+
+      // retrn success
       return (Token){
           .kind = tk_String,
-          .stringToken = {
-                  .data = com_str_demut(com_vec_to_str(&vec)),
-              },
           .span = com_loc_span_m(start, com_reader_position(r)),
-      };
+          .stringToken = {.data = com_str_demut(com_vec_to_str(&vec))}};
     }
     case com_scan_CheckedStrReadFailed: {
       // deallocate resources
       com_writer_destroy(&writer);
       // give error
-      *dlogger_append(diagnostics) = (Diagnostic) {
-          .span = com_loc_span_m(ret.location, 
-          (com_json_StrExpectedDoubleQuote, ret.location);
+      *dlogger_append(diagnostics) =
+          (Diagnostic){.span = ret.span,
+                       .severity = DSK_Error,
+                       .message = com_str_lit_m(
+                           "unexpected EOF, expected closing double quote"),
+                       .children_len = 0};
       // return invalid
-      return com_vec_to_str(&vec);
+      return (Token){
+          .kind = tk_None,
+          .span = com_loc_span_m(start, ret.span.end),
+      };
     }
     case com_scan_CheckedStrInvalidControlChar: {
-      *com_vec_push_m(diagnostics, com_json_Error) =
-          com_json_error_m(com_json_StrInvalidControlChar, ret.location);
+      *dlogger_append(diagnostics) = (Diagnostic){
+          .span = ret.span,
+          .severity = DSK_Error,
+          .message = com_str_lit_m("invalid control char after backslash"),
+          .children_len = 0};
       break;
     }
     case com_scan_CheckedStrInvalidUnicodeSpecifier: {
-      *com_vec_push_m(diagnostics, com_json_Error) =
-          com_json_error_m(com_json_StrInvalidUnicodeSpecifier, ret.location);
+      *dlogger_append(diagnostics) =
+          (Diagnostic){.span = ret.span,
+                       .severity = DSK_Error,
+                       .message = com_str_lit_m("invalid unicode point"),
+                       .children_len = 0};
       break;
     }
     }
@@ -181,56 +196,57 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
 }
 
 // Parses integer with radix
-static u64 parseNumBaseComponent(Lexer *l, DiagnosticLogger *diagnostics,
+// Radix must be between 2 and 16 inclusive
+static u64 parseNumBaseComponent(com_reader *r, DiagnosticLogger *diagnostics,
                                  u8 radix) {
   u64 integer_value = 0;
-  int32_t c;
-  while ((c = LEX_PEEK(l)) != EOF) {
-    u8 digit_val;
-    if (c >= '0' && c <= '9') {
-      digit_val = (u8)(c - '0');
-    } else if (c >= 'A' && c <= 'F') {
-      digit_val = 10 + (u8)(c - 'A');
-    } else if (c == '_') {
-      // skip it
-      lex_next(l);
-      continue;
-    } else if (!isalnum(c)) {
-      // this component of the integer is finished processing
+  while (true) {
+    com_loc_Span sp = com_reader_peek_span_u8(r, 1);
+    com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
+
+    // exit if misread or not a hex number
+    if (!ret.valid || com_format_is_hex(ret.value)) {
       break;
-    } else {
-      // means an alphabetical character out of this range
-      *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_getSpan(l), DSK_Error, "num literal unknown character");
-      digit_val = 0;
     }
 
+    // ignore underscore
+    if (ret.value == '_') {
+      com_reader_drop_u8(r);
+      continue;
+    }
+
+    u8 digit_val = com_format_from_hex(ret.value);
+
     if (digit_val >= radix) {
-      *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_getSpan(l), DSK_Error, "num literal char value exceeds radix");
-      // correct the radix value
+      *dlogger_append(diagnostics) = (Diagnostic){
+          .span = sp,
+          .severity = DSK_Error,
+          .message = com_str_lit_m("num literal char value exceeds radix"),
+          .children_len = 0};
+      // put in dummy for the digit value
       digit_val = radix - 1;
     }
 
-    // now we can
+    // now we can create integer value
     u64 old_integer_value = integer_value;
     integer_value = integer_value * radix + digit_val;
     if (old_integer_value > integer_value) {
-      *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_getSpan(l), DSK_Error, "num literal overflow");
+      *dlogger_append(diagnostics) =
+          (Diagnostic){.span = sp,
+                       .severity = DSK_Error,
+                       .message = com_str_lit_m("num literal overflow"),
+                       .children_len = 0};
     }
 
     // we can finally move past this char
-    lex_next(l);
+    com_reader_drop_u8(r);
   }
   return integer_value;
 }
 
-static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger *diagnostics,
+static f64 parseNumFractionalComponent(com_reader *r,
+                                       DiagnosticLogger *diagnostics,
                                        u8 radix) {
-  // reused character variable
-  int32_t c;
-
   // the reciprocal of the current decimal place
   // EX: at 0.1 will be 10 when parsing the 1
   // EX: at 0.005 will be 1000 when parsing the 5
@@ -240,30 +256,30 @@ static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger *diagnostics,
   // fractional component being computed
   f64 fractional_value = 0;
 
-  while ((c = LEX_PEEK(l)) != EOF) {
-    u8 digit_val;
-    if (c >= '0' && c <= '9') {
-      digit_val = (u8)(c - '0');
-    } else if (c >= 'A' && c <= 'F') {
-      digit_val = (u8)(c - 'A');
-    } else if (c == '_') {
-      // skip it
-      lex_next(l);
-      continue;
-    } else if (!isalnum(c)) {
-      // this component of the number is finished processing
+  while (true) {
+    com_loc_Span sp = com_reader_peek_span_u8(r, 1);
+    com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
+
+    // exit if misread or not a hex number
+    if (!ret.valid || com_format_is_hex(ret.value)) {
       break;
-    } else {
-      // means an alphabetical character out of this range
-      *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_getSpan(l), DSK_Error, "num literal unknown character");
-      digit_val = 0;
     }
 
+    // ignore underscore
+    if (ret.value == '_') {
+      com_reader_drop_u8(r);
+      continue;
+    }
+
+    u8 digit_val = com_format_from_hex(ret.value);
+
     if (digit_val >= radix) {
-      *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_getSpan(l), DSK_Error, "num literal char value exceeds radix");
-      // correct the radix value
+      *dlogger_append(diagnostics) = (Diagnostic){
+          .span = sp,
+          .severity = DSK_Error,
+          .message = com_str_lit_m("num literal char value exceeds radix"),
+          .children_len = 0};
+      // put in dummy for the digit value
       digit_val = radix - 1;
     }
 
@@ -271,7 +287,7 @@ static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger *diagnostics,
     fractional_value += digit_val / place;
 
     // we can finally move past this char
-    lex_next(l);
+    com_reader_drop_u8(r);
   }
   return fractional_value;
 }
@@ -279,75 +295,99 @@ static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger *diagnostics,
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static Token lexNumberLiteral(Lexer *l, DiagnosticLogger *diagnostics,
+static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
                               attr_UNUSED com_allocator *a) {
 
-  com_loc_LnCol start = l->position;
+  com_loc_LnCol start = com_reader_position(r);
 
-  u8 radix;
+  u8 radix = 10;
+  {
+    // char one ahead
+    com_reader_ReadU8Result fdigit = com_reader_peek_u8(r, 1);
+    // char two ahead
+    com_reader_ReadU8Result code = com_reader_peek_u8(r, 2);
 
-  if (LEX_PEEK(l) == '0') {
-    lex_next(l);
-    int32_t radixCode = lex_next(l);
-    switch (radixCode) {
-    case 'b': {
-      radix = 2;
-      break;
+    if (fdigit.valid && fdigit.value == '0' && code.valid) {
+      switch (code.value) {
+      case 'b': {
+        radix = 2;
+        com_reader_drop_u8(r);
+        com_reader_drop_u8(r);
+        break;
+      }
+      case 'o': {
+        radix = 8;
+        com_reader_drop_u8(r);
+        com_reader_drop_u8(r);
+        break;
+      }
+      case 'd': {
+        radix = 10;
+        com_reader_drop_u8(r);
+        com_reader_drop_u8(r);
+        break;
+      }
+      case 'x': {
+        radix = 16;
+        com_reader_drop_u8(r);
+        com_reader_drop_u8(r);
+        break;
+      }
+      default: {
+        radix = 10;
+        if (!com_format_is_digit(code.value)) {
+          // if it's not another digit, then we throw an error about an
+          // unrecognized radix code + skip the first 2 chars
+          com_reader_drop_u8(r);
+          com_reader_drop_u8(r);
+
+          *dlogger_append(diagnostics) = (Diagnostic){
+              .span = com_loc_span_m(start, com_reader_position(r)),
+              .severity = DSK_Error,
+              .message = com_str_lit_m("num literal unrecognized radix code"),
+              .children_len = 0};
+        }
+        // if it was a digit then it parses like a normal decimal number
+        break;
+      }
+      }
     }
-    case 'o': {
-      radix = 8;
-      break;
-    }
-    case 'd': {
-      radix = 10;
-      break;
-    }
-    case 'x': {
-      radix = 16;
-      break;
-    }
-    default: {
-      radix = 10;
-      *dlogger_append(diagnostics) =
-          diagnostic_standalone(SPAN(start, l->position), DSK_Error,
-                                "num literal unrecognized radix code");
-      break;
-    }
-    }
-  } else {
-    radix = 10;
   }
 
-  u64 base_component = parseNumBaseComponent(l, diagnostics, radix);
+  u64 base_component = parseNumBaseComponent(r, diagnostics, radix);
 
   bool fractional = false;
-  if (LEX_PEEK(l) == '.') {
-    fractional = true;
-    lex_next(l);
+  {
+    com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
+    if (ret.valid && ret.value == '.') {
+      fractional = true;
+    }
   }
 
   if (fractional) {
     f64 fractional_component =
-        parseNumFractionalComponent(l, diagnostics, radix);
+        parseNumFractionalComponent(r, diagnostics, radix);
     return (Token){
         .kind = tk_Float,
         .floatToken = {.data = (fractional_component + (f64)base_component)},
-        .span = SPAN(start, l->position)};
+        .span = com_loc_span_m(start, com_reader_position(r))};
   } else {
     return (Token){.kind = tk_Int,
-                   .intToken =
-                       {
+                   .intToken = {
                            .data = base_component,
                        },
-                   .span = SPAN(start, l->position)};
+                   .span = com_loc_span_m(start, com_reader_position(r))};
   }
 }
 
 static Token lexCharLiteralOrLabel(com_reader *r, DiagnosticLogger *diagnostics,
                                    com_allocator *a) {
-  com_loc_LnCol start = lex_position(lexer);
+  com_loc_LnCol start = com_reader_position(r);
   // Skip first quote
-  assert(lex_next(lexer) == '\'');
+  { 
+
+  }
+  com_assert_m(c(lexer) == '\'');
 
   // State of lexer
   typedef enum {

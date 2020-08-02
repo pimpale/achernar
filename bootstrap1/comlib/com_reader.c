@@ -33,7 +33,7 @@ u64 com_reader_query(const com_reader *w) {
   return w->_query_fn(w);
 }
 
-com_streamposition_LnCol com_reader_position(const com_reader *r) {
+com_loc_LnCol com_reader_position(const com_reader *r) {
   com_assert_m(r->_valid, "reader is invalid");
   com_assert_m(com_reader_flags(r) & com_reader_POSITION, "reader doesn't support querying position");
   return r->_position_fn(r);

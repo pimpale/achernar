@@ -16,7 +16,7 @@ typedef enum {
 com_str strDiagnosticSeverityKind(DiagnosticSeverityKind val);
 
 typedef struct Diagnostic_s {
-  com_streamposition_Span range;
+  com_streamposition_Span span;
   DiagnosticSeverityKind severity;
   com_str* message;
   struct Diagnostic_s* children;

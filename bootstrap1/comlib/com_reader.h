@@ -2,7 +2,7 @@
 #define COM_READER_H
 
 #include "com_define.h"
-#include "com_streamposition.h"
+#include "com_loc.h"
 #include "com_str.h"
 
 typedef enum {
@@ -45,7 +45,7 @@ typedef struct com_reader_s {
     com_reader_ReadU8Result(*_peek_u8_fn)(const com_reader*, usize n);
 
     // query stream position (if supported)
-    com_streamposition_LnCol (*_position_fn)(const com_reader*);
+    com_loc_LnCol (*_position_fn)(const com_reader*);
 
     // query how many bytes are available in the underlying resource
     u64 (*_query_fn)(const com_reader*);
@@ -97,8 +97,8 @@ u64 com_reader_query(const com_reader *r);
 ///  query the current locaation of the reader (if supported) 
 /// REQUIRES: `r` is a valid pointer pointing to a valid `com_reader`
 /// REQUIRES: `r` supports com_reader_POSITION
-/// GUARANTEES: returns a valid com_streamposition_LnCol representing the location of the cursor
-com_streamposition_LnCol com_reader_position(const com_reader *r);
+/// GUARANTEES: returns a valid com_loc_LnCol representing the location of the cursor
+com_loc_LnCol com_reader_position(const com_reader *r);
 
 ///  destroys the reader
 /// REQUIRES: `r` is a valid pointer pointing to a valid `com_reader`

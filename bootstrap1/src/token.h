@@ -122,7 +122,6 @@ typedef struct Token_s {
     } boolToken;
     struct {
       com_str data;
-      usize data_len;
     } stringToken;
     struct {
       u64 data;

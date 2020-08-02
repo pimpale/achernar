@@ -237,7 +237,7 @@ com_json_certain_parseNumberElem(
 static com_json_Elem
 com_json_certain_parseLiteralElem(
     com_reader *reader, com_vec *diagnostics, attr_UNUSED com_allocator *a) {
-  com_streamposition_LnCol start = com_reader_position(reader);
+  com_loc_LnCol start = com_reader_position(reader);
 
   bool overflow = false;
 

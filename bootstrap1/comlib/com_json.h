@@ -3,7 +3,7 @@
 
 #include "com_bigint.h"
 #include "com_define.h"
-#include "com_streamposition.h"
+#include "com_loc.h"
 #include "com_writer.h"
 #include "com_reader.h"
 
@@ -82,7 +82,7 @@ typedef enum {
 
 typedef struct {
   com_json_ErrorKind kind;
-  com_streamposition_LnCol loc;
+  com_loc_LnCol loc;
 } com_json_Error;
 
 #define com_json_error_m(k, l) ((com_json_Error){.kind = k, .loc = l})

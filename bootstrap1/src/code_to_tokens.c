@@ -1,22 +1,25 @@
 #include "code_to_tokens.h"
 
-#include "constants.h"
-#include "diagnostic.h"
 #include "com_allocator.h"
-#include "com_vec.h"
 #include "com_assert.h"
 #include "com_format.h"
+#include "com_scan.h"
+#include "com_vec.h"
+#include "com_writer_vec.h"
+#include "constants.h"
+#include "diagnostic.h"
 
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes comments
-static Token lexComment(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics,
+static Token lexComment(com_reader *r,
+                        attr_UNUSED DiagnosticLogger *diagnostics,
                         com_allocator *a) {
 
-  com_streamposition_LnCol start = com_reader_position(r);
+  com_loc_LnCol start = com_reader_position(r);
 
   com_reader_ReadU8Result c = com_reader_read_u8(r);
-  com_assert_m(c.valid && c.value=='#', "expected #");
+  com_assert_m(c.valid && c.value == '#', "expected #");
 
   c = com_reader_peek_u8(r, 1);
 
@@ -25,30 +28,33 @@ static Token lexComment(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics
   if (c.valid && c.value == '@') {
     com_reader_drop_u8(r);
 
-    com_vec data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
-        .len=10,
-        .flags=com_allocator_defaults(a) | com_allocator_NOLEAK | com_allocator_REALLOCABLE
-    }));
+    com_vec data = com_vec_create(com_allocator_alloc(
+        a, (com_allocator_HandleData){.len = 10,
+                                      .flags = com_allocator_defaults(a) |
+                                               com_allocator_NOLEAK |
+                                               com_allocator_REALLOCABLE}));
     while (true) {
-  		c = com_reader_peek_u8(r, 1);
+      c = com_reader_peek_u8(r, 1);
       if (c.valid && (com_format_is_alphanumeric(c.value) || c.value == '/')) {
         *com_vec_push_m(&data, u8) = (u8)c.value;
-    		com_reader_drop_u8(r);
+        com_reader_drop_u8(r);
       } else {
         break;
       }
     }
     scope = com_str_demut(com_vec_to_str(&data));
   } else {
-		scope = com_str_lit_m("");
+    scope = com_str_lit_m("");
   }
 
-    com_vec data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
-        .len=10,
-        .flags=com_allocator_defaults(a) | com_allocator_REALLOCABLE | com_allocator_NOLEAK}));
+  com_vec data = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 10,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_REALLOCABLE |
+                                             com_allocator_NOLEAK}));
 
   // Now we determine the type of comment as well as gather the comment data
-  if(c.valid && c.value == '{') {
+  if (c.valid && c.value == '{') {
     // This is a comment. It will continue until another quote asterix is found.
     // These strings are preserved in the AST. They are nestable
     // also nestable
@@ -62,51 +68,53 @@ static Token lexComment(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics
     while (true) {
       com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
       com_reader_ReadU8Result nc = com_reader_peek_u8(r, 2);
-      if(cc.valid) {
-				if(cc.value == '}' && nc.valid && nc.value == '#') {
-					stackDepth--;
-					if(stackDepth == 0) {
-    					break;
-					}
-				} else if(cc.value == '#' && nc.valid && nc.value =='{') {
-    				stackDepth++;
-				}
-				*com_vec_push_m(&data, u8) = cc.value;
+      if (cc.valid) {
+        if (cc.value == '}' && nc.valid && nc.value == '#') {
+          stackDepth--;
+          if (stackDepth == 0) {
+            break;
+          }
+        } else if (cc.value == '#' && nc.valid && nc.value == '{') {
+          stackDepth++;
+        }
+        *com_vec_push_m(&data, u8) = cc.value;
       } else {
-          break;
+        break;
       }
     }
 
     // Return data
     return (Token){
         .kind = tk_Comment,
-        .commentToken = {
+        .commentToken =
+            {
                 .scope = scope,
                 .comment = com_str_demut(com_vec_to_str(&data)),
             },
-        .span = com_streamposition_span_m(start, com_reader_position(r)),
+        .span = com_loc_span_m(start, com_reader_position(r)),
     };
-  } else  {
+  } else {
     // If we don't recognize any of these characters, it's just a normal single
     // line comment. These are not nestable, and continue till the end of line.
     // # comment
     while (true) {
       com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
-      if(!cc.valid || cc.value == '\n') {
-          break;
+      if (!cc.valid || cc.value == '\n') {
+        break;
       } else {
-		    *com_vec_push_m(&data, u8) = (u8)cc.value;
+        *com_vec_push_m(&data, u8) = (u8)cc.value;
       }
     }
 
     // Return data
-    return (Token) {
+    return (Token){
         .kind = tk_Comment,
-        .commentToken = {
+        .commentToken =
+            {
                 .scope = scope,
                 .comment = com_str_demut(com_vec_to_str(&data)),
             },
-        .span = com_streamposition_span_m(start, com_reader_position(r)),
+        .span = com_loc_span_m(start, com_reader_position(r)),
     };
   }
 }
@@ -114,102 +122,75 @@ static Token lexComment(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics
 // Call this function right before the first quote of the string literal
 // Returns control after the ending quote of this lexer
 // This function returns a Token containing the string or an error
-static Token 
-lexStringLiteral(com_reader* r, DiagnosticLogger* diagnostics, com_allocator *a) {
-  com_streamposition_LnCol start = com_reader_position(r);
+static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
+                              com_allocator *a) {
+  com_loc_LnCol start = com_reader_position(r);
 
   // Skip first quote
-  int32_t c = lex_next(lexer);
-  assert(c == '\"');
+  com_reader_ReadU8Result c = com_reader_read_u8(r);
+  com_assert_m(c.valid && c.value == '\"', "expected quotation mark");
 
-  com_vec data = com_vec_create(a);
+  // create vector writer
+  com_vec vec = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){
+             .flags = com_allocator_defaults(a) | com_allocator_NOLEAK |
+                      com_allocator_REALLOCABLE,
+             // let's just go with 12 for now as initial capacity
+             .len = 12}));
 
-  while ((c = lex_next(lexer)) != EOF) {
-    if (c == '\\') {
-      c = lex_next(lexer);
-      switch (c) {
-      case '\\': {
-        *VEC_PUSH(&data, char) = '\\';
-        break;
-      }
-      case '\'': {
-        *VEC_PUSH(&data, char) = '\'';
-        break;
-      }
-      case '\"': {
-        *VEC_PUSH(&data, char) = '\"';
-        break;
-      }
-      case 'a': {
-        *VEC_PUSH(&data, char) = '\a';
-        break;
-      }
-      case 'b': {
-        *VEC_PUSH(&data, char) = '\b';
-        break;
-      }
-      case 'f': {
-        *VEC_PUSH(&data, char) = '\f';
-        break;
-      }
-      case 'n': {
-        *VEC_PUSH(&data, char) = '\n';
-        break;
-      }
-      case 'r': {
-        *VEC_PUSH(&data, char) = '\r';
-        break;
-      }
-      case 't': {
-        *VEC_PUSH(&data, char) = '\t';
-        break;
-      }
-      case 'v': {
-        *VEC_PUSH(&data, char) = '\v';
-        break;
-      }
-      default: {
-        // keep going till we hit an end f64 quote
-        while ((c = lex_next(lexer)) != EOF) {
-          if (c == '\"') {
-            break;
-          }
-        }
-        *dlogger_append(diagnostics) =
-            diagnostic_standalone(SPAN(start, lex_position(lexer)), DSK_Error,
-                                  "Unrecognized escape code in string literal");
-        goto CLEANUP;
-      }
-      }
-    } else if (c == '\"') {
+  com_writer writer = com_writer_vec_create(&vec);
+
+  while (true) {
+    com_scan_CheckedStrResult ret =
+        com_scan_checked_str_until_quote(&writer, l);
+    switch (ret.result) {
+    case com_scan_CheckedStrSuccessful: {
+      // We're finished, we can deallocate writer and release vec into a string
+      // that we return as an element
+      com_writer_destroy(&writer);
+      return (Token){
+          .kind = tk_String,
+          .stringToken = {
+                  .data = com_str_demut(com_vec_to_str(&vec)),
+              },
+          .span = com_loc_span_m(start, com_reader_position(r)),
+      };
+    }
+    case com_scan_CheckedStrReadFailed: {
+      // deallocate resources
+      com_writer_destroy(&writer);
+      // give error
+      *dlogger_append(diagnostics) = (Diagnostic) {
+          .span = com_loc_span_m(ret.location, 
+          (com_json_StrExpectedDoubleQuote, ret.location);
+      // return invalid
+      return com_vec_to_str(&vec);
+    }
+    case com_scan_CheckedStrInvalidControlChar: {
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_StrInvalidControlChar, ret.location);
       break;
-    } else {
-      *VEC_PUSH(&data, char) = (char)c;
+    }
+    case com_scan_CheckedStrInvalidUnicodeSpecifier: {
+      *com_vec_push_m(diagnostics, com_json_Error) =
+          com_json_error_m(com_json_StrInvalidUnicodeSpecifier, ret.location);
+      break;
+    }
     }
   }
-
-CLEANUP:;
-  usize len = VEC_LEN(&data, char);
-  char *ptr = vec_release(&data);
-  // Return data
-  return (Token){
-      .kind = tk_String,
-      .stringToken = {.data = ptr, .data_len = len},
-      .span = SPAN(start, lex_position(lexer)),
-  };
 }
 
 // Parses integer with radix
-static u64 parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
-                                      uint8_t radix) {
+static u64 parseNumBaseComponent(Lexer *l, DiagnosticLogger *diagnostics,
+                                 u8 radix) {
   u64 integer_value = 0;
   int32_t c;
   while ((c = LEX_PEEK(l)) != EOF) {
-    uint8_t digit_val;
+    u8 digit_val;
     if (c >= '0' && c <= '9') {
-      digit_val = (uint8_t)(c - '0');
+      digit_val = (u8)(c - '0');
     } else if (c >= 'A' && c <= 'F') {
-      digit_val = 10 + (uint8_t)(c - 'A');
+      digit_val = 10 + (u8)(c - 'A');
     } else if (c == '_') {
       // skip it
       lex_next(l);
@@ -245,8 +226,8 @@ static u64 parseNumBaseComponent(Lexer *l, DiagnosticLogger* diagnostics,
   return integer_value;
 }
 
-static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostics,
-                                          uint8_t radix) {
+static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger *diagnostics,
+                                       u8 radix) {
   // reused character variable
   int32_t c;
 
@@ -260,11 +241,11 @@ static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostics,
   f64 fractional_value = 0;
 
   while ((c = LEX_PEEK(l)) != EOF) {
-    uint8_t digit_val;
+    u8 digit_val;
     if (c >= '0' && c <= '9') {
-      digit_val = (uint8_t)(c - '0');
+      digit_val = (u8)(c - '0');
     } else if (c >= 'A' && c <= 'F') {
-      digit_val = (uint8_t)(c - 'A');
+      digit_val = (u8)(c - 'A');
     } else if (c == '_') {
       // skip it
       lex_next(l);
@@ -298,12 +279,12 @@ static f64 parseNumFractionalComponent(Lexer *l, DiagnosticLogger* diagnostics,
 // Call this function right before the first digit of the number literal
 // Returns control right after the number is finished
 // This function returns a Token or the error
-static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
+static Token lexNumberLiteral(Lexer *l, DiagnosticLogger *diagnostics,
                               attr_UNUSED com_allocator *a) {
 
-  com_streamposition_LnCol start = l->position;
+  com_loc_LnCol start = l->position;
 
-  uint8_t radix;
+  u8 radix;
 
   if (LEX_PEEK(l) == '0') {
     lex_next(l);
@@ -362,9 +343,9 @@ static Token lexNumberLiteral(Lexer *l, DiagnosticLogger* diagnostics,
   }
 }
 
-static Token lexCharLiteralOrLabel(com_reader* r, DiagnosticLogger* diagnostics,
+static Token lexCharLiteralOrLabel(com_reader *r, DiagnosticLogger *diagnostics,
                                    com_allocator *a) {
-  com_streamposition_LnCol start = lex_position(lexer);
+  com_loc_LnCol start = lex_position(lexer);
   // Skip first quote
   assert(lex_next(lexer) == '\'');
 
@@ -515,9 +496,10 @@ EXIT_LOOP:;
 }
 
 // Parses an identifer or macro or builtin
-static Token lexWord(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics, com_allocator *a) {
+static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
+                     com_allocator *a) {
 
-  com_streamposition_LnCol start = lex_position(lexer);
+  com_loc_LnCol start = lex_position(lexer);
 
   com_vec data = com_vec_create(a);
 
@@ -616,7 +598,7 @@ static Token lexWord(com_reader* r, attr_UNUSED DiagnosticLogger* diagnostics, c
   lex_next(lexer);                                                             \
   RETURN_RESULT_TOKEN(tokenType)
 
-Token tk_next(com_reader* r, DiagnosticLogger* diagnostics, com_allocator *a) {
+Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
   int32_t c;
 
   // Set c to first nonblank character
@@ -628,7 +610,7 @@ Token tk_next(com_reader* r, DiagnosticLogger* diagnostics, com_allocator *a) {
     }
   }
 
-  com_streamposition_LnCol start = lex_position(lexer);
+  com_loc_LnCol start = lex_position(lexer);
 
   if (isalpha(c) || c == '_') {
     return lexWord(lexer, diagnostics, a);

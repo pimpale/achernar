@@ -4,7 +4,7 @@
 #include "com_define.h"
 #include "com_reader.h"
 #include "com_writer.h"
-#include "com_streamposition.h"
+#include "com_loc.h"
 
 // TODO add more scan options for integers and doubles
 
@@ -39,7 +39,7 @@ typedef enum {
 typedef struct {
     // only defined if !successful
     com_scan_CheckedStrErrorKind result;
-    com_streamposition_LnCol location;
+    com_loc_Span location;
 } com_scan_CheckedStrResult;
 
 /// parses checked string until syntax error or unescaped close double quote

@@ -54,7 +54,7 @@ file_read_peek_u8_fn(attr_UNUSED const com_reader *w, attr_UNUSED usize n) {
   com_assert_unreachable_m("file reader does not support peeking");
 }
 
-static com_streamposition_LnCol attr_NORETURN 
+static com_loc_LnCol attr_NORETURN 
 file_read_position_fn(attr_UNUSED const com_reader *w) {
   com_assert_unreachable_m("file reader does not support querying position");
 }

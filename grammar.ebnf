@@ -87,7 +87,7 @@ macroInvocation = macro_identifier, { letter | digit | symbolExceptBacktick | wh
 # --- BEGIN LITERALS ---
 
 # nil literal
-nilLiteral = "nil" | ";"
+nilLiteral = "nil"
 
 # boolean literal
 true = "true";
@@ -123,8 +123,11 @@ stringLiteral = "\"", { letter | digit | symbol | controlCode | whitespace }, "\
 # --- BEGIN LABELS & PATHS ---
 
 # label
-labelReference = ws, "'", identifer;
-labelBinding = ws, "'", identifer;
+label = ws, "'", identifer;
+labelReference = label;
+labelBinding = label;
+
+path = { ws, namespaceReference, ws, '::' }, identifier;
 
 # namespace bindings
 namespaceBinding = ws, identifier;
@@ -145,20 +148,13 @@ fnValExpr = fn, ws, fnParamDecl, ws, [ ":", typeExpr ], ws, "=>", valExpr;
 blockValExpr = "{", [ label ], { Stmnt }, ws, "}";
 
 # return values
-returnValExpr = "return", label, valExpr;
+returnValExpr = "ret", label, valExpr;
 
 # loop val expr
 loopValExpr = "loop", [ label ], valExpr;
 
-
 # reference value exprs
-refValExpr = path;
-
-# struct literal member expr
-# You can comment before each structural identifier
-structLiteralMemberExpr = comment_ws, identifier, ws, "=", valExpr;
-
-structLiteralValExpr = "struct", ws, "{", { structLiteralMemberExpr }, ws "}";
+refValExpr = reference;
 
 # can comment before any L1 Value expr
 valExprL1 = comment_ws, fnValExpr | blockValExpr | returnValExpr | loopValExpr  | matchValExpr | refValExpr | structLiteralValExpr | macroInvocation;
@@ -191,16 +187,11 @@ valExpr = valExprL11;
 
 # --- BEGIN TypeExpr ---
 
-# StructMemberExpr
-# Can comment before each struct member
-structMemberExpr = comment_ws, identifier, [ ws, ":", typeExpr ];
-structTypeExpr = ("struct" | "enum" ), ws, "{", { structMemberExpr }, ws, "}";
-
 # Group Type Expr (used for ordering unions and tuple precedence)
 groupTypeExpr = "{", typeExpr, ws, "}";
 
 # reference type expr
-refTypeExpr = path;
+refTypeExpr = reference;
 
 nilTypeExpr = nil;
 neverTypeExpr = "never";
@@ -253,7 +244,7 @@ patExpr = patExprL6;
 
 # --- BEGIN Stmnt ---
 
-useStmnt = "use", path, ws, "as", ws, identifier;
+useStmnt = "use", reference, ws, "as", binding;
 namespaceStmnt = "namespace", ws, namespaceBinding, ws, "{", {Stmnt}, ws, "}";
 valDeclStmnt = "val", patExpr, ws, ":=", valExpr;
 typeDeclStmnt = "type", ws, identifier, ws, ":=", typeExpr;

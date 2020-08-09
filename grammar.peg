@@ -1,0 +1,111 @@
+
+
+
+
+
+
+
+skip <- ([ \n] / line_comment)*
+CHAR_LITERAL <- "'" char_char "'" skip
+FLOAT
+    <- "0x" hex_* hex "." hex_int ([pP] [-+]? hex_int)? skip
+     /      dec_int   "." dec_int ([eE] [-+]? dec_int)? skip
+     / "0x" hex_* hex "."? [pP] [-+]? hex_int skip
+     /      dec_int   "."? [eE] [-+]? dec_int skip
+INTEGER
+    <- "0b" [_01]*  [01]  skip
+     / "0o" [_0-7]* [0-7] skip
+     / "0x" hex_* hex skip
+     /      dec_int   skip
+STRINGLITERALSINGLE <- "\"" string_char* "\"" skip
+STRINGLITERAL
+    <- STRINGLITERALSINGLE
+     / line_string                 skip
+IDENTIFIER
+    <- !keyword [A-Za-z_] [A-Za-z0-9_]* skip
+     / "@\"" string_char* "\""                            skip
+
+MACROIDENTIFIER <- [A-Za-z_][A-Za-z0-9_]* skip
+
+AMPERSAND            <- "&"      ![&=]     skip
+AMPERSAND2           <- "&&"               skip
+AMPERSANDEQUAL       <- "&="               skip
+ASTERISK             <- "*"      ![%=]     skip
+ASTERISKEQUAL        <- "*="               skip
+ASTERISKPERCENT      <- "*%"     ![=]      skip
+ASTERISKPERCENTEQUAL <- "*%="              skip
+COLON                <- ":"      ![=]      skip
+COMMA                <- ","                skip
+DOT                  <- "."      ![.]      skip
+DOT2                 <- ".."               skip
+EQUAL                <- "="      ![>=]     skip
+EQUALEQUAL           <- "=="               skip
+COLONEQUAL           <- ":="               skip
+EQUALRARROW          <- "=>"               skip
+EXCLAMATIONMARK      <- "!"      ![=]      skip
+EXCLAMATIONMARKEQUAL <- "!="               skip
+LARROW               <- "<"      ![<=]     skip
+LARROWEQUAL          <- "<="               skip
+LBRACE               <- "{"                skip
+LBRACKET             <- "["      ![*]      skip
+LPAREN               <- "("                skip
+MINUS                <- "-"      ![%=>]    skip
+MINUSEQUAL           <- "-="               skip
+MINUSPERCENT         <- "-%"     ![=]      skip
+MINUSPERCENTEQUAL    <- "-%="              skip
+MINUSRARROW          <- "->"               skip
+PERCENT              <- "%"      ![=]      skip
+PERCENTEQUAL         <- "%="               skip
+PIPE                 <- "|"      ![|=]     skip
+PIPE2                <- "||"               skip
+PIPERARROW           <- "|>"               skip
+PLUS                 <- "+"      ![%+=]    skip
+PLUSEQUAL            <- "+="               skip
+PLUSPERCENT          <- "+%"     ![=]      skip
+PLUSPERCENTEQUAL     <- "+%="              skip
+RARROW               <- ">"      ![>=]     skip
+RARROWEQUAL          <- ">="               skip
+RBRACE               <- "}"                skip
+RBRACKET             <- "]"                skip
+RPAREN               <- ")"                skip
+SLASH                <- "/"      ![=]      skip
+SLASHEQUAL           <- "/="               skip
+
+end_of_word <- ![a-zA-Z0-9_] skip
+KEYWORD_loop      <- "loop"     end_of_word
+KEYWORD_match     <- "match"    end_of_word
+KEYWORD_val       <- "val"      end_of_word
+KEYWORD_ret       <- "ret"      end_of_word
+KEYWORD_defer     <- "defer"    end_of_word
+KEYWORD_fn        <- "fn"       end_of_word
+KEYWORD_pat       <- "pat"      end_of_word
+KEYWORD_as        <- "as"       end_of_word
+KEYWORD_type      <- "type"     end_of_word
+KEYWORD_typefn    <- "typefn"   end_of_word
+KEYWORD_nat       <- "nat"      end_of_word
+KEYWORD_dyn       <- "dyn"      end_of_word
+KEYWORD_mod       <- "mod"      end_of_word
+KEYWORD_use       <- "use"      end_of_word
+KEYWORD_true      <- "true"     end_of_word
+KEYWORD_false     <- "false"    end_of_word
+KEYWORD_nil       <- "nil"      end_of_word
+KEYWORD_never     <- "never"    end_of_word
+
+keyword <-
+KEYWORD_loop /
+KEYWORD_match /
+KEYWORD_val /
+KEYWORD_ret /
+KEYWORD_defer /
+KEYWORD_fn /
+KEYWORD_pat /
+KEYWORD_as /
+KEYWORD_type /
+KEYWORD_typefn /
+KEYWORD_mod /
+KEYWORD_use /
+KEYWORD_true /
+KEYWORD_false /
+KEYWORD_nil /
+KEYWORD_never /
+KEYWORD_nat

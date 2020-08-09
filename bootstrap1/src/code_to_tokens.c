@@ -380,7 +380,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
   }
 }
 
-static Token lexLabelLiteral(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
+static Token lexLabelLiteral(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics, com_allocator *a) {
   com_loc_LnCol start = com_reader_position(r);
   // Skip first quote
   {
@@ -566,11 +566,11 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
 
   while (true) {
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
-    if(ret.valid && (com_format_is_alphanumeric(ret.value) || ret.value== '_'))
+    if(ret.valid && (com_format_is_alphanumeric(ret.value) || ret.value== '_')) {
       *com_vec_push_m(&data, u8) = ret.value;
-      com_reader_drop_u8((lexer);
-    } else if (c == '`') {
-      lex_next(lexer);
+      com_reader_drop_u8(r);
+    } else if (c == '!') {
+      com_reader_drop_u8(r);
       macro = true;
       break;
     } else {
@@ -578,14 +578,11 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     }
   }
 
-  Span span = SPAN(start, lex_position(lexer));
+  com_loc_Span span = com_loc_span_m(start, com_reader_position(r));
 
-  // Note that string length does not incude the trailing null byte
-  // Push null byte
-  *VEC_PUSH(&data, char) = '\0';
-  char *string = vec_get(&data, 0);
+  com_str_mut m = com_vec_to_str(&data);
 
-  if (!strcmp(string, "_")) {
+  if (com_str_equal(com_str_demut(m)) {
     vec_destroy(&data);
     return (Token){.kind = tk_Underscore, .span = span};
   }

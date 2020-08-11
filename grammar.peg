@@ -28,8 +28,6 @@ IDENTIFIER
 MACROIDENTIFIER <- [A-Za-z_][A-Za-z0-9_]* skip
 
 AMPERSAND            <- "&"      ![&=]     skip
-AMPERSAND2           <- "&&"               skip
-AMPERSANDEQUAL       <- "&="               skip
 ASTERISK             <- "*"      ![%=]     skip
 ASTERISKEQUAL        <- "*="               skip
 ASTERISKPERCENT      <- "*%"     ![=]      skip
@@ -37,14 +35,14 @@ ASTERISKPERCENTEQUAL <- "*%="              skip
 COLON                <- ":"      ![=]      skip
 COMMA                <- ","                skip
 DOT                  <- "."      ![.]      skip
-DOT2                 <- ".."               skip
+DOTDOT               <- ".."               skip
 EQUAL                <- "="      ![>=]     skip
 EQUALEQUAL           <- "=="               skip
 COLONEQUAL           <- ":="               skip
 EQUALRARROW          <- "=>"               skip
 EXCLAMATIONMARK      <- "!"      ![=]      skip
 EXCLAMATIONMARKEQUAL <- "!="               skip
-LARROW               <- "<"      ![<=]     skip
+LARROW               <- "<"      ![=]      skip
 LARROWEQUAL          <- "<="               skip
 LBRACE               <- "{"                skip
 LBRACKET             <- "["      ![*]      skip
@@ -57,13 +55,12 @@ MINUSRARROW          <- "->"               skip
 PERCENT              <- "%"      ![=]      skip
 PERCENTEQUAL         <- "%="               skip
 PIPE                 <- "|"      ![|=]     skip
-PIPE2                <- "||"               skip
 PIPERARROW           <- "|>"               skip
 PLUS                 <- "+"      ![%+=]    skip
 PLUSEQUAL            <- "+="               skip
 PLUSPERCENT          <- "+%"     ![=]      skip
 PLUSPERCENTEQUAL     <- "+%="              skip
-RARROW               <- ">"      ![>=]     skip
+RARROW               <- ">"      ![=]      skip
 RARROWEQUAL          <- ">="               skip
 RBRACE               <- "}"                skip
 RBRACKET             <- "]"                skip
@@ -88,6 +85,8 @@ KEYWORD_mod       <- "mod"      end_of_word
 KEYWORD_use       <- "use"      end_of_word
 KEYWORD_true      <- "true"     end_of_word
 KEYWORD_false     <- "false"    end_of_word
+KEYWORD_and       <- "and"      end_of_word
+KEYWORD_or        <- "or"       end_of_word
 KEYWORD_nil       <- "nil"      end_of_word
 KEYWORD_never     <- "never"    end_of_word
 

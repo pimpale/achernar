@@ -4,7 +4,6 @@ Root <- Spacing Stmnt* !.
 
 Stmnt <- Metadata ( UseStmnt / ModStmnt / ValDeclStmnt / TypeDeclStmnt / ValExpr )
 
-
 UseStmnt <- KeywordUse ModReference
 ModStmnt <- KeywordMod ModBinding LBrace Stmnt* RBrace
 ValDeclStmnt <- KeywordVal LBracket Binding* RBracket PatExpr Define ValExpr
@@ -169,6 +168,8 @@ LoopValExpr <- KeywordLoop LabelBinding? ValExpr
 RetValExpr <- KeywordRet LabelReference ValExpr
 
 RefValExpr <- Reference GenericResolutionParams?
+
+GenericResolutionParams <- LBracket TypeExpr* RBracket
 
 BlockValExpr <- LBrace LabelBinding? Statement* RBrace
 

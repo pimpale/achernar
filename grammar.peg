@@ -4,11 +4,11 @@ Root <- Spacing Stmnt* EOF;
 
 // --- STATEMENTS ---
 
-UseStmnt <- KeywordUse ModReference
-ModStmnt <- KeywordMod ModBinding LBrace Stmnt* RBrace
-ValDeclStmnt <- KeywordVal PatExpr Define ValExpr
-TemplateDeclStmnt <- KeywordTemplate LBracket Binding* RBracket PatExpr Define ValExpr
-TypeDeclStmnt <- KeywordType Binding Define TypeExpr
+UseStmnt <- KeywordUse ModReference;
+ModStmnt <- KeywordMod ModBinding LBrace Stmnt* RBrace;
+ValDeclStmnt <- KeywordVal PatExpr Define ValExpr;
+TemplateDeclStmnt <- KeywordTemplate LBracket Binding* RBracket PatExpr Define ValExpr;
+TypeDeclStmnt <- KeywordType Binding Define TypeExpr;
 Stmnt <- Metadata ( UseStmnt / ModStmnt / ValDeclStmnt / TemplateDeclStmnt / TypeDeclStmnt / ValExpr );
 
 // --- PATTERN EXPR ---
@@ -167,13 +167,13 @@ FnValExpr <- KeywordFn Binding? LParen ( ValExpr )* RParen TypeExpr Yields ValEx
 
 LoopValExpr <- KeywordLoop LabelBinding? ValExpr;
 
-RetValExpr <- KeywordRet LabelReference ValExpr
+RetValExpr <- KeywordRet LabelReference ValExpr;
 
 RefValExpr <- Reference GenericResolutionParams?;
 
-GenericResolutionParams <- LBracket TypeExpr* RBracket
+GenericResolutionParams <- LBracket TypeExpr* RBracket;
 
-BlockValExpr <- LBrace LabelBinding? Statement* RBrace
+BlockValExpr <- LBrace LabelBinding? Statement* RBrace;
 
 StructLiteral <- KeywordStruct LBrace FieldLiteralExpr* RBrace;
 
@@ -217,7 +217,7 @@ WordAttrbute
     <- "$ " r'[^\n]*' Spacing;
 
 LineAttrbute
-    <- "$" r'[A-Za-z_][A-Za-z0-9_]' Spacing 
+    <- "$" r'[A-Za-z_][A-Za-z0-9_]' Spacing; 
 
 NotMultiLineAttrbute 
     <- (!"${" !"}$" .); 
@@ -232,7 +232,7 @@ MacroExpr <- MacroIdentifier LParen RParen;
 
 // --- LABELS + REFERENCES ---
 
-Label <- "'" Identifier
+Label <- "'" Identifier;
 
 LabelReference <- Label; 
 LabelBinding <- Label;
@@ -337,7 +337,7 @@ OpDivAssign             <- "/="               Spacing;
 
 // --- KEYWORDS ---
 
-WordEnd <- r'![a-zA-Z0-9_]' Spacing
+WordEnd <- r'![a-zA-Z0-9_]' Spacing;
 
 KeywordLoop      <- "loop"     WordEnd;
 KeywordMatch     <- "match"    WordEnd;

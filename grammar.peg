@@ -6,9 +6,10 @@ Root <- Spacing Stmnt* EOF;
 
 UseStmnt <- KeywordUse ModReference
 ModStmnt <- KeywordMod ModBinding LBrace Stmnt* RBrace
-ValDeclStmnt <- KeywordVal LBracket Binding* RBracket PatExpr Define ValExpr
+ValDeclStmnt <- KeywordVal PatExpr Define ValExpr
+TemplateDeclStmnt <- KeywordTemplate LBracket Binding* RBracket PatExpr Define ValExpr
 TypeDeclStmnt <- KeywordType Binding Define TypeExpr
-Stmnt <- Metadata ( UseStmnt / ModStmnt / ValDeclStmnt / TypeDeclStmnt / ValExpr );
+Stmnt <- Metadata ( UseStmnt / ModStmnt / ValDeclStmnt / TemplateDeclStmnt / TypeDeclStmnt / ValExpr );
 
 // --- PATTERN EXPR ---
 

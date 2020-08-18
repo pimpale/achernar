@@ -4,6 +4,9 @@ try:
 except:
     text=str
 
+
+from arpeggio import PTNodeVisitor
+
 class GrammarVisitor(PTNodeVisitor):
 
     def visit_number(self, node, children):

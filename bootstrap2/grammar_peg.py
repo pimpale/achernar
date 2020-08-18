@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals, print_function
 import os
 from arpeggio.peg import ParserPEG
 from arpeggio import visit_parse_tree
-from achernar import GrammarVisitor
+from visitor_pattern import GrammarVisitor
 
 def main(debug=False):
 
@@ -18,10 +18,10 @@ def main(debug=False):
     parser = ParserPEG(grammar, "Root", debug=debug)
 
     # An expression we want to evaluate
-    input_expr = "3*(4+2)"
+    input_file = open(os.path.join(os.path.dirname, 'testprogram.acn')).read()
 
     # Then parse tree is created out of the input_expr expression.
-    parse_tree = parser.parse(input_expr)
+    parse_tree = parser.parse(input_file)
 
     # The result is obtained by semantic evaluation using visitor class.
     # visit_parse_tree will start semantic analysis.

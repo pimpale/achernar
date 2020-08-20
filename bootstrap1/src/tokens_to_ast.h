@@ -11,7 +11,7 @@
 
 typedef struct {
   com_allocator *_a;
-  com_reader _reader;
+  com_reader* _reader;
   com_queue _next_tokens_queue;
 } AstConstructor;
 

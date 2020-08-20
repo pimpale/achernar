@@ -17,7 +17,8 @@ typedef enum {
   tk_Loop,      // loop
   tk_Match,     // match
   tk_Val,       // val
-  tk_Return,    // return
+  tk_Template,  // template
+  tk_Ret,       // ret
   tk_Defer,     // defer
   tk_Fn,        // fn
   tk_Pat,       // pat
@@ -25,7 +26,8 @@ typedef enum {
   tk_Struct,    // struct
   tk_Enum,      // enum
   tk_Type,      // type
-  tk_Namespace, // namespace
+  tk_Typefn,    // typefn
+  tk_Mod,       // mod
   tk_Use,       // use
   // Literals and constants
   tk_Nil,    // nil
@@ -35,16 +37,14 @@ typedef enum {
   tk_Float,  // 0.7
   tk_Int,    // 7
   // Math Operators
-  // Unary
   tk_Add,    // +
   tk_Sub,    // -
   tk_Mul,    // *
-  tk_Div,    // /
-  tk_Mod,    // %
+  tk_Rem,    // %
   // Logical Operators
-  tk_And, // &&
-  tk_Or,  // ||
-  tk_Not, // !
+  tk_And, // and
+  tk_Or,  // or
+  tk_Not, // not
   // Comparison and Equality
   tk_CompEqual,        // ==
   tk_CompNotEqual,     // !=
@@ -62,15 +62,16 @@ typedef enum {
   tk_AssignSub, // -=
   tk_AssignMul, // *=
   tk_AssignDiv, // /=
-  tk_AssignMod, // %=
+  tk_AssignRem, // %=
   // Arrows
   tk_Pipe,  // ->
   tk_Arrow, // =>
   // Scope resolution
-  tk_ScopeResolution, // ::
-  // Types
-  tk_Tuple, // ,
-  tk_Union, // |
+  tk_MemberResolution, // ::
+  // Type operators
+  tk_Tuple,        // ,
+  tk_Either,       // |
+  tk_Intersection, // ||
   // Other Miscellaneous Operator Things
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
@@ -83,13 +84,15 @@ typedef enum {
   tk_Semicolon,    // ;
   tk_Backtick,     // `
   tk_Underscore,   // _
+  tk_Slash,        // /
   tk_Rest,         // ..
   tk_Dollar,       // $
   // Macros
   tk_Label, // 'label
   tk_Macro, // macroidentifier!
   // Comments, and Attributes
-  tk_Comment, // #{ comment }# and # comment
+  tk_Comment, // #{ comment }#, #comment and ##comment
+  tk_Attribute, // ${ attribute }$, $attribute and $$attribute
 } tk_Kind;
 
 
@@ -114,8 +117,10 @@ typedef struct Token_s {
       com_str data;
     } labelToken;
     struct {
+      com_str content;
+    } attributeToken;
+    struct {
       com_str comment;
-      com_str scope;
     } commentToken;
     struct {
       bool data;

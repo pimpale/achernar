@@ -1,6 +1,6 @@
 // Grammar in traditional PEG
 
-Root <- Spacing Stmnt* EOF;
+Root <- Spacing Comment* EOF;
 
 // --- STATEMENTS ---
 
@@ -97,7 +97,7 @@ L9ValExpr
                              / OpSubAssign
                              / OpMulAssign
                              / OpDivAssign
-                             / OpRemainderAssign 
+                             / OpRemAssign 
                              ) L9ValExpr)
      / L8ValExpr; 
 
@@ -118,7 +118,7 @@ L5ValExpr
      / L4ValExpr; 
 
 L4ValExpr 
-    <- (L3ValExpr Metadata ( OpMul / OpDiv / OpRemainder) L4ValExpr)
+    <- (L3ValExpr Metadata ( OpMul / OpDiv / OpRem) L4ValExpr)
      / L3ValExpr; 
 
 L3ValExpr 
@@ -191,16 +191,15 @@ FieldPatExpr <- Metadata ( (FieldReference Arrow PatExpr) / MacroExpr );
 Metadata <- ( Comment / Attribute )*
 
 Comment 
-    <- WordComment
+    <- MultilineComment
      / LineComment
-     / MultilineComment;
+     / WordComment;
 
 WordComment
-    <- "# " r'[^\n]*' Spacing;
+    <- "##" r'[A-Za-z_][A-Za-z0-9_]' Spacing; 
 
-// IS THERE SUPPOSED TO BE A SPACE IN THE REGEX
 LineComment
-    <- "#" r'[A-Za-z_][A-Za-z0-9_]' Spacing; 
+    <- "# " r'[^\n]*' Spacing;
 
 NotMultiLineComment 
     <- (!"#{" !"}#" .); 
@@ -208,22 +207,22 @@ NotMultiLineComment
 MultilineComment 
     <- "#{" (NotMultiLineComment / MultilineComment)* "}#" Spacing;
 
-Attribute
-    <- WordAttribute
+Attribute 
+    <- MultilineAttribute
      / LineAttribute
-     / MultilineAttribute;
+     / WordAttribute;
 
-WordAttrbute
-    <- "$ " r'[^\n]*' Spacing;
+WordAttribute
+    <- "$" r'[^\n]*' Spacing;
 
-LineAttrbute
-    <- "$" r'[A-Za-z_][A-Za-z0-9_]' Spacing; 
+LineAttribute
+    <- "$$" r'[A-Za-z_][A-Za-z0-9_]' Spacing; 
 
-NotMultiLineAttrbute 
+NotMultiLineAttribute 
     <- (!"${" !"}$" .); 
 
-MultilineAttrbute 
-    <- "${" (NotMultiLineAttrbute / MultilineAttrbute)* "}$" Spacing;
+MultilineAttribute 
+    <- "${" (NotMultiLineAttribute / MultilineAttribute)* "}$" Spacing;
 
 
 // --- MACROS ---
@@ -321,8 +320,8 @@ LParen                  <- "("                Spacing;
 OpSub                   <- "-"  r'![=>]'      Spacing;
 OpSubAssign             <- "-="               Spacing;
 OpPipe                  <- "->"               Spacing;
-OpRemainder             <- "%"  r'![=]'       Spacing;
-OpRemainderAssign       <- "%="               Spacing;
+OpRem                   <- "%"  r'![=]'       Spacing;
+OpRemAssign             <- "%="               Spacing;
 OpEnum                  <- "|"  r'![|]'       Spacing;
 OpIntersection          <- "||"               Spacing;
 OpAdd                   <- "+"  r'![+=]'      Spacing;
@@ -343,6 +342,7 @@ KeywordLoop      <- "loop"     WordEnd;
 KeywordMatch     <- "match"    WordEnd;
 KeywordPat       <- "pat"      WordEnd;
 KeywordVal       <- "val"      WordEnd;
+KeywordVal       <- "template" WordEnd;
 KeywordRet       <- "ret"      WordEnd;
 KeywordDefer     <- "defer"    WordEnd;
 KeywordFn        <- "fn"       WordEnd;

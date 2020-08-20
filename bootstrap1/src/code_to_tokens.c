@@ -13,41 +13,18 @@
 
 // Call this function right before the first hash
 // Returns control at the first noncomment area
-// Lexes comments
-static Token lexComment(com_reader *r,
-                        attr_UNUSED DiagnosticLogger *diagnostics,
-                        com_allocator *a) {
+// Lexes attributes
+static Token lexAttributeOrComment(com_reader *r,
+                                   attr_UNUSED DiagnosticLogger *diagnostics,
+                                   com_allocator *a, bool attribute) {
+
+  u8 character = attribute ? '$' : '#';
 
   com_loc_LnCol start = com_reader_position(r);
 
   com_reader_ReadU8Result c = com_reader_read_u8(r);
-  com_assert_m(c.valid && c.value == '#', "expected #");
-
-  c = com_reader_peek_u8(r, 1);
-
-  // Determine the scope of the
-  com_str scope;
-  if (c.valid && c.value == '@') {
-    com_reader_drop_u8(r);
-
-    com_vec data = com_vec_create(com_allocator_alloc(
-        a, (com_allocator_HandleData){.len = 10,
-                                      .flags = com_allocator_defaults(a) |
-                                               com_allocator_NOLEAK |
-                                               com_allocator_REALLOCABLE}));
-    while (true) {
-      c = com_reader_peek_u8(r, 1);
-      if (c.valid && (com_format_is_alphanumeric(c.value) || c.value == '/')) {
-        *com_vec_push_m(&data, u8) = (u8)c.value;
-        com_reader_drop_u8(r);
-      } else {
-        break;
-      }
-    }
-    scope = com_str_demut(com_vec_to_str(&data));
-  } else {
-    scope = com_str_lit_m("");
-  }
+  com_assert_m(c.valid && c.value == character,
+               attribute ? "expected $" : " expected #");
 
   com_vec data = com_vec_create(com_allocator_alloc(
       a, (com_allocator_HandleData){.len = 10,
@@ -56,11 +33,11 @@ static Token lexComment(com_reader *r,
                                              com_allocator_NOLEAK}));
 
   // Now we determine the type of comment as well as gather the comment data
+  c = com_reader_peek_u8(r, 1);
   if (c.valid && c.value == '{') {
-    // This is a comment. It will continue until another quote asterix is found.
+    // This is a multi line attribute. It will continue until another is found.
     // These strings are preserved in the AST. They are nestable
-    // also nestable
-    // #{ Comment }#
+    // ${ Attribute }$
 
     usize stackDepth = 1;
 
@@ -71,12 +48,12 @@ static Token lexComment(com_reader *r,
       com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
       com_reader_ReadU8Result nc = com_reader_peek_u8(r, 2);
       if (cc.valid) {
-        if (cc.value == '}' && nc.valid && nc.value == '#') {
+        if (cc.value == '}' && nc.valid && nc.value == character) {
           stackDepth--;
           if (stackDepth == 0) {
             break;
           }
-        } else if (cc.value == '#' && nc.valid && nc.value == '{') {
+        } else if (cc.value == character && nc.valid && nc.value == '{') {
           stackDepth++;
         }
         *com_vec_push_m(&data, u8) = cc.value;
@@ -84,21 +61,10 @@ static Token lexComment(com_reader *r,
         break;
       }
     }
-
-    // Return data
-    return (Token){
-        .kind = tk_Comment,
-        .commentToken =
-            {
-                .scope = scope,
-                .comment = com_str_demut(com_vec_to_str(&data)),
-            },
-        .span = com_loc_span_m(start, com_reader_position(r)),
-    };
-  } else {
-    // If we don't recognize any of these characters, it's just a normal single
-    // line comment. These are not nestable, and continue till the end of line.
-    // # comment
+  } else if (c.valid && c.value == character) {
+    // it's a normal single line attribute.
+    // These are not nestable, and continue till the end of line.
+    // $$ attribute
     while (true) {
       com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
       if (!cc.valid || cc.value == '\n') {
@@ -107,18 +73,49 @@ static Token lexComment(com_reader *r,
         *com_vec_push_m(&data, u8) = (u8)cc.value;
       }
     }
+  } else {
+    // it's a single word attribute. continues until non alphanumeric
+    // $attribute
+    while (true) {
+      com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
+      if (!cc.valid || !com_format_is_alphanumeric(cc.value)) {
+        break;
+      } else {
+        *com_vec_push_m(&data, u8) = (u8)cc.value;
+      }
+    }
+  }
 
-    // Return data
+  // Return data
+  if (attribute) {
     return (Token){
-        .kind = tk_Comment,
+        .kind = tk_Attribute,
+        .attributeToken =
+            {
+                .content = com_str_demut(com_vec_to_str(&data)),
+            },
+        .span = com_loc_span_m(start, com_reader_position(r)),
+    };
+  } else {
+    return (Token){
+        .kind = tk_Attribute,
         .commentToken =
             {
-                .scope = scope,
                 .comment = com_str_demut(com_vec_to_str(&data)),
             },
         .span = com_loc_span_m(start, com_reader_position(r)),
     };
   }
+}
+
+static Token lexAttribute(com_reader *r, DiagnosticLogger *diagnostics,
+                          com_allocator *a) {
+  return lexAttributeOrComment(r, diagnostics, a, true);
+}
+
+static Token lexComment(com_reader *r, DiagnosticLogger *diagnostics,
+                        com_allocator *a) {
+  return lexAttributeOrComment(r, diagnostics, a, false);
 }
 
 // Call this function right before the first quote of the string literal
@@ -373,51 +370,54 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
         .span = com_loc_span_m(start, com_reader_position(r))};
   } else {
     return (Token){.kind = tk_Int,
-                   .intToken = {
+                   .intToken =
+                       {
                            .data = base_component,
                        },
                    .span = com_loc_span_m(start, com_reader_position(r))};
   }
 }
 
-static Token lexLabelLiteral(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics, com_allocator *a) {
+static Token lexLabelLiteral(com_reader *r,
+                             attr_UNUSED DiagnosticLogger *diagnostics,
+                             com_allocator *a) {
   com_loc_LnCol start = com_reader_position(r);
   // Skip first quote
   {
-		com_reader_ReadU8Result ret = com_reader_read_u8(r);
-	  com_assert_m(ret.valid && ret.value == '\'', "expected single quote");
+    com_reader_ReadU8Result ret = com_reader_read_u8(r);
+    com_assert_m(ret.valid && ret.value == '\'', "expected single quote");
   }
-  com_vec label_data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
-      .len=1,
-      .flags = com_allocator_defaults(a) | com_allocator_REALLOCABLE | com_allocator_NOLEAK
-  }));
+  com_vec label_data = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 1,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_REALLOCABLE |
+                                             com_allocator_NOLEAK}));
 
-  while(true) {
-		com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
-		if(ret.valid && (com_format_is_alphanumeric(ret.value) || ret.value== '_')) {
-        *com_vec_push_m(&label_data, u8) = ret.value;
-        com_reader_drop_u8(r);
-		} else {
-    		break;
-		}
+  while (true) {
+    com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
+    if (ret.valid &&
+        (com_format_is_alphanumeric(ret.value) || ret.value == '_')) {
+      *com_vec_push_m(&label_data, u8) = ret.value;
+      com_reader_drop_u8(r);
+    } else {
+      break;
+    }
   }
 
-  return (Token) {
-		.span = com_loc_span_m(start, com_reader_position(r)),
-		.kind=tk_Label,
-		.labelToken = {
-    		.data=com_str_demut(com_vec_to_str(&label_data)),
-		}
-  };
+  return (Token){.span = com_loc_span_m(start, com_reader_position(r)),
+                 .kind = tk_Label,
+                 .labelToken = {
+                     .data = com_str_demut(com_vec_to_str(&label_data)),
+                 }};
 }
 
 static Token lexCharLiteral(com_reader *r, DiagnosticLogger *diagnostics,
-                                   attr_UNUSED com_allocator *a) {
+                            attr_UNUSED com_allocator *a) {
   com_loc_LnCol start = com_reader_position(r);
   // Skip first quote
   {
-		com_reader_ReadU8Result ret = com_reader_read_u8(r);
-	  com_assert_m(ret.valid && ret.value == '\'', "expected single quote");
+    com_reader_ReadU8Result ret = com_reader_read_u8(r);
+    com_assert_m(ret.valid && ret.value == '\'', "expected single quote");
   }
 
   // State of lexer
@@ -436,44 +436,39 @@ static Token lexCharLiteral(com_reader *r, DiagnosticLogger *diagnostics,
   while (true) {
     switch (state) {
     case LCS_Initial: {
-			com_reader_ReadU8Result ret = com_reader_read_u8(r);
-			if(ret.valid) {
-    			if(ret.value == '\\') {
-		        state = LCS_SpecialChar;
-    			} else {
-        		char_literal = ret.value;
-        		state = LCS_ExpectEnd;
-    			}
+      com_reader_ReadU8Result ret = com_reader_read_u8(r);
+      if (ret.valid) {
+        if (ret.value == '\\') {
+          state = LCS_SpecialChar;
+        } else {
+          char_literal = ret.value;
+          state = LCS_ExpectEnd;
+        }
       } else {
         com_loc_Span span = com_loc_span_m(start, com_reader_position(r));
-      	*dlogger_append(diagnostics) = (Diagnostic) {
-          	.span=span,
-          	.severity=DSK_Error,
-          	.message=com_str_lit_m("unexpected EOF after opening single quote"),
-          	.children_len=0
-      	};
-      	return (Token) {
-          	.kind=tk_None,
-          	.span=span
-      	};
+        *dlogger_append(diagnostics) =
+            (Diagnostic){.span = span,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m(
+                             "unexpected EOF after opening single quote"),
+                         .children_len = 0};
+        return (Token){.kind = tk_None, .span = span};
       }
       break;
     }
     case LCS_SpecialChar: {
       com_reader_ReadU8Result ret = com_reader_read_u8(r);
-      if(!ret.valid) {
+      if (!ret.valid) {
         com_loc_Span span = com_loc_span_m(start, com_reader_position(r));
-      	*dlogger_append(diagnostics) = (Diagnostic) {
-          	.span=span,
-          	.severity=DSK_Error,
-          	.message=com_str_lit_m("unexpected EOF after backslash in char literal"),
-          	.children_len=0
-      	};
-      	return (Token) {
-          	.kind=tk_Char,
-          	.span=span
+        *dlogger_append(diagnostics) =
+            (Diagnostic){.span = span,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m(
+                             "unexpected EOF after backslash in char literal"),
+                         .children_len = 0};
+        return (Token){.kind = tk_Char, .span = span
 
-      	};
+        };
       }
       switch (ret.value) {
       case '\\': {
@@ -518,12 +513,11 @@ static Token lexCharLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       }
       default: {
         char_literal = ret.value;
-        *dlogger_append(diagnostics) = (Diagnostic) {
-						.span = com_loc_span_m(start, com_reader_position(r)),
-						.severity=DSK_Error,
-						.message=com_str_lit_m("char literal unrecognized escape code"),
-						.children_len=0
-        };
+        *dlogger_append(diagnostics) = (Diagnostic){
+            .span = com_loc_span_m(start, com_reader_position(r)),
+            .severity = DSK_Error,
+            .message = com_str_lit_m("char literal unrecognized escape code"),
+            .children_len = 0};
         break;
       }
       }
@@ -531,21 +525,21 @@ static Token lexCharLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       break;
     }
     case LCS_ExpectEnd: {
-      com_loc_Span sp = com_reader_peek_span_u8(r,1);
+      com_loc_Span sp = com_reader_peek_span_u8(r, 1);
       com_reader_ReadU8Result ret = com_reader_read_u8(r);
-      if(!(ret.valid && ret.value == '\'')) {
-        *dlogger_append(diagnostics) = (Diagnostic) {
-						.span = sp,
-						.severity=DSK_Error,
-						.message=com_str_lit_m("char literal expected closing single quote"),
-						.children_len=0
-        };
-      } 
-    	return (Token){
-       .kind = tk_Char,
-       .charToken = {.data=char_literal},
-       .span = com_loc_span_m(start, com_reader_position(r)),
-    	};
+      if (!(ret.valid && ret.value == '\'')) {
+        *dlogger_append(diagnostics) =
+            (Diagnostic){.span = sp,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m(
+                             "char literal expected closing single quote"),
+                         .children_len = 0};
+      }
+      return (Token){
+          .kind = tk_Char,
+          .charToken = {.data = char_literal},
+          .span = com_loc_span_m(start, com_reader_position(r)),
+      };
     }
     }
   }
@@ -557,159 +551,209 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
 
   com_loc_LnCol start = com_reader_position(r);
 
-  com_vec data = com_vec_create(com_allocator_alloc(a, (com_allocator_HandleData) {
-      .len=10,
-      .flags=com_allocator_defaults(a) | com_allocator_REALLOCABLE | com_allocator_NOLEAK
-      }));
+  com_vec data = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 10,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_REALLOCABLE |
+                                             com_allocator_NOLEAK}));
 
   bool macro = false;
 
   while (true) {
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
-    if(ret.valid && (com_format_is_alphanumeric(ret.value) || ret.value== '_')) {
-      *com_vec_push_m(&data, u8) = ret.value;
-      com_reader_drop_u8(r);
-    } else if (c == '!') {
-      com_reader_drop_u8(r);
-      macro = true;
-      break;
+    if (ret.valid) {
+      u8 c = ret.value;
+      if (com_format_is_alphanumeric(c) || c == '_') {
+        *com_vec_push_m(&data, u8) = c;
+        com_reader_drop_u8(r);
+      } else if (c == '!') {
+        com_reader_drop_u8(r);
+        macro = true;
+        break;
+      } else {
+        // we encountered a nonword char
+        break;
+      }
     } else {
+      // means we hit EOF
       break;
     }
   }
 
   com_loc_Span span = com_loc_span_m(start, com_reader_position(r));
 
-  com_str_mut m = com_vec_to_str(&data);
+  com_str str = com_str_demut(com_vec_to_str(&data));
 
-  if (com_str_equal(com_str_demut(m)) {
-    vec_destroy(&data);
+  if (com_str_equal(str, com_str_lit_m("_"))) {
     return (Token){.kind = tk_Underscore, .span = span};
   }
 
   if (macro) {
     // It is an identifier, and we need to keep the string
-    return (Token){
-        .kind = tk_Macro, .macroToken = {vec_release(&data)}, .span = span};
+    return (Token){.kind = tk_Macro, .macroToken = {str}, .span = span};
   }
 
-  if (!strcmp(string, "true")) {
-    vec_destroy(&data);
+  if (com_str_equal(str, com_str_lit_m("true"))) {
     return (Token){.kind = tk_Bool, .boolToken = {true}, .span = span};
-  } else if (!strcmp(string, "false")) {
-    vec_destroy(&data);
+  } else if (com_str_equal(str, com_str_lit_m("false"))) {
     return (Token){.kind = tk_Bool, .boolToken = {false}, .span = span};
   }
 
   Token token;
   token.span = span;
-  if (!strcmp(string, "loop")) {
+
+  if (com_str_equal(str, com_str_lit_m("loop"))) {
     token.kind = tk_Loop;
-  } else if (!strcmp(string, "val")) {
-    token.kind = tk_Val;
-  } else if (!strcmp(string, "use")) {
-    token.kind = tk_Use;
-  } else if (!strcmp(string, "namespace")) {
-    token.kind = tk_Namespace;
-  } else if (!strcmp(string, "as")) {
-    token.kind = tk_As;
-  } else if (!strcmp(string, "match")) {
+  } else if (com_str_equal(str, com_str_lit_m("match"))) {
     token.kind = tk_Match;
-  } else if (!strcmp(string, "defer")) {
-    token.kind = tk_Defer;
-  } else if (!strcmp(string, "return")) {
-    token.kind = tk_Return;
-  } else if (!strcmp(string, "fn")) {
-    token.kind = tk_Fn;
-  } else if (!strcmp(string, "pat")) {
+  } else if (com_str_equal(str, com_str_lit_m("pat"))) {
     token.kind = tk_Pat;
-  } else if (!strcmp(string, "nil")) {
-    token.kind = tk_Nil;
-  } else if (!strcmp(string, "struct")) {
-    token.kind = tk_Struct;
-  } else if (!strcmp(string, "enum")) {
-    token.kind = tk_Enum;
-  } else if (!strcmp(string, "type")) {
+  } else if (com_str_equal(str, com_str_lit_m("val"))) {
+    token.kind = tk_Val;
+  } else if (com_str_equal(str, com_str_lit_m("template"))) {
+    token.kind = tk_Template;
+  } else if (com_str_equal(str, com_str_lit_m("ret"))) {
+    token.kind = tk_Ret;
+  } else if (com_str_equal(str, com_str_lit_m("defer"))) {
+    token.kind = tk_Defer;
+  } else if (com_str_equal(str, com_str_lit_m("fn"))) {
+    token.kind = tk_Fn;
+  } else if (com_str_equal(str, com_str_lit_m("pat"))) {
+    token.kind = tk_Pat;
+  } else if (com_str_equal(str, com_str_lit_m("as"))) {
+    token.kind = tk_As;
+  } else if (com_str_equal(str, com_str_lit_m("type"))) {
     token.kind = tk_Type;
-  } else if (!strcmp(string, "never")) {
+  } else if (com_str_equal(str, com_str_lit_m("typefn"))) {
+    token.kind = tk_Typefn;
+  } else if (com_str_equal(str, com_str_lit_m("struct"))) {
+    token.kind = tk_Struct;
+  } else if (com_str_equal(str, com_str_lit_m("enum"))) {
+    token.kind = tk_Enum;
+  } else if (com_str_equal(str, com_str_lit_m("mod"))) {
+    token.kind = tk_Mod;
+  } else if (com_str_equal(str, com_str_lit_m("use"))) {
+    token.kind = tk_Use;
+  } else if (com_str_equal(str, com_str_lit_m("and"))) {
+    token.kind = tk_And;
+  } else if (com_str_equal(str, com_str_lit_m("or"))) {
+    token.kind = tk_Or;
+  } else if (com_str_equal(str, com_str_lit_m("not"))) {
+    token.kind = tk_Not;
+  } else if (com_str_equal(str, com_str_lit_m("nil"))) {
+    token.kind = tk_Nil;
+  } else if (com_str_equal(str, com_str_lit_m("never"))) {
     token.kind = tk_Never;
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
-    token.identifierToken.data = vec_release(&data);
+    token.identifierToken.data = str;
     return token;
   }
 
-  // If it wasn't an identifier or macro
-  vec_destroy(&data);
   return token;
 }
 
 #define RESULT_TOKEN(tokenType)                                                \
-  (Token) { .kind = tokenType, .span = SPAN(start, lex_position(lexer)) }
+  (Token) {                                                                    \
+    .kind = tokenType, .span = com_loc_span_m(start, com_reader_position(r))   \
+  }
 
 #define RETURN_RESULT_TOKEN(tokenType) return RESULT_TOKEN(tokenType);
 
 #define NEXT_AND_RETURN_RESULT_TOKEN(tokenType)                                \
-  lex_next(lexer);                                                             \
+  com_reader_drop_u8(r);                                                       \
   RETURN_RESULT_TOKEN(tokenType)
 
+// utility methods to handle the incredible amount of edge cases
+
+typedef i16 inband_reader_result;
+static inband_reader_result lex_peek(com_reader *r, usize n) {
+  com_reader_ReadU8Result ret = com_reader_peek_u8(r, n);
+  if (!ret.valid) {
+    return -1;
+  }
+  return ret.value;
+}
+
+static bool is_alpha(inband_reader_result c) {
+  return c != -1 && com_format_is_alpha((u8)c);
+}
+
+static bool is_alphanumeric(inband_reader_result c) {
+  return c != -1 && com_format_is_alphanumeric((u8)c);
+}
+
+static bool is_digit(inband_reader_result c) {
+  return c != -1 && com_format_is_digit((u8)c);
+}
+
+static bool is_whitespace(inband_reader_result c) {
+  return c != -1 && com_format_is_whitespace((u8)c);
+}
+
 Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
-  int32_t c;
+  // always defined after
+  inband_reader_result c = -1;
+  inband_reader_result c2 = -1;
 
   // Set c to first nonblank character
-  while ((c = LEX_PEEK(lexer)) != EOF) {
-    if (isblank(c) || c == '\n') {
-      lex_next(lexer);
+  while ((c = lex_peek(r, 1)) != -1) {
+    // it's guaranteed that c is > 0 in body of while
+    if (is_whitespace(c)) {
+      com_reader_drop_u8(r);
     } else {
+      c2 = lex_peek(r, 2);
       break;
     }
   }
 
-  com_loc_LnCol start = lex_position(lexer);
+  com_loc_LnCol start = com_reader_position(r);
 
-  if (isalpha(c) || c == '_') {
-    return lexWord(lexer, diagnostics, a);
-  } else if (isdigit(c)) {
-    return lexNumberLiteral(lexer, diagnostics, a);
+  if (com_format_is_alpha((u8)c)) {
+    return lexWord(r, diagnostics, a);
+  } else if (c == '_' && is_alpha(c2)) {
+    return lexWord(r, diagnostics, a);
+  } else if (is_digit(c)) {
+    return lexNumberLiteral(r, diagnostics, a);
+  } else if ((c == '-' || c == '+') && is_digit(c2)) {
+    return lexNumberLiteral(r, diagnostics, a);
   } else {
     switch (c) {
     case '\'': {
-      return lexCharLiteralOrLabel(lexer, diagnostics, a);
+      if (lex_peek(r, 1) == '\\' || lex_peek(r, 2) == '\'') {
+        return lexCharLiteral(r, diagnostics, a);
+      } else {
+        return lexLabelLiteral(r, diagnostics, a);
+      }
     }
     case '\"': {
-      return lexStringLiteral(lexer, diagnostics, a);
+      return lexStringLiteral(r, diagnostics, a);
     }
     case '#': {
-      return lexComment(lexer, diagnostics, a);
+      return lexComment(r, diagnostics, a);
+    }
+    case '$': {
+      return lexAttribute(r, diagnostics, a);
     }
     case '&': {
-      lex_next(lexer);
-      // && or &
-      switch (LEX_PEEK(lexer)) {
-      case '&': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_And)
-      }
-      default: {
-        RETURN_RESULT_TOKEN(tk_Ref)
-      }
-      }
+      NEXT_AND_RETURN_RESULT_TOKEN(tk_And)
     }
     case '|': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '|': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Or)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_Enum)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Union)
+        RETURN_RESULT_TOKEN(tk_Intersection)
       }
       }
     }
     case '!': {
-      lex_next(lexer);
+      com_reader_drop_u8(r);
       // ! or !=
-      switch (LEX_PEEK(lexer)) {
+      switch (lex_peek(r, 1)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompNotEqual)
       }
@@ -719,9 +763,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '=': {
-      lex_next(lexer);
+      com_reader_drop_u8(r);
       // = or == or =>
-      switch (LEX_PEEK(lexer)) {
+      switch (lex_peek(r, 1)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompEqual)
       }
@@ -734,8 +778,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '<': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompLessEqual)
       }
@@ -745,8 +789,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '>': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_CompGreaterEqual)
       }
@@ -756,11 +800,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '+': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
-      case '+': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Posit)
-      }
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignAdd)
       }
@@ -770,11 +811,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '-': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
-      case '-': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Negate)
-      }
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '>': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Pipe)
       }
@@ -787,8 +825,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '*': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignMul)
       }
@@ -798,32 +836,32 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '/': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignDiv)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Div)
+        RETURN_RESULT_TOKEN(tk_Slash)
       }
       }
     }
     case '%': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignMod)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignRem)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Mod)
+        RETURN_RESULT_TOKEN(tk_Rem)
       }
       }
     }
     case ':': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case ':': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_ScopeResolution)
+        NEXT_AND_RETURN_RESULT_TOKEN(tk_MemberResolution)
       }
       case '=': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Define)
@@ -834,8 +872,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '.': {
-      lex_next(lexer);
-      switch (LEX_PEEK(lexer)) {
+      com_reader_drop_u8(r);
+      switch (lex_peek(r, 1)) {
       case '.': {
         NEXT_AND_RETURN_RESULT_TOKEN(tk_Rest)
       }
@@ -871,18 +909,16 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case ';': {
       NEXT_AND_RETURN_RESULT_TOKEN(tk_Semicolon)
     }
-    case '$': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_Dollar)
-    }
     case '`': {
       NEXT_AND_RETURN_RESULT_TOKEN(tk_Backtick)
     }
-    case EOF: {
-      RETURN_RESULT_TOKEN(tk_Eof)
-    }
     default: {
-      *dlogger_append(diagnostics) = diagnostic_standalone(
-          lex_getSpan(lexer), DSK_Error, "lexer unrecognized character");
+      com_reader_drop_u8(r);
+      *dlogger_append(diagnostics) =
+          (Diagnostic){.span = com_reader_peek_span_u8(r, 1),
+                       .severity = DSK_Error,
+                       .message = com_str_lit_m("lexer unrecognized character"),
+                       .children_len = 0};
       NEXT_AND_RETURN_RESULT_TOKEN(tk_None)
     }
     }

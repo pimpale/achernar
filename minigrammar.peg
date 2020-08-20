@@ -1,0 +1,39 @@
+Root <-Spacing Metadata EOF;
+
+Metadata <- ( Comment / Attribute )*
+
+Comment 
+    <- MultilineComment
+     / LineComment
+     / WordComment;
+
+WordComment
+    <- "#" r'[A-Za-z_][A-Za-z0-9_]' Spacing; 
+
+LineComment
+    <- "##" r'[^\n]*' Spacing;
+
+NotMultiLineComment 
+    <- (!"#{" !"}#" .); 
+
+MultilineComment 
+    <- "#{" (NotMultiLineComment / MultilineComment)* "}#" Spacing;
+
+Attribute 
+    <- MultilineAttribute
+     / LineAttribute
+     / WordAttribute;
+
+WordAttribute
+    <- "$" r'[^\n]*' Spacing;
+
+LineAttribute
+    <- "$$" r'[A-Za-z_][A-Za-z0-9_]' Spacing; 
+
+NotMultiLineAttribute 
+    <- (!"${" !"}$" .); 
+
+MultilineAttribute 
+    <- "${" (NotMultiLineAttribute / MultilineAttribute)* "}$" Spacing;
+
+Spacing <- r'[ \t\n]*';

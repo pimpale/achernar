@@ -1,12 +1,32 @@
-std::basics::print("hi")
-{
-  use std::basics
-  print("hi")
-}
+## here we discuss achernar's module system
+## achernar has uses a system of namespaces
+## you can put code in namespaces to ensure that names don't conflict with other names
 
-namespace foo {
-  namespace bar {
-    val x := 20
-    val y := 30
+
+## use `mod` to declare a a new module, or namespace
+
+
+mod foo {
+  ## everything inside this block will be visible in the namespace foo
+
+  val add := fn(a:int, b:int) int => a + b
+
+  ## you can also nest modules inside other modules
+
+  mod bar {
+    val add := "another variable"
   }
 }
+
+## it is an error to access `add` from here without a prefix
+## ERROR: `add(2, 2)`
+
+## to access the first definition of add:
+val c := foo::add(20, 40)
+
+## to access the nested definiton of add:
+val d := foo/bar::add
+
+
+## note that accessing a module from a module uses the / operator, but accessing a concrete object from a module uses the :: operator
+

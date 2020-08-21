@@ -1,1 +1,5 @@
-println("hello")
+## we're going to give the classic hello world in achernar
+
+sysinclude!("com/io")
+
+com/io/stdout::print("hello world")

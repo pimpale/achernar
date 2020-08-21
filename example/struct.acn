@@ -1,14 +1,28 @@
-type Stmnt := value: fnDecl: name: u8&, usize
-                           , params: Binding&, usize
-                           , kind: TypeExpr&,
-                           , body: ValueExpr&
-                   | varDecl: binding: Binding&
-                            , value: ValueExpr&
-                   | assignStmnt: lvalue: ValueExpr&
-                                , rvalue: ValueExpr&
-                   | aliasStmnt: name: u8&, usize
-                               , kind: Type&
-                   | exprStmnt: value: ValueExpr&
-            , span: Span
-            , diagnostics: Diagnostic&, usize
-
+type Stmnt := struct {
+  value: enum {
+    fnDecl: struct {
+      name: char&, usize
+      params: Binding&, usize
+      kind: TypeExpr&
+      body: ValueExpr&
+    }
+    varDecl: struct {
+      binding: Binding&
+      value: ValueExpr&
+    }
+    assignStmnt: struct {
+      lvalue: ValueExpr&
+      rvalue: ValueExpr&
+    }
+    aliasStmnt: struct {
+      name: char&, usize
+  
+    kind: Type&
+    }
+    exprStmnt: struct {
+      value: ValueExpr&
+    }
+  }
+  span:Span
+  diagnostics: Diagnostic&, usize
+}

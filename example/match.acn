@@ -1,18 +1,41 @@
-"hi",2
-match {
-  pat ==4 => "four"
-  pat ==5 => "five"
-  pat n:float => "float bound to n"
-  pat :int => "int, no binding"
-  pat x,y => "compound match"
-  pat x, ==5, z => "coolmatch"
-  pat >2,<2 => "first elem >2 and next less than"
-  pat { TEST } => "grouped expr"
-  pat {
-        x -> ==2,
-        y -> ==45 ,
-        elem3->sauce->cool
-      } => dofunction(x)
+## achernar uses pattern matching rather than if's and ternaries
+## match is more flexible
+
+## match is a postfix operator
+
+## this expression matches on 1
+val x := 1 match {
+  ## this pattern will match if the expression above evaluates to 1 (it does)
+  pat ==1 => "it's one"
+  ## otherwise it would run this one
+  ## note the use of the _ dummy variable. This variable matches any value and ignores it
+  pat _ => "not one"
 }
 
+## matches have to be exhaustive
+## means that every possible value of the input value has to be matched
+val y := 100 match {
+  pat  < 10 => "matches if it's less than 10
+  pat  < 40 => "matches if it's less than 40
+  pat  < 50 => "matches if it's less than 50
+  pat  < 70 => "matches if it's less than 70
+  pat  < 80 => "matches if it's less than 80
+  pat  < 100 => "matches if it's less than 100
+  pat  < 120 => "matches if it's less than 120
+  pat  >= 120 => "matches if more than 120"
+}
+
+## not only can you match on inequalities, you can also match on types
+
+val y:File|nil := maybeOpenFile()
+
+y match {
+  ## when put a colon in front of the pattern, you ignore the value of the expression, but force it to be of the type
+  pat :nil => com/io::print("we didn't open the file :( ")
+  ## you can bind to variable `y` and enforce that `y` has type File
+  pat y:File => {
+                   ## note a block is a valid expression in a match
+                   com/io::print("we managed to open the file!")
+                }
+}
 

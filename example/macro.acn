@@ -1,1 +1,7 @@
-foo` 1 2 `
+
+# macros are called like functions but have an exclamation point at the end
+# they will be replaced by code later during compilation
+# macros offer a convenient way for code to perform tasks during compilation such as retrieving environment variables, including data files, and much more
+
+
+foo!(1 2)

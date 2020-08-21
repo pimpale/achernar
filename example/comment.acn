@@ -1,0 +1,32 @@
+## a test line comment
+val x := 20
+
+$$ a test line attribute
+val y := 20
+
+
+
+#singleWordComment 
+#continuesUntilASpace
+$its $the $same $with $attributes
+type foo :=  $union struct {
+  ## struct member comment
+  struct_member: #comment int
+}
+
+# statement comment 2
+val #{multiline comment}# foo := nil
+
+#{
+    another multiline comment =====================
+}#
+
+${
+
+Multiline attribute
+
+}$
+
+x #{L11}# = 800 #{L9}# + #{L10}# 10
+
+

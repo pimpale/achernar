@@ -1,0 +1,8 @@
+# Creating types
+
+# You declare types the same way you would declare a function.
+
+type foo := struct {
+   nice:int 
+}
+

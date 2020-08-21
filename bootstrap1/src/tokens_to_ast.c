@@ -1,6 +1,7 @@
 #include "tokens_to_ast.h"
 
 #include "com_allocator.h"
+#include "com_assert.h"
 #include "com_loc.h"
 #include "com_queue.h"
 #include "com_vec.h"
@@ -37,8 +38,12 @@ AstConstructor ast_create(com_reader *r, com_allocator *a) {
   return (AstConstructor){
       ._a = a,      // com_allocator
       ._reader = r, // com_reader Pointer
-      ._next_tokens_queue =
-          queue_create(vec_create(a)), // Queue of peeked tokens
+      ._next_tokens_queue = com_queue_create(com_vec_create(com_allocator_alloc(
+          a,
+          (com_allocator_HandleData){
+              .len = 20,
+              .flags = com_allocator_defaults(a) | com_allocator_REALLOCABLE |
+                       com_allocator_REALLOCABLE}))), // Queue of peeked tokens
   };
 }
 
@@ -57,10 +62,10 @@ static Token parse_rawNext(AstConstructor *parser,
 static Token parse_next(AstConstructor *pp, DiagnosticLogger *diagnostics) {
 
   // the current scope we aim to push the comments to
-  if (QUEUE_LEN(&pp->_next_tokens_queue, Token) > 0) {
+  if (com_queue_len_m(&pp->_next_tokens_queue, Token) > 0) {
     // set the token
     Token ret;
-    QUEUE_POP(&pp->_next_tokens_queue, &ret, Token);
+    com_queue_pop_m(&pp->_next_tokens_queue, &ret, Token);
     return ret;
   } else {
     return parse_rawNext(pp, diagnostics);
@@ -73,27 +78,28 @@ static Token parse_peekNth(AstConstructor *pp, usize k,
                            DiagnosticLogger *diagnostics) {
   com_assert_m(k > 0, "k is not 1 or more");
 
-  for (usize i = QUEUE_LEN(&pp->_next_tokens_queue, Token); i < k; i++) {
+  for (usize i = com_queue_len_m(&pp->_next_tokens_queue, Token); i < k; i++) {
     // parse the token and enqueue it
-    *QUEUE_PUSH(&pp->_next_tokens_queue, Token) =
+    *com_queue_push_m(&pp->_next_tokens_queue, Token) =
         parse_rawNext(pp, diagnostics);
   }
 
   // return the most recent token added
-  return *QUEUE_GET(&pp->_next_tokens_queue,
-                    QUEUE_LEN(&pp->_next_tokens_queue, Token) - k, Token);
+  return *com_queue_get_m(&pp->_next_tokens_queue,
+                          com_queue_len_m(&pp->_next_tokens_queue, Token) - k,
+                          Token);
 }
 
 static Token parse_peek(AstConstructor *parser, DiagnosticLogger *diagnostics) {
   return parse_peekNth(parser, 1, diagnostics);
 }
 
-void ast_destroy(AstConstructor *pp) { queue_destroy(&pp->_next_tokens_queue); }
+void ast_destroy(AstConstructor *pp) { com_queue_destroy(&pp->_next_tokens_queue); }
 
 // returns a vector containing all the comments encountered here
 static com_vec parse_getComments(AstConstructor *parser,
                                  DiagnosticLogger *diagnostics) {
-  com_vec comments = vec_create(parser->_a);
+  com_vec comments = com_vec_create(parser->_a);
   while (parse_peek(parser, diagnostics).kind == tk_Comment) {
     Token c = parse_next(parser, diagnostics);
     *VEC_PUSH(&comments, ast_Comment) =

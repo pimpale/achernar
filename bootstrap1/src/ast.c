@@ -255,8 +255,8 @@ const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val) {
     return "Mul";
   case ast_VEBOK_Div:
     return "Div";
-  case ast_VEBOK_Mod:
-    return "Mod";
+  case ast_VEBOK_Rem:
+    return "Rem";
   case ast_VEBOK_And:
     return "And";
   case ast_VEBOK_Or:
@@ -285,8 +285,8 @@ const char *ast_strValBinaryOpKind(ast_ValBinaryOpKind val) {
     return "AssignMul";
   case ast_VEBOK_AssignDiv:
     return "AssignDiv";
-  case ast_VEBOK_AssignMod:
-    return "AssignMod";
+  case ast_VEBOK_AssignRem:
+    return "AssignRem";
   case ast_VEBOK_Tuple:
     return "Tuple";
   }
@@ -301,8 +301,8 @@ const char *ast_strStmntKind(ast_StmntKind val) {
     return "Use";
   case ast_SK_Macro:
     return "Macro";
-  case ast_SK_Namespace:
-    return "Namespace";
+  case ast_SK_Mod:
+    return "Mod";
   case ast_SK_ValDecl:
     return "ValDecl";
   case ast_SK_ValDeclDefine:

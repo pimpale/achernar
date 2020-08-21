@@ -91,8 +91,7 @@ typedef enum {
   tk_Label, // 'label
   tk_Macro, // macroidentifier!
   // Comments, and Attributes
-  tk_Comment, // #{ comment }#, #comment and ##comment
-  tk_Attribute, // ${ attribute }$, $attribute and $$attribute
+  tk_Metadata, // #{ comment }#, #comment and ##comment  ${ attribute }$, $attribute and $$attribute
 } tk_Kind;
 
 
@@ -117,11 +116,9 @@ typedef struct Token_s {
       com_str data;
     } labelToken;
     struct {
+      bool significant;
       com_str content;
-    } attributeToken;
-    struct {
-      com_str comment;
-    } commentToken;
+    } metadataToken;
     struct {
       bool data;
     } boolToken;

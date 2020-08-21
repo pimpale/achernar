@@ -14,17 +14,17 @@
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes attributes
-static Token lexAttributeOrComment(com_reader *r,
+static Token lexMetadata(com_reader *r,
                                    attr_UNUSED DiagnosticLogger *diagnostics,
-                                   com_allocator *a, bool attribute) {
+                                   com_allocator *a, bool significant) {
 
-  u8 character = attribute ? '$' : '#';
+  u8 character = significant ? '$' : '#';
 
   com_loc_LnCol start = com_reader_position(r);
 
   com_reader_ReadU8Result c = com_reader_read_u8(r);
   com_assert_m(c.valid && c.value == character,
-               attribute ? "expected $" : " expected #");
+               significant ? "expected $" : " expected #");
 
   com_vec data = com_vec_create(com_allocator_alloc(
       a, (com_allocator_HandleData){.len = 10,
@@ -86,36 +86,14 @@ static Token lexAttributeOrComment(com_reader *r,
     }
   }
 
-  // Return data
-  if (attribute) {
-    return (Token){
-        .kind = tk_Attribute,
-        .attributeToken =
-            {
-                .content = com_str_demut(com_vec_to_str(&data)),
-            },
-        .span = com_loc_span_m(start, com_reader_position(r)),
-    };
-  } else {
-    return (Token){
-        .kind = tk_Attribute,
-        .commentToken =
-            {
-                .comment = com_str_demut(com_vec_to_str(&data)),
-            },
-        .span = com_loc_span_m(start, com_reader_position(r)),
-    };
-  }
-}
-
-static Token lexAttribute(com_reader *r, DiagnosticLogger *diagnostics,
-                          com_allocator *a) {
-  return lexAttributeOrComment(r, diagnostics, a, true);
-}
-
-static Token lexComment(com_reader *r, DiagnosticLogger *diagnostics,
-                        com_allocator *a) {
-  return lexAttributeOrComment(r, diagnostics, a, false);
+  return (Token){
+      .kind = tk_Metadata,
+      .metadataToken = {
+              .content = com_str_demut(com_vec_to_str(&data)),
+              .significant = significant
+          },
+      .span = com_loc_span_m(start, com_reader_position(r)),
+  };
 }
 
 // Call this function right before the first quote of the string literal
@@ -731,10 +709,10 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       return lexStringLiteral(r, diagnostics, a);
     }
     case '#': {
-      return lexComment(r, diagnostics, a);
+      return lexMetadata(r, diagnostics, a, false);
     }
     case '$': {
-      return lexAttribute(r, diagnostics, a);
+      return lexMetadata(r, diagnostics, a, true);
     }
     case '&': {
       NEXT_AND_RETURN_RESULT_TOKEN(tk_And)

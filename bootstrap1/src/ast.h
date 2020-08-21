@@ -8,9 +8,9 @@
 
 typedef struct {
   com_loc_Span span;
-  com_str scope;
+  bool significant;
   com_str data;
-} ast_Comment;
+} ast_Metadata;
 
 typedef struct {
   com_loc_Span span;
@@ -22,33 +22,33 @@ typedef struct {
 typedef enum {
   ast_NBK_None,
   ast_NBK_Binding,
-} ast_NamespaceBindingKind;
+} ast_ModBindingKind;
 
 typedef struct {
   com_loc_Span span;
-  ast_NamespaceBindingKind kind;
+  ast_ModBindingKind kind;
   union {
     struct {
       com_str value;
     } binding;
   };
-} ast_NamespaceBinding;
+} ast_ModBinding;
 
 typedef enum {
   ast_NRK_None,
   ast_NRK_Reference,
-} ast_NamespaceReferenceKind;
+} ast_ModReferenceKind;
 
 typedef struct {
   com_loc_Span span;
-  ast_NamespaceReferenceKind kind;
+  ast_ModReferenceKind kind;
   union {
     struct {
       com_str *segments;
       usize segments_len;
     } reference;
   };
-} ast_NamespaceReference;
+} ast_ModReference;
 
 typedef enum {
   ast_RK_None,      // some kind of error
@@ -106,8 +106,8 @@ typedef struct {
 
 typedef struct {
   com_loc_Span span;
-  ast_Comment *comments;
-  usize comments_len;
+  ast_Metadata *metadata;
+  usize metadata_len;
 } ast_Common;
 
 typedef struct ast_Type_s ast_Type;
@@ -401,7 +401,7 @@ typedef enum {
   ast_VEBOK_Sub,
   ast_VEBOK_Mul,
   ast_VEBOK_Div,
-  ast_VEBOK_Mod,
+  ast_VEBOK_Rem,
   ast_VEBOK_And,
   ast_VEBOK_Or,
   ast_VEBOK_CompEqual,
@@ -416,7 +416,7 @@ typedef enum {
   ast_VEBOK_AssignSub,
   ast_VEBOK_AssignMul,
   ast_VEBOK_AssignDiv,
-  ast_VEBOK_AssignMod,
+  ast_VEBOK_AssignRem,
   ast_VEBOK_Tuple,
 } ast_ValBinaryOpKind;
 
@@ -504,7 +504,7 @@ typedef enum {
   ast_SK_None,
   ast_SK_Use,
   ast_SK_Macro,
-  ast_SK_Namespace,
+  ast_SK_Mod,
   ast_SK_ValDecl,
   ast_SK_ValDeclDefine,
   ast_SK_TypeDecl,
@@ -533,7 +533,7 @@ typedef struct ast_Stmnt_s {
       ast_Reference *path;
     } useStmnt;
     struct {
-      ast_NamespaceBinding *binding;
+      ast_ModBinding *binding;
       ast_Stmnt *stmnts;
       usize stmnts_len;
     } namespaceStmnt;

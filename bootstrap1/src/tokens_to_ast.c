@@ -24,8 +24,8 @@
       parse_next(parser, dlogger_ptr); /* accept delimiting tk */              \
       break;                                                                   \
     } else if (pl_ntk.kind == tk_Eof) {                                        \
-      *dlogger_append(dlogger_ptr) = diagnostic_standalone(                    \
-          pl_ntk.span, DSK_Error, (missing_delimiter_error_msg));              \
+      *dlogger_append(dlogger_ptr) = (Diagnostic){                             \
+          .span=pl_ntk.span, .severity=DSK_Error, .message=missing_delimiter_error_msg .children_len=0}              \
       end_lncol = pl_ntk.span.end;                                             \
       break;                                                                   \
     }                                                                          \
@@ -96,7 +96,7 @@ static Token parse_next(AstConstructor *pp, DiagnosticLogger *diagnostics) {
 // K must be greater than 0
 static Token parse_peekNth(AstConstructor *pp, usize k,
                            DiagnosticLogger *diagnostics) {
-  com_assert_m(k > 0, "k is not 1 or more");
+  com_assert_m(k > 0, "k is not 1 .message=orcom_lit_str_m( more");
 
   for (usize i = com_queue_len_m(&pp->_next_tokens_queue, Token); i < k; i++) {
     // parse the token and enqueue it
@@ -170,8 +170,7 @@ static void ast_certain_parseMacro(ast_Macro *mpe,
   while (true) {
     t = parse_next(parser, diagnostics);
     if (t.kind == tk_Eof) {
-      *dlogger_append(diagnostics) = diagnostic_standalone(
-          t.span, DSK_Error, "macro expected a closing backtick");
+      *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_str_lit_m("macro expected a closing backtick"), .children_len=0 };
       break;
     } else {
       if (t.kind == tk_Macro) {
@@ -190,7 +189,7 @@ static void ast_certain_parseMacro(ast_Macro *mpe,
   mpe->tokens_len = com_vec_len_m(&tokens, ast_Stmnt);
   mpe->tokens = com_vec_release(&tokens);
 
-  mpe->span = SPAN(start, end);
+  mpe->span = com_loc_span_m(start, end);
 }
 
 static void ast_parseReference(ast_Reference *ptr,
@@ -211,22 +210,20 @@ static void ast_parseReference(ast_Reference *ptr,
     ptr->kind = ast_RK_Reference;
   } else {
     ptr->kind = ast_RK_None;
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "reference expected identifier");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_str_lit_m("reference expected identifier"), .children_len=0 };
     end = t.span.end;
     goto CLEANUP;
   }
 
   while (true) {
     t = parse_peek(parser, diagnostics);
-    if (t.kind == tk_ScopeResolution) {
+    if (t.kind == tk_MemberResolution) {
       // discard the scope resolution
       parse_next(parser, diagnostics);
       // now check if we have an issue
       t = parse_next(parser, diagnostics);
       if (t.kind != tk_Identifier) {
-        *dlogger_append(diagnostics) = diagnostic_standalone(
-            t.span, DSK_Error, "reference expected identifier");
+        *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_str_lit_m("reference expected identifier"), .children_len=0 };
         end = t.span.end;
         goto CLEANUP;
       }
@@ -242,10 +239,10 @@ CLEANUP:
   ptr->reference.segments_len = com_vec_len_m(&pathSegments, u8*);
   ptr->reference.segments = com_vec_release(&pathSegments);
 
-  ptr->span = SPAN(start, end);
+  ptr->span = com_loc_span_m(start, end);
 }
 
-static void ast_parseNamespaceReference(ast_NamespaceReference *ptr,
+static void ast_parseModReference(ast_ModReference *ptr,
                                         DiagnosticLogger *diagnostics,
                                         AstConstructor *parser) {
   com_mem_zero_obj_m(ptr);
@@ -263,22 +260,20 @@ static void ast_parseNamespaceReference(ast_NamespaceReference *ptr,
     ptr->kind = ast_NRK_Reference;
   } else {
     ptr->kind = ast_NRK_None;
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "namespace reference expected identifier");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, "namespace reference .message=expectedcom_lit_str_m( identifier");
     end = t.span.end;
     goto CLEANUP;
   }
 
   while (true) {
     t = parse_peek(parser, diagnostics);
-    if (t.kind == tk_ScopeResolution) {
+    if (t.kind == tk_MemberResolution) {
       // discard the scope resolution
       parse_next(parser, diagnostics);
       // now check if we have an issue
       t = parse_next(parser, diagnostics);
       if (t.kind != tk_Identifier) {
-        *dlogger_append(diagnostics) = diagnostic_standalone(
-            t.span, DSK_Error, "namespace reference expected identifier");
+        *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, "namespace reference .message=expectedcom_lit_str_m( identifier");
         end = t.span.end;
         goto CLEANUP;
       }
@@ -294,7 +289,7 @@ CLEANUP:
   ptr->reference.segments_len = com_vec_len_m(&pathSegments, u8*);
   ptr->reference.segments = com_vec_release(&pathSegments);
 
-  ptr->span = SPAN(start, end);
+  ptr->span = com_loc_span_m(start, end);
 }
 
 static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
@@ -313,16 +308,15 @@ static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
     break;
   }
   default: {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error,
-        "binding expected either `_` for drop or an identifier to bind to");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error,
+        "binding expected either `_` for drop or an identifier to .message=bindcom_lit_str_m( to");
     ptr->kind = ast_BK_None;
     break;
   }
   }
 }
 
-static void ast_parseNamespaceBinding(ast_NamespaceBinding *ptr,
+static void ast_parseModBinding(ast_ModBinding *ptr,
                                       DiagnosticLogger *diagnostics,
                                       AstConstructor *parser) {
   com_mem_zero_obj_m(ptr);
@@ -335,9 +329,8 @@ static void ast_parseNamespaceBinding(ast_NamespaceBinding *ptr,
     break;
   }
   default: {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error,
-        "binding expected either `_` for drop or an identifier to bind to");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error,
+        "binding expected either `_` for drop or an identifier to .message=bindcom_lit_str_m( to");
     ptr->kind = ast_NBK_None;
     break;
   }
@@ -359,8 +352,7 @@ static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
     ptr->kind = as
   }
   default: {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "field expected an identifier");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, "field expected .message=ancom_lit_str_m( identifier");
     ptr->kind = ast_FK_None;
     break;
   }
@@ -446,11 +438,10 @@ static void ast_certain_parseFnVal(ast_Val *fptr, DiagnosticLogger *diagnostics,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_ParenLeft) {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "fn expected left paren");
-    goto CLEANUP;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, "fn expected .message=leftcom_lit_str_m( paren"); goto CLEANUP;
   }
 
-  Span rarenspan = t.span;
+  com_loc_Span rarenspan = t.span;
 
   com_vec parameters = parse_alloc_vec(parser);
 
@@ -485,8 +476,7 @@ static void ast_certain_parseFnVal(ast_Val *fptr, DiagnosticLogger *diagnostics,
 
   if (t.kind != tk_Arrow) {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_FnValExpectedArrow");
-    end = t.span.end;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_FnValExpectedArrow"); end = t.span.end;
     goto CLEANUP;
   }
 
@@ -495,7 +485,7 @@ static void ast_certain_parseFnVal(ast_Val *fptr, DiagnosticLogger *diagnostics,
   end = fptr->fn.body->common.span.end;
 
 CLEANUP:
-  fptr->common.span = SPAN(start, end);
+  fptr->common.span = com_loc_span_m(start, end);
 }
 
 static void ast_certain_parseLabelLabelBinding(ast_LabelBinding *r,
@@ -518,7 +508,7 @@ static void ast_certain_parseBlockVal(ast_Val *bptr,
   // Parse leftbrace
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_BraceLeft, "expected tk_BraceLeft");
-  Span lbracespan = t.span;
+  com_loc_Span lbracespan = t.span;
 
   t = parse_peek(parser, diagnostics);
   // blocks may be labeled
@@ -547,7 +537,7 @@ static void ast_certain_parseBlockVal(ast_Val *bptr,
 
   bptr->block.stmnts_len = com_vec_len_m(&statements, ast_Stmnt);
   bptr->block.stmnts = com_vec_release(&statements);
-  bptr->common.span = SPAN(lbracespan.start, end);
+  bptr->common.span = com_loc_span_m(lbracespan.start, end);
   return;
 }
 
@@ -563,8 +553,7 @@ static void ast_parseLabelReference(ast_LabelReference *ptr,
   } else {
     ptr->kind = ast_LRK_None;
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "Expected label");
-  }
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, ".message=Expectedcom_lit_str_m( label"); }
 }
 
 static void ast_certain_parseReturnVal(ast_Val *rep,
@@ -575,7 +564,7 @@ static void ast_certain_parseReturnVal(ast_Val *rep,
 
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Return, "expected tk_Return");
-  Span retspan = t.span;
+  com_loc_Span retspan = t.span;
 
   com_loc_LnCol start = t.span.start;
   com_loc_LnCol end;
@@ -592,7 +581,7 @@ static void ast_certain_parseReturnVal(ast_Val *rep,
 
   // span
   end = rep->returnExpr.value->common.span.end;
-  rep->common.span = SPAN(start, end);
+  rep->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -604,7 +593,7 @@ static void ast_certain_parseLoopVal(ast_Val *lep,
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Loop, "expected tk_Loop");
   com_loc_LnCol start = t.span.start;
-  Span loopspan = t.span;
+  com_loc_Span loopspan = t.span;
 
   t = parse_peek(parser, diagnostics);
   lep->loop.label = ALLOC(parser->_a, ast_LabelBinding);
@@ -617,7 +606,7 @@ static void ast_certain_parseLoopVal(ast_Val *lep,
 
   lep->loop.body = ALLOC(parser->_a, ast_Val);
   ast_parseVal(lep->loop.body, diagnostics, parser);
-  lep->common.span = SPAN(start, lep->loop.body->common.span.end);
+  lep->common.span = com_loc_span_m(start, lep->loop.body->common.span.end);
   return;
 }
 
@@ -663,15 +652,14 @@ ast_certain_parseMemberValStructMember(ast_ValStructMember *vsmep,
     ast_parseVal(vsmep->member.val, diagnostics, parser);
     end = vsmep->member.val->common.span.end;
   } else {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_StructMemberLiteralExpectedDefine");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_StructMemberLiteralExpectedDefine");
     vsmep->member.val = NULL;
     end = t.span.end;
     goto CLEANUP;
   }
 
 CLEANUP:
-  vsmep->common.span = SPAN(vsmep->member.field->span.start, end);
+  vsmep->common.span = com_loc_span_m(vsmep->member.field->span.start, end);
   return;
 }
 
@@ -690,8 +678,7 @@ static void ast_parseValStructMember(ast_ValStructMember *vsmep,
     break;
   }
   default: {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_StructLiteralExpectedEntry");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_StructLiteralExpectedEntry");
 
     vsmep->kind = ast_VSMK_None;
     vsmep->common.span = t.span;
@@ -721,8 +708,7 @@ static void ast_certain_parseValStruct(ast_Val *sve,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceLeft) {
     end = t.span.end;
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_StructLiteralExpectedLeftBrace");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_StructLiteralExpectedLeftBrace");
     goto CLEANUP;
   }
 
@@ -739,7 +725,7 @@ static void ast_certain_parseValStruct(ast_Val *sve,
 CLEANUP:
   sve->structExpr.members_len = com_vec_len_m(&members, ast_ValStructMember);
   sve->structExpr.members = com_vec_release(&members);
-  sve->common.span = SPAN(start, end);
+  sve->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -833,8 +819,7 @@ static void parseL1Val(ast_Val *l1, DiagnosticLogger *diagnostics,
     l1->common.span = t.span;
     parse_next(parser, diagnostics);
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_UnexpectedToken");
-  }
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_UnexpectedToken"); }
   }
   l1->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
   l1->common.metadata = com_vec_release(&metadata);
@@ -854,7 +839,7 @@ ast_certain_postfix_parseFieldAcessVal(ast_Val *fave,
   fave->fieldAccess.field = ALLOC(parser->_a, ast_Field);
   ast_parseField(fave->fieldAccess.field, diagnostics, parser);
   fave->common.span =
-      SPAN(root->common.span.start, fave->fieldAccess.field->span.end);
+      com_loc_span_m(root->common.span.start, fave->fieldAccess.field->span.end);
 }
 
 static void ast_certain_postfix_parseCallVal(ast_Val *cptr,
@@ -886,7 +871,7 @@ static void ast_certain_postfix_parseCallVal(ast_Val *cptr,
   cptr->call.parameters_len = com_vec_len_m(&parameters, ast_Val);
   cptr->call.parameters = com_vec_release(&parameters);
 
-  cptr->common.span = SPAN(root->common.span.start, end);
+  cptr->common.span = com_loc_span_m(root->common.span.start, end);
 }
 
 static void ast_certain_postfix_parseAsVal(ast_Val *aptr,
@@ -903,7 +888,7 @@ static void ast_certain_postfix_parseAsVal(ast_Val *aptr,
   aptr->_as.type = ALLOC(parser->_a, ast_Type);
   ast_parseType(aptr->_as.type, diagnostics, parser);
   aptr->common.span =
-      SPAN(root->common.span.start, aptr->_as.type->common.span.end);
+      com_loc_span_m(root->common.span.start, aptr->_as.type->common.span.end);
 }
 
 // pat Pattern => ,
@@ -928,8 +913,7 @@ static void ast_certain_ParsePatMatchCase(ast_MatchCase *mcep,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_Arrow) {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_MatchCaseNoArrow");
-    goto CLEANUP;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_MatchCaseNoArrow"); goto CLEANUP;
   }
 
   // Get Value
@@ -938,7 +922,7 @@ static void ast_certain_ParsePatMatchCase(ast_MatchCase *mcep,
   end = mcep->matchCase.val->common.span.end;
 
 CLEANUP:
-  mcep->common.span = SPAN(start, end);
+  mcep->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -968,8 +952,7 @@ static void ast_parseMatchCase(ast_MatchCase *mcep,
   }
   default: {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_MatchCaseNoPat");
-
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_MatchCaseNoPat"); 
     mcep->kind = ast_MCK_None;
     mcep->common.span = t.span;
     // discard token
@@ -1003,8 +986,7 @@ static void ast_certain_postfix_parseMatchVal(ast_Val *mptr,
 
   if (t.kind != tk_BraceLeft) {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_MatchNoLeftBrace");
-    end = t.span.end;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_MatchNoLeftBrace"); end = t.span.end;
     goto CLEANUP;
   }
 
@@ -1023,7 +1005,7 @@ CLEANUP:
   mptr->match.cases_len = com_vec_len_m(&cases, ast_MatchCase);
   mptr->match.cases = com_vec_release(&cases);
 
-  mptr->common.span = SPAN(root->common.span.start, end);
+  mptr->common.span = com_loc_span_m(root->common.span.start, end);
   return;
 }
 
@@ -1051,7 +1033,7 @@ static void parseL2Val(ast_Val *l2, DiagnosticLogger *diagnostics,
       root->kind = ast_VK_UnaryOp;
       root->unaryOp.op = ast_VEUOK_Ref;
       root->unaryOp.operand = v;
-      root->common.span = SPAN(v->common.span.start, t.span.end);
+      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
       root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
       root->common.metadata = com_vec_release(&metadata);
       parse_next(parser, diagnostics);
@@ -1064,7 +1046,7 @@ static void parseL2Val(ast_Val *l2, DiagnosticLogger *diagnostics,
       root->kind = ast_VK_UnaryOp;
       root->unaryOp.op = ast_VEUOK_Deref;
       root->unaryOp.operand = v;
-      root->common.span = SPAN(v->common.span.start, t.span.end);
+      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
       root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
       root->common.metadata = com_vec_release(&metadata);
       parse_next(parser, diagnostics);
@@ -1152,7 +1134,7 @@ static void ast_parseL3Val(ast_Val *l3, DiagnosticLogger *diagnostics,
   ast_parseL3Val(l3->unaryOp.operand, diagnostics, parser);
 
   // finally calculate the misc stuff
-  l3->common.span = SPAN(t.span.start, l3->unaryOp.operand->common.span.end);
+  l3->common.span = com_loc_span_m(t.span.start, l3->unaryOp.operand->common.span.end);
 
   // metadata
 }
@@ -1196,7 +1178,7 @@ static void ast_parseL3Val(ast_Val *l3, DiagnosticLogger *diagnostics,
     ast_parseL##x##type(expr->binaryOp.right_operand, diagnostics, parser);    \
                                                                                \
     /* calculate misc stuff */                                                 \
-    expr->common.span = SPAN(expr->binaryOp.left_operand->common.span.start,   \
+    expr->common.span = com_loc_span_m(expr->binaryOp.left_operand->common.span.start,   \
                              expr->binaryOp.right_operand->common.span.end);   \
                                                                                \
     return;                                                                    \
@@ -1410,7 +1392,7 @@ ast_certain_parseMemberTypeStructMember(ast_TypeStructMember *tsmep,
     tsmep->structMember.type->common.metadata_len = 0;
   }
 
-  tsmep->common.span = SPAN(start, end);
+  tsmep->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -1440,8 +1422,7 @@ static void ast_parseTypeStructMember(ast_TypeStructMember *tsmep,
     break;
   }
   default: {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_StructMemberExpectedIdentifier");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_StructMemberExpectedIdentifier");
     tsmep->kind = ast_TSMK_None;
     tsmep->common.span = t.span;
     // discard token
@@ -1482,8 +1463,7 @@ static void ast_certain_parseStructType(ast_Type *ste,
   if (t.kind != tk_BraceLeft) {
     end = t.span.end;
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_StructExpectedLeftBrace");
-    goto CLEANUP;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_StructExpectedLeftBrace"); goto CLEANUP;
   }
 
   PARSE_LIST(&members,                      // members_vec_ptr
@@ -1499,7 +1479,7 @@ static void ast_certain_parseStructType(ast_Type *ste,
 CLEANUP:
   ste->structExpr.members_len = com_vec_len_m(&members, ast_TypeStructMember);
   ste->structExpr.members = com_vec_release(&members);
-  ste->common.span = SPAN(start, end);
+  ste->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -1551,8 +1531,7 @@ static void ast_certain_parseFnType(ast_Type *fte,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_ParenLeft) {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_FnTypeExpectedLeftParen");
-    end = t.span.end;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_FnTypeExpectedLeftParen"); end = t.span.end;
     goto CLEANUP;
   }
 
@@ -1574,8 +1553,7 @@ static void ast_certain_parseFnType(ast_Type *fte,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_Colon) {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_FnTypeExpectedColon");
-    end = t.span.end;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_FnTypeExpectedColon"); end = t.span.end;
     goto CLEANUP;
   }
 
@@ -1583,7 +1561,7 @@ static void ast_certain_parseFnType(ast_Type *fte,
   ast_parseType(fte->fn.type, diagnostics, parser);
 
 CLEANUP:
-  fte->common.span = SPAN(start, end);
+  fte->common.span = com_loc_span_m(start, end);
 }
 
 static void ast_certain_parseGroupType(ast_Type *gtep,
@@ -1602,14 +1580,13 @@ static void ast_certain_parseGroupType(ast_Type *gtep,
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceRight) {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_TypeGroupExpectedRightBrace");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_TypeGroupExpectedRightBrace");
     end = t.span.end;
   } else {
     end = gtep->group.inner->common.span.end;
   }
 
-  gtep->common.span = SPAN(start, end);
+  gtep->common.span = com_loc_span_m(start, end);
 }
 
 static void ast_certain_parseMacroType(ast_Type *tep,
@@ -1660,8 +1637,7 @@ static void ast_parseL1Type(ast_Type *l1, DiagnosticLogger *diagnostics,
     l1->kind = ast_TK_None;
     l1->common.span = t.span;
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_TypeUnexpectedToken");
-    // drop faulty token
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_TypeUnexpectedToken"); // drop faulty token
     parse_next(parser, diagnostics);
     break;
   }
@@ -1685,7 +1661,7 @@ static void ast_parseFieldAccessType(ast_Type *srte,
   ast_parseField(srte->fieldAccess.field, diagnostics, parser);
 
   srte->common.span =
-      SPAN(root->common.span.start, srte->fieldAccess.field->span.end);
+      com_loc_span_m(root->common.span.start, srte->fieldAccess.field->span.end);
 }
 
 static void ast_parseL2Type(ast_Type *l2, DiagnosticLogger *diagnostics,
@@ -1711,7 +1687,7 @@ static void ast_parseL2Type(ast_Type *l2, DiagnosticLogger *diagnostics,
       root->kind = ast_TK_UnaryOp;
       root->unaryOp.op = ast_TEUOK_Ref;
       root->unaryOp.operand = ty;
-      root->common.span = SPAN(ty->common.span.start, t.span.end);
+      root->common.span = com_loc_span_m(ty->common.span.start, t.span.end);
       root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
       root->common.metadata = com_vec_release(&metadata);
       parse_next(parser, diagnostics);
@@ -1725,13 +1701,13 @@ static void ast_parseL2Type(ast_Type *l2, DiagnosticLogger *diagnostics,
       root->kind = ast_TK_UnaryOp;
       root->unaryOp.op = ast_TEUOK_Deref;
       root->unaryOp.operand = ty;
-      root->common.span = SPAN(ty->common.span.start, t.span.end);
+      root->common.span = com_loc_span_m(ty->common.span.start, t.span.end);
       root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
       root->common.metadata = com_vec_release(&metadata);
       parse_next(parser, diagnostics);
       break;
     }
-    case tk_ScopeResolution: {
+    case tk_MemberResolution: {
       // get metadata
       com_vec metadata = parse_getMetadata(parser, diagnostics);
       ty = ALLOC(parser->_a, ast_Type);
@@ -1832,7 +1808,7 @@ static void ast_certain_parseValRestrictionPat(ast_Pat *vrpe,
   ast_parseValTerm(vrpe->valRestriction.val, diagnostics, parser);
   com_loc_LnCol end = vrpe->valRestriction.val->common.span.end;
 
-  vrpe->common.span = SPAN(start, end);
+  vrpe->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -1858,7 +1834,7 @@ static void ast_certain_parseTypeRestrictionPat(ast_Pat *trpe,
     ast_parseType(trpe->typeRestriction.type, diagnostics, parser);
   }
 
-  trpe->common.span = SPAN(trpe->typeRestriction.name->span.start,
+  trpe->common.span = com_loc_span_m(trpe->typeRestriction.name->span.start,
                            trpe->typeRestriction.type->common.span.end);
 }
 
@@ -1876,8 +1852,7 @@ static void ast_certain_parseFieldPatStructMember(ast_PatStructMember *psmep,
   // expect arrow
   Token t = parse_next(parser, diagnostics);
   if (t.kind != tk_Arrow) {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "pattern struct field expected arrow after field");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, "pattern struct field expected arrow .message=aftercom_lit_str_m( field");
   }
 
   // Parse pattern
@@ -1885,7 +1860,7 @@ static void ast_certain_parseFieldPatStructMember(ast_PatStructMember *psmep,
   ast_parsePat(psmep->field.pat, diagnostics, parser);
 
   psmep->common.span =
-      SPAN(psmep->field.field->span.start, psmep->field.pat->common.span.end);
+      com_loc_span_m(psmep->field.field->span.start, psmep->field.pat->common.span.end);
   return;
 }
 
@@ -1917,9 +1892,8 @@ static void ast_parsePatStructMember(ast_PatStructMember *psmep,
     psmep->kind = ast_PSMK_None;
     psmep->common.span = t.span;
     parse_next(parser, diagnostics);
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error,
-        "within a pattern struct, expected a pattern struct member or macro");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error,
+        "within a pattern struct, expected a pattern struct member .message=orcom_lit_str_m( macro");
   }
   }
   psmep->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
@@ -1942,8 +1916,7 @@ static void ast_certain_parseStructPat(ast_Pat *spe,
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceLeft) {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_PatStructExpectedLeftBrace");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_PatStructExpectedLeftBrace");
     end = t.span.end;
     goto CLEANUP;
   }
@@ -1960,7 +1933,7 @@ static void ast_certain_parseStructPat(ast_Pat *spe,
 CLEANUP:
   spe->structExpr.members_len = com_vec_len_m(&members, ast_PatStructMember);
   spe->structExpr.members = com_vec_release(&members);
-  spe->common.span = SPAN(start, end);
+  spe->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -1980,14 +1953,13 @@ static void ast_certain_parseGroupPat(ast_Pat *gpep,
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceRight) {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_PatGroupExpectedRightBrace");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_PatGroupExpectedRightBrace");
     end = t.span.end;
   } else {
     end = gpep->group.inner->common.span.end;
   }
 
-  gpep->common.span = SPAN(start, end);
+  gpep->common.span = com_loc_span_m(start, end);
 }
 
 static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
@@ -2022,8 +1994,7 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
     l1->kind = ast_PK_None;
     l1->common.span = t.span;
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_PatUnexpectedToken");
-    parse_next(parser, diagnostics);
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_PatUnexpectedToken"); parse_next(parser, diagnostics);
     break;
   }
   }
@@ -2062,7 +2033,7 @@ static void ast_parseL2Pat(ast_Pat *l2, DiagnosticLogger *diagnostics,
   ast_parseL2Pat(l2->unaryOp.operand, diagnostics, parser);
 
   // finally calculate the misc stuff
-  l2->common.span = SPAN(t.span.start, l2->unaryOp.operand->common.span.end);
+  l2->common.span = com_loc_span_m(t.span.start, l2->unaryOp.operand->common.span.end);
 }
 
 static inline bool ast_opDetL3Pat(tk_Kind tk, ast_PatBinaryOpKind *val) {
@@ -2162,7 +2133,7 @@ static void ast_certain_parseValDecl(ast_Stmnt *vdsp,
     end = vdsp->valDecl.pat->common.span.end;
   }
 
-  vdsp->common.span = SPAN(start, end);
+  vdsp->common.span = com_loc_span_m(start, end);
 }
 
 static void ast_certain_parseTypeDecl(ast_Stmnt *tdp,
@@ -2185,8 +2156,7 @@ static void ast_certain_parseTypeDecl(ast_Stmnt *tdp,
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_Define) {
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "DK_TypeDeclExpectedDefine");
-    end = t.span.end;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_TypeDeclExpectedDefine"); end = t.span.end;
     goto CLEANUP;
   }
 
@@ -2196,7 +2166,7 @@ static void ast_certain_parseTypeDecl(ast_Stmnt *tdp,
   end = tdp->typeDecl.type->common.span.end;
 
 CLEANUP:
-  tdp->common.span = SPAN(start, end);
+  tdp->common.span = com_loc_span_m(start, end);
   return;
 }
 
@@ -2217,7 +2187,7 @@ static void ast_certain_parseDeferStmnt(ast_Stmnt *dsp,
   ast_parseVal(dsp->deferStmnt.val, diagnostics, parser);
 
   // span
-  dsp->common.span = SPAN(t.span.start, dsp->deferStmnt.val->common.span.end);
+  dsp->common.span = com_loc_span_m(t.span.start, dsp->deferStmnt.val->common.span.end);
   return;
 }
 
@@ -2231,13 +2201,13 @@ static void ast_certain_parseMacroStmnt(ast_Stmnt *msp,
   msp->common.span = msp->macro.macro->span;
 }
 
-static void ast_certain_parseNamespaceStmnt(ast_Stmnt *nsp,
+static void ast_certain_parseModStmnt(ast_Stmnt *nsp,
                                             DiagnosticLogger *diagnostics,
                                             AstConstructor *parser) {
   com_mem_zero_obj_m(nsp);
-  nsp->kind = ast_SK_Namespace;
+  nsp->kind = ast_SK_Mod;
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Namespace, "expected tk_Namespace");
+  com_assert_m(t.kind == tk_Mod, "expected tk_Mod");
   com_loc_LnCol start = t.span.start;
   com_loc_LnCol end;
 
@@ -2249,16 +2219,14 @@ static void ast_certain_parseNamespaceStmnt(ast_Stmnt *nsp,
   if (t.kind != tk_Identifier) {
     nsp->namespaceStmnt.name = NULL;
     *dlogger_append(diagnostics) =
-        diagnostic_standalone(t.span, DSK_Error, "expected identifier here");
-    end = t.span.end;
+        (Diagnostic){ .span=t.span, .severity=DSK_Error, "expected .message=identifiercom_lit_str_m( here"); end = t.span.end;
     goto CLEANUP;
   }
   nsp->namespaceStmnt.name = t.identifierToken.data;
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceLeft) {
-    *dlogger_append(diagnostics) = diagnostic_standalone(
-        t.span, DSK_Error, "DK_NamespaceExpectedLeftBrace");
+    *dlogger_append(diagnostics) = (Diagnostic){ .span= t.span, .severity=DSK_Error, .message=com_lit_str_m("DK_ModExpectedLeftBrace"));
     end = t.span.end;
     goto CLEANUP;
   }
@@ -2268,7 +2236,7 @@ static void ast_certain_parseNamespaceStmnt(ast_Stmnt *nsp,
              ast_parseStmnt,                   // member_parse_function
              ast_Stmnt,                        // member_kind
              tk_BraceRight,                    // delimiting_token_kind
-             "DK_NamespaceExpectedRightBrace", // missing_delimiter_error
+             "DK_ModExpectedRightBrace", // missing_delimiter_error
              end,                              // end_lncol
              parser                            // parser
   )
@@ -2276,7 +2244,7 @@ static void ast_certain_parseNamespaceStmnt(ast_Stmnt *nsp,
 CLEANUP:
   nsp->namespaceStmnt.stmnts_len = com_vec_len_m(&statements, ast_Stmnt);
   nsp->namespaceStmnt.stmnts = com_vec_release(&statements);
-  nsp->common.span = SPAN(start, end);
+  nsp->common.span = com_loc_span_m(start, end);
 }
 
 static void ast_certain_parseUseStmnt(ast_Stmnt *usp,
@@ -2292,7 +2260,7 @@ static void ast_certain_parseUseStmnt(ast_Stmnt *usp,
   usp->useStmnt.path = ALLOC(parser->_a, ast_Reference);
   ast_parseReference(usp->useStmnt.path, diagnostics, parser);
 
-  usp->common.span = SPAN(start, usp->useStmnt.path->span.end);
+  usp->common.span = com_loc_span_m(start, usp->useStmnt.path->span.end);
 }
 
 static void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
@@ -2311,8 +2279,8 @@ static void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
     ast_certain_parseUseStmnt(sp, diagnostics, parser);
     break;
   }
-  case tk_Namespace: {
-    ast_certain_parseNamespaceStmnt(sp, diagnostics, parser);
+  case tk_Mod: {
+    ast_certain_parseModStmnt(sp, diagnostics, parser);
     break;
   }
   case tk_Val: {

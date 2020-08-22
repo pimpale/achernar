@@ -40,7 +40,10 @@ typedef enum {
   tk_Add,    // +
   tk_Sub,    // -
   tk_Mul,    // *
-  tk_Rem,    // %
+  tk_IRem,   // %%
+  tk_FRem,   // %.
+  tk_IDiv,   // //
+  tk_FDiv,   // /.
   // Logical Operators
   tk_And, // and
   tk_Or,  // or
@@ -61,17 +64,21 @@ typedef enum {
   tk_AssignAdd, // +=
   tk_AssignSub, // -=
   tk_AssignMul, // *=
-  tk_AssignDiv, // /=
-  tk_AssignRem, // %=
+  tk_AssignIDiv, // //=
+  tk_AssignFDiv, // /.=
+  tk_AssignIRem, // %%=
+  tk_AssignFRem, // %.=
   // Arrows
   tk_Pipe,  // ->
   tk_Arrow, // =>
   // Scope resolution
   tk_MemberResolution, // ::
+  tk_ModResolution,    // /
   // Type operators
-  tk_Tuple,        // ,
-  tk_Either,       // |
-  tk_Intersection, // ||
+  tk_Product,      // ,
+  tk_Sum,          // |
+  tk_Union,        // ||
+  tk_Intersection, // ,,
   // Other Miscellaneous Operator Things
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
@@ -82,11 +89,7 @@ typedef enum {
   tk_FieldAccess,  // .
   tk_Colon,        // :
   tk_Semicolon,    // ;
-  tk_Backtick,     // `
   tk_Underscore,   // _
-  tk_Slash,        // /
-  tk_Rest,         // ..
-  tk_Dollar,       // $
   // Macros
   tk_Label, // 'label
   tk_Macro, // macroidentifier!

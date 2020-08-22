@@ -15,8 +15,8 @@
 // Returns control at the first noncomment area
 // Lexes attributes
 static Token lexMetadata(com_reader *r,
-                                   attr_UNUSED DiagnosticLogger *diagnostics,
-                                   com_allocator *a, bool significant) {
+                         attr_UNUSED DiagnosticLogger *diagnostics,
+                         com_allocator *a, bool significant) {
 
   u8 character = significant ? '$' : '#';
 
@@ -88,10 +88,8 @@ static Token lexMetadata(com_reader *r,
 
   return (Token){
       .kind = tk_Metadata,
-      .metadataToken = {
-              .content = com_str_demut(com_vec_to_str(&data)),
-              .significant = significant
-          },
+      .metadataToken = {.content = com_str_demut(com_vec_to_str(&data)),
+                        .significant = significant},
       .span = com_loc_span_m(start, com_reader_position(r)),
   };
 }
@@ -616,6 +614,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_And;
   } else if (com_str_equal(str, com_str_lit_m("or"))) {
     token.kind = tk_Or;
+  } else if (com_str_equal(str, com_str_lit_m("xor"))) {
+    token.kind = tk_Xor;
   } else if (com_str_equal(str, com_str_lit_m("not"))) {
     token.kind = tk_Not;
   } else if (com_str_equal(str, com_str_lit_m("nil"))) {
@@ -637,11 +637,33 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     .kind = tokenType, .span = com_loc_span_m(start, com_reader_position(r))   \
   }
 
-#define RETURN_RESULT_TOKEN(tokenType) return RESULT_TOKEN(tokenType);
+#define RETURN_RESULT_TOKEN1(tokenType)                                        \
+  {                                                                            \
+    com_reader_drop_u8(r);                                                     \
+    return RESULT_TOKEN(tokenType);                                            \
+  }
 
-#define NEXT_AND_RETURN_RESULT_TOKEN(tokenType)                                \
-  com_reader_drop_u8(r);                                                       \
-  RETURN_RESULT_TOKEN(tokenType)
+#define RETURN_RESULT_TOKEN2(tokenType)                                        \
+  {                                                                            \
+    com_reader_drop_u8(r);                                                     \
+    RETURN_RESULT_TOKEN1(tokenType)                                            \
+  }
+
+#define RETURN_RESULT_TOKEN3(tokenType)                                        \
+  {                                                                            \
+    com_reader_drop_u8(r);                                                     \
+    RETURN_RESULT_TOKEN2(tokenType)                                            \
+  }
+
+#define RETURN_UNKNOWN_TOKEN1()                                                \
+  {                                                                            \
+    *dlogger_append(diagnostics) =                                             \
+        (Diagnostic){.span = com_reader_peek_span_u8(r, 1),                    \
+                     .severity = DSK_Error,                                    \
+                     .message = com_str_lit_m("lexer unrecognized character"), \
+                     .children_len = 0};                                       \
+    RETURN_RESULT_TOKEN1(tk_None)                                              \
+  }
 
 // utility methods to handle the incredible amount of edge cases
 
@@ -674,6 +696,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
   // always defined after
   inband_reader_result c = -1;
   inband_reader_result c2 = -1;
+  inband_reader_result c3 = -1;
 
   // Set c to first nonblank character
   while ((c = lex_peek(r, 1)) != -1) {
@@ -682,24 +705,21 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       com_reader_drop_u8(r);
     } else {
       c2 = lex_peek(r, 2);
+      c3 = lex_peek(r, 3);
       break;
     }
   }
 
   com_loc_LnCol start = com_reader_position(r);
 
-  if (com_format_is_alpha((u8)c)) {
-    return lexWord(r, diagnostics, a);
-  } else if (c == '_' && is_alpha(c2)) {
+  if (is_alpha(c)) {
     return lexWord(r, diagnostics, a);
   } else if (is_digit(c)) {
-    return lexNumberLiteral(r, diagnostics, a);
-  } else if ((c == '-' || c == '+') && is_digit(c2)) {
     return lexNumberLiteral(r, diagnostics, a);
   } else {
     switch (c) {
     case '\'': {
-      if (lex_peek(r, 1) == '\\' || lex_peek(r, 2) == '\'') {
+      if (c3 == '\'' || c2 == '\\') {
         return lexCharLiteral(r, diagnostics, a);
       } else {
         return lexLabelLiteral(r, diagnostics, a);
@@ -714,124 +734,164 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case '$': {
       return lexMetadata(r, diagnostics, a, true);
     }
+    case '_': {
+      if(is_alphanumeric(c2) || c2 == '_') {
+        return lexWord(r, diagnostics, a);
+      }
+      else {
+        RETURN_RESULT_TOKEN1(tk_Underscore)
+      }
+    }
     case '&': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_And)
+      RETURN_RESULT_TOKEN1(tk_Ref)
     }
     case '|': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '|': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Enum)
+        RETURN_RESULT_TOKEN2(tk_Intersection)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Intersection)
+        RETURN_RESULT_TOKEN1(tk_Sum)
+      }
+      }
+    }
+    case ',': {
+      switch (c2) {
+      case ',': {
+        RETURN_RESULT_TOKEN2(tk_Union)
+      }
+      default: {
+        RETURN_RESULT_TOKEN1(tk_Product)
       }
       }
     }
     case '!': {
-      com_reader_drop_u8(r);
-      // ! or !=
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompNotEqual)
+        RETURN_RESULT_TOKEN2(tk_CompNotEqual)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Not)
+        RETURN_UNKNOWN_TOKEN1()
       }
       }
     }
     case '=': {
-      com_reader_drop_u8(r);
-      // = or == or =>
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompEqual)
+        RETURN_RESULT_TOKEN2(tk_CompEqual)
       }
       case '>': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Arrow)
+        RETURN_RESULT_TOKEN2(tk_Arrow)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Assign)
+        RETURN_RESULT_TOKEN1(tk_Assign)
       }
       }
     }
     case '<': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompLessEqual)
+        RETURN_RESULT_TOKEN2(tk_CompLessEqual)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_CompLess)
+        RETURN_RESULT_TOKEN1(tk_CompLess)
       }
       }
     }
     case '>': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_CompGreaterEqual)
+        RETURN_RESULT_TOKEN2(tk_CompGreaterEqual)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_CompGreater)
+        RETURN_RESULT_TOKEN1(tk_CompGreater)
       }
       }
     }
     case '+': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignAdd)
+        RETURN_RESULT_TOKEN2(tk_AssignAdd)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Add)
+        RETURN_RESULT_TOKEN1(tk_Add)
       }
       }
     }
     case '-': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '>': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Pipe)
+        RETURN_RESULT_TOKEN2(tk_Pipe)
       }
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignSub)
+        RETURN_RESULT_TOKEN2(tk_AssignSub)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Sub)
+        RETURN_RESULT_TOKEN1(tk_Sub)
       }
       }
     }
     case '*': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignMul)
+        RETURN_RESULT_TOKEN2(tk_AssignMul)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Mul)
+        RETURN_RESULT_TOKEN1(tk_Mul)
       }
       }
     }
     case '/': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
-      case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignDiv)
+      switch (c2) {
+      case '/': {
+        switch (c3) {
+        case '=': {
+          RETURN_RESULT_TOKEN3(tk_AssignIDiv)
+        }
+        default: {
+          RETURN_RESULT_TOKEN2(tk_IDiv)
+        }
+        }
+      }
+      case '.': {
+        switch (c3) {
+        case '=': {
+          RETURN_RESULT_TOKEN3(tk_AssignFDiv)
+        }
+        default: {
+          RETURN_RESULT_TOKEN2(tk_FDiv)
+        }
+        }
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Slash)
+        RETURN_RESULT_TOKEN1(tk_ModResolution)
       }
       }
     }
     case '%': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
-      case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_AssignRem)
+      switch (c2) {
+      case '/': {
+        switch (c3) {
+        case '=': {
+          RETURN_RESULT_TOKEN3(tk_AssignIRem)
+        }
+        default: {
+          RETURN_RESULT_TOKEN2(tk_IRem)
+        }
+        }
+      }
+      case '.': {
+        switch (c3) {
+        case '=': {
+          RETURN_RESULT_TOKEN3(tk_AssignFRem)
+        }
+        default: {
+          RETURN_RESULT_TOKEN2(tk_FRem)
+        }
+        }
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Rem)
+        RETURN_UNKNOWN_TOKEN1()
       }
       }
     }
@@ -839,65 +899,45 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       com_reader_drop_u8(r);
       switch (lex_peek(r, 1)) {
       case ':': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_MemberResolution)
+        RETURN_RESULT_TOKEN2(tk_MemberResolution)
       }
       case '=': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Define)
+        RETURN_RESULT_TOKEN2(tk_Define)
       }
       default: {
-        RETURN_RESULT_TOKEN(tk_Colon)
+        RETURN_RESULT_TOKEN1(tk_Colon)
       }
       }
     }
     case '.': {
-      com_reader_drop_u8(r);
-      switch (lex_peek(r, 1)) {
-      case '.': {
-        NEXT_AND_RETURN_RESULT_TOKEN(tk_Rest)
-      }
-      default: {
-        RETURN_RESULT_TOKEN(tk_FieldAccess)
-      }
-      }
+      RETURN_RESULT_TOKEN1(tk_FieldAccess)
     }
     case '[': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_BracketLeft)
+      RETURN_RESULT_TOKEN1(tk_BracketLeft)
     }
     case ']': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_BracketRight)
+      RETURN_RESULT_TOKEN1(tk_BracketRight)
     }
     case '@': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_Deref)
+      RETURN_RESULT_TOKEN1(tk_Deref)
     }
     case '(': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_ParenLeft)
+      RETURN_RESULT_TOKEN1(tk_ParenLeft)
     }
     case ')': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_ParenRight)
+      RETURN_RESULT_TOKEN1(tk_ParenRight)
     }
     case '{': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_BraceLeft)
+      RETURN_RESULT_TOKEN1(tk_BraceLeft)
     }
     case '}': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_BraceRight)
-    }
-    case ',': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_Tuple)
+      RETURN_RESULT_TOKEN1(tk_BraceRight)
     }
     case ';': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_Semicolon)
-    }
-    case '`': {
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_Backtick)
+      RETURN_RESULT_TOKEN1(tk_Semicolon)
     }
     default: {
-      com_reader_drop_u8(r);
-      *dlogger_append(diagnostics) =
-          (Diagnostic){.span = com_reader_peek_span_u8(r, 1),
-                       .severity = DSK_Error,
-                       .message = com_str_lit_m("lexer unrecognized character"),
-                       .children_len = 0};
-      NEXT_AND_RETURN_RESULT_TOKEN(tk_None)
+      RETURN_UNKNOWN_TOKEN1()
     }
     }
   }

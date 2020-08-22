@@ -48,6 +48,7 @@ typedef enum {
   tk_And, // and
   tk_Or,  // or
   tk_Not, // not
+  tk_Xor,  // or
   // Comparison and Equality
   tk_CompEqual,        // ==
   tk_CompNotEqual,     // !=
@@ -59,11 +60,11 @@ typedef enum {
   tk_Ref,   // &
   tk_Deref, // @
   // Assignment
-  tk_Define,    // :=
-  tk_Assign,    // =
-  tk_AssignAdd, // +=
-  tk_AssignSub, // -=
-  tk_AssignMul, // *=
+  tk_Define,     // :=
+  tk_Assign,     // =
+  tk_AssignAdd,  // +=
+  tk_AssignSub,  // -=
+  tk_AssignMul,  // *=
   tk_AssignIDiv, // //=
   tk_AssignFDiv, // /.=
   tk_AssignIRem, // %%=
@@ -77,8 +78,8 @@ typedef enum {
   // Type operators
   tk_Product,      // ,
   tk_Sum,          // |
-  tk_Union,        // ||
-  tk_Intersection, // ,,
+  tk_Union,        // ,,
+  tk_Intersection, // ||
   // Other Miscellaneous Operator Things
   tk_ParenLeft,    // (
   tk_ParenRight,   // )

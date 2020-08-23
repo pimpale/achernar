@@ -20,8 +20,8 @@ typedef struct {
 } ast_Macro;
 
 typedef enum {
-  ast_NBK_None,
-  ast_NBK_Binding,
+  ast_MBK_None,
+  ast_MBK_Binding,
 } ast_ModBindingKind;
 
 typedef struct {
@@ -35,36 +35,36 @@ typedef struct {
 } ast_ModBinding;
 
 typedef enum {
-  ast_NRK_None,
-  ast_NRK_Reference,
+  ast_MRK_None,       // some kind of error
+  ast_MRK_Omitted,    // the current namespace
+  ast_MRK_Reference,  // a named namespace
 } ast_ModReferenceKind;
 
-typedef struct {
+typedef struct ast_ModReference_s ast_ModReference;
+
+typedef struct ast_ModReference_s {
   com_loc_Span span;
   ast_ModReferenceKind kind;
   union {
     struct {
-      com_str *segments;
-      usize segments_len;
+      com_str name;
+      ast_ModReference *mod;
     } reference;
   };
 } ast_ModReference;
 
 typedef enum {
   ast_RK_None,      // some kind of error
-  ast_RK_Reference, // print
+  ast_RK_Reference, // an actual reference
 } ast_ReferenceKind;
-
-// forward declare struct
-typedef struct ast_Reference_s ast_Reference;
 
 typedef struct ast_Reference_s {
   com_loc_Span span;
   ast_ReferenceKind kind;
   union {
     struct {
-      com_str *segments;
-      usize segments_len;
+      com_str name;
+      ast_ModReference *mod;
     } reference;
   };
 } ast_Reference;

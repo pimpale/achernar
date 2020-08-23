@@ -237,7 +237,7 @@ LabelReference <- Label;
 LabelBinding <- Label;
 
 ModBinding <- Identifier;
-ModReference <- ( Identifier OpModModAccess Spacing )* Identifier;
+ModReference <- ( Idenfifier OpModModAccess Spacing )* Identifier;
 
 Reference <- (ModReference OpConcreteModAccess)? Identifier;
 Binding <- Identifier;

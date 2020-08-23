@@ -18,7 +18,7 @@
                    missing_delimiter_error_msg, end_lncol, parser)             \
                                                                                \
   while (true) {                                                               \
-    Token pl_ntk = parse_peek(parser, diagnostics); /* next token kind */      \
+    Token pl_ntk = parse_peek(parser, diagnostics, 1); /* next token kind */   \
     if (pl_ntk.kind == delimiting_token_kind) {                                \
       end_lncol = pl_ntk.span.end;                                             \
       parse_next(parser, dlogger_ptr); /* accept delimiting tk */              \
@@ -94,11 +94,16 @@ static Token parse_next(AstConstructor *pp, DiagnosticLogger *diagnostics) {
   }
 }
 
+// parses next and ignores the result
+static void parse_drop(AstConstructor *ac, DiagnosticLogger *diagnostics) {
+  parse_next(ac, diagnostics);
+}
+
 // gets the k'th token
 // K must be greater than 0
-static Token parse_peekNth(AstConstructor *pp, usize k,
-                           DiagnosticLogger *diagnostics) {
-  com_assert_m(k > 0, "k is not 1 .message=orcom_str_lit_m( more");
+static Token parse_peek(AstConstructor *pp, DiagnosticLogger *diagnostics,
+                        usize k) {
+  com_assert_m(k > 0, "k is not 1 or more");
 
   for (usize i = com_queue_len_m(&pp->_next_tokens_queue, Token); i < k; i++) {
     // parse the token and enqueue it
@@ -112,10 +117,6 @@ static Token parse_peekNth(AstConstructor *pp, usize k,
                           Token);
 }
 
-static Token parse_peek(AstConstructor *parser, DiagnosticLogger *diagnostics) {
-  return parse_peekNth(parser, 1, diagnostics);
-}
-
 void ast_destroy(AstConstructor *pp) {
   com_queue_destroy(&pp->_next_tokens_queue);
 }
@@ -124,7 +125,7 @@ void ast_destroy(AstConstructor *pp) {
 static com_vec parse_getMetadata(AstConstructor *parser,
                                  DiagnosticLogger *diagnostics) {
   com_vec metadata = parse_alloc_vec(parser);
-  while (parse_peek(parser, diagnostics).kind == tk_Metadata) {
+  while (parse_peek(parser, diagnostics, 1).kind == tk_Metadata) {
     Token c = parse_next(parser, diagnostics);
     *com_vec_push_m(&metadata, ast_Metadata) =
         (ast_Metadata){.span = c.span,
@@ -136,12 +137,15 @@ static com_vec parse_getMetadata(AstConstructor *parser,
 
 // returns the first nonmetadata token
 static Token parse_peekPastMetadata(AstConstructor *parser,
-                                    DiagnosticLogger *diagnostics) {
+                                    DiagnosticLogger *diagnostics, usize k) {
+  com_assert_m(k > 0, "k is not 1 or more");
   u64 n = 1;
-  while (parse_peekNth(parser, n, diagnostics).kind == tk_Metadata) {
-    n++;
+  for (usize i = 0; i < k; i++) {
+    while (parse_peek(parser, diagnostics, n).kind == tk_Metadata) {
+      n++;
+    }
   }
-  return parse_peekNth(parser, n, diagnostics);
+  return parse_peek(parser, diagnostics, n);
 }
 
 // Note that all errors resync at the statement level
@@ -157,104 +161,7 @@ static void ast_parsePat(ast_Pat *pp, DiagnosticLogger *diagnostics,
 static void ast_certain_parseMacro(ast_Macro *mpe,
                                    DiagnosticLogger *diagnostics,
                                    AstConstructor *parser) {
-  com_mem_zero_obj_m(mpe);
-
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Macro, "expected a tk_Macro");
-
-  com_loc_LnCol start = t.span.start;
-  com_loc_LnCol end;
-
-  mpe->name = t.macroToken.data;
-
-  com_vec tokens = parse_alloc_vec(parser);
-
-  u64 depth = 1;
-  while (true) {
-    t = parse_next(parser, diagnostics);
-    if (t.kind == tk_Eof) {
-      *dlogger_append(diagnostics) = (Diagnostic){
-          .span = t.span,
-          .severity = DSK_Error,
-          .message = com_str_lit_m("macro expected a closing backtick"),
-          .children_len = 0};
-      break;
-    } else {
-      if (t.kind == tk_Macro) {
-        depth++;
-      } else if (t.kind == tk_Backtick) {
-        depth--;
-      }
-      *com_vec_push_m(&tokens, Token) = t;
-      if (depth == 0) {
-        break;
-      }
-    }
-  }
-  end = t.span.end;
-
-  mpe->tokens_len = com_vec_len_m(&tokens, ast_Stmnt);
-  mpe->tokens = com_vec_release(&tokens);
-
-  mpe->span = com_loc_span_m(start, end);
-}
-
-static void ast_parseReference(ast_Reference *ptr,
-                               DiagnosticLogger *diagnostics,
-                               AstConstructor *parser) {
-  com_mem_zero_obj_m(ptr);
-
-  Token t = parse_next(parser, diagnostics);
-
-  // start and finish
-  com_loc_LnCol start = t.span.start;
-  com_loc_LnCol end;
-
-  com_vec pathSegments = parse_alloc_vec(parser);
-
-  if (t.kind == tk_Identifier) {
-    *com_vec_push_m(&pathSegments, u8 *) = t.identifierToken.data;
-    ptr->kind = ast_RK_Reference;
-  } else {
-    ptr->kind = ast_RK_None;
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("reference expected identifier"),
-                     .children_len = 0};
-    end = t.span.end;
-    goto CLEANUP;
-  }
-
-  while (true) {
-    t = parse_peek(parser, diagnostics);
-    if (t.kind == tk_MemberResolution) {
-      // discard the scope resolution
-      parse_next(parser, diagnostics);
-      // now check if we have an issue
-      t = parse_next(parser, diagnostics);
-      if (t.kind != tk_Identifier) {
-        *dlogger_append(diagnostics) = (Diagnostic){
-            .span = t.span,
-            .severity = DSK_Error,
-            .message = com_str_lit_m("reference expected identifier"),
-            .children_len = 0};
-        end = t.span.end;
-        goto CLEANUP;
-      }
-      *com_vec_push_m(&pathSegments, u8 *) = t.identifierToken.data;
-    } else {
-      // we've reached the end of the path
-      end = t.span.end;
-      break;
-    }
-  }
-
-CLEANUP:
-  ptr->reference.segments_len = com_vec_len_m(&pathSegments, u8 *);
-  ptr->reference.segments = com_vec_release(&pathSegments);
-
-  ptr->span = com_loc_span_m(start, end);
+  // TODO
 }
 
 static void ast_parseModReference(ast_ModReference *ptr,
@@ -263,56 +170,108 @@ static void ast_parseModReference(ast_ModReference *ptr,
   com_mem_zero_obj_m(ptr);
 
   Token t = parse_next(parser, diagnostics);
+  
 
-  // start and finish
-  com_loc_LnCol start = t.span.start;
-  com_loc_LnCol end;
+}
 
-  com_vec pathSegments = parse_alloc_vec(parser);
-
-  if (t.kind == tk_Identifier) {
-    *com_vec_push_m(&pathSegments, u8 *) = t.identifierToken.data;
-    ptr->kind = ast_NRK_Reference;
-  } else {
-    ptr->kind = ast_NRK_None;
+static void ast_parseModBinding(ast_ModBinding *ptr,
+                                DiagnosticLogger *diagnostics,
+                                AstConstructor *parser) {
+  com_mem_zero_obj_m(ptr);
+  Token t = parse_next(parser, diagnostics);
+  ptr->span = t.span;
+  switch (t.kind) {
+  case tk_Identifier: {
+    ptr->kind = ast_MBK_Binding;
+    ptr->binding.value = t.identifierToken.data;
+    break;
+  }
+  default: {
     *dlogger_append(diagnostics) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
-        .message = com_str_lit_m("namespace reference expected identifier"),
+        .message = com_str_lit_m(
+            "binding expected either `_` for drop or an identifier to bind to"),
         .children_len = 0};
-    end = t.span.end;
-    goto CLEANUP;
+    ptr->kind = ast_MBK_None;
+    break;
   }
-
-  while (true) {
-    t = parse_peek(parser, diagnostics);
-    if (t.kind == tk_MemberResolution) {
-      // discard the scope resolution
-      parse_next(parser, diagnostics);
-      // now check if we have an issue
-      t = parse_next(parser, diagnostics);
-      if (t.kind != tk_Identifier) {
-        *dlogger_append(diagnostics) = (Diagnostic){
-            .span = t.span,
-            .severity = DSK_Error,
-            .message = com_str_lit_m("namespace reference expected identifier"),
-            .children_len = 0};
-        end = t.span.end;
-        goto CLEANUP;
-      }
-      *com_vec_push_m(&pathSegments, u8 *) = t.identifierToken.data;
-    } else {
-      // we've reached the end of the path
-      end = t.span.end;
-      break;
-    }
   }
-CLEANUP:
-  ptr->reference.segments_len = com_vec_len_m(&pathSegments, u8 *);
-  ptr->reference.segments = com_vec_release(&pathSegments);
-
-  ptr->span = com_loc_span_m(start, end);
 }
+
+static void ast_parseReference(ast_Reference *ptr,
+                               DiagnosticLogger *diagnostics,
+                               AstConstructor *parser) {
+  com_mem_zero_obj_m(ptr);
+
+  Token t1 = parse_peek(parser, diagnostics, 1);
+  if (t1.kind != tk_Identifier) {
+    // drop faulty reference token
+    parse_drop(parser, diagnostics);
+
+    // log an error
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = t1.span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m("reference expected identifier"),
+                     .children_len = 0};
+
+    // return reference
+    *ptr = (ast_Reference){.kind = ast_RK_None, .span = t1.span};
+    return;
+  }
+
+  ptr->kind = ast_RK_Reference;
+  ptr->reference.mod = parse_alloc(parser, sizeof(ast_ModReference));
+
+  Token t2 = parse_peek(parser, diagnostics, 2);
+
+  if (t2.kind == tk_ModResolution || t2.kind == tk_MemberResolution) {
+    // this means that the reference has a defined namespace
+    ast_parseModReference(ptr->reference.mod, diagnostics, parser);
+    // now expect a ::
+    Token mr = parse_next(parser, diagnostics);
+    if (mr.kind != tk_MemberResolution) {
+      // log an error
+      *dlogger_append(diagnostics) = (Diagnostic){
+          .span = mr.span,
+          .severity = DSK_Error,
+          .message = com_str_lit_m("reference expected :: after mod"),
+          .children_len = 0};
+
+      // return reference
+      ptr->span = com_loc_span_m(t1.span.start, mr.span.end);
+      ptr->reference.name = com_str_lit_m("");
+      return;
+    }
+  } else {
+    // otherwise we use the default namespace
+    *ptr->reference.mod =
+        (ast_ModReference){.kind = ast_MRK_Omitted, .span = t1.span};
+  }
+
+  // now expect identifier
+
+  Token identifier = parse_next(parser, diagnostics);
+
+  if (identifier.kind != tk_Identifier) {
+    // log an error
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = identifier.span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m("reference expected identifier"),
+                     .children_len = 0};
+
+    // return reference
+    ptr->span = com_loc_span_m(t1.span.start, identifier.span.end);
+    ptr->reference.name = com_str_lit_m("");
+    return;
+  }
+
+  ptr->reference.name = identifier.identifierToken.data;
+  ptr->span = com_loc_span_m(t1.span.start, identifier.span.end);
+}
+
 static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
                              AstConstructor *parser) {
   com_mem_zero_obj_m(ptr);
@@ -336,31 +295,6 @@ static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
             "binding expected either `_` for drop or an identifier to bind to"),
         .children_len = 0};
     ptr->kind = ast_BK_None;
-    break;
-  }
-  }
-}
-
-static void ast_parseModBinding(ast_ModBinding *ptr,
-                                DiagnosticLogger *diagnostics,
-                                AstConstructor *parser) {
-  com_mem_zero_obj_m(ptr);
-  Token t = parse_next(parser, diagnostics);
-  ptr->span = t.span;
-  switch (t.kind) {
-  case tk_Identifier: {
-    ptr->kind = ast_NBK_Binding;
-    ptr->binding.value = t.identifierToken.data;
-    break;
-  }
-  default: {
-    *dlogger_append(diagnostics) = (Diagnostic){
-        .span = t.span,
-        .severity = DSK_Error,
-        .message = com_str_lit_m(
-            "binding expected either `_` for drop or an identifier to bind to"),
-        .children_len = 0};
-    ptr->kind = ast_NBK_None;
     break;
   }
   }
@@ -495,7 +429,7 @@ static void ast_certain_parseFnVal(ast_Val *fptr, DiagnosticLogger *diagnostics,
   fptr->fn.parameters_len = com_vec_len_m(&parameters, ast_Pat);
   fptr->fn.parameters = com_vec_release(&parameters);
 
-  t = parse_peek(parser, diagnostics);
+  t = parse_peek(parser, diagnostics, 1);
   if (t.kind == tk_Colon) {
     fptr->fn.type = ALLOC(parser->_a, ast_Type);
     // advance
@@ -551,7 +485,7 @@ static void ast_certain_parseBlockVal(ast_Val *bptr,
   com_assert_m(t.kind == tk_BraceLeft, "expected tk_BraceLeft");
   com_loc_Span lbracespan = t.span;
 
-  t = parse_peek(parser, diagnostics);
+  t = parse_peek(parser, diagnostics, 1);
   // blocks may be labeled
   bptr->block.label = ALLOC(parser->_a, ast_LabelBinding);
   if (t.kind == tk_Label) {
@@ -640,7 +574,7 @@ static void ast_certain_parseLoopVal(ast_Val *lep,
   com_loc_LnCol start = t.span.start;
   com_loc_Span loopspan = t.span;
 
-  t = parse_peek(parser, diagnostics);
+  t = parse_peek(parser, diagnostics, 1);
   lep->loop.label = ALLOC(parser->_a, ast_LabelBinding);
   if (t.kind == tk_Label) {
     ast_certain_parseLabelLabelBinding(lep->loop.label, diagnostics, parser);
@@ -655,8 +589,8 @@ static void ast_certain_parseLoopVal(ast_Val *lep,
   return;
 }
 
-static void parseReferenceVal(ast_Val *rptr, DiagnosticLogger *diagnostics,
-                              AstConstructor *parser) {
+static void ast_parseReferenceVal(ast_Val *rptr, DiagnosticLogger *diagnostics,
+                                  AstConstructor *parser) {
   com_mem_zero_obj_m(rptr);
   rptr->kind = ast_VK_Reference;
   rptr->reference.path = ALLOC(parser->_a, ast_Reference);
@@ -716,7 +650,7 @@ static void ast_parseValStructMember(ast_ValStructMember *vsmep,
                                      DiagnosticLogger *diagnostics,
                                      AstConstructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Macro: {
     ast_certain_parseMacroValStructMember(vsmep, diagnostics, parser);
@@ -814,7 +748,7 @@ static void parseL1Val(ast_Val *l1, DiagnosticLogger *diagnostics,
   // value metadata;
   com_vec metadata = parse_getMetadata(parser, diagnostics);
 
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   // Decide which expression it is
   switch (t.kind) {
   // Macro
@@ -1005,7 +939,7 @@ static void ast_parseMatchCase(ast_MatchCase *mcep,
                                DiagnosticLogger *diagnostics,
                                AstConstructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Pat: {
     ast_certain_ParsePatMatchCase(mcep, diagnostics, parser);
@@ -1454,7 +1388,7 @@ ast_certain_parseMemberTypeStructMember(ast_TypeStructMember *tsmep,
   start = tsmep->structMember.field->span.start;
 
   // check if colon
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   if (t.kind == tk_Colon) {
     // advance through colon
     parse_next(parser, diagnostics);
@@ -1489,7 +1423,7 @@ static void ast_parseTypeStructMember(ast_TypeStructMember *tsmep,
                                       DiagnosticLogger *diagnostics,
                                       AstConstructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Macro: {
     ast_certain_parseMacroTypeStructMember(tsmep, diagnostics, parser);
@@ -1701,7 +1635,7 @@ static void ast_certain_parseMacroType(ast_Type *tep,
 static void ast_parseL1Type(ast_Type *l1, DiagnosticLogger *diagnostics,
                             AstConstructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Macro: {
     ast_certain_parseMacroType(l1, diagnostics, parser);
@@ -1932,7 +1866,7 @@ static void ast_certain_parseTypeRestrictionPat(ast_Pat *trpe,
   trpe->typeRestriction.name = ALLOC(parser->_a, ast_Binding);
   ast_parseBinding(trpe->typeRestriction.name, diagnostics, parser);
 
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
 
   // parse type
   trpe->typeRestriction.type = ALLOC(parser->_a, ast_Type);
@@ -1994,7 +1928,7 @@ static void ast_parsePatStructMember(ast_PatStructMember *psmep,
                                      DiagnosticLogger *diagnostics,
                                      AstConstructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Pat: {
     ast_certain_parseFieldPatStructMember(psmep, diagnostics, parser);
@@ -2100,7 +2034,7 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
                            AstConstructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
 
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_BraceLeft: {
     ast_certain_parseGroupPat(l1, diagnostics, parser);
@@ -2262,7 +2196,7 @@ static void ast_certain_parseValDecl(ast_Stmnt *vdsp,
   com_loc_LnCol end;
 
   // Expect define
-  t = parse_peek(parser, diagnostics);
+  t = parse_peek(parser, diagnostics, 1);
   if (t.kind == tk_Define) {
     // set components
     vdsp->kind = ast_SK_ValDeclDefine;
@@ -2439,7 +2373,7 @@ static void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
   com_vec metadata = parse_getMetadata(parser, diagnostics);
 
   // peek next token
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
     // Macros
   case tk_Macro: {
@@ -2481,7 +2415,7 @@ static void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
 
 bool ast_nextStmntAndCheckNext(ast_Stmnt *s, DiagnosticLogger *diagnostics,
                                AstConstructor *parser) {
-  Token t = parse_peek(parser, diagnostics);
+  Token t = parse_peek(parser, diagnostics, 1);
   if (t.kind == tk_Eof) {
     return false;
   }

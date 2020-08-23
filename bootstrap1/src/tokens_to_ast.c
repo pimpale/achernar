@@ -164,14 +164,51 @@ static void ast_certain_parseMacro(ast_Macro *mpe,
   // TODO
 }
 
-static void ast_parseModReference(ast_ModReference *ptr,
+static void ast_parseModReference(ast_ModReference *root,
                                   DiagnosticLogger *diagnostics,
                                   AstConstructor *parser) {
-  com_mem_zero_obj_m(ptr);
+  // the root element is the current sope
+  *root = (ast_ModReference) {
+      .kind=ast_MRK_Omitted,
+      .span=parse_peek(parser, diagnostics, 1).span
+  };
 
-  Token t = parse_next(parser, diagnostics);
-  
+  while (true) {
+    Token t = parse_peek(parser, diagnostics, 1);
+    if(t.kind != tk_Identifier) {
+      // drop faulty token
+      parse_drop(parser, diagnostics) ;
 
+      // log error
+      *dlogger_append(diagnostics) = (Diagnostic){
+        .span = t.span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("mod reference expected an identifier"),
+        .children_len = 0};
+      // return
+      return;
+    }
+
+    // move root to a newly allocated mod reference
+    ast_ModReference *mr = parse_alloc(parser, sizeof(ast_ModReference));
+    *mr = *root;
+
+    // now create a new root, with the newly allocated mod reference as a child
+    *root = (ast_ModReference){
+        .kind = ast_MRK_Reference,
+        .reference = {.name = t.identifierToken.data, .mod = mr},
+        .span = com_loc_span_m(mr->span.start, t.span.end)};
+
+    // now we can drop the identifier
+    parse_drop(parser, diagnostics);
+
+    // if the next item is a / then we accept it, otherwise we break
+    if(parse_peek(parser, diagnostics, 1).kind == tk_ModResolution) {
+       parse_drop(parser, diagnostics);
+    } else {
+      break;
+    }
+  }
 }
 
 static void ast_parseModBinding(ast_ModBinding *ptr,
@@ -187,11 +224,12 @@ static void ast_parseModBinding(ast_ModBinding *ptr,
     break;
   }
   default: {
+    // throw error
     *dlogger_append(diagnostics) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
         .message = com_str_lit_m(
-            "binding expected either `_` for drop or an identifier to bind to"),
+            "mod binding expected an identifier to bind to"),
         .children_len = 0};
     ptr->kind = ast_MBK_None;
     break;
@@ -1706,12 +1744,9 @@ static void ast_parseFieldAccessType(ast_Type *srte,
 
 static void ast_parseL2Type(ast_Type *l2, DiagnosticLogger *diagnostics,
                             AstConstructor *parser) {
-  // Because it's postfix, we must
-  // take a somewhat unorthodox
-  // approach here We Parse the level
-  // one expr and then use a while
-  // loop to process the rest of the
-  // stuff
+  // Because it's postfix, we must take a somewhat unorthodox approach here
+  // We Parse the level one expr and then use a while loop to process the rest
+  // of the stuff
 
   ast_Type *root = l2;
   ast_parseL1Type(root, diagnostics, parser);

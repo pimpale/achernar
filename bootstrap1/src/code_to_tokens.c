@@ -11,6 +11,33 @@
 #include "constants.h"
 #include "diagnostic.h"
 
+// utility methods to handle the incredible amount of edge cases
+
+typedef i16 inband_reader_result;
+static inband_reader_result lex_peek(com_reader *r, usize n) {
+  com_reader_ReadU8Result ret = com_reader_peek_u8(r, n);
+  if (!ret.valid) {
+    return -1;
+  }
+  return ret.value;
+}
+
+static bool is_alpha(inband_reader_result c) {
+  return c != -1 && com_format_is_alpha((u8)c);
+}
+
+static bool is_alphanumeric(inband_reader_result c) {
+  return c != -1 && com_format_is_alphanumeric((u8)c);
+}
+
+static bool is_digit(inband_reader_result c) {
+  return c != -1 && com_format_is_digit((u8)c);
+}
+
+static bool is_whitespace(inband_reader_result c) {
+  return c != -1 && com_format_is_whitespace((u8)c);
+}
+
 // Call this function right before the first hash
 // Returns control at the first noncomment area
 // Lexes attributes
@@ -170,9 +197,11 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
 
 // Parses integer with radix
 // Radix must be between 2 and 16 inclusive
-static u64 parseNumBaseComponent(com_reader *r, DiagnosticLogger *diagnostics,
+static com_biguint parseNumBaseComponent(com_reader *r, DiagnosticLogger *diagnostics, com_allocator* a,
                                  u8 radix) {
-  u64 integer_value = 0;
+  com_biguint integer_value = com_biguint_create(com_allocator_alloc(a, (com_allocator_HandleData) {
+    .len=10,
+    .flags=com_allocator_defaults(a) | com_allocator_NOLEAK | com_allocator_REALLOCABLE }) ) ;
   while (true) {
     com_loc_Span sp = com_reader_peek_span_u8(r, 1);
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
@@ -200,16 +229,11 @@ static u64 parseNumBaseComponent(com_reader *r, DiagnosticLogger *diagnostics,
       digit_val = radix - 1;
     }
 
-    // now we can create integer value
-    u64 old_integer_value = integer_value;
-    integer_value = integer_value * radix + digit_val;
-    if (old_integer_value > integer_value) {
-      *dlogger_append(diagnostics) =
-          (Diagnostic){.span = sp,
-                       .severity = DSK_Error,
-                       .message = com_str_lit_m("num literal overflow"),
-                       .children_len = 0};
-    }
+
+    // integer_value = integer_value * radix + digit_val;
+
+    com_biguint_mul_u32(&integer_value, &integer_value, radix);
+    com_biguint_add_u32(&integer_value, &integer_value, digit_val);
 
     // we can finally move past this char
     com_reader_drop_u8(r);
@@ -269,9 +293,20 @@ static f64 parseNumFractionalComponent(com_reader *r,
 // Returns control right after the number is finished
 // This function returns a Token or the error
 static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
-                              attr_UNUSED com_allocator *a) {
+                              com_allocator *a) {
 
   com_loc_LnCol start = com_reader_position(r);
+
+  // drop any leading plus sign
+  if(lex_peek(r, 1) == '+') {
+    com_reader_drop_u8(r);
+  }
+  // drop any leading minus sign
+  bool negative = false;
+  if(lex_peek(r, 1) == '-') {
+    com_reader_drop_u8(r);
+    negative = true; 
+  }
 
   u8 radix = 10;
   {
@@ -327,7 +362,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     }
   }
 
-  u64 base_component = parseNumBaseComponent(r, diagnostics, radix);
+  com_biguint base_component = parseNumBaseComponent(r, diagnostics, a, radix);
 
   bool fractional = false;
   {
@@ -340,16 +375,21 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
   if (fractional) {
     f64 fractional_component =
         parseNumFractionalComponent(r, diagnostics, radix);
+
+    fractional_component += com_biguint_get_f64(&base_component) ;
+    if(negative) {
+      fractional_component = -fractional_component;
+    }
+
     return (Token){
         .kind = tk_Float,
-        .floatToken = {.data = (fractional_component + (f64)base_component)},
+        .floatToken = {.data = fractional_component},
         .span = com_loc_span_m(start, com_reader_position(r))};
   } else {
     return (Token){.kind = tk_Int,
-                   .intToken =
-                       {
-                           .data = base_component,
-                       },
+                   .intToken = {
+                           .data = com_bigint_from(base_component, negative),
+                    },
                    .span = com_loc_span_m(start, com_reader_position(r))};
   }
 }
@@ -665,33 +705,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     RETURN_RESULT_TOKEN1(tk_None)                                              \
   }
 
-// utility methods to handle the incredible amount of edge cases
-
-typedef i16 inband_reader_result;
-static inband_reader_result lex_peek(com_reader *r, usize n) {
-  com_reader_ReadU8Result ret = com_reader_peek_u8(r, n);
-  if (!ret.valid) {
-    return -1;
-  }
-  return ret.value;
-}
-
-static bool is_alpha(inband_reader_result c) {
-  return c != -1 && com_format_is_alpha((u8)c);
-}
-
-static bool is_alphanumeric(inband_reader_result c) {
-  return c != -1 && com_format_is_alphanumeric((u8)c);
-}
-
-static bool is_digit(inband_reader_result c) {
-  return c != -1 && com_format_is_digit((u8)c);
-}
-
-static bool is_whitespace(inband_reader_result c) {
-  return c != -1 && com_format_is_whitespace((u8)c);
-}
-
 Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
   // always defined after
   inband_reader_result c = -1;
@@ -740,6 +753,37 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
       else {
         RETURN_RESULT_TOKEN1(tk_Underscore)
+      }
+    }
+    case '+': {
+      if(is_digit(c2)) {
+        return lexNumberLiteral(r, diagnostics, a);
+      }
+
+      switch (c2) {
+      case '=': {
+        RETURN_RESULT_TOKEN2(tk_AssignAdd)
+      }
+      default: {
+        RETURN_RESULT_TOKEN1(tk_Add)
+      }
+      }
+    }
+    case '-': {
+      if(is_digit(c2)) {
+        return lexNumberLiteral(r, diagnostics, a);
+      }
+
+      switch (c2) {
+      case '>': {
+        RETURN_RESULT_TOKEN2(tk_Pipe)
+      }
+      case '=': {
+        RETURN_RESULT_TOKEN2(tk_AssignSub)
+      }
+      default: {
+        RETURN_RESULT_TOKEN1(tk_Sub)
+      }
       }
     }
     case '&': {
@@ -805,29 +849,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_CompGreater)
-      }
-      }
-    }
-    case '+': {
-      switch (c2) {
-      case '=': {
-        RETURN_RESULT_TOKEN2(tk_AssignAdd)
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_Add)
-      }
-      }
-    }
-    case '-': {
-      switch (c2) {
-      case '>': {
-        RETURN_RESULT_TOKEN2(tk_Pipe)
-      }
-      case '=': {
-        RETURN_RESULT_TOKEN2(tk_AssignSub)
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_Sub)
       }
       }
     }

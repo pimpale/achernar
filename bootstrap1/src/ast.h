@@ -432,7 +432,7 @@ typedef struct ast_Val_s {
       bool value;
     } boolLiteral;
     struct {
-      u64 value;
+      com_bigint value;
     } intLiteral;
     struct {
       f64 value;
@@ -442,7 +442,6 @@ typedef struct ast_Val_s {
     } charLiteral;
     struct {
       com_str value;
-      usize value_len;
     } stringLiteral;
     struct {
       ast_ValStructMember *members;

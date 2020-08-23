@@ -4,6 +4,7 @@
 #include "com_define.h"
 #include "com_loc.h"
 #include "com_str.h"
+#include "com_bigint.h"
 
 typedef enum {
   // These are not tokens, and do not contain token data
@@ -130,7 +131,7 @@ typedef struct Token_s {
       com_str data;
     } stringToken;
     struct {
-      u64 data;
+      com_bigint data;
     } intToken;
     struct {
       f64 data;

@@ -1,6 +1,5 @@
 #include "token.h"
-#include <stdlib.h>
-#include <string.h>
+#include "com_assert.h"
 
 com_str tk_strKind(tk_Kind val) {
   switch (val) {
@@ -153,5 +152,5 @@ com_str tk_strKind(tk_Kind val) {
   case tk_Metadata:
     return com_str_lit_m("tk_Metadata");
   }
-  abort();
+  com_assert_unreachable_m("control flow reaches end of token");
 }

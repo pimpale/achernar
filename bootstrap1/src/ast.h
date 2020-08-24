@@ -36,8 +36,8 @@ typedef struct {
 
 typedef enum {
   ast_MRK_None,       // some kind of error
-  ast_MRK_Omitted,    // the current namespace
-  ast_MRK_Reference,  // a named namespace
+  ast_MRK_Omitted,    // the current mod
+  ast_MRK_Reference,  // a named mod
 } ast_ModReferenceKind;
 
 typedef struct ast_ModReference_s ast_ModReference;
@@ -99,7 +99,7 @@ typedef struct {
       com_str val;
     } strField;
     struct {
-      u64 val;
+      com_bigint val;
     } intField;
   };
 } ast_Field;
@@ -136,8 +136,10 @@ typedef enum {
 } ast_PatKind;
 
 typedef enum {
-  ast_PEBOK_Tuple,
+  ast_PEBOK_Product,
+  ast_PEBOK_Sum,
   ast_PEBOK_Union,
+  ast_PEBOK_Intersection,
   ast_PEBOK_And,
   ast_PEBOK_Or,
 } ast_PatBinaryOpKind;
@@ -246,8 +248,10 @@ typedef enum {
 } ast_TypeUnaryOpKind;
 
 typedef enum {
-  ast_TEBOK_Tuple, // ,
-  ast_TEBOK_Union, // |
+  ast_TEBOK_Product,      // ,
+  ast_TEBOK_Sum,          // |
+  ast_TEBOK_Union,        // ,,
+  ast_TEBOK_Intersection, // ||
 } ast_TypeBinaryOpKind;
 
 // essions and operations yielding a type
@@ -307,7 +311,8 @@ typedef enum {
   ast_VK_BinaryOp,
   ast_VK_UnaryOp,
   ast_VK_Call,
-  ast_VK_Return,
+  ast_VK_Pipe,
+  ast_VK_Ret,
   ast_VK_Match,
   ast_VK_Block,
   ast_VK_FieldAccess,
@@ -389,8 +394,6 @@ typedef struct {
 } ast_ValStructMember;
 
 typedef enum {
-  ast_VEUOK_Negate,
-  ast_VEUOK_Posit,
   ast_VEUOK_Not,
   ast_VEUOK_Ref,
   ast_VEUOK_Deref,
@@ -400,10 +403,13 @@ typedef enum {
   ast_VEBOK_Add,
   ast_VEBOK_Sub,
   ast_VEBOK_Mul,
-  ast_VEBOK_Div,
-  ast_VEBOK_Rem,
+  ast_VEBOK_IDiv,
+  ast_VEBOK_FDiv,
+  ast_VEBOK_IRem,
+  ast_VEBOK_FRem,
   ast_VEBOK_And,
   ast_VEBOK_Or,
+  ast_VEBOK_Xor,
   ast_VEBOK_CompEqual,
   ast_VEBOK_CompNotEqual,
   ast_VEBOK_CompLess,
@@ -415,9 +421,13 @@ typedef enum {
   ast_VEBOK_AssignAdd,
   ast_VEBOK_AssignSub,
   ast_VEBOK_AssignMul,
-  ast_VEBOK_AssignDiv,
-  ast_VEBOK_AssignRem,
-  ast_VEBOK_Tuple,
+  ast_VEBOK_AssignIDiv,
+  ast_VEBOK_AssignFDiv,
+  ast_VEBOK_AssignIRem,
+  ast_VEBOK_AssignFRem,
+  ast_VEBOK_Product,
+  ast_VEBOK_Union,
+  ast_VEBOK_Intersection,
 } ast_ValBinaryOpKind;
 
 typedef struct ast_Val_s {
@@ -459,6 +469,10 @@ typedef struct ast_Val_s {
       ast_Val *root;
       ast_Field *field;
     } fieldAccess;
+    struct {
+        ast_Val *root;
+        ast_Val *fn;
+    } pipe;
     struct {
       ast_Reference *path;
     } reference;
@@ -529,13 +543,13 @@ typedef struct ast_Stmnt_s {
       ast_Type *type;
     } typeDecl;
     struct {
-      ast_Reference *path;
+      ast_ModReference *path;
     } useStmnt;
     struct {
-      ast_ModBinding *binding;
+      ast_ModBinding *name;
       ast_Stmnt *stmnts;
       usize stmnts_len;
-    } namespaceStmnt;
+    } modStmnt;
     struct {
       ast_Macro *macro;
     } macro;

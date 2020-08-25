@@ -2,8 +2,8 @@
 #define AST_H
 
 #include "com_define.h"
-#include "com_str.h"
 #include "com_loc.h"
+#include "com_str.h"
 #include "token.h"
 
 typedef struct {
@@ -35,9 +35,9 @@ typedef struct {
 } ast_ModBinding;
 
 typedef enum {
-  ast_MRK_None,       // some kind of error
-  ast_MRK_Omitted,    // the current mod
-  ast_MRK_Reference,  // a named mod
+  ast_MRK_None,      // some kind of error
+  ast_MRK_Omitted,   // the current mod
+  ast_MRK_Reference, // a named mod
 } ast_ModReferenceKind;
 
 typedef struct ast_ModReference_s ast_ModReference;
@@ -144,7 +144,11 @@ typedef enum {
   ast_PEBOK_Or,
 } ast_PatBinaryOpKind;
 
-typedef enum { ast_PEUOK_Not } ast_PatUnaryOpKind;
+typedef enum {
+  ast_PEUOK_Not,
+  ast_PEUOK_Ref,
+  ast_PEUOK_Deref,
+} ast_PatUnaryOpKind;
 
 typedef enum {
   ast_PSMK_None,
@@ -470,8 +474,8 @@ typedef struct ast_Val_s {
       ast_Field *field;
     } fieldAccess;
     struct {
-        ast_Val *root;
-        ast_Val *fn;
+      ast_Val *root;
+      ast_Val *fn;
     } pipe;
     struct {
       ast_Reference *path;
@@ -584,5 +588,7 @@ com_str ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
 com_str ast_strBindingKind(ast_BindingKind val);
 com_str ast_strFieldKind(ast_FieldKind val);
 com_str ast_strReferenceKind(ast_ReferenceKind val);
+com_str ast_strModReferenceKind(ast_ModReferenceKind val);
+com_str ast_strModBindingKind(ast_ModBindingKind val);
 
 #endif

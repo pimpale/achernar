@@ -44,6 +44,15 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
     com_format_i64(writer, j->integer, com_format_DEFAULT_SETTING);
     break;
   }
+  case com_json_UINT: {
+    com_format_u64(writer, j->uinteger, com_format_DEFAULT_SETTING);
+    break;
+  }
+  case com_json_BIGINT: {
+    // TODO
+    //com_bigint_format(writer, j->bigint, 
+    break;
+  }
   case com_json_NUM: {
     com_format_f64(writer, j->number, com_format_DEFAULT_SETTING,
                    com_format_FloatDefault);

@@ -686,7 +686,7 @@ static com_json_Elem print_Val(ast_Val *vep, com_allocator *a) {
   }
   case ast_VK_Pipe: {
     *push_prop_m(&obj) = mkprop_m("pipe_root", print_Val(vep->pipe.root, a));
-    *push_prop_m(&obj) = mkprop_m("pipe_type", print_Type(vep->pipe.fn, a));
+    *push_prop_m(&obj) = mkprop_m("pipe_type", print_Val(vep->pipe.fn, a));
     break;
   }
   case ast_VK_Loop: {

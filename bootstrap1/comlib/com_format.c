@@ -6,8 +6,7 @@
 #include "com_str.h"
 #include "com_vec.h"
 
-// Accepts Vector<char>, pushes as many chars points as needed to encode the
-// data
+// pushes as many chars points as needed to encode the data
 void com_format_append_utf_codepoint(com_writer *w, u32 utf) {
   com_assert_m(utf <= 0x10FFFF, "utf is not a valid codepoint");
 
@@ -64,7 +63,10 @@ bool com_format_is_whitespace(u8 c) {
 }
 
 // GUARANTEES: returns true if `c` is 0-9 a-f A-F else false
-bool com_format_is_hex(u8 c);
+bool com_format_is_hex(u8 c) {
+  return (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') ||
+         (c >= '0' && c <= '9');
+}
 
 // REQUIRES: `c` is 0-9 a-f A-F
 // GUARANTEES: returns a number 0-15

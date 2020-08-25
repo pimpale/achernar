@@ -19,8 +19,7 @@ usize com_queue_length(const com_queue *queue) {
   return (usize) length;
 }
 
-// 
-void* queue_push(com_queue *queue, usize len) {
+void* com_queue_push(com_queue *queue, usize len) {
     if(queue->_offset < len) {
         usize expansion = com_vec_length(&queue->_backing)+len;
         com_vec_insert(&queue->_backing, 0, expansion);

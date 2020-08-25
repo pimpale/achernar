@@ -4,14 +4,16 @@
 #include "com_bigint.h"
 #include "com_define.h"
 #include "com_loc.h"
-#include "com_writer.h"
 #include "com_reader.h"
+#include "com_writer.h"
 
 typedef enum {
   com_json_INVALID = 0,
   com_json_NULL,
   com_json_BOOL,
   com_json_INT,
+  com_json_UINT,
+  com_json_BIGINT,
   com_json_NUM,
   com_json_STR,
   com_json_ARRAY,
@@ -27,6 +29,8 @@ typedef struct com_json_Elem_s {
     bool boolean;
     double number;
     i64 integer;
+    u64 uinteger;
+    com_bigint bigint;
     com_str string;
     struct {
       com_json_Elem *values;
@@ -51,12 +55,18 @@ typedef struct com_json_Prop_s {
   ((com_json_Elem){.kind = com_json_BOOL, .boolean = (v)})
 #define com_json_int_m(v)                                                      \
   ((com_json_Elem){.kind = com_json_INT, .integer = (v)})
+#define com_json_uint_m(v)                                                     \
+  ((com_json_Elem){.kind = com_json_UINT, .uinteger = (v)})
+#define com_json_bigint_m(v)                                                   \
+  ((com_json_Elem){.kind = com_json_BIGINT, .bigint = (v)})
 #define com_json_num_m(v) ((com_json_Elem){.kind = com_json_NUM, .number = (v)})
 #define com_json_str_m(v) ((com_json_Elem){.kind = com_json_STR, .string = (v)})
 #define com_json_array_m(v, len)                                               \
-  ((com_json_Elem){.kind = com_json_ARRAY, .array = {.values = (v), .length = (len)}})
+  ((com_json_Elem){.kind = com_json_ARRAY,                                     \
+                   .array = {.values = (v), .length = (len)}})
 #define com_json_obj_m(v, len)                                                 \
-  ((com_json_Elem){.kind = com_json_OBJ, .object = {.props = (v), .length = (len)}})
+  ((com_json_Elem){.kind = com_json_OBJ,                                       \
+                   .object = {.props = (v), .length = (len)}})
 
 #define com_json_obj_lit_m(arr) com_json_obj_m((arr), sizeof(arr))
 #define com_json_arr_lit_m(arr) com_json_array_m((arr), sizeof(arr))
@@ -85,13 +95,13 @@ typedef struct {
   com_loc_Span span;
 } com_json_Error;
 
-#define com_json_error_m(k, s) ((com_json_Error){.kind = k, .span= s})
+#define com_json_error_m(k, s) ((com_json_Error){.kind = k, .span = s})
 
 // serializes json to a writer (100% static no allocator needed)
-void com_json_serialize(com_json_Elem* elem, com_writer* writer);
+void com_json_serialize(com_json_Elem *elem, com_writer *writer);
 
 // converts an inputstream into a json DOM
-com_json_Elem com_json_parseElem(com_reader* reader, com_vec* diagnostics,  com_allocator* allocator);
+com_json_Elem com_json_parseElem(com_reader *reader, com_vec *diagnostics,
+                                 com_allocator *allocator);
 
 #endif
-

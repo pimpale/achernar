@@ -1,43 +1,32 @@
 #include "diagnostic.h"
-#include <stdlib.h>
+#include "com_assert.h"
 
-const char *strDiagnosticSeverityKind(DiagnosticSeverityKind val) {
+com_str strDiagnosticSeverityKind(DiagnosticSeverityKind val) {
   switch (val) {
   case DSK_Error:
-    return "Error";
+    return com_str_lit_m("Error");
   case DSK_Warning:
-    return "Warning";
+    return com_str_lit_m("Warning");
   case DSK_Information:
-    return "Information";
+    return com_str_lit_m("Information");
   case DSK_Hint:
-    return "Hint";
+    return com_str_lit_m("Hint");
   }
-
-  abort();
+  com_assert_unreachable_m("unreachable");
 }
 
-
-Diagnostic diagnostic_standalone(Span range, DiagnosticSeverityKind severity, char* message) {
-  return (Diagnostic)  {
-    .range= range,
-    .severity = severity,
-    .message = message,
-    .children  = NULL,
-    .children_len = 0,
-  };
+DiagnosticLogger dlogger_create(com_allocator *a) {
+  return (DiagnosticLogger){
+      ._a = a,
+      ._diagnostics = com_vec_create(com_allocator_alloc(
+          a, (com_allocator_HandleData){.len = 10,
+                                        .flags = com_allocator_defaults(a) |
+                                                 com_allocator_NOLEAK |
+                                                 com_allocator_REALLOCABLE}))};
 }
 
-DiagnosticLogger dlogger_create(Allocator *a) {
-  return (DiagnosticLogger) {
-    .a = a,
-    .diagnostics = vec_create(a)
-  };
+Diagnostic *dlogger_append(DiagnosticLogger *ptr) {
+  return com_vec_push_m(&ptr->_diagnostics, Diagnostic);
 }
 
-Diagnostic* dlogger_append(DiagnosticLogger *ptr) {
-  return VEC_PUSH(&ptr->diagnostics, Diagnostic);
-}
-
-Vector dlogger_release(DiagnosticLogger* ptr) {
-  return ptr->diagnostics;
-}
+com_vec dlogger_release(DiagnosticLogger *ptr) { return ptr->_diagnostics; }

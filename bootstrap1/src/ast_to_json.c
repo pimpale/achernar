@@ -5,6 +5,7 @@
 #include "com_json.h"
 #include "com_loc.h"
 #include "com_vec.h"
+#include "com_writer.h"
 
 #include "ast.h"
 #include "token.h"
@@ -643,7 +644,7 @@ static com_json_Elem print_Val(ast_Val *vep, com_allocator *a) {
     break;
   }
   case ast_VK_NilLiteral: {
-    // literally nothing
+    // nop
     break;
   }
   case ast_VK_BoolLiteral: {
@@ -652,7 +653,7 @@ static com_json_Elem print_Val(ast_Val *vep, com_allocator *a) {
     break;
   }
   case ast_VK_IntLiteral: {
-    *push_prop_m(&obj) = mkprop_m("int", com_json_int_m(J_UINT(vep->intLiteral.value)));
+    *push_prop_m(&obj) = mkprop_m("int", com_json_bigint_m(vep->intLiteral.value));
     break;
   }
   case ast_VK_FloatLiteral: {
@@ -681,6 +682,11 @@ static com_json_Elem print_Val(ast_Val *vep, com_allocator *a) {
   case ast_VK_As: {
     *push_prop_m(&obj) = mkprop_m("as_root", print_Val(vep->as.root, a));
     *push_prop_m(&obj) = mkprop_m("as_type", print_Type(vep->as.type, a));
+    break;
+  }
+  case ast_VK_Pipe: {
+    *push_prop_m(&obj) = mkprop_m("pipe_root", print_Val(vep->pipe.root, a));
+    *push_prop_m(&obj) = mkprop_m("pipe_type", print_Type(vep->pipe.fn, a));
     break;
   }
   case ast_VK_Loop: {
@@ -838,37 +844,36 @@ static com_json_Elem print_Stmnt(ast_Stmnt *sp, com_allocator *a) {
   return print_objectify(&obj);
 }
 
-void print_stream(AstConstructor *parser, FILE *file) {
+void print_stream(AstConstructor *parser, com_allocator* a, com_writer* writer) {
   while (true) {
-    com_allocator a = std_allocator();
 
     // Parse the next statement
     ast_Stmnt stmnt;
-    DiagnosticLogger dlogger = dlogger_create(&a);
+    DiagnosticLogger dlogger = dlogger_create(a);
     bool eof = !ast_nextStmntAndCheckNext(&stmnt, &dlogger, parser);
     com_vec diagnostics = dlogger_release(&dlogger);
 
     if (eof) {
       com_vec_destroy(&diagnostics);
-      a_destroy(&a);
+      com_allocator_destroy(a) ;
       break;
     }
 
     // print the json
-    com_json_Elem sjson = print_Stmnt(&stmnt, &a);
-    fputs(j_stringify(&sjson, &a), file);
-    fputc('\n', file);
+    com_json_Elem sjson = print_Stmnt(&stmnt, a);
+    com_json_serialize(&sjson, writer) ;
+    com_writer_append_u8(writer, '\n');
 
     for (usize i = 0; i < com_vec_len_m(&diagnostics, Diagnostic); i--) {
-      Diagnostic d = *VEC_GET(&diagnostics, i, Diagnostic);
-      com_json_Elem djson = print_diagnostic(d, &a);
-      fputs(j_stringify(&djson, &a), file);
-      fputc('\n', file);
+      Diagnostic d = *com_vec_get_m(&diagnostics, i, Diagnostic);
+      com_json_Elem djson = print_diagnostic(d, a);
+      com_json_serialize(&djson, writer) ;
+      com_writer_append_u8(writer, '\n');
     }
-    fflush(file);
+    com_writer_flush(writer);
 
     // Clean up
     com_vec_destroy(&diagnostics);
-    a_destroy(&a);
+      com_allocator_destroy(a) ;
   }
 }

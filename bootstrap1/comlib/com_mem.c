@@ -122,52 +122,53 @@ static usize internal_gcd(usize u, usize v) {
 // the overall strategy here is described here:
 // https://stackoverflow.com/questions/51558858/left-rotate-array-in-place-c
 
-// Essentially, we utilize the fact that simply rotating(i, (i+n) % len) for each elem of array
-// rotates all elements with indexes that are divisible by GCD(n, len)
-// so, we calculate the GCD, and perform iterations of simple rotating
-// with offsets from [0, GCD(len, n))
+// Essentially, we utilize the fact that simply rotating(i, (i+n) % len) for
+// each elem of array rotates all elements with indexes that are divisible by
+// GCD(n, len) so, we calculate the GCD, and perform iterations of simple
+// rotating with offsets from [0, GCD(len, n))
 
 // REQUIRES: `src` is a pointer to `len` bytes of memory
 // REQUIRES: `n` is the number of bytes to rotate to the right where n < len
-static void internal_rotate_right(u8* src, usize len, usize n) {
+static void internal_rotate_right(u8 *src, usize len, usize n) {
   const usize gcd = internal_gcd(len, n);
 
-	for(usize off = 0; off < gcd; off++) {
+  for (usize off = 0; off < gcd; off++) {
     u8 prev = src[off];
-		for(usize i = off+n; i < len; i += n) {
-    	const u8 tmp = src[i];
-			src[i] = prev;
-			prev = tmp;
-		}
-		src[off] = prev;
-	}
+    for (usize i = off + n; i < len; i += n) {
+      const u8 tmp = src[i];
+      src[i] = prev;
+      prev = tmp;
+    }
+    src[off] = prev;
+  }
 }
 
 static void internal_rotate_left(u8 *src, usize len, usize n) {
   const usize gcd = internal_gcd(len, n);
 
-	for(usize off = 0; off < gcd; off++) {
+  for (usize off = 0; off < gcd; off++) {
     u8 first = src[off];
-		usize i;
-		for(i=off; i < len-n; i += n) {
-			src[i] = src[i+n];
-		}
-		src[i] = first;
-	}
+    usize i;
+    for (i = off; i < len - n; i += n) {
+      src[i] = src[i + n];
+    }
+    src[i] = first;
+  }
 }
 
 void com_mem_rotate(void *src, usize size, usize nmemb, isize delta) {
-	delta %= nmemb;
-  if(delta < 0) {
-			internal_rotate_left(src, size*nmemb, (usize)-delta*size);
-	} else {
-			internal_rotate_right(src, size*nmemb, (usize)delta*size);
-	}
+  delta %= nmemb;
+  if (delta < 0) {
+    internal_rotate_left(src, size * nmemb, (usize)-delta * size);
+  } else {
+    internal_rotate_right(src, size * nmemb, (usize)delta * size);
+  }
 }
 
-void com_mem_reverse(void* src, usize size, usize nmemb) {
-  u8* src_bytes = src;
-	for(usize i = 0; i < nmemb; i++) {
-		com_mem_swap(src_bytes+i*size, src_bytes+(nmemb-i-1)*size, size);
-	}
+void com_mem_reverse(void *src, usize size, usize nmemb) {
+  u8 *src_bytes = src;
+  for (usize i = 0; i < nmemb; i++) {
+    com_mem_swap(src_bytes + i * size, src_bytes + (nmemb - i - 1) * size,
+                 size);
+  }
 }

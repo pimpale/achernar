@@ -26,11 +26,11 @@ void com_biguint_set_u64(com_biguint *dest, u64 val) {
     com_vec_set_len_m(v, 0, u32);
   } else if (val <= u32_max_m) {
     com_vec_set_len_m(v, 1, u32);
-    *com_vec_get_m(v, 0, u32) = (u32)val;
+    *com_vec_get_m(v, 0, u32) = val & 0x00000000FFFFFFFFu;
   } else {
     com_vec_set_len_m(v, 2, u32);
     // downcasting it will get rid of the upper 32 bits
-    *com_vec_get_m(v, 0, u32) = (u32)val;
+    *com_vec_get_m(v, 0, u32) = val & 0x00000000FFFFFFFFu;
     // guaranteed to fit in 32 bits
     *com_vec_get_m(v, 1, u32) = val >> 32;
   }
@@ -60,8 +60,8 @@ bool com_biguint_fits_u64(const com_biguint *a) {
   return com_vec_len_m(&a->_array, u32) <= 2;
 }
 
-bool com_biguint_is_zero(const com_biguint* a)  {
-  return com_vec_length(&a->_array) == 0; 
+bool com_biguint_is_zero(const com_biguint *a) {
+  return com_vec_length(&a->_array) == 0;
 }
 
 // bitwise functions
@@ -715,15 +715,16 @@ void com_biguint_mul(com_biguint *dest, const com_biguint *a,
   u32 *a_arr = com_vec_get_m(&a->_array, 0, u32);
   u32 *b_arr = com_vec_get_m(&b->_array, 0, u32);
 
-  // allocate a tmp object
+  // allocate a tmp biguint
   com_biguint tmp = com_biguint_create(com_allocator_alloc(
       allocator, (com_allocator_HandleData){
                      // technically could overflow, but won't because if alen
                      // and blen are really that long,
                      // then all the address space is already used up by those
                      .len = alen + blen + 1,
-                     // we don't need to reallocate since the max len tmp could
+                     // we don't need to REALLOCABLE since the max len tmp could
                      // go through is already covered by our len
+                     // we'll clean up at the end so we don't need NOLEAK
                      .flags = com_allocator_defaults(allocator)}));
 
   // if any of the arguments are aliased with dest, then we need to create a new
@@ -746,12 +747,84 @@ void com_biguint_mul(com_biguint *dest, const com_biguint *a,
   com_biguint_destroy(&tmp);
 }
 
+#define new_bigint(allocator)                                                  \
+  com_biguint_create(com_allocator_alloc(                                      \
+      allocator,                                                               \
+      (com_allocator_HandleData){.len = 0,                                     \
+                                 .flags = com_allocator_defaults(allocator) |  \
+                                          com_allocator_REALLOCABLE}))
+// ALGORITHM FROM HERE
+// https://github.com/kokke/tiny-bignum-c/blob/master/bn.c
 void com_biguint_div(com_biguint *dest, const com_biguint *a,
                      const com_biguint *b, com_allocator *allocator) {
   com_assert_m(a != NULL, "a is null");
   com_assert_m(b != NULL, "b is null");
-  com_assert_m(dest != NULL, "dest is null");
+  com_assert_m(dest != NULL, "remainder is null");
   com_assert_m(allocator != NULL, "allocator is null");
+  com_assert_m(!com_biguint_is_zero(b), "division by zero error");
 
-  // TODO
+  com_biguint current = new_bigint(allocator);
+  com_biguint denom = new_bigint(allocator);
+  com_biguint tmp = new_bigint(allocator);
+
+  com_biguint_set_u64(&current, 1); // int current = 1;
+  com_biguint_set(&denom, b);       // denom = b
+  com_biguint_set(&tmp, a);         // tmp   = a
+
+  while (com_biguint_cmp(a, &denom) != com_math_GREATER) // while (denom <= a)
+  {
+    com_biguint_lshift(&current, &current, 1); //   current <<= 1;
+    com_biguint_lshift(&denom, &denom, 1);     //   denom <<= 1;
+  }
+
+  com_biguint_rshift(&current, &current, 1); //   current >>= 1;
+  com_biguint_rshift(&denom, &denom, 1);     //   denom >>= 1;
+
+  com_biguint_set_u64(dest, 0); // int answer = 0;
+
+  while (!com_biguint_is_zero(&current)) // while (current != 0)
+  {
+    if (com_biguint_cmp(&denom, &tmp) !=
+        com_math_LESS) //   if (dividend >= denom)
+    {
+      com_biguint_sub(&tmp, &tmp, &denom);  //     dividend -= denom;
+      com_biguint_or(dest, &current, dest); //     answer |= current;
+    }
+    com_biguint_rshift(&current, &current, 1); //   current >>= 1;
+    com_biguint_rshift(&denom, &denom, 1);     //   denom >>= 1;
+  }                                            // return answer;
+
+  com_biguint_destroy(&current);
+  com_biguint_destroy(&denom);
+  com_biguint_destroy(&tmp);
+}
+
+void com_biguint_div_rem(com_biguint *quotient, com_biguint *remainder,
+                         const com_biguint *a, const com_biguint *b,
+                         com_allocator *allocator) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(quotient != NULL, "quotient is null");
+  com_assert_m(remainder != NULL, "remainder is null");
+  com_assert_m(allocator != NULL, "allocator is null");
+  com_assert_m(!com_biguint_is_zero(b), "division by zero error");
+
+  com_biguint_div(quotient, a, b, allocator);
+  com_biguint_sub(remainder, a, quotient);
+}
+
+void com_biguint_rem(com_biguint *dest, const com_biguint *a,
+                     const com_biguint *b, com_allocator *allocator) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "remainder is null");
+  com_assert_m(allocator != NULL, "allocator is null");
+  com_assert_m(!com_biguint_is_zero(b), "division by zero error");
+
+  // initially start with zero length but chan realloc later
+  com_biguint quotient = new_bigint(allocator);
+
+  com_biguint_div_rem(&quotient, dest, a, b, allocator);
+
+  com_biguint_destroy(&quotient);
 }

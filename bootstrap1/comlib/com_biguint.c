@@ -56,6 +56,16 @@ u64 com_biguint_get_u64(const com_biguint *a) {
   }
 }
 
+f64 com_biguint_get_f64(const com_biguint *a) {
+  com_assert_m(a != NULL, "a is null");
+  f64 ret = 0;
+  for (usize i = 0; i < com_vec_len_m(&a->_array, u32); i++) {
+    // this operation may be lossy because floating points can really only get so big
+    ret = ret * u32_max_m + *com_vec_get_m(&a->_array, i, u32);
+  }
+  return ret;
+}
+
 bool com_biguint_fits_u64(const com_biguint *a) {
   return com_vec_len_m(&a->_array, u32) <= 2;
 }

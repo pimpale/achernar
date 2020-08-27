@@ -2,6 +2,7 @@
 
 #include "com_allocator.h"
 #include "com_assert.h"
+#include "com_bigdecimal.h"
 #include "com_bigint.h"
 #include "com_biguint.h"
 #include "com_format.h"
@@ -197,11 +198,14 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
 
 // Parses integer with radix
 // Radix must be between 2 and 16 inclusive
-static com_biguint parseNumBaseComponent(com_reader *r, DiagnosticLogger *diagnostics, com_allocator* a,
-                                 u8 radix) {
-  com_biguint integer_value = com_biguint_create(com_allocator_alloc(a, (com_allocator_HandleData) {
-    .len=10,
-    .flags=com_allocator_defaults(a) | com_allocator_NOLEAK | com_allocator_REALLOCABLE }) ) ;
+static com_biguint parseNumBaseComponent(com_reader *r,
+                                         DiagnosticLogger *diagnostics,
+                                         com_allocator *a, u8 radix) {
+  com_biguint integer_value = com_biguint_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 10,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_NOLEAK |
+                                             com_allocator_REALLOCABLE}));
   while (true) {
     com_loc_Span sp = com_reader_peek_span_u8(r, 1);
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
@@ -228,7 +232,6 @@ static com_biguint parseNumBaseComponent(com_reader *r, DiagnosticLogger *diagno
       // put in dummy for the digit value
       digit_val = radix - 1;
     }
-
 
     // integer_value = integer_value * radix + digit_val;
 
@@ -241,17 +244,30 @@ static com_biguint parseNumBaseComponent(com_reader *r, DiagnosticLogger *diagno
   return integer_value;
 }
 
-static f64 parseNumFractionalComponent(com_reader *r,
-                                       DiagnosticLogger *diagnostics,
-                                       u8 radix) {
+static com_bigdecimal parseNumFractionalComponent(com_reader *r,
+                                                  DiagnosticLogger *diagnostics,
+                                                  com_allocator *a, u8 radix,
+                                                  com_biguint base_component) {
+
   // the reciprocal of the current decimal place
   // EX: at 0.1 will be 10 when parsing the 1
   // EX: at 0.005 will be 1000 when parsing the 5
   // This is because representing decimals is lossy
-  f64 place = 1;
+  com_bigdecimal fractional_value =
+      com_bigdecimal_from(com_bigint_from(base_component, false));
 
   // fractional component being computed
-  f64 fractional_value = 0;
+  com_bigdecimal place = com_bigdecimal_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 12,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_REALLOCABLE}));
+
+  com_bigdecimal tmp = com_bigdecimal_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 12,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_REALLOCABLE}));
+
+  com_bigdecimal_set_i64(&place, 1);
 
   while (true) {
     com_loc_Span sp = com_reader_peek_span_u8(r, 1);
@@ -280,8 +296,9 @@ static f64 parseNumFractionalComponent(com_reader *r,
       digit_val = radix - 1;
     }
 
-    place *= radix;
-    fractional_value += digit_val / place;
+    com_bigdecimal_div_i32(place, place, radix);
+    com_bigdecimal_mul_i32(tmp, place, digit_val);
+    com_bigdecimal_add(&fractional_value, &fractional_value, &tmp);
 
     // we can finally move past this char
     com_reader_drop_u8(r);
@@ -298,14 +315,14 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
   com_loc_LnCol start = com_reader_position(r);
 
   // drop any leading plus sign
-  if(lex_peek(r, 1) == '+') {
+  if (lex_peek(r, 1) == '+') {
     com_reader_drop_u8(r);
   }
   // drop any leading minus sign
   bool negative = false;
-  if(lex_peek(r, 1) == '-') {
+  if (lex_peek(r, 1) == '-') {
     com_reader_drop_u8(r);
-    negative = true; 
+    negative = true;
   }
 
   u8 radix = 10;
@@ -362,7 +379,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     }
   }
 
-  com_biguint base_component = parseNumBaseComponent(r, diagnostics, a, radix);
+  com_biguint base_component =  parseNumBaseComponent(r, diagnostics, a, radix);
 
   bool fractional = false;
   {
@@ -373,23 +390,22 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
   }
 
   if (fractional) {
-    f64 fractional_component =
-        parseNumFractionalComponent(r, diagnostics, radix);
+    com_bigdecimal decimal =
+        parseNumFractionalComponent(r, diagnostics, a, radix, base_component);
 
-    fractional_component += com_biguint_get_f64(&base_component) ;
     if(negative) {
-      fractional_component = -fractional_component;
+      com_bigdecimal_negate(decimal);
     }
 
-    return (Token){
-        .kind = tk_Float,
-        .floatToken = {.data = fractional_component},
-        .span = com_loc_span_m(start, com_reader_position(r))};
+    return (Token){.kind = tk_Float,
+                   .floatToken = {.data = decimal},
+                   .span = com_loc_span_m(start, com_reader_position(r))};
   } else {
     return (Token){.kind = tk_Int,
-                   .intToken = {
+                   .intToken =
+                       {
                            .data = com_bigint_from(base_component, negative),
-                    },
+                       },
                    .span = com_loc_span_m(start, com_reader_position(r))};
   }
 }
@@ -748,15 +764,14 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       return lexMetadata(r, diagnostics, a, true);
     }
     case '_': {
-      if(is_alphanumeric(c2) || c2 == '_') {
+      if (is_alphanumeric(c2) || c2 == '_') {
         return lexWord(r, diagnostics, a);
-      }
-      else {
+      } else {
         RETURN_RESULT_TOKEN1(tk_Underscore)
       }
     }
     case '+': {
-      if(is_digit(c2)) {
+      if (is_digit(c2)) {
         return lexNumberLiteral(r, diagnostics, a);
       }
 
@@ -770,7 +785,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '-': {
-      if(is_digit(c2)) {
+      if (is_digit(c2)) {
         return lexNumberLiteral(r, diagnostics, a);
       }
 

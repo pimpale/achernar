@@ -99,7 +99,10 @@ static void internal_set_scale(com_bigdecimal *dest, u32 downscale) {
   }
 }
 
-
+// add together a and b 
+// REQUIRES: a len > b len
+// 
+static internal_add(com_bigdecimal* dest, com_bigdecimal* a, com_bigdecimal *b);
 
 void com_bigdecimal_add(com_bigdecimal *dest, const com_bigdecimal *a,
                         const com_bigdecimal *b) {

@@ -111,7 +111,7 @@ void com_bigint_div_rem(com_bigint *quotient, com_bigint *remainder,
                         com_allocator *allocator);
 
 
-/* Bitwise operations: */
+/* Bitwise operations on magnitude: */
 void com_bigint_and(com_bigint *dest, const com_bigint *a,
                      const com_bigint *b);
 void com_bigint_or(com_bigint *dest, const com_bigint *a,
@@ -123,8 +123,20 @@ void com_bigint_lshift(com_bigint *dest, const com_bigint *a,
 void com_bigint_rshift(com_bigint *dest, const com_bigint *a,
                         const u32 nbits);
 
+// constant operators
+void com_bigint_add_i32(com_bigint *dest, const com_bigint *a, i32 b);
+void com_bigint_sub_i32(com_bigint *dest, const com_bigint *a, i32 b);
+void com_bigint_mul_i32(com_bigint *dest, const com_bigint *a, i32 b);
+void com_bigint_div_i32(com_bigint *dest, const com_bigint *a, i32 b);
+
 /* Special operators and comparison */
 
+// compares b with reference to a
+/// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
+/// REQUIRES: `b` is a valid pointer to a valid `com_biguint`
+/// GUARANTEES: if `b` is greater than `a` will return com_math_GREATER
+/// GUARANTEES: if `b` is less than `a` will return com_math_LESS
+/// GUARANTEES: if `b` is equal to `a` will return com_math_EQUAL
 com_math_cmptype com_bigint_cmp(const com_bigint *a, const com_bigint *b);
 
 /// returns the sign of a bigint
@@ -139,6 +151,11 @@ com_math_signtype com_bigint_sign(const com_bigint *a);
 /// GUARANTEES: if `a` is zero, returns true
 /// GUARANTEES: if `a` is not zero, returns false
 bool com_bigint_is_zero(const com_bigint *a);
+
+/// negates `a`
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigint`
+/// GUARANTEES: if `a` != 0 the sign has been flipped
+void com_bigint_negate(com_bigint *a);
 
 /* Functions to inspect the layout of the bigint */
 

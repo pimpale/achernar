@@ -449,7 +449,7 @@ typedef struct ast_Val_s {
       com_bigint value;
     } intLiteral;
     struct {
-      f64 value;
+      com_bigdecimal value;
     } floatLiteral;
     struct {
       u8 value;

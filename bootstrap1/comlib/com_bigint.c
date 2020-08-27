@@ -183,6 +183,109 @@ void com_bigint_div_rem(com_bigint *quotient, com_bigint *remainder,
                       &a->_magnitude, &b->_magnitude, allocator);
 }
 
+// a - b
+static void internal_safe_sub_uint_u32(com_bigint *dest, const com_biguint *a, u32 b) {
+  switch (com_biguint_cmp_u64(a,  b) ) {
+  // b == a
+  case com_math_EQUAL: {
+    com_bigint_set_i64(dest, 0);
+    return;
+  }
+  // b < a
+  case com_math_LESS: {
+    com_biguint_sub_u32(&dest->_magnitude, a, b);
+    dest->_negative = false;
+    return;
+  }
+  // b > a
+  case com_math_GREATER: {
+    u64 ret = b - com_biguint_get_u64(a);
+    com_biguint_set_u64(&dest->_magnitude, ret);
+    dest->_negative = true;
+    return;
+  }
+  }
+}
+
+static void internal_add_u32(com_bigint* dest, const com_bigint *a, u32 b) {
+  const com_biguint* amag = &a->_magnitude;
+  if(!a->_negative) {
+    com_biguint_add_u32(&dest->_magnitude, &a->_magnitude, b);
+    dest->_negative = false;
+  } else {
+      // a is negative
+    if(com_biguint_cmp_u64(amag, b) == com_math_GREATER) {
+        // b > a
+        u64 ret = b - com_biguint_get_u64(amag);
+        com_biguint_set_u64(&dest->_magnitude, ret);
+        dest->_negative = false;
+    } else {
+        // b <= a
+        com_biguint_sub_u32(&dest->_magnitude, amag, b);
+        dest->_negative = true;
+    }
+  }
+}
+
+static void internal_sub_u32(com_bigint* dest, const com_bigint *a, u32 b) {
+  const com_biguint* amag = &a->_magnitude;
+  if(a->_negative) {
+    com_biguint_add_u32(&dest->_magnitude, &a->_magnitude, b);
+    dest->_negative = true;
+  } else {
+    // a is positive
+    if(com_biguint_cmp_u64(amag, b) == com_math_GREATER) {
+        // b > a
+        u64 ret = b - com_biguint_get_u64(amag);
+        com_biguint_set_u64(&dest->_magnitude, ret);
+        dest->_negative = true;
+    } else {
+        // b <= a
+        com_biguint_sub_u32(&dest->_magnitude, amag, b);
+        dest->_negative = false;
+    }
+  }
+}
+
+void com_bigint_add_i32(com_bigint *dest, const com_bigint *a, i32 b) {
+  if(b < 0) {
+    internal_sub_u32(dest, a, (u32)(-(b +1)) + 1);
+  } else {
+    internal_add_u32(dest,a,(u32)b);
+  }
+}
+void com_bigint_sub_i32(com_bigint *dest, const com_bigint *a, i32 b) {
+  if(b < 0) {
+    internal_add_u32(dest,a,(u32)b);
+  } else {
+    internal_sub_u32(dest, a, (u32)(-(b +1)) + 1);
+  }
+}
+
+void com_bigint_mul_i32(com_bigint *dest, const com_bigint *a, i32 b) {
+  u32 mag;
+  if( b < 0 ) {
+    mag = (u32)(-(b+1)) +1;
+    dest->_negative = !a->_negative;
+  } else {
+      mag = (u32) b;
+    dest->_negative = a->_negative;
+  }
+  com_biguint_mul_u32(&dest->_magnitude, &a->_magnitude, mag);
+}
+
+void com_bigint_div_i32(com_bigint *dest, const com_bigint *a, i32 b) {
+  u32 mag;
+  if( b < 0 ) {
+    mag = (u32)(-(b+1)) +1;
+    dest->_negative = !a->_negative;
+  } else {
+      mag = (u32) b;
+    dest->_negative = a->_negative;
+  }
+  com_biguint_div_u32(&dest->_magnitude, &a->_magnitude, mag);
+}
+
 bool com_bigint_is_zero(const com_bigint *a) {
   return com_biguint_is_zero(&a->_magnitude);
 }
@@ -251,6 +354,11 @@ com_math_cmptype com_bigint_cmp(const com_bigint *a, const com_bigint *b) {
     }
   }
 }
+
+void com_bigint_negate(com_bigint *a) {
+ a->_negative = !a->_negative;
+}
+
 
 usize com_bigint_len(const com_bigint *a) {
   return com_biguint_len(&a->_magnitude);

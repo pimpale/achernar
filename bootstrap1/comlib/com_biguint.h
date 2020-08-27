@@ -136,6 +136,7 @@ com_math_cmptype com_biguint_cmp(const com_biguint *a, const com_biguint *b);
 void com_biguint_add_u32(com_biguint *dest, const com_biguint *a, u32 b);
 void com_biguint_sub_u32(com_biguint *dest, const com_biguint *a, u32 b);
 void com_biguint_mul_u32(com_biguint *dest, const com_biguint *a, u32 b);
+void com_biguint_div_u32(com_biguint *dest, const com_biguint *a, u32 b);
 
 com_math_cmptype com_biguint_cmp_u64(const com_biguint *a, u64 b);
 

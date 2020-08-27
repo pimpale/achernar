@@ -5,9 +5,9 @@
 #include "com_bigint.h"
 
 typedef struct {
-  // how much to downscale bigdecimal
-  // measured in words
-  u32 _downscale;
+  // the precision of the integer
+  // this is essentially how many words the decimal point has been moved up
+  u32 _precision;
   com_bigint _value;
 } com_bigdecimal;
 
@@ -71,14 +71,18 @@ void com_bigdecimal_set(com_bigdecimal *dest, const com_bigdecimal *src);
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
 /// REQUIRES: `b` is a valid pointer to a valid `com_bigdecimal`
 /// REQUIRES: `dest` is a valid pointer to a valid `com_bigdecimal`
+/// REQUIRES: `a` and `b` have the same precision
 /// GUARANTEES: `dest` will be overwritten with the sum of `a` and `b`
+/// GUARANTEES: `dest` will have the same precision as a and b
 void com_bigdecimal_add(com_bigdecimal *dest, const com_bigdecimal *a, const com_bigdecimal *b);
 
 /// dest := a - b
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
 /// REQUIRES: `b` is a valid pointer to a valid `com_bigdecimal`
+/// REQUIRES: `a` and `b` have the same precision
 /// REQUIRES: `dest` is a valid pointer to a valid `com_bigdecimal`
 /// GUARANTEES: `dest` will be overwritten by `a` - `b`
+/// GUARANTEES: `dest` will have the same precision as a and b
 void com_bigdecimal_sub(com_bigdecimal *dest, const com_bigdecimal *a, const com_bigdecimal *b);
 
 /// dest := a * b
@@ -87,6 +91,7 @@ void com_bigdecimal_sub(com_bigdecimal *dest, const com_bigdecimal *a, const com
 /// REQUIRES: `dest` is a valid pointer to a valid `com_bigdecimal`
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` * `b`
+/// GUARANTEES: `dest` will have the a's precision + b's precision
 void com_bigdecimal_mul(com_bigdecimal *dest, const com_bigdecimal *a, const com_bigdecimal *b,
                     com_allocator *allocator);
 /// dest := a / b
@@ -98,27 +103,15 @@ void com_bigdecimal_mul(com_bigdecimal *dest, const com_bigdecimal *a, const com
 void com_bigdecimal_div(com_bigdecimal *dest, const com_bigdecimal *a, const com_bigdecimal *b,
                     com_allocator *allocator);
 
-/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
-/// REQUIRES: `b` is a valid pointer to a valid `com_bigdecimal`
-/// REQUIRES: `dest` is a valid pointer to a valid `com_bigdecimal`
-/// REQUIRES: `allocator` is a valid `com_allocator`
-/// GUARANTEES: `dest` will be overwritten by `a` % `b`
-void com_bigdecimal_rem(com_bigdecimal *dest, const com_bigdecimal *a, const com_bigdecimal *b,
-                    com_allocator *allocator);
-
-/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
-/// REQUIRES: `b` is a valid pointer to a valid `com_bigdecimal`
-/// REQUIRES: `quotient` is a valid pointer to a valid `com_bigdecimal`
-/// REQUIRES: `remainder` is a valid pointer to a valid `com_bigdecimal`
-/// REQUIRES: `allocator` is a valid `com_allocator`
-/// GUARANTEES: `quotient` will be overwritten by `a` / `b`
-/// GUARANTEES: `remainder` will be overwritten by `a` % `b`
-void com_bigdecimal_div_rem(com_bigdecimal *quotient, com_bigdecimal *remainder,
-                        const com_bigdecimal *a, const com_bigdecimal *b,
-                        com_allocator *allocator);
-
 /* Special operators and comparison */
 
+// compares b with reference to a
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
+/// REQUIRES: `b` is a valid pointer to a valid `com_bigdecimal`
+/// REQUIRES: `a` and `b` have the same precision
+/// GUARANTEES: if `b` is greater than `a` will return com_math_GREATER
+/// GUARANTEES: if `b` is less than `a` will return com_math_LESS
+/// GUARANTEES: if `b` is equal to `a` will return com_math_EQUAL
 com_math_cmptype com_bigdecimal_cmp(const com_bigdecimal *a, const com_bigdecimal *b);
 
 /// returns the sign of a bigdecimal
@@ -135,8 +128,9 @@ com_math_signtype com_bigdecimal_sign(const com_bigdecimal *a);
 bool com_bigdecimal_is_zero(const com_bigdecimal *a);
 
 // constant version
-void com_bigint_add_i32(com_bigint *dest, const com_bigint *a, i32 b);
-void com_bigint_sub_i32(com_bigint *dest, const com_bigint *a, i32 b);
-void com_bigint_mul_i32(com_bigint *dest, const com_bigint *a, i32 b);
+void com_bigdecimal_add_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
+void com_bigdecimal_sub_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
+void com_bigdecimal_mul_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
+void com_bigdecimal_div_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
 
 #endif

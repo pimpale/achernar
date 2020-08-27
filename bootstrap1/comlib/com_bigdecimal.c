@@ -3,7 +3,7 @@
 #include "com_imath.h"
 
 com_bigdecimal com_bigdecimal_from(com_bigint value) {
-  return (com_bigdecimal){._downscale = 0, ._value = value};
+  return (com_bigdecimal){._precision = 0, ._value = value};
 }
 
 com_bigdecimal com_bigdecimal_create(com_allocator_Handle h) {
@@ -24,14 +24,14 @@ void com_bigdecimal_set_i64(com_bigdecimal *dest, i64 a) {
   // set value
   com_bigint_set_i64(&dest->_value, a);
   // scale is zero
-  dest->_downscale = 0;
+  dest->_precision = 0;
 }
 
 static u64 internal_get_magnitude(const com_bigdecimal *a) {
   usize len = com_bigint_len(&a->_value);
 
   // if there are more than 2 u32 words then it won't fit in a u64
-  isize scale = (isize)len - (isize)a->_downscale > 2;
+  isize scale = (isize)len - (isize)a->_precision > 2;
   if (scale > 2) {
     return false;
   }
@@ -41,8 +41,8 @@ static u64 internal_get_magnitude(const com_bigdecimal *a) {
 
   // here scale must be 2
   // this means that both of these are defined
-  u64 lsw = com_bigint_get_at(&a->_value, a->_downscale);
-  u64 msw = com_bigint_get_at(&a->_value, a->_downscale + 1);
+  u64 lsw = com_bigint_get_at(&a->_value, a->_precision);
+  u64 msw = com_bigint_get_at(&a->_value, a->_precision + 1);
 
   // reconstruct magnitude
   return (msw << 32) + lsw;
@@ -75,27 +75,26 @@ bool com_bigdecimal_fits_i64(const com_bigdecimal *a) {
 // TODO
 f64 com_bigdecimal_get_f64(const com_bigdecimal *a) {
   f64 magnitude = com_bigint_get_f64(&a->_value);
-  magnitude /= 2 << (a->_downscale * 32);
+  magnitude /= 2 << (a->_precision * 32);
   return magnitude;
 }
 
 void com_bigdecimal_set(com_bigdecimal *dest, const com_bigdecimal *src) {
-  dest->_downscale = src->_downscale;
+  dest->_precision = src->_precision;
   com_bigint_set(&dest->_value, &src->_value);
 }
 
-// Sets the downscale  of dest
+// Sets the precision of dest
 // REQUIRES: `dest` is a valid pointer to a valid `com_bigdecimal`
-// GUARANTEES: if `downscale` > `dest._downscale`, `dest` will have the same int
-// value as old dest 
-// GUARANTEES: `dest`'s downscale will be equal to `downscale`
-static void internal_set_scale(com_bigdecimal *dest, u32 downscale) {
-  u32 sc1 = dest->_downscale;
-  dest->_downscale = downscale;
+// GUARANTEES: if `precision` > `dest._precision`, no information will be lost
+// GUARANTEES: `dest`'s precision will be equal to `precision`
+static void internal_set_precision(com_bigdecimal *target, u32 precision) {
+  u32 sc1 = target->_precision;
+  target->_precision = downscale;
   if (downscale >= sc1) {
-    com_bigint_lshift(&dest->_value, &dest->_value, downscale - sc1);
+    com_bigint_lshift(&target->_value, &target->_value, downscale - sc1);
   } else {
-    com_bigint_rshift(&dest->_value, &dest->_value, sc1 - downscale);
+    com_bigint_rshift(&target->_value, &target->_value, sc1 - downscale);
   }
 }
 
@@ -106,32 +105,34 @@ static internal_add(com_bigdecimal* dest, com_bigdecimal* a, com_bigdecimal *b);
 
 void com_bigdecimal_add(com_bigdecimal *dest, const com_bigdecimal *a,
                         const com_bigdecimal *b) {
-  u64 ascale = a->_downscale;
-  u64 bscale = b->_downscale;
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_assert_m(a->_precision == b->_precision, "a and b do not have the same precision");
 
-  // shift smaller entry so that they are both the same size (adjusting the
-  // scale) add rescale a and b
+  com_bigint_add(&dest->_value, &a->_value, &b->_value);
+  dest->_precision = a->_precision;
 }
 
 void com_bigdecimal_sub(com_bigdecimal *dest, const com_bigdecimal *a,
                         const com_bigdecimal *b) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_assert_m(a->_precision == b->_precision, "a and b do not have the same precision");
 
-  const com_biguint *amag = &a->_magnitude;
-  const com_biguint *bmag = &b->_magnitude;
-
-  bool anegative = a->_negative;
-  // we invert this because subtraction of a negative number is positive
-  bool bnegative = !b->_negative;
-
-  internal_addop(dest, amag, anegative, bmag, bnegative);
+  com_bigint_sub(&dest->_value, &a->_value, &b->_value);
+  dest->_precision = a->_precision;
 }
 
 void com_bigdecimal_mul(com_bigdecimal *dest, const com_bigdecimal *a,
                         const com_bigdecimal *b, com_allocator *allocator) {
-  // if one of them is negative but not the other, it is negative
-  // if both of them are the same kind, then it is not negative
-  dest->_negative = a->_negative != b->_negative;
-  com_biguint_mul(&dest->_magnitude, &a->_magnitude, &b->_magnitude, allocator);
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+
+  com_bigint_mul(&dest->_value, &a->_value, &b->_value, allocator);
+  dest->_precision = a->_precision + b->_precision;
 }
 
 void com_bigdecimal_div(com_bigdecimal *dest, const com_bigdecimal *a,
@@ -142,93 +143,21 @@ void com_bigdecimal_div(com_bigdecimal *dest, const com_bigdecimal *a,
   com_biguint_div(&dest->_magnitude, &a->_magnitude, &b->_magnitude, allocator);
 }
 
-void com_bigdecimal_rem(com_bigdecimal *dest, const com_bigdecimal *a,
-                        const com_bigdecimal *b, com_allocator *allocator) {
-  // remainder (%) always takes the sign of the dividend
-  dest->_negative = a->_negative;
-  com_biguint_rem(&dest->_magnitude, &a->_magnitude, &b->_magnitude, allocator);
-}
-
-void com_bigdecimal_div_rem(com_bigdecimal *quotient, com_bigdecimal *remainder,
-                            const com_bigdecimal *a, const com_bigdecimal *b,
-                            com_allocator *allocator) {
-  // if one of them is negative but not the other, it is negative
-  // if both of them are the same kind, then it is not negative
-  quotient->_negative = a->_negative != b->_negative;
-
-  // remainder (%) always takes the sign of the dividend
-  remainder->_negative = a->_negative;
-
-  com_biguint_div_rem(&quotient->_magnitude, &remainder->_magnitude,
-                      &a->_magnitude, &b->_magnitude, allocator);
-}
-
 bool com_bigdecimal_is_zero(const com_bigdecimal *a) {
-  return com_biguint_is_zero(&a->_magnitude);
+  com_assert_m(a != NULL, "a is null");
+  return com_bigint_is_zero(&a->_value);
 }
 
 com_math_signtype com_bigdecimal_sign(const com_bigdecimal *a) {
-  if (com_biguint_is_zero(&a->_magnitude)) {
-    return com_math_ZERO;
-  } else if (a->_negative) {
-    return com_math_NEGATIVE;
-  } else {
-    return com_math_POSITIVE;
-  }
+  com_assert_m(a != NULL, "a is null");
+    return com_bigint_sign(&a->_value) ;
 }
 
 com_math_cmptype com_bigdecimal_cmp(const com_bigdecimal *a,
                                     const com_bigdecimal *b) {
-  // handle special case of a and b both being zero
-  // signed zeros are a thing in this representation
-  if (com_biguint_is_zero(&a->_magnitude) &&
-      com_biguint_is_zero(&b->_magnitude)) {
-    return com_math_EQUAL;
-  }
 
-  com_math_cmptype magcmp = com_biguint_cmp(&a->_magnitude, &b->_magnitude);
-
-  if (b->_negative) {
-    // b is negative
-    switch (magcmp) {
-    case com_math_GREATER: {
-      return com_math_LESS;
-    }
-    case com_math_LESS: {
-      if (a->_negative) {
-        return com_math_GREATER;
-      } else {
-        return com_math_LESS;
-      }
-    }
-    case com_math_EQUAL: {
-      if (a->_negative) {
-        return com_math_EQUAL;
-      } else {
-        return com_math_LESS;
-      }
-    }
-    }
-  } else {
-    // b is positive
-    switch (magcmp) {
-    case com_math_GREATER: {
-      return com_math_GREATER;
-    }
-    case com_math_LESS: {
-      if (a->_negative) {
-        return com_math_GREATER;
-      } else {
-        return com_math_LESS;
-      }
-    }
-    case com_math_EQUAL: {
-      if (a->_negative) {
-        return com_math_EQUAL;
-      } else {
-        return com_math_LESS;
-      }
-    }
-    }
-  }
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(a->_precision == b->_precision, "a and b do not have the same precision") ;
+  return com_bigint_cmp(&a->_value, &b->_value);
 }

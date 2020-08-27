@@ -10,8 +10,8 @@ com_bigint com_bigint_create(com_allocator_Handle h) {
   return (com_bigint){._negative = false, ._magnitude = com_biguint_create(h)};
 }
 
-const com_biguint *com_bigint_magnitude(const com_bigint *a) {
-  return &a->_magnitude;
+void com_bigint_magnitude(com_biguint *dest, const com_bigint *a) {
+  com_biguint_set(dest, &a->_magnitude);
 }
 
 void com_bigint_destroy(com_bigint *a) { com_biguint_destroy(&a->_magnitude); }
@@ -38,14 +38,12 @@ void com_bigint_set_i64(com_bigint *dest, i64 a) {
 
 i64 com_bigint_get_i64(const com_bigint *a) {
   u64 magnitude = com_biguint_get_u64(&a->_magnitude);
-  if (magnitude == 0) {
-    return 0;
-  }
 
   if (a->_negative) {
-    return -(i64)com_imath_u64_max(magnitude, positive_i64_min_m);
+    // ensure no overflows
+    return -(i64)com_imath_u64_min(magnitude, positive_i64_min_m -1) - 1;
   } else {
-    return (i64)com_imath_u64_max(magnitude, (u64)i64_max_m);
+    return (i64)com_imath_u64_min(magnitude, (u64)i64_max_m);
   }
 }
 
@@ -252,4 +250,16 @@ com_math_cmptype com_bigint_cmp(const com_bigint *a, const com_bigint *b) {
     }
     }
   }
+}
+
+usize com_bigint_len(const com_bigint *a) {
+  return com_biguint_len(&a->_magnitude);
+}
+
+u32 com_bigint_get_at(const com_bigint *a, usize i) {
+  return com_biguint_get_at(&a->_magnitude, i);
+}
+
+void com_bigint_set_at(com_bigint *a, usize i, u32 val) {
+  com_biguint_set_at(&a->_magnitude, i, val);
 }

@@ -6,7 +6,9 @@
 #include "com_math.h"
 #include "com_vec.h"
 
-/* Data-holding structure: array of u32s */
+// Data-holding structure: array of u32s 
+// the array is stored with the least significant words at the lower indices
+// little endian
 typedef struct {
   // vector of u32s
   // not permitted to have empty zeros in the front
@@ -138,5 +140,26 @@ void com_biguint_mul_u32(com_biguint *dest, const com_biguint *a, u32 b);
 com_math_cmptype com_biguint_cmp_u64(const com_biguint *a, u64 b);
 
 bool com_biguint_is_zero(const com_biguint *a);
+
+/* Functions to inspect the layout of the bigint */
+
+/// Returns the number of u32 words in `a`
+/// REQUIRES: `a` must be a valid pointer to a valid com_biguint
+/// GUARANTEES: returns the number of words in the internal representation of `a`
+/// GUARANTEES: the number returned is equal to ceil(log(a)/log(u32_max_m))
+usize com_biguint_len(const com_biguint *a);
+
+/// Get value of biguint's internal little endian representation at index i
+/// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
+/// REQUIRES: `i` < `com_biguint_len(a)`
+/// GUARANTEES: returns the `i`'th most significant word of `a`
+u32 com_biguint_get_at(const com_biguint *a, usize i);
+
+/// Set value of biguint's internal little endian representation at index i to val
+/// REQUIRES: `a` is a valid pointer to a valid `com_biguint`
+/// REQUIRES: `i` < `com_biguint_len(a)`
+/// REQUIRES: `val` is the value to set
+/// GUARANTEES: sets the `i`'th most significant word of `a` to `val
+void com_biguint_set_at(com_biguint *a, usize i, u32 val);
 
 #endif

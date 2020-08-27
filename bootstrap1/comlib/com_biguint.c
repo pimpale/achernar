@@ -838,3 +838,16 @@ void com_biguint_rem(com_biguint *dest, const com_biguint *a,
 
   com_biguint_destroy(&quotient);
 }
+
+
+usize com_biguint_len(const com_biguint *a) {
+  return com_vec_len_m(&a->_array, u32);
+}
+
+u32 com_biguint_get_at(const com_biguint *a, usize i) {
+  return *com_vec_get_m(&a->_array, i, u32);
+}
+
+void com_biguint_set_at(com_biguint *a, usize i, u32 val) {
+  *com_vec_get_m(&a->_array, i, u32) = val;
+}

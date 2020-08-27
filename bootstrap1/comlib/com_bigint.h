@@ -13,6 +13,7 @@ typedef struct {
 /// REQUIRES: `magnitude` is a valid `com_biguint`
 /// GUARANTEES: returns a valid `com_biguint` using `magnitude`
 /// GUARANTEES: if `negative`, then the returned value will be negative
+/// GUARANTEES: `magnitude` is consumed
 com_bigint com_bigint_from(com_biguint magnitude, bool negative);
 
 /// creates a bigint from an allocator handle, with value 0
@@ -22,9 +23,9 @@ com_bigint com_bigint_create(com_allocator_Handle h);
 
 /// returns a pointer to the magnitude of bigint
 /// REQUIRES: `a` is a valid com_bigint
-/// GUARANTEES: returns a pointer to a valid `com_biguint` storing the value of
-/// the magnitude
-const com_biguint *com_bigint_magnitude(const com_bigint *a);
+/// REQUIRES: `dest` is a valid com_biguint
+/// GUARANTEES: sets dest to the magnitude of `a`
+void com_bigint_magnitude(com_biguint* dest, const com_bigint *a);
 
 /// frees bigint
 /// REQUIRES: `a` is a valid pointer to a `com_bigint`
@@ -109,6 +110,19 @@ void com_bigint_div_rem(com_bigint *quotient, com_bigint *remainder,
                         const com_bigint *a, const com_bigint *b,
                         com_allocator *allocator);
 
+
+/* Bitwise operations: */
+void com_bigint_and(com_bigint *dest, const com_bigint *a,
+                     const com_bigint *b);
+void com_bigint_or(com_bigint *dest, const com_bigint *a,
+                    const com_bigint *b);
+void com_bigint_xor(com_bigint *dest, const com_bigint *a,
+                     const com_bigint *b);
+void com_bigint_lshift(com_bigint *dest, const com_bigint *a,
+                        const u32 nbits);
+void com_bigint_rshift(com_bigint *dest, const com_bigint *a,
+                        const u32 nbits);
+
 /* Special operators and comparison */
 
 com_math_cmptype com_bigint_cmp(const com_bigint *a, const com_bigint *b);
@@ -125,5 +139,27 @@ com_math_signtype com_bigint_sign(const com_bigint *a);
 /// GUARANTEES: if `a` is zero, returns true
 /// GUARANTEES: if `a` is not zero, returns false
 bool com_bigint_is_zero(const com_bigint *a);
+
+/* Functions to inspect the layout of the bigint */
+
+/// Returns the number of u32 words in `a`
+/// REQUIRES: `a` must be a valid pointer to a valid com_bigint
+/// GUARANTEES: returns the number of words in the internal representation of `a`
+/// GUARANTEES: the number returned is equal to ceil(log(a)/log(u32_max_m))
+usize com_bigint_len(const com_bigint *a);
+
+/// Get value of bigint's internal little endian representation at index i
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigint`
+/// REQUIRES: `i` < `com_bigint_len(a)`
+/// GUARANTEES: returns the `i`'th most significant word of `a`
+u32 com_bigint_get_at(const com_bigint *a, usize i);
+
+/// Set value of bigint's internal little endian representation at index i to val
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigint`
+/// REQUIRES: `i` < `com_bigint_len(a)`
+/// REQUIRES: `val` is the value to set
+/// GUARANTEES: sets the `i`'th most significant word of `a` to `val
+void com_bigint_set_at(com_bigint *a, usize i, u32 val);
+
 
 #endif

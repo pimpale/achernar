@@ -269,5 +269,3 @@ void com_format_i64(com_writer *w, i64 data, com_format_FormatData fmtdata) {
     internal_u64_negative(w, (u64)data, false, fmtdata);
   }
 }
-
-

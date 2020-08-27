@@ -296,8 +296,8 @@ static com_bigdecimal parseNumFractionalComponent(com_reader *r,
       digit_val = radix - 1;
     }
 
-    com_bigdecimal_div_i32(place, place, radix);
-    com_bigdecimal_mul_i32(tmp, place, digit_val);
+    com_bigdecimal_div_i32(&place, &place, radix);
+    com_bigdecimal_mul_i32(&tmp, &place, digit_val);
     com_bigdecimal_add(&fractional_value, &fractional_value, &tmp);
 
     // we can finally move past this char
@@ -394,7 +394,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
         parseNumFractionalComponent(r, diagnostics, a, radix, base_component);
 
     if(negative) {
-      com_bigdecimal_negate(decimal);
+      com_bigdecimal_negate(&decimal);
     }
 
     return (Token){.kind = tk_Float,

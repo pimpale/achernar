@@ -178,5 +178,4 @@ u32 com_bigint_get_at(const com_bigint *a, usize i);
 /// GUARANTEES: sets the `i`'th most significant word of `a` to `val
 void com_bigint_set_at(com_bigint *a, usize i, u32 val);
 
-
 #endif

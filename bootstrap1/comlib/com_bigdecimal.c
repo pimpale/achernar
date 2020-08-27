@@ -84,24 +84,22 @@ void com_bigdecimal_set(com_bigdecimal *dest, const com_bigdecimal *src) {
   com_bigint_set(&dest->_value, &src->_value);
 }
 
-// Sets the precision of dest
-// REQUIRES: `dest` is a valid pointer to a valid `com_bigdecimal`
-// GUARANTEES: if `precision` > `dest._precision`, no information will be lost
-// GUARANTEES: `dest`'s precision will be equal to `precision`
-static void internal_set_precision(com_bigdecimal *target, u32 precision) {
-  u32 sc1 = target->_precision;
-  target->_precision = downscale;
-  if (downscale >= sc1) {
-    com_bigint_lshift(&target->_value, &target->_value, downscale - sc1);
+void com_bigdecimal_set_precision(com_bigdecimal *a, u32 prec) {
+  // if we're increasing the precision we shift left, which gives more room
+  // if we're decreasing the precision we shift right, which erases the least significant bits
+  // each word of precision is 32 bits long
+  if (prec >= a->_precision) {
+    com_bigint_lshift(&a->_value, &a->_value, (prec - a->_precision)*32);
   } else {
-    com_bigint_rshift(&target->_value, &target->_value, sc1 - downscale);
+    com_bigint_rshift(&a->_value, &a->_value, (a->_precision - prec)*32);
   }
+  a->_precision = prec;
 }
 
-// add together a and b 
-// REQUIRES: a len > b len
-// 
-static internal_add(com_bigdecimal* dest, com_bigdecimal* a, com_bigdecimal *b);
+
+u32 com_bigdecimal_get_precision(const com_bigdecimal* a) {
+  return a->_precision;
+}
 
 void com_bigdecimal_add(com_bigdecimal *dest, const com_bigdecimal *a,
                         const com_bigdecimal *b) {
@@ -137,10 +135,13 @@ void com_bigdecimal_mul(com_bigdecimal *dest, const com_bigdecimal *a,
 
 void com_bigdecimal_div(com_bigdecimal *dest, const com_bigdecimal *a,
                         const com_bigdecimal *b, com_allocator *allocator) {
-  // if one of them is negative but not the other, it is negative
-  // if both of them are the same kind, then it is not negative
-  dest->_negative = a->_negative != b->_negative;
-  com_biguint_div(&dest->_magnitude, &a->_magnitude, &b->_magnitude, allocator);
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_assert_m(a->_precision >=  b->_precision, "a 's precision is less than b's precision ");
+  
+  com_bigint_div(&dest->_value, &a->_value, &b->_value, allocator);
+  dest->_precision = a->_precision - b->_precision;
 }
 
 bool com_bigdecimal_is_zero(const com_bigdecimal *a) {
@@ -161,3 +162,10 @@ com_math_cmptype com_bigdecimal_cmp(const com_bigdecimal *a,
   com_assert_m(a->_precision == b->_precision, "a and b do not have the same precision") ;
   return com_bigint_cmp(&a->_value, &b->_value);
 }
+
+void com_bigdecimal_negate(com_bigdecimal *a) {
+  com_assert_m(a != NULL, "a is null");
+  com_bigint_negate(&a->_value);
+}
+
+

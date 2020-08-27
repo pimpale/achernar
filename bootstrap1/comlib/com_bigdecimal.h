@@ -16,6 +16,7 @@ typedef struct {
 /// GUARANTEES: returns a valid `com_biguint` using `value`
 /// GUARANTEES: if `negative`, then the returned value will be negative
 /// GUARANTEES: `value` is consumed
+/// GUARANTEES: precision of returned value is zero
 com_bigdecimal com_bigdecimal_from(com_bigint value);
 
 /// creates a bigdecimal from an allocator handle, with value 0
@@ -23,11 +24,23 @@ com_bigdecimal com_bigdecimal_from(com_bigint value);
 /// GUARANTEES: returns a valid `com_bigdecimal` with value 0 and sign 0
 com_bigdecimal com_bigdecimal_create(com_allocator_Handle h);
 
-/// returns a pointer to the magnitude of bigint
-/// REQUIRES: `a` is a valid com_bigint
+/// gets the unscaled magnitude of bigdecimal
+/// REQUIRES: `a` is a valid com_bigdecimal
 /// REQUIRES: `dest` is a valid com_biguint
 /// GUARANTEES: sets dest to the magnitude of `a`
-void com_bigint_magnitude(com_biguint* dest, const com_bigint *a);
+void com_bigdecimal_magnitude(com_biguint* dest, const com_bigdecimal *a);
+
+/// gets the precision of a
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
+/// GUARANTEES: returns `a.precision`
+u32 com_bigdecimal_get_precision(const com_bigdecimal* a);
+
+/// sets the precision of a
+/// REQUIRES: `a` is a valid pointer to a valid com_bigdecimal
+/// REQUIRES: `prec` is the precision to set to 
+/// GUARANTEES: `a.precision` is now `prec`
+/// GUARANTEES: if `prec > a.precision` then no data is lost
+void com_bigdecimal_set_precision(com_bigdecimal *a, u32 prec);
 
 /// frees bigdecimal
 /// REQUIRES: `a` is a valid pointer to a `com_bigdecimal`
@@ -98,8 +111,10 @@ void com_bigdecimal_mul(com_bigdecimal *dest, const com_bigdecimal *a, const com
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
 /// REQUIRES: `b` is a valid pointer to a valid `com_bigdecimal`
 /// REQUIRES: `dest` is a valid pointer to a valid `com_bigdecimal`
+/// REQUIRES: `a`'s precision must be greater than or equal to `b`'s precision
 /// REQUIRES: `allocator` is a valid `com_allocator`
 /// GUARANTEES: `dest` will be overwritten by `a` / `b`
+/// GUARANTEES: `dest` will have the a's precision - b's precision
 void com_bigdecimal_div(com_bigdecimal *dest, const com_bigdecimal *a, const com_bigdecimal *b,
                     com_allocator *allocator);
 
@@ -120,6 +135,11 @@ com_math_cmptype com_bigdecimal_cmp(const com_bigdecimal *a, const com_bigdecima
 /// GUARANTEES: returns `com_math_POSITIVE` if `a` is greater than 0
 /// GUARANTEES: returns `com_math_NEGATIVE` if `a` is less than 0
 com_math_signtype com_bigdecimal_sign(const com_bigdecimal *a);
+
+/// negates `a`
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
+/// GUARANTEES: if `a` != 0 the sign has been flipped
+void com_bigdecimal_negate(com_bigdecimal *a);
 
 /// returns true if `a` is zero
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`

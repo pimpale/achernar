@@ -1,6 +1,7 @@
 #ifndef COM_JSON_H
 #define COM_JSON_H
 
+#include "com_bigdecimal.h"
 #include "com_bigint.h"
 #include "com_define.h"
 #include "com_loc.h"
@@ -13,8 +14,7 @@ typedef enum {
   com_json_BOOL,
   com_json_INT,
   com_json_UINT,
-  com_json_BIGINT,
-  com_json_NUM,
+  com_json_FLOAT,
   com_json_STR,
   com_json_ARRAY,
   com_json_OBJ,
@@ -26,11 +26,12 @@ typedef struct com_json_Prop_s com_json_Prop;
 typedef struct com_json_Elem_s {
   com_json_ElemKind kind;
   union {
-    bool boolean;
-    double number;
-    i64 integer;
-    u64 uinteger;
-    com_bigint bigint;
+    bool bool_member;
+    f64 float_member;
+    i64 int_member;
+    u64 uint_member;
+    com_bigint bigint_member;
+    com_bigdecimal bigdec_member;
     com_str string;
     struct {
       com_json_Elem *values;
@@ -52,14 +53,13 @@ typedef struct com_json_Prop_s {
 #define com_json_null_m ((com_json_Elem){.kind = com_json_NULL})
 #define com_json_invalid_m ((com_json_Elem){.kind = com_json_NULL})
 #define com_json_bool_m(v)                                                     \
-  ((com_json_Elem){.kind = com_json_BOOL, .boolean = (v)})
+  ((com_json_Elem){.kind = com_json_BOOL, .bool_member = (v)})
 #define com_json_int_m(v)                                                      \
-  ((com_json_Elem){.kind = com_json_INT, .integer = (v)})
+  ((com_json_Elem){.kind = com_json_INT, .int_member = (v)})
 #define com_json_uint_m(v)                                                     \
-  ((com_json_Elem){.kind = com_json_UINT, .uinteger = (v)})
-#define com_json_bigint_m(v)                                                   \
-  ((com_json_Elem){.kind = com_json_BIGINT, .bigint = (v)})
-#define com_json_num_m(v) ((com_json_Elem){.kind = com_json_NUM, .number = (v)})
+  ((com_json_Elem){.kind = com_json_UINT, .uint_member = (v)})
+#define com_json_float_m(v)                                                    \
+  ((com_json_Elem){.kind = com_json_FLOAT, .float_member = (v)})
 #define com_json_str_m(v) ((com_json_Elem){.kind = com_json_STR, .string = (v)})
 #define com_json_array_m(v, len)                                               \
   ((com_json_Elem){.kind = com_json_ARRAY,                                     \

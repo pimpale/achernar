@@ -36,25 +36,20 @@ static void com_json_emitElem(com_writer *writer, com_json_Elem *j) {
     break;
   }
   case com_json_BOOL: {
-    com_writer_append_str(writer, j->boolean ? com_str_lit_m("true")
-                                             : com_str_lit_m("false"));
+    com_writer_append_str(writer, j->bool_member ? com_str_lit_m("true")
+                                                 : com_str_lit_m("false"));
     break;
   }
   case com_json_INT: {
-    com_format_i64(writer, j->integer, com_format_DEFAULT_SETTING);
+    com_format_i64(writer, j->int_member, com_format_DEFAULT_SETTING);
     break;
   }
   case com_json_UINT: {
-    com_format_u64(writer, j->uinteger, com_format_DEFAULT_SETTING);
+    com_format_u64(writer, j->uint_member, com_format_DEFAULT_SETTING);
     break;
   }
-  case com_json_BIGINT: {
-    // TODO
-    //com_bigint_format(writer, j->bigint, 
-    break;
-  }
-  case com_json_NUM: {
-    com_format_f64(writer, j->number, com_format_DEFAULT_SETTING,
+  case com_json_FLOAT: {
+    com_format_f64(writer, j->float_member, com_format_DEFAULT_SETTING,
                    com_format_FloatDefault);
     break;
   }
@@ -233,7 +228,7 @@ com_json_certain_parseNumberElem(com_reader *reader, com_vec *diagnostics,
     if (negative) {
       num = -num;
     }
-    return com_json_num_m(num);
+    return com_json_float_m(num);
   } else {
     if (negative) {
       integer_value = -integer_value;

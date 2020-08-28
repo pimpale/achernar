@@ -97,7 +97,7 @@ void com_bigdecimal_set_precision(com_bigdecimal *a, usize prec) {
 }
 
 
-u32 com_bigdecimal_get_precision(const com_bigdecimal* a) {
+usize com_bigdecimal_get_precision(const com_bigdecimal* a) {
   return a->_precision;
 }
 

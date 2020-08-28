@@ -51,6 +51,30 @@ static com_json_Elem print_Span(com_loc_Span span, com_allocator *a) {
   return print_objectify(&obj);
 }
 
+static com_json_Elem print_bigint(com_bigint bigint, com_allocator *a) {
+  com_vec obj = print_vec_create_m(a);
+  *push_prop_m(&obj) = mkprop_m("kind", com_json_str_m(com_str_lit_m("bigint")));
+  com_vec words = print_vec_create_m(a);
+  for (usize i = 0; i < com_bigint_len(&bigint); i++) {
+    *push_elem_m(&words) = com_json_uint_m(com_bigint_get_at(&bigint, i));
+  }
+  *push_prop_m(&obj) = mkprop_m("words", print_arrayify(&words));
+  return print_objectify(&obj);
+}
+
+static com_json_Elem print_bigdecimal(com_bigdecimal bigdecimal, com_allocator *a) {
+  com_vec obj = print_vec_create_m(a);
+  *push_prop_m(&obj) = mkprop_m("kind", com_json_str_m(com_str_lit_m("bigdecimal")));
+  *push_prop_m(&obj) = mkprop_m("negative", com_json_bool_m(com_bigdecimal_sign(&bigdecimal) == com_math_NEGATIVE));
+  com_vec words = print_vec_create_m(a);
+  for (usize i = 0; i < com_bigdecimal_len(&bigdecimal); i++) {
+    *push_elem_m(&words) = com_json_uint_m(com_bigdecimal_get_at(&bigdecimal, i));
+  }
+  *push_prop_m(&obj) = mkprop_m("words", print_arrayify(&words));
+  *push_prop_m(&obj) = mkprop_m("precision", com_json_uint_m(com_bigdecimal_get_precision(&bigdecimal)));
+  return print_objectify(&obj);
+}
+
 static com_json_Elem print_diagnostic(Diagnostic diagnostic, com_allocator *a) {
   com_vec obj = print_vec_create_m(a);
   *push_prop_m(&obj) =
@@ -249,7 +273,7 @@ static com_json_Elem print_Field(ast_Field *field, com_allocator *a) {
       mkprop_m("field_kind", com_json_str_m(ast_strFieldKind(field->kind)));
   switch (field->kind) {
   case ast_FK_FieldInt: {
-    *push_prop_m(&obj) = mkprop_m("field_int", com_json_bigint_m(field->intField.val));
+    *push_prop_m(&obj) = mkprop_m("field_int", print_bigint(field->intField.val, a));
     break;
   }
   case ast_FK_FieldStr: {
@@ -307,12 +331,12 @@ static com_json_Elem print_Token(Token *token, com_allocator *a) {
   }
   case tk_Int: {
     *push_prop_m(&obj) =
-        mkprop_m("int", com_json_bigint_m(token->intToken.data));
+        mkprop_m("int", print_bigint(token->intToken.data, a));
     break;
   }
   case tk_Float: {
     *push_prop_m(&obj) =
-        mkprop_m("bool", com_json_num_m(token->floatToken.data));
+        mkprop_m("float", print_bigdecimal(token->floatToken.data, a));
     break;
   }
   case tk_Char: {
@@ -653,12 +677,12 @@ static com_json_Elem print_Val(ast_Val *vep, com_allocator *a) {
     break;
   }
   case ast_VK_IntLiteral: {
-    *push_prop_m(&obj) = mkprop_m("int", com_json_bigint_m(vep->intLiteral.value));
+    *push_prop_m(&obj) = mkprop_m("int", print_bigint(vep->intLiteral.value, a));
     break;
   }
   case ast_VK_FloatLiteral: {
     *push_prop_m(&obj) =
-        mkprop_m("float", com_json_num_m(vep->floatLiteral.value));
+        mkprop_m("float", print_bigdecimal(vep->floatLiteral.value, a));
     break;
   }
   case ast_VK_CharLiteral: {

@@ -269,3 +269,18 @@ void com_format_i64(com_writer *w, i64 data, com_format_FormatData fmtdata) {
     internal_u64_negative(w, (u64)data, false, fmtdata);
   }
 }
+
+// TODO  f64 formatting
+// This relies on writing a library for f64 manipulation, specifically finding
+// powers
+
+void attr_NORETURN com_format_f32(attr_UNUSED com_writer *w, attr_UNUSED f32 data,
+                    attr_UNUSED com_format_FormatData fmtdata,
+                    attr_UNUSED com_format_FloatKind kind) {
+  com_assert_unreachable_m("this method is unimplemented");
+}
+void attr_NORETURN com_format_f64(attr_UNUSED com_writer *w, attr_UNUSED f64 data,
+                    attr_UNUSED com_format_FormatData fmtdata,
+                    attr_UNUSED com_format_FloatKind kind) {
+  com_assert_unreachable_m("this method is unimplemented");
+}

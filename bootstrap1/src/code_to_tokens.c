@@ -267,7 +267,17 @@ static com_bigdecimal parseNumFractionalComponent(com_reader *r,
                                     .flags = com_allocator_defaults(a) |
                                              com_allocator_REALLOCABLE}));
 
+  com_bigdecimal radix_val = com_bigdecimal_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 4,
+                                    .flags = com_allocator_defaults(a)}));
+
+  com_bigdecimal digit_val = com_bigdecimal_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 4,
+                                    .flags = com_allocator_defaults(a)}));
+
   com_bigdecimal_set_i64(&place, 1);
+
+  com_bigdecimal_set_i64(&radix_val, radix);
 
   while (true) {
     com_loc_Span sp = com_reader_peek_span_u8(r, 1);
@@ -284,21 +294,37 @@ static com_bigdecimal parseNumFractionalComponent(com_reader *r,
       continue;
     }
 
-    u8 digit_val = com_format_from_hex(ret.value);
+    com_bigdecimal_set_i64(&digit_val, com_format_from_hex(ret.value));
 
-    if (digit_val >= radix) {
+    // if radix_val < digit_val
+    if (com_bigdecimal_cmp(&digit_val, &radix_val) == com_math_LESS) {
       *dlogger_append(diagnostics) = (Diagnostic){
           .span = sp,
           .severity = DSK_Error,
           .message = com_str_lit_m("num literal char value exceeds radix"),
           .children_len = 0};
+
       // put in dummy for the digit value
-      digit_val = radix - 1;
+      com_bigdecimal_set_i64(&digit_val, 0);
     }
 
-    com_bigdecimal_div_i32(&place, &place, radix);
-    com_bigdecimal_mul_i32(&tmp, &place, digit_val);
+    // ensure precision is safe 
+    com_bigdecimal_set_precision(&place, com_bigdecimal_get_precision(&fractional_value)+1);
+
+    // place /= radix_val
+    // Radix val has zero precision, so should be valid
+    com_bigdecimal_div(&place, &place, &radix_val, a);
+
+    // tmp = digit_val / place
+    // digit val has zero precision, so tmp precision should be = fractional_value + 1
+    com_bigdecimal_mul(&tmp, &place, &digit_val, a);
+
+    // scale up fractional value's precision to match place
+    com_bigdecimal_set_precision(&fractional_value, com_bigdecimal_get_precision(&place));
     com_bigdecimal_add(&fractional_value, &fractional_value, &tmp);
+
+    // remove any trailing zeros
+    com_bigdecimal_remove_trailing_zero(&fractional_value);
 
     // we can finally move past this char
     com_reader_drop_u8(r);

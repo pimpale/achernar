@@ -120,9 +120,9 @@ void com_biguint_or(com_biguint *dest, const com_biguint *a,
 void com_biguint_xor(com_biguint *dest, const com_biguint *a,
                      const com_biguint *b);
 void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
-                        const u32 nbits);
+                        const usize nbits);
 void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
-                        const u32 nbits);
+                        const usize nbits);
 
 // compares the magnitude of b with reference to a
 /// REQUIRES: `a` is a valid pointer to a valid `com_biguint`

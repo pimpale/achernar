@@ -183,30 +183,6 @@ void com_bigint_div_rem(com_bigint *quotient, com_bigint *remainder,
                       &a->_magnitude, &b->_magnitude, allocator);
 }
 
-// a - b
-static void internal_safe_sub_uint_u32(com_bigint *dest, const com_biguint *a, u32 b) {
-  switch (com_biguint_cmp_u64(a,  b) ) {
-  // b == a
-  case com_math_EQUAL: {
-    com_bigint_set_i64(dest, 0);
-    return;
-  }
-  // b < a
-  case com_math_LESS: {
-    com_biguint_sub_u32(&dest->_magnitude, a, b);
-    dest->_negative = false;
-    return;
-  }
-  // b > a
-  case com_math_GREATER: {
-    u64 ret = b - com_biguint_get_u64(a);
-    com_biguint_set_u64(&dest->_magnitude, ret);
-    dest->_negative = true;
-    return;
-  }
-  }
-}
-
 static void internal_add_u32(com_bigint* dest, const com_bigint *a, u32 b) {
   const com_biguint* amag = &a->_magnitude;
   if(!a->_negative) {
@@ -370,4 +346,41 @@ u32 com_bigint_get_at(const com_bigint *a, usize i) {
 
 void com_bigint_set_at(com_bigint *a, usize i, u32 val) {
   com_biguint_set_at(&a->_magnitude, i, val);
+}
+
+
+void com_bigint_and(com_bigint *dest, const com_bigint *a,
+                     const com_bigint *b) {
+
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_biguint_and(&dest->_magnitude, &a->_magnitude, &b->_magnitude);
+}
+void com_bigint_or(com_bigint *dest, const com_bigint *a,
+                    const com_bigint *b) {
+
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_biguint_or(&dest->_magnitude, &a->_magnitude, &b->_magnitude);
+}
+void com_bigint_xor(com_bigint *dest, const com_bigint *a,
+                     const com_bigint *b) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(b != NULL, "b is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_biguint_xor(&dest->_magnitude, &a->_magnitude, &b->_magnitude);
+}
+void com_bigint_lshift(com_bigint *dest, const com_bigint *a,
+                        const usize nbits) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_biguint_lshift(&dest->_magnitude, &a->_magnitude, nbits);
+}
+void com_bigint_rshift(com_bigint *dest, const com_bigint *a,
+                        const usize nbits) {
+  com_assert_m(a != NULL, "a is null");
+  com_assert_m(dest != NULL, "dest is null");
+  com_biguint_rshift(&dest->_magnitude, &a->_magnitude, nbits);
 }

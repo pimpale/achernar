@@ -229,8 +229,10 @@ void com_biguint_xor(com_biguint *dest, const com_biguint *a,
   }
 }
 
+#define usize_bits_m (sizeof(usize)*8)
+
 void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
-                        const u32 bits) {
+                        const usize bits) {
   com_assert_m(dest != NULL, "dest is null");
   com_assert_m(a != NULL, "a is null");
 
@@ -249,8 +251,8 @@ void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
   // This enables in place mutation, should the user provide the same
   // destination and operator
 
-  u32 words = bits / 32;
-  u32 rbits = bits % 32;
+  usize words = bits / usize_bits_m;
+  u32 rbits = bits % usize_bits_m;
 
   // set dest length to a's length + words shifted
   // (we'll add an extra one if it overflows later)
@@ -282,7 +284,7 @@ void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
 }
 
 void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
-                        const u32 bits) {
+                        const usize bits) {
   com_assert_m(dest != NULL, "dest is null");
   com_assert_m(a != NULL, "a is null");
 
@@ -295,8 +297,8 @@ void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
   // if aliasing
   com_vec_set_len_m(dvec, alen, u32);
 
-  u32 words = bits / 32;
-  u32 rbits = bits % 32;
+  usize words = bits / usize_bits_m;
+  u32 rbits = bits % usize_bits_m;
 
   if (words > alen) {
     com_biguint_set_u64(dest, 0);
@@ -755,6 +757,11 @@ void com_biguint_mul(com_biguint *dest, const com_biguint *a,
 
   // free tmp
   com_biguint_destroy(&tmp);
+}
+
+void com_biguint_div_u32() {
+  // TODO 
+  // Need to figure out way without memory allocation
 }
 
 #define new_bigint(allocator)                                                  \

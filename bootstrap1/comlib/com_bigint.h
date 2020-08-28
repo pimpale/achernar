@@ -119,9 +119,9 @@ void com_bigint_or(com_bigint *dest, const com_bigint *a,
 void com_bigint_xor(com_bigint *dest, const com_bigint *a,
                      const com_bigint *b);
 void com_bigint_lshift(com_bigint *dest, const com_bigint *a,
-                        const u32 nbits);
+                        const usize nbits);
 void com_bigint_rshift(com_bigint *dest, const com_bigint *a,
-                        const u32 nbits);
+                        const usize nbits);
 
 // constant operators
 void com_bigint_add_i32(com_bigint *dest, const com_bigint *a, i32 b);

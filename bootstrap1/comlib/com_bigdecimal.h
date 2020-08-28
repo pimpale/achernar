@@ -7,7 +7,7 @@
 typedef struct {
   // the precision of the integer
   // this is essentially how many words the decimal point has been moved up
-  u32 _precision;
+  usize _precision;
   com_bigint _value;
 } com_bigdecimal;
 
@@ -33,14 +33,14 @@ void com_bigdecimal_magnitude(com_biguint* dest, const com_bigdecimal *a);
 /// gets the precision of a
 /// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
 /// GUARANTEES: returns `a.precision`
-u32 com_bigdecimal_get_precision(const com_bigdecimal* a);
+usize com_bigdecimal_get_precision(const com_bigdecimal* a);
 
 /// sets the precision of a
 /// REQUIRES: `a` is a valid pointer to a valid com_bigdecimal
 /// REQUIRES: `prec` is the precision to set to 
 /// GUARANTEES: `a.precision` is now `prec`
 /// GUARANTEES: if `prec > a.precision` then no data is lost
-void com_bigdecimal_set_precision(com_bigdecimal *a, u32 prec);
+void com_bigdecimal_set_precision(com_bigdecimal *a, usize prec);
 
 /// frees bigdecimal
 /// REQUIRES: `a` is a valid pointer to a `com_bigdecimal`
@@ -147,10 +147,31 @@ void com_bigdecimal_negate(com_bigdecimal *a);
 /// GUARANTEES: if `a` is not zero, returns false
 bool com_bigdecimal_is_zero(const com_bigdecimal *a);
 
-// constant version
-void com_bigdecimal_add_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
-void com_bigdecimal_sub_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
-void com_bigdecimal_mul_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
-void com_bigdecimal_div_i32(com_bigdecimal *dest, const com_bigdecimal *a, i32 b);
+/* Functions to inspect the layout of the bigdecimal */
+
+/// Returns the number of u32 words in `a`
+/// REQUIRES: `a` must be a valid pointer to a valid com_bigdecimal
+/// GUARANTEES: returns the number of words in the internal representation of `a`
+/// GUARANTEES: the number returned is equal to ceil(log(a)/log(u32_max_m))
+usize com_bigdecimal_len(const com_bigdecimal *a);
+
+/// Get value of bigdecimal's internal little endian representation at index i
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
+/// REQUIRES: `i` < `com_bigdecimal_len(a)`
+/// GUARANTEES: returns the `i`'th most significant word of `a`
+u32 com_bigdecimal_get_at(const com_bigdecimal *a, usize i);
+
+/// Set value of bigdecimal's internal little endian representation at index i to val
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
+/// REQUIRES: `i` < `com_bigdecimal_len(a)`
+/// REQUIRES: `val` is the value to set
+/// GUARANTEES: sets the `i`'th most significant word of `a` to `val
+void com_bigdecimal_set_at(com_bigdecimal *a, usize i, u32 val);
+
+/// Removes extra bits of precision from `a`
+/// REQUIRES: `a` is a valid pointer to a valid `com_bigdecimal`
+/// GUARANTEES: the value of `a` is unchanged
+/// GUARANTEES: any extra words of precision are removed
+void com_bigdecimal_remove_trailing_zero(com_bigdecimal *a);
 
 #endif

@@ -84,7 +84,7 @@ void com_bigdecimal_set(com_bigdecimal *dest, const com_bigdecimal *src) {
   com_bigint_set(&dest->_value, &src->_value);
 }
 
-void com_bigdecimal_set_precision(com_bigdecimal *a, u32 prec) {
+void com_bigdecimal_set_precision(com_bigdecimal *a, usize prec) {
   // if we're increasing the precision we shift left, which gives more room
   // if we're decreasing the precision we shift right, which erases the least significant bits
   // each word of precision is 32 bits long
@@ -168,4 +168,30 @@ void com_bigdecimal_negate(com_bigdecimal *a) {
   com_bigint_negate(&a->_value);
 }
 
+usize com_bigdecimal_len(const com_bigdecimal *a) {
+  return com_bigint_len(&a->_value);
+}
 
+u32 com_bigdecimal_get_at(const com_bigdecimal *a, usize i) {
+  return com_bigint_get_at(&a->_value, i);
+}
+
+void com_bigdecimal_set_at(com_bigdecimal *a, usize i, u32 val) {
+  com_bigint_set_at(&a->_value, i, val);
+}
+
+
+void com_bigdecimal_remove_trailing_zero(com_bigdecimal *a) {
+  com_assert_m(a != NULL, "a is null");
+
+  usize i;
+
+  for(i = 0; i < com_bigdecimal_len(a); i++) {
+    if(com_bigdecimal_get_at(a, i) != 0) {
+      break;
+    }
+  }
+
+  com_bigint_rshift(&a->_value, &a->_value, i*32);
+  a->_precision -= i;
+}

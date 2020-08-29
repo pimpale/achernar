@@ -27,11 +27,11 @@ com_reader_ReadU8Result com_reader_peek_u8(const com_reader* r, usize n) {
   return r->_peek_u8_fn(r, n);
 }
 
-com_loc_Span com_reader_peek_span_u8(const com_reader* r, usize n) {
+com_loc_Span com_reader_peek_span_u8(const com_reader* r) {
   com_assert_m(r->_valid, "reader is invalid");
   com_assert_m(com_reader_flags(r) & com_reader_BUFFERED, "reader doesn't support peeking forward");
   com_assert_m(com_reader_flags(r) & com_reader_POSITION, "reader doesn't support querying position");
-  return r->_peek_span_u8_fn(r, n);
+  return r->_peek_span_u8_fn(r);
 }
 
 u64 com_reader_query(const com_reader *r) {

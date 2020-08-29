@@ -102,7 +102,7 @@ com_json_certain_parseNumberElem(com_reader *reader, com_vec *diagnostics,
   bool has_fractional_component;
   while (true) {
     ret = com_reader_peek_u8(reader, 1);
-    com_loc_Span sp = com_reader_peek_span_u8(reader, 1);
+    com_loc_Span sp = com_reader_peek_span_u8(reader);
     if (ret.valid) {
       u8 c = ret.value;
       if (com_format_is_digit(c)) {
@@ -128,7 +128,7 @@ com_json_certain_parseNumberElem(com_reader *reader, com_vec *diagnostics,
     f64 place = 1;
 
     while (true) {
-      com_loc_Span sp = com_reader_peek_span_u8(reader, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(reader);
       ret = com_reader_peek_u8(reader, 1);
       if (ret.valid) {
         u8 c = ret.value;
@@ -161,7 +161,7 @@ com_json_certain_parseNumberElem(com_reader *reader, com_vec *diagnostics,
     u8 c = ret.value;
     if (c == 'E' || c == 'e') {
       com_reader_drop_u8(reader);
-      com_loc_Span sp = com_reader_peek_span_u8(reader, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(reader);
       ret = com_reader_peek_u8(reader, 1);
       if (ret.valid) {
         switch (ret.value) {
@@ -195,7 +195,7 @@ com_json_certain_parseNumberElem(com_reader *reader, com_vec *diagnostics,
   u32 exponential_integer = 0;
   if (exponentState != NoExponent) {
     while (true) {
-      com_loc_Span sp = com_reader_peek_span_u8(reader, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(reader);
       ret = com_reader_read_u8(reader);
       if (ret.valid) {
         u8 c = ret.value;
@@ -331,7 +331,7 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
     switch (state) {
     case ArrayParseStart: {
       com_scan_skip_whitespace(l);
-      com_loc_Span sp = com_reader_peek_span_u8(l, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(l);
       com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) =
@@ -349,7 +349,7 @@ static com_json_Elem com_json_certain_parseArrayElem(com_reader *l,
     case ArrayParseExpectCommaOrEnd: {
       com_scan_skip_whitespace(l);
 
-      com_loc_Span sp = com_reader_peek_span_u8(l, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(l);
       com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) =
@@ -455,7 +455,7 @@ static com_json_Elem com_json_certain_parseStrElem(com_reader *reader,
 static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
                                         com_allocator *a) {
   com_scan_skip_whitespace(l);
-  com_loc_Span quotespan = com_reader_peek_span_u8(l, 1);
+  com_loc_Span quotespan = com_reader_peek_span_u8(l);
   com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
 
   // short circuit prevents issues
@@ -470,7 +470,7 @@ static com_json_Prop com_json_parseProp(com_reader *l, com_vec *diagnostics,
   // resync up to colon
   com_scan_skip_whitespace(l);
 
-  com_loc_Span colonspan = com_reader_peek_span_u8(l, 1);
+  com_loc_Span colonspan = com_reader_peek_span_u8(l);
   ret = com_reader_peek_u8(l, 1);
 
   if (!ret.valid) {
@@ -519,7 +519,7 @@ static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
     switch (state) {
     case ObjectParseStart: {
       com_scan_skip_whitespace(l);
-      com_loc_Span sp = com_reader_peek_span_u8(l, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(l);
       com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) =
@@ -542,7 +542,7 @@ static com_json_Elem com_json_certain_parseObjectElem(com_reader *l,
     }
     case ObjectParseExpectCommaOrEnd: {
       com_scan_skip_whitespace(l);
-      com_loc_Span sp = com_reader_peek_span_u8(l, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(l);
       com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
       if (!ret.valid) {
         *com_vec_push_m(diagnostics, com_json_Error) =
@@ -583,7 +583,7 @@ com_json_Elem com_json_parseElem(com_reader *l, com_vec *diagnostics,
                "reader is not buffered");
   com_scan_skip_whitespace(l);
 
-  com_loc_Span sp = com_reader_peek_span_u8(l, 1);
+  com_loc_Span sp = com_reader_peek_span_u8(l);
   com_reader_ReadU8Result ret = com_reader_peek_u8(l, 1);
   if (!ret.valid) {
     *com_vec_push_m(diagnostics, com_json_Error) =

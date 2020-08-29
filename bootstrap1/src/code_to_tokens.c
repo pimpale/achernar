@@ -207,7 +207,7 @@ static com_biguint parseNumBaseComponent(com_reader *r,
                                              com_allocator_NOLEAK |
                                              com_allocator_REALLOCABLE}));
   while (true) {
-    com_loc_Span sp = com_reader_peek_span_u8(r, 1);
+    com_loc_Span sp = com_reader_peek_span_u8(r);
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
 
     // exit if misread or not a hex number
@@ -280,7 +280,7 @@ static com_bigdecimal parseNumFractionalComponent(com_reader *r,
   com_bigdecimal_set_i64(&radix_val, radix);
 
   while (true) {
-    com_loc_Span sp = com_reader_peek_span_u8(r, 1);
+    com_loc_Span sp = com_reader_peek_span_u8(r);
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
 
     // exit if misread or not a hex number
@@ -308,19 +308,22 @@ static com_bigdecimal parseNumFractionalComponent(com_reader *r,
       com_bigdecimal_set_i64(&digit_val, 0);
     }
 
-    // ensure precision is safe 
-    com_bigdecimal_set_precision(&place, com_bigdecimal_get_precision(&fractional_value)+1);
+    // ensure precision is safe
+    com_bigdecimal_set_precision(
+        &place, com_bigdecimal_get_precision(&fractional_value) + 1);
 
     // place /= radix_val
     // Radix val has zero precision, so should be valid
     com_bigdecimal_div(&place, &place, &radix_val, a);
 
     // tmp = digit_val / place
-    // digit val has zero precision, so tmp precision should be = fractional_value + 1
+    // digit val has zero precision, so tmp precision should be =
+    // fractional_value + 1
     com_bigdecimal_mul(&tmp, &place, &digit_val, a);
 
     // scale up fractional value's precision to match place
-    com_bigdecimal_set_precision(&fractional_value, com_bigdecimal_get_precision(&place));
+    com_bigdecimal_set_precision(&fractional_value,
+                                 com_bigdecimal_get_precision(&place));
     com_bigdecimal_add(&fractional_value, &fractional_value, &tmp);
 
     // remove any trailing zeros
@@ -405,7 +408,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     }
   }
 
-  com_biguint base_component =  parseNumBaseComponent(r, diagnostics, a, radix);
+  com_biguint base_component = parseNumBaseComponent(r, diagnostics, a, radix);
 
   bool fractional = false;
   {
@@ -419,7 +422,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     com_bigdecimal decimal =
         parseNumFractionalComponent(r, diagnostics, a, radix, base_component);
 
-    if(negative) {
+    if (negative) {
       com_bigdecimal_negate(&decimal);
     }
 
@@ -583,7 +586,7 @@ static Token lexCharLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       break;
     }
     case LCS_ExpectEnd: {
-      com_loc_Span sp = com_reader_peek_span_u8(r, 1);
+      com_loc_Span sp = com_reader_peek_span_u8(r);
       com_reader_ReadU8Result ret = com_reader_read_u8(r);
       if (!(ret.valid && ret.value == '\'')) {
         *dlogger_append(diagnostics) =
@@ -740,7 +743,7 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
 #define RETURN_UNKNOWN_TOKEN1()                                                \
   {                                                                            \
     *dlogger_append(diagnostics) =                                             \
-        (Diagnostic){.span = com_reader_peek_span_u8(r, 1),                    \
+        (Diagnostic){.span = com_reader_peek_span_u8(r),                       \
                      .severity = DSK_Error,                                    \
                      .message = com_str_lit_m("lexer unrecognized character"), \
                      .children_len = 0};                                       \
@@ -958,7 +961,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case ':': {
-      com_reader_drop_u8(r);
       switch (lex_peek(r, 1)) {
       case ':': {
         RETURN_RESULT_TOKEN2(tk_MemberResolution)

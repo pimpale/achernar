@@ -17,7 +17,9 @@ int main() {
 
   // Print
   com_writer w = com_os_iostream_out();
-  print_stream(&ast, &a, &w);
+
+  com_allocator a2 = com_os_allocator();
+  print_stream(&ast, &a2, &w);
 
   // Clean up
   ast_destroy(&ast);

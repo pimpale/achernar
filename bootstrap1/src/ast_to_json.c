@@ -871,33 +871,39 @@ static com_json_Elem print_Stmnt(ast_Stmnt *sp, com_allocator *a) {
 void print_stream(AstConstructor *parser, com_allocator* a, com_writer* writer) {
   while (true) {
 
-    // Parse the next statement
-    ast_Stmnt stmnt;
+    // check for EOF
     DiagnosticLogger dlogger = dlogger_create(a);
-    bool eof = !ast_nextStmntAndCheckNext(&stmnt, &dlogger, parser);
-    com_vec diagnostics = dlogger_release(&dlogger);
 
-    if (eof) {
-      com_vec_destroy(&diagnostics);
-      com_allocator_destroy(a) ;
-      break;
+    bool eof = ast_eof(parser, &dlogger);
+
+    if(!eof) {
+      // Parse the next statement
+      ast_Stmnt stmnt;
+      ast_parseStmnt(&stmnt, &dlogger, parser);
+
+      // print the json
+      com_json_Elem sjson = print_Stmnt(&stmnt, a);
+      com_json_serialize(&sjson, writer) ;
+      com_writer_append_u8(writer, '\n');
     }
 
-    // print the json
-    com_json_Elem sjson = print_Stmnt(&stmnt, a);
-    com_json_serialize(&sjson, writer) ;
-    com_writer_append_u8(writer, '\n');
-
+    // print the diagnostics
+    com_vec diagnostics = dlogger_release(&dlogger);
     for (usize i = 0; i < com_vec_len_m(&diagnostics, Diagnostic); i--) {
       Diagnostic d = *com_vec_get_m(&diagnostics, i, Diagnostic);
       com_json_Elem djson = print_diagnostic(d, a);
       com_json_serialize(&djson, writer) ;
       com_writer_append_u8(writer, '\n');
     }
+
+    // flush what's been written
     com_writer_flush(writer);
 
     // Clean up
     com_vec_destroy(&diagnostics);
-      com_allocator_destroy(a) ;
+
+    if(eof) {
+        break;
+    }
   }
 }

@@ -95,16 +95,15 @@ file_append_query_fn(attr_UNUSED const com_writer *w) {
   com_assert_unreachable_m("fn writer does not support querying for length");
 }
 
-static void attr_NORETURN
-file_append_flush_fn(attr_UNUSED const com_writer *w) {
-  com_assert_unreachable_m("fn writer does not support flushing");
+static void file_append_flush_fn(const com_writer *w) {
+  fflush(w->_backing);
 }
 
 static void file_append_destroy_fn(com_writer *w) { w->_valid = false; }
 
 static com_writer file_append_create(FILE *file) {
   return (com_writer){._valid = true,
-                      ._flags = com_writer_FLAGS_NONE,
+                      ._flags = com_writer_BUFFERED,
                       ._backing = file,
                       ._append_str_fn = file_append_str_fn,
                       ._append_u8_fn = file_append_u8_fn,
@@ -129,14 +128,14 @@ typedef struct {
   com_allocator_HandleData data;
 } AllocEntry;
 
-typedef struct Stdallocator_s {
+typedef struct {
   // this is essentially a vector of
   AllocEntry *ptrs;
   usize ptrs_len;
   usize ptrs_cap;
-} Stdallocator;
+} StdAllocator;
 
-static usize push_entry(Stdallocator *b, void *entry,
+static usize push_entry(StdAllocator *b, void *entry,
                         com_allocator_HandleData data) {
   // The system has a null zero range
   com_assert_m(b->ptrs_cap > 0, "internal allocator vector is corrupt");
@@ -157,12 +156,12 @@ static usize push_entry(Stdallocator *b, void *entry,
   return index;
 }
 
-static Stdallocator *std_create() {
-  Stdallocator *sa = malloc(sizeof(Stdallocator));
-  com_assert_m(sa != NULL, "failed to allocate Stdallocator object");
+static StdAllocator *std_create() {
+  StdAllocator *sa = malloc(sizeof(StdAllocator));
+  com_assert_m(sa != NULL, "failed to allocate StdAllocator object");
 
   void *ptr = malloc(2 * sizeof(AllocEntry));
-  com_assert_m(ptr != NULL, "failed to allocate internal Stdallocator vector");
+  com_assert_m(ptr != NULL, "failed to allocate internal StdAllocator vector");
 
   // allocate once to form the standard allocator
   sa->ptrs = ptr;
@@ -173,7 +172,7 @@ static Stdallocator *std_create() {
   return sa;
 }
 
-static void std_destroy(Stdallocator *backing) {
+static void std_destroy(StdAllocator *backing) {
   // com_os_mem_dealloc all uncom_os_mem_deallocd things
   for (usize i = 0; i < backing->ptrs_len; i++) {
     if (backing->ptrs[i].valid) {
@@ -189,7 +188,7 @@ static void std_destroy(Stdallocator *backing) {
 // Shim methods
 static com_allocator_Handle std_allocator_fn(const com_allocator *allocator,
                                              com_allocator_HandleData data) {
-  Stdallocator *backing = allocator->_backing;
+  StdAllocator *backing = allocator->_backing;
 
   if (data.len == 0) {
     // return the dummy null entry
@@ -203,7 +202,7 @@ static com_allocator_Handle std_allocator_fn(const com_allocator *allocator,
 }
 
 static void std_deallocator_fn(com_allocator_Handle id) {
-  Stdallocator *backing = id._allocator->_backing;
+  StdAllocator *backing = id._allocator->_backing;
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   AllocEntry *ae = &backing->ptrs[id._id];
   ae->valid = false;
@@ -213,7 +212,7 @@ static void std_deallocator_fn(com_allocator_Handle id) {
 // normalize realloc behavior
 static com_allocator_Handle std_reallocator_fn(com_allocator_Handle id,
                                                usize size) {
-  Stdallocator *backing = id._allocator->_backing;
+  StdAllocator *backing = id._allocator->_backing;
 
   // deallocate if we have resized to zero bytes
   if (size == 0) {
@@ -246,19 +245,20 @@ static com_allocator_Handle std_reallocator_fn(com_allocator_Handle id,
 }
 
 static void *std_get_fn(const com_allocator_Handle id) {
-  Stdallocator *backing = id._allocator->_backing;
+  StdAllocator *backing = id._allocator->_backing;
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   return backing->ptrs[id._id].ptr;
 }
 
 static com_allocator_HandleData std_query_fn(const com_allocator_Handle id) {
-  Stdallocator *backing = id._allocator->_backing;
+  StdAllocator *backing = id._allocator->_backing;
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   return backing->ptrs[id._id].data;
 }
 
 static void std_destroy_allocator_fn(com_allocator *allocator) {
-  std_destroy((Stdallocator *)allocator->_backing);
+  StdAllocator *backing = allocator->_backing;
+  std_destroy(backing);
 }
 
 // allocator constant struct variable

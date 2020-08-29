@@ -153,8 +153,6 @@ static Token parse_peekPastMetadata(AstConstructor *parser,
 }
 
 // Note that all errors resync at the statement level
-static void ast_parseStmnt(ast_Stmnt *stmnt, DiagnosticLogger *diagnostics,
-                           AstConstructor *parser);
 static void ast_parseVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
                          AstConstructor *parser);
 static void ast_parseType(ast_Type *tep, DiagnosticLogger *diagnostics,
@@ -2410,7 +2408,7 @@ static void ast_certain_parseUseStmnt(ast_Stmnt *usp,
   usp->common.span = com_loc_span_m(start, usp->useStmnt.path->span.end);
 }
 
-static void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
+void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
                            AstConstructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
 
@@ -2455,12 +2453,7 @@ static void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
   sp->common.metadata = com_vec_release(&metadata);
 }
 
-bool ast_nextStmntAndCheckNext(ast_Stmnt *s, DiagnosticLogger *diagnostics,
-                               AstConstructor *parser) {
-  Token t = parse_peek(parser, diagnostics, 1);
-  if (t.kind == tk_Eof) {
-    return false;
-  }
-  ast_parseStmnt(s, diagnostics, parser);
-  return true;
+bool ast_eof(AstConstructor *parser, DiagnosticLogger*d)
+{
+  return parse_peek(parser,  d, 1).kind == tk_Eof;
 }

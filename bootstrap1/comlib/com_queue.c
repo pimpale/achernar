@@ -14,7 +14,7 @@ com_queue com_queue_create(com_vec vector) {
 }
 
 usize com_queue_length(const com_queue *queue) {
-  com_assert_m(com_vec_length(&queue->_backing) > queue->_offset, "queue is corrupt because the apparent length is less than 0");
+  com_assert_m(com_vec_length(&queue->_backing) >= queue->_offset, "queue is corrupt because the apparent length is less than 0");
   usize length = com_vec_length(&queue->_backing) - queue->_offset;
   return (usize) length;
 }

@@ -1,5 +1,5 @@
-#ifndef COM_OS_IOSTREAM_H
-#define COM_OS_IOSTREAM_H
+#ifndef COM_OS_IOSTREAM
+#define COM_OS_IOSTREAM
 
 #include "com_define.h"
 #include "com_writer.h"

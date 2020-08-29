@@ -54,14 +54,14 @@ file_read_peek_u8_fn(attr_UNUSED const com_reader *w, attr_UNUSED usize n) {
   com_assert_unreachable_m("file reader does not support peeking");
 }
 
-static com_loc_LnCol attr_NORETURN 
+static com_loc_LnCol attr_NORETURN
 file_read_position_fn(attr_UNUSED const com_reader *w) {
   com_assert_unreachable_m("file reader does not support querying position");
 }
 
 static void file_read_destroy_fn(com_reader *w) { w->_valid = false; }
 
-static com_reader file_read_create(FILE* file) {
+static com_reader file_read_create(FILE *file) {
   return (com_reader){._valid = true,
                       ._flags = com_reader_FLAGS_NONE,
                       ._backing = file,
@@ -75,64 +75,51 @@ static com_reader file_read_create(FILE* file) {
 
 // IOSTREAM WRITER
 
-static com_writer_WriteResult file_append_str_fn(const com_writer *w, com_str data) {
-	FILE* file = w->_backing;
+static com_writer_WriteResult file_append_str_fn(const com_writer *w,
+                                                 com_str data) {
+  FILE *file = w->_backing;
   usize ret = fwrite(data.data, 1, data.len, file);
-  return (com_writer_WriteResult) {
-      .valid = ret==data.len, 
-      .written=ret
-  };
+  return (com_writer_WriteResult){.valid = ret == data.len, .written = ret};
 }
 
 static com_writer_WriteResult file_append_u8_fn(const com_writer *w, u8 data) {
-	FILE* file = w->_backing;
-	int ret = fputc(data, file);
-	bool successful = ret !=EOF;
-	return (com_writer_WriteResult) {
-    	.valid = successful,
-    	.written=successful? 1 : 0
-	};
+  FILE *file = w->_backing;
+  int ret = fputc(data, file);
+  bool successful = ret != EOF;
+  return (com_writer_WriteResult){.valid = successful,
+                                  .written = successful ? 1 : 0};
 }
 
-static usize attr_NORETURN file_append_query_fn(attr_UNUSED const com_writer* w) {
-    com_assert_unreachable_m("fn writer does not support querying for length");
+static usize attr_NORETURN
+file_append_query_fn(attr_UNUSED const com_writer *w) {
+  com_assert_unreachable_m("fn writer does not support querying for length");
 }
 
-static void attr_NORETURN file_append_flush_fn(attr_UNUSED const com_writer* w) {
-    com_assert_unreachable_m("fn writer does not support flushing");
+static void attr_NORETURN
+file_append_flush_fn(attr_UNUSED const com_writer *w) {
+  com_assert_unreachable_m("fn writer does not support flushing");
 }
 
-static void file_append_destroy_fn(com_writer* w) {
-    w->_valid = false;
-}
+static void file_append_destroy_fn(com_writer *w) { w->_valid = false; }
 
-static com_writer file_append_create(FILE* file) {
-  return (com_writer) {
-      ._valid = true,
-      ._flags= com_writer_FLAGS_NONE,
-      ._backing = file,
-      ._append_str_fn = file_append_str_fn,
-      ._append_u8_fn = file_append_u8_fn,
-      ._query_fn = file_append_query_fn,
-      ._flush_fn = file_append_flush_fn,
-      ._destroy_fn = file_append_destroy_fn
-  };
+static com_writer file_append_create(FILE *file) {
+  return (com_writer){._valid = true,
+                      ._flags = com_writer_FLAGS_NONE,
+                      ._backing = file,
+                      ._append_str_fn = file_append_str_fn,
+                      ._append_u8_fn = file_append_u8_fn,
+                      ._query_fn = file_append_query_fn,
+                      ._flush_fn = file_append_flush_fn,
+                      ._destroy_fn = file_append_destroy_fn};
 }
 
 // com_os_iostream
 
-com_reader com_os_iostream_in(void) {
-	return file_read_create(stdin);
-}
+com_reader com_os_iostream_in(void) { return file_read_create(stdin); }
 
-com_writer com_os_iostream_out(void) {
-	return file_append_create(stdout);
-}
+com_writer com_os_iostream_out(void) { return file_append_create(stdout); }
 
-com_writer com_os_iostream_err(void) {
-	return file_append_create(stderr);
-}
-
+com_writer com_os_iostream_err(void) { return file_append_create(stderr); }
 
 // MEMORY
 
@@ -149,7 +136,8 @@ typedef struct Stdallocator_s {
   usize ptrs_cap;
 } Stdallocator;
 
-static usize push_entry(Stdallocator *b, void *entry, com_allocator_HandleData data) {
+static usize push_entry(Stdallocator *b, void *entry,
+                        com_allocator_HandleData data) {
   // The system has a null zero range
   com_assert_m(b->ptrs_cap > 0, "internal allocator vector is corrupt");
   // Ensure that there is enough room for the allocation
@@ -185,7 +173,7 @@ static Stdallocator *std_create() {
   return sa;
 }
 
-static  void std_destroy(Stdallocator *backing) {
+static void std_destroy(Stdallocator *backing) {
   // com_os_mem_dealloc all uncom_os_mem_deallocd things
   for (usize i = 0; i < backing->ptrs_len; i++) {
     if (backing->ptrs[i].valid) {
@@ -210,7 +198,8 @@ static com_allocator_Handle std_allocator_fn(const com_allocator *allocator,
 
   void *ptr = malloc(data.len);
   usize index = push_entry(backing, ptr, data);
-  return (com_allocator_Handle){._id = index, .valid = true};
+  return (com_allocator_Handle){
+      ._allocator = allocator, ._id = index, .valid = true};
 }
 
 static void std_deallocator_fn(com_allocator_Handle id) {
@@ -229,32 +218,31 @@ static com_allocator_Handle std_reallocator_fn(com_allocator_Handle id,
   // deallocate if we have resized to zero bytes
   if (size == 0) {
     std_deallocator_fn(id);
-    return (com_allocator_Handle){._id = 0, .valid = true};
-  } 
+    return (com_allocator_Handle){
+        ._allocator = id._allocator, ._id = 0, .valid = true};
+  }
 
-	// if it was a dummy pointer then we just allocate
+  // if it was a dummy pointer then we just allocate
   if (id._id == 0) {
     return std_allocator_fn(
         id._allocator,
         (com_allocator_HandleData){
-            .len = size, 
-            .flags = com_allocator_defaults(id._allocator)
-        });
+            .len = size, .flags = com_allocator_defaults(id._allocator)});
   }
 
   AllocEntry *ae = &backing->ptrs[id._id];
   void *ret = realloc(ae->ptr, size);
   if (ret == NULL) {
     // realloc failed, old handle is good though
-    return (com_allocator_Handle){.valid = false};
+    return (com_allocator_Handle){._allocator = id._allocator, .valid = false};
   }
 
-	// update alloc entry
+  // update alloc entry
   ae->ptr = ret;
   ae->data.len = size;
 
-	// return valid handle
-  return (com_allocator_Handle){._id = id._id, .valid = true};
+  // return valid handle
+  return (com_allocator_Handle){._allocator=id._allocator, ._id = id._id, .valid = true};
 }
 
 static void *std_get_fn(const com_allocator_Handle id) {
@@ -263,8 +251,7 @@ static void *std_get_fn(const com_allocator_Handle id) {
   return backing->ptrs[id._id].ptr;
 }
 
-static com_allocator_HandleData 
-std_query_fn(const com_allocator_Handle id) {
+static com_allocator_HandleData std_query_fn(const com_allocator_Handle id) {
   Stdallocator *backing = id._allocator->_backing;
   com_assert_m(id._id < backing->ptrs_len, "_id is out of bounds");
   return backing->ptrs[id._id].data;

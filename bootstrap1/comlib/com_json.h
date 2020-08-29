@@ -68,8 +68,8 @@ typedef struct com_json_Prop_s {
   ((com_json_Elem){.kind = com_json_OBJ,                                       \
                    .object = {.props = (v), .length = (len)}})
 
-#define com_json_obj_lit_m(arr) com_json_obj_m((arr), sizeof(arr))
-#define com_json_arr_lit_m(arr) com_json_array_m((arr), sizeof(arr))
+#define com_json_obj_lit_m(arr) com_json_obj_m((arr), sizeof(arr)/sizeof(com_json_Prop))
+#define com_json_arr_lit_m(arr) com_json_array_m((arr), sizeof(arr)/sizeof(com_json_Elem))
 
 // Parse JSON
 // JSON Parsing errors

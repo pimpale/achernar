@@ -6,6 +6,6 @@
 #include "tokens_to_ast.h"
 #include "com_allocator.h"
 
-void print_stream(AstConstructor *parser, com_allocator* a, com_writer* writer);
+void print_stream(ast_Constructor *parser, com_allocator* a, com_writer* writer);
 
 #endif

@@ -60,7 +60,8 @@ f64 com_biguint_get_f64(const com_biguint *a) {
   com_assert_m(a != NULL, "a is null");
   f64 ret = 0;
   for (usize i = 0; i < com_vec_len_m(&a->_array, u32); i++) {
-    // this operation may be lossy because floating points can really only get so big
+    // this operation may be lossy because floating points can really only get
+    // so big
     ret = ret * u32_max_m + *com_vec_get_m(&a->_array, i, u32);
   }
   return ret;
@@ -132,7 +133,7 @@ void com_biguint_and(com_biguint *dest, const com_biguint *a,
   if (blen > alen) {
     internal_value_and(dest, b_arr, blen, a_arr, alen);
   } else {
-    internal_value_and(dest, b_arr, blen, a_arr, alen);
+    internal_value_and(dest, a_arr, alen, b_arr, blen);
   }
 }
 
@@ -171,7 +172,7 @@ void com_biguint_or(com_biguint *dest, const com_biguint *a,
   if (blen > alen) {
     internal_value_or(dest, b_arr, blen, a_arr, alen);
   } else {
-    internal_value_or(dest, b_arr, blen, a_arr, alen);
+    internal_value_or(dest, a_arr, alen, b_arr, blen);
   }
 }
 
@@ -225,11 +226,10 @@ void com_biguint_xor(com_biguint *dest, const com_biguint *a,
   if (blen > alen) {
     internal_value_xor(dest, b_arr, blen, a_arr, alen);
   } else {
-    internal_value_xor(dest, b_arr, blen, a_arr, alen);
+    internal_value_xor(dest, a_arr, alen, b_arr, blen);
   }
 }
 
-#define usize_bits_m (sizeof(usize)*8)
 
 void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
                         const usize bits) {
@@ -251,8 +251,8 @@ void com_biguint_lshift(com_biguint *dest, const com_biguint *a,
   // This enables in place mutation, should the user provide the same
   // destination and operator
 
-  usize words = bits / usize_bits_m;
-  u32 rbits = bits % usize_bits_m;
+  usize words = bits / 32;
+  u32 rbits = bits % 32;
 
   // set dest length to a's length + words shifted
   // (we'll add an extra one if it overflows later)
@@ -297,8 +297,8 @@ void com_biguint_rshift(com_biguint *dest, const com_biguint *a,
   // if aliasing
   com_vec_set_len_m(dvec, alen, u32);
 
-  usize words = bits / usize_bits_m;
-  u32 rbits = bits % usize_bits_m;
+  usize words = bits / 32;
+  u32 rbits = bits % 32;
 
   if (words > alen) {
     com_biguint_set_u64(dest, 0);
@@ -760,16 +760,15 @@ void com_biguint_mul(com_biguint *dest, const com_biguint *a,
 }
 
 void com_biguint_div_u32() {
-  // TODO 
+  // TODO
   // Need to figure out way without memory allocation
 }
 
-#define new_bigint(allocator)                                                  \
+#define new_bigint(a)                                                          \
   com_biguint_create(com_allocator_alloc(                                      \
-      allocator,                                                               \
-      (com_allocator_HandleData){.len = 0,                                     \
-                                 .flags = com_allocator_defaults(allocator) |  \
-                                          com_allocator_REALLOCABLE}))
+      a, (com_allocator_HandleData){.len = 10,                                 \
+                                    .flags = com_allocator_defaults(a) |       \
+                                             com_allocator_REALLOCABLE}))
 // ALGORITHM FROM HERE
 // https://github.com/kokke/tiny-bignum-c/blob/master/bn.c
 void com_biguint_div(com_biguint *dest, const com_biguint *a,
@@ -845,7 +844,6 @@ void com_biguint_rem(com_biguint *dest, const com_biguint *a,
 
   com_biguint_destroy(&quotient);
 }
-
 
 usize com_biguint_len(const com_biguint *a) {
   return com_vec_len_m(&a->_array, u32);

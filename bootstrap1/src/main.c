@@ -12,8 +12,7 @@ int main() {
   com_reader r = com_os_iostream_in();
   com_reader br = com_reader_buffered(&r, &a) ;
 
-
-  AstConstructor ast = ast_create(&br, &a);
+  ast_Constructor ast = ast_create(&br, &a);
 
   // Print
   com_writer w = com_os_iostream_out();

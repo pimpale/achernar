@@ -211,7 +211,7 @@ static com_biguint parseNumBaseComponent(com_reader *r,
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
 
     // exit if misread or not a hex number
-    if (!ret.valid || com_format_is_hex(ret.value)) {
+    if (!ret.valid || !com_format_is_hex(ret.value)) {
       break;
     }
 
@@ -284,7 +284,7 @@ static com_bigdecimal parseNumFractionalComponent(com_reader *r,
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
 
     // exit if misread or not a hex number
-    if (!ret.valid || com_format_is_hex(ret.value)) {
+    if (!ret.valid || !com_format_is_hex(ret.value)) {
       break;
     }
 
@@ -415,6 +415,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
     if (ret.valid && ret.value == '.') {
       fractional = true;
+      com_reader_drop_u8(r);
     }
   }
 

@@ -868,7 +868,7 @@ static com_json_Elem print_Stmnt(ast_Stmnt *sp, com_allocator *a) {
   return print_objectify(&obj);
 }
 
-void print_stream(AstConstructor *parser, com_allocator* a, com_writer* writer) {
+void print_stream(ast_Constructor *parser, com_allocator* a, com_writer* writer) {
   while (true) {
 
     // check for EOF

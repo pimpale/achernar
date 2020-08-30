@@ -38,7 +38,7 @@
   }
 
 // utility method to allocate some noleak memory from the parser
-static void *parse_alloc(AstConstructor *parser, usize len) {
+static void *parse_alloc(ast_Constructor *parser, usize len) {
   return com_allocator_handle_get((com_allocator_alloc(
       parser->_a,
       (com_allocator_HandleData){.len = len,
@@ -50,7 +50,7 @@ static void *parse_alloc(AstConstructor *parser, usize len) {
   (type *)parse_alloc((parser), sizeof(type))
 
 // utility method to allocate some noleak memory from the parser
-static com_vec parse_alloc_vec(AstConstructor *parser) {
+static com_vec parse_alloc_vec(ast_Constructor *parser) {
   return com_vec_create(com_allocator_alloc(
       parser->_a,
       (com_allocator_HandleData){.len = 20,
@@ -59,9 +59,9 @@ static com_vec parse_alloc_vec(AstConstructor *parser) {
                                           com_allocator_REALLOCABLE}));
 }
 
-// AstConstructor
-AstConstructor ast_create(com_reader *r, com_allocator *a) {
-  return (AstConstructor){
+// ast_Constructor
+ast_Constructor ast_create(com_reader *r, com_allocator *a) {
+  return (ast_Constructor){
       ._a = a,      // com_allocator
       ._reader = r, // com_reader Pointer
       ._next_tokens_queue = com_queue_create(com_vec_create(com_allocator_alloc(
@@ -74,7 +74,7 @@ AstConstructor ast_create(com_reader *r, com_allocator *a) {
 }
 
 /// gets the next token, ignoring buffering
-static Token parse_rawNext(AstConstructor *parser,
+static Token parse_rawNext(ast_Constructor *parser,
                            DiagnosticLogger *diagnostics) {
   return tk_next(parser->_reader, diagnostics, parser->_a);
 }
@@ -85,7 +85,7 @@ static Token parse_rawNext(AstConstructor *parser,
 //    For each element in the next metadata stack, push it to the top of the
 //    current scope
 // Else fetch next raw token
-static Token parse_next(AstConstructor *pp, DiagnosticLogger *diagnostics) {
+static Token parse_next(ast_Constructor *pp, DiagnosticLogger *diagnostics) {
 
   // the current scope we aim to push the metadata to
   if (com_queue_len_m(&pp->_next_tokens_queue, Token) > 0) {
@@ -99,13 +99,13 @@ static Token parse_next(AstConstructor *pp, DiagnosticLogger *diagnostics) {
 }
 
 // parses next and ignores the result
-static void parse_drop(AstConstructor *ac, DiagnosticLogger *diagnostics) {
+static void parse_drop(ast_Constructor *ac, DiagnosticLogger *diagnostics) {
   parse_next(ac, diagnostics);
 }
 
 // gets the k'th token
 // K must be greater than 0
-static Token parse_peek(AstConstructor *pp, DiagnosticLogger *diagnostics,
+static Token parse_peek(ast_Constructor *pp, DiagnosticLogger *diagnostics,
                         usize k) {
   com_assert_m(k > 0, "k is not 1 or more");
 
@@ -121,12 +121,12 @@ static Token parse_peek(AstConstructor *pp, DiagnosticLogger *diagnostics,
                           Token);
 }
 
-void ast_destroy(AstConstructor *pp) {
+void ast_destroy(ast_Constructor *pp) {
   com_queue_destroy(&pp->_next_tokens_queue);
 }
 
 // returns a vector containing all the metadata encountered here
-static com_vec parse_getMetadata(AstConstructor *parser,
+static com_vec parse_getMetadata(ast_Constructor *parser,
                                  DiagnosticLogger *diagnostics) {
   com_vec metadata = parse_alloc_vec(parser);
   while (parse_peek(parser, diagnostics, 1).kind == tk_Metadata) {
@@ -140,7 +140,7 @@ static com_vec parse_getMetadata(AstConstructor *parser,
 }
 
 // returns the first nonmetadata token
-static Token parse_peekPastMetadata(AstConstructor *parser,
+static Token parse_peekPastMetadata(ast_Constructor *parser,
                                     DiagnosticLogger *diagnostics, usize k) {
   com_assert_m(k > 0, "k is not 1 or more");
   u64 n = 1;
@@ -154,21 +154,21 @@ static Token parse_peekPastMetadata(AstConstructor *parser,
 
 // Note that all errors resync at the statement level
 static void ast_parseVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
-                         AstConstructor *parser);
+                         ast_Constructor *parser);
 static void ast_parseType(ast_Type *tep, DiagnosticLogger *diagnostics,
-                          AstConstructor *parser);
+                          ast_Constructor *parser);
 static void ast_parsePat(ast_Pat *pp, DiagnosticLogger *diagnostics,
-                         AstConstructor *parser);
+                         ast_Constructor *parser);
 
 static void ast_certain_parseMacro(attr_UNUSED ast_Macro *mpe,
                                    attr_UNUSED DiagnosticLogger *diagnostics,
-                                   attr_UNUSED AstConstructor *parser) {
+                                   attr_UNUSED ast_Constructor *parser) {
   // TODO
 }
 
 static void ast_parseModReference(ast_ModReference *root,
                                   DiagnosticLogger *diagnostics,
-                                  AstConstructor *parser) {
+                                  ast_Constructor *parser) {
   // the root element is the current sope
   *root = (ast_ModReference){.kind = ast_MRK_Omitted,
                              .span = parse_peek(parser, diagnostics, 1).span};
@@ -213,7 +213,7 @@ static void ast_parseModReference(ast_ModReference *root,
 
 static void ast_parseModBinding(ast_ModBinding *ptr,
                                 DiagnosticLogger *diagnostics,
-                                AstConstructor *parser) {
+                                ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
   Token t = parse_next(parser, diagnostics);
   ptr->span = t.span;
@@ -239,7 +239,7 @@ static void ast_parseModBinding(ast_ModBinding *ptr,
 
 static void ast_parseReference(ast_Reference *ptr,
                                DiagnosticLogger *diagnostics,
-                               AstConstructor *parser) {
+                               ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
 
   Token t1 = parse_peek(parser, diagnostics, 1);
@@ -311,7 +311,7 @@ static void ast_parseReference(ast_Reference *ptr,
 }
 
 static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
-                             AstConstructor *parser) {
+                             ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
   Token t = parse_next(parser, diagnostics);
   ptr->span = t.span;
@@ -339,7 +339,7 @@ static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
 }
 
 static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
-                           AstConstructor *parser) {
+                           ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
   Token t = parse_next(parser, diagnostics);
   ptr->span = t.span;
@@ -367,7 +367,7 @@ static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
 }
 
 static void ast_certain_parseNilVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
-                                    AstConstructor *parser) {
+                                    ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Nil, "expected a tk_Nil");
   ptr->kind = ast_VK_NilLiteral;
@@ -376,7 +376,7 @@ static void ast_certain_parseNilVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
 }
 
 static void ast_certain_parseIntVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
-                                    AstConstructor *parser) {
+                                    ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Int, "expected a tk_Int");
   ptr->kind = ast_VK_IntLiteral;
@@ -387,7 +387,7 @@ static void ast_certain_parseIntVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
 
 static void ast_certain_parseBoolVal(ast_Val *ptr,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser) {
+                                     ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Bool, "expected a tk_Bool");
   ptr->kind = ast_VK_BoolLiteral;
@@ -398,7 +398,7 @@ static void ast_certain_parseBoolVal(ast_Val *ptr,
 
 static void ast_certain_parseFloatVal(ast_Val *ptr,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Float, "expected tk_Float");
   ptr->kind = ast_VK_FloatLiteral;
@@ -409,7 +409,7 @@ static void ast_certain_parseFloatVal(ast_Val *ptr,
 
 static void ast_certain_parseCharVal(ast_Val *ptr,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser) {
+                                     ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Char, "expected tk_Char");
   ptr->kind = ast_VK_CharLiteral;
@@ -420,7 +420,7 @@ static void ast_certain_parseCharVal(ast_Val *ptr,
 
 static void ast_certain_parseStringVal(ast_Val *sptr,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_String, "expected a tk_String");
   sptr->kind = ast_VK_StringLiteral;
@@ -430,7 +430,7 @@ static void ast_certain_parseStringVal(ast_Val *sptr,
 }
 
 static void ast_certain_parseFnVal(ast_Val *fptr, DiagnosticLogger *diagnostics,
-                                   AstConstructor *parser) {
+                                   ast_Constructor *parser) {
   com_mem_zero_obj_m(fptr);
 
   fptr->kind = ast_VK_Fn;
@@ -504,7 +504,7 @@ CLEANUP:
 
 static void ast_certain_parseLabelLabelBinding(ast_LabelBinding *r,
                                                DiagnosticLogger *diagnostics,
-                                               AstConstructor *parser) {
+                                               ast_Constructor *parser) {
   com_mem_zero_obj_m(r);
   r->kind = ast_LBK_Label;
   Token t = parse_next(parser, diagnostics);
@@ -515,7 +515,7 @@ static void ast_certain_parseLabelLabelBinding(ast_LabelBinding *r,
 
 static void ast_certain_parseBlockVal(ast_Val *bptr,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   com_mem_zero_obj_m(bptr);
   bptr->kind = ast_VK_Block;
 
@@ -557,7 +557,7 @@ static void ast_certain_parseBlockVal(ast_Val *bptr,
 
 static void ast_parseLabelReference(ast_LabelReference *ptr,
                                     DiagnosticLogger *diagnostics,
-                                    AstConstructor *parser) {
+                                    ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
   Token t = parse_next(parser, diagnostics);
   ptr->span = t.span;
@@ -575,7 +575,7 @@ static void ast_parseLabelReference(ast_LabelReference *ptr,
 }
 
 static void ast_certain_parseRetVal(ast_Val *rep, DiagnosticLogger *diagnostics,
-                                    AstConstructor *parser) {
+                                    ast_Constructor *parser) {
   com_mem_zero_obj_m(rep);
   rep->kind = ast_VK_Ret;
 
@@ -603,7 +603,7 @@ static void ast_certain_parseRetVal(ast_Val *rep, DiagnosticLogger *diagnostics,
 
 static void ast_certain_parseLoopVal(ast_Val *lep,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser) {
+                                     ast_Constructor *parser) {
   lep->kind = ast_VK_Loop;
 
   Token t = parse_next(parser, diagnostics);
@@ -627,7 +627,7 @@ static void ast_certain_parseLoopVal(ast_Val *lep,
 }
 
 static void ast_parseReferenceVal(ast_Val *rptr, DiagnosticLogger *diagnostics,
-                                  AstConstructor *parser) {
+                                  ast_Constructor *parser) {
   com_mem_zero_obj_m(rptr);
   rptr->kind = ast_VK_Reference;
   rptr->reference.path = parse_alloc_obj_m(parser, ast_Reference);
@@ -638,7 +638,7 @@ static void ast_parseReferenceVal(ast_Val *rptr, DiagnosticLogger *diagnostics,
 
 static void ast_certain_parseMacroValStructMember(ast_ValStructMember *vsemp,
                                                   DiagnosticLogger *diagnostics,
-                                                  AstConstructor *parser) {
+                                                  ast_Constructor *parser) {
   com_mem_zero_obj_m(vsemp);
   vsemp->kind = ast_VSMK_Macro;
   vsemp->macro.macro = parse_alloc_obj_m(parser, ast_Macro);
@@ -650,7 +650,7 @@ static void ast_certain_parseMacroValStructMember(ast_ValStructMember *vsemp,
 static void
 ast_certain_parseMemberValStructMember(ast_ValStructMember *vsmep,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
   // zero-initialize bp
   com_mem_zero_obj_m(vsmep);
   vsmep->kind = ast_VSMK_Member;
@@ -685,7 +685,7 @@ CLEANUP:
 
 static void ast_parseValStructMember(ast_ValStructMember *vsmep,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser) {
+                                     ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
@@ -717,7 +717,7 @@ static void ast_parseValStructMember(ast_ValStructMember *vsmep,
 
 static void ast_certain_parseValStruct(ast_Val *sve,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
   com_mem_zero_obj_m(sve);
   sve->kind = ast_VK_StructLiteral;
 
@@ -759,7 +759,7 @@ CLEANUP:
 
 static void ast_certain_parseMacroVal(ast_Val *ptr,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
   ptr->kind = ast_VK_Macro;
   ptr->macro.macro = parse_alloc_obj_m(parser, ast_Macro);
@@ -780,7 +780,7 @@ static void ast_certain_parseMacroVal(ast_Val *ptr,
 // Level11Val = += -= *= /= %= (Assignment)
 
 static void parseL1Val(ast_Val *l1, DiagnosticLogger *diagnostics,
-                       AstConstructor *parser) {
+                       ast_Constructor *parser) {
 
   // value metadata;
   com_vec metadata = parse_getMetadata(parser, diagnostics);
@@ -860,7 +860,7 @@ static void parseL1Val(ast_Val *l1, DiagnosticLogger *diagnostics,
 static void
 ast_certain_postfix_parseFieldAcessVal(ast_Val *fave,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser, ast_Val *root) {
+                                       ast_Constructor *parser, ast_Val *root) {
   com_mem_zero_obj_m(fave);
   fave->kind = ast_VK_FieldAccess;
   fave->fieldAccess.root = root;
@@ -876,7 +876,7 @@ ast_certain_postfix_parseFieldAcessVal(ast_Val *fave,
 
 static void ast_certain_postfix_parseCallVal(ast_Val *cptr,
                                              DiagnosticLogger *diagnostics,
-                                             AstConstructor *parser,
+                                             ast_Constructor *parser,
                                              ast_Val *root) {
   com_mem_zero_obj_m(cptr);
 
@@ -908,7 +908,7 @@ static void ast_certain_postfix_parseCallVal(ast_Val *cptr,
 
 static void ast_certain_postfix_parseAsVal(ast_Val *aptr,
                                            DiagnosticLogger *diagnostics,
-                                           AstConstructor *parser,
+                                           ast_Constructor *parser,
                                            ast_Val *root) {
   com_mem_zero_obj_m(aptr);
   aptr->kind = ast_VK_As;
@@ -925,7 +925,7 @@ static void ast_certain_postfix_parseAsVal(ast_Val *aptr,
 
 static void ast_certain_postfix_parsePipeVal(ast_Val *pptr,
                                              DiagnosticLogger *diagnostics,
-                                             AstConstructor *parser,
+                                             ast_Constructor *parser,
                                              ast_Val *root) {
   com_mem_zero_obj_m(pptr);
   pptr->kind = ast_VK_Pipe;
@@ -943,7 +943,7 @@ static void ast_certain_postfix_parsePipeVal(ast_Val *pptr,
 // pat Pattern => ,
 static void ast_certain_ParsePatMatchCase(ast_MatchCase *mcep,
                                           DiagnosticLogger *diagnostics,
-                                          AstConstructor *parser) {
+                                          ast_Constructor *parser) {
   com_mem_zero_obj_m(mcep);
   mcep->kind = ast_MCK_Case;
 
@@ -981,7 +981,7 @@ CLEANUP:
 
 static void ast_certain_parseMacroMatchCase(ast_MatchCase *mcep,
                                             DiagnosticLogger *diagnostics,
-                                            AstConstructor *parser) {
+                                            ast_Constructor *parser) {
   com_mem_zero_obj_m(mcep);
   mcep->kind = ast_MCK_Macro;
   mcep->macro.macro = parse_alloc_obj_m(parser, ast_Macro);
@@ -991,7 +991,7 @@ static void ast_certain_parseMacroMatchCase(ast_MatchCase *mcep,
 
 static void ast_parseMatchCase(ast_MatchCase *mcep,
                                DiagnosticLogger *diagnostics,
-                               AstConstructor *parser) {
+                               ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
@@ -1022,7 +1022,7 @@ static void ast_parseMatchCase(ast_MatchCase *mcep,
 
 static void ast_certain_postfix_parseMatchVal(ast_Val *mptr,
                                               DiagnosticLogger *diagnostics,
-                                              AstConstructor *parser,
+                                              ast_Constructor *parser,
                                               ast_Val *root) {
   com_mem_zero_obj_m(mptr);
   mptr->kind = ast_VK_Match;
@@ -1071,7 +1071,7 @@ CLEANUP:
 }
 
 static void parseL2Val(ast_Val *l2, DiagnosticLogger *diagnostics,
-                       AstConstructor *parser) {
+                       ast_Constructor *parser) {
   // Because it's postfix, we must take a somewhat
   // unorthodox approach here We Parse the level
   // one expr and then use a while loop to process
@@ -1168,7 +1168,7 @@ static void parseL2Val(ast_Val *l2, DiagnosticLogger *diagnostics,
 }
 
 static void ast_parseL3Val(ast_Val *l3, DiagnosticLogger *diagnostics,
-                           AstConstructor *parser) {
+                           ast_Constructor *parser) {
   Token t = parse_peekPastMetadata(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Not: {
@@ -1213,7 +1213,7 @@ static void ast_parseL3Val(ast_Val *l3, DiagnosticLogger *diagnostics,
 #define FN_BINOP_PARSE_LX_EXPR(type, type_shorthand, x, lower_fn)              \
   static void ast_parseL##x##type(ast_##type *expr,                            \
                                   DiagnosticLogger *diagnostics,               \
-                                  AstConstructor *parser) {                    \
+                                  ast_Constructor *parser) {                    \
     ast_##type v;                                                              \
     lower_fn(&v, diagnostics, parser);                                         \
                                                                                \
@@ -1301,7 +1301,7 @@ FN_BINOP_PARSE_LX_EXPR(Val, ast_VK, 5, ast_parseL4Val)
 // Parses a single term that will not collide with
 // patterns
 static void ast_parseValTerm(ast_Val *term, DiagnosticLogger *diagnostics,
-                             AstConstructor *parser) {
+                             ast_Constructor *parser) {
   ast_parseL5Val(term, diagnostics, parser);
 }
 
@@ -1437,7 +1437,7 @@ FN_BINOP_PARSE_LX_EXPR(Val, ast_VK, 10, ast_parseL9Val)
 
 // shim method
 static void ast_parseVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
-                         AstConstructor *parser) {
+                         ast_Constructor *parser) {
   ast_parseL10Val(ptr, diagnostics, parser);
 }
 
@@ -1445,7 +1445,7 @@ static void ast_parseVal(ast_Val *ptr, DiagnosticLogger *diagnostics,
 static void
 ast_certain_parseMemberTypeStructMember(ast_TypeStructMember *tsmep,
                                         DiagnosticLogger *diagnostics,
-                                        AstConstructor *parser) {
+                                        ast_Constructor *parser) {
   // zero-initialize bp
   com_mem_zero_obj_m(tsmep);
   tsmep->kind = ast_TSMK_StructMember;
@@ -1482,7 +1482,7 @@ ast_certain_parseMemberTypeStructMember(ast_TypeStructMember *tsmep,
 static void
 ast_certain_parseMacroTypeStructMember(ast_TypeStructMember *tsmep,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
   com_mem_zero_obj_m(tsmep);
   tsmep->kind = ast_TSMK_Macro;
   tsmep->macro.macro = parse_alloc_obj_m(parser, ast_Macro);
@@ -1492,7 +1492,7 @@ ast_certain_parseMacroTypeStructMember(ast_TypeStructMember *tsmep,
 
 static void ast_parseTypeStructMember(ast_TypeStructMember *tsmep,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
@@ -1522,7 +1522,7 @@ static void ast_parseTypeStructMember(ast_TypeStructMember *tsmep,
 
 static void ast_certain_parseStructType(ast_Type *ste,
                                         DiagnosticLogger *diagnostics,
-                                        AstConstructor *parser) {
+                                        ast_Constructor *parser) {
   com_mem_zero_obj_m(ste);
   ste->kind = ast_TK_Struct;
 
@@ -1576,7 +1576,7 @@ CLEANUP:
 
 static void ast_certain_parseReferenceType(ast_Type *rtep,
                                            DiagnosticLogger *diagnostics,
-                                           AstConstructor *parser) {
+                                           ast_Constructor *parser) {
   com_mem_zero_obj_m(rtep);
   rtep->kind = ast_TK_Reference;
   rtep->reference.path = parse_alloc_obj_m(parser, ast_Reference);
@@ -1586,7 +1586,7 @@ static void ast_certain_parseReferenceType(ast_Type *rtep,
 
 static void ast_certain_parseNilType(ast_Type *vte,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser) {
+                                     ast_Constructor *parser) {
 
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Nil, "expected tk_Nil");
@@ -1597,7 +1597,7 @@ static void ast_certain_parseNilType(ast_Type *vte,
 
 static void ast_certain_parseNeverType(ast_Type *vte,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
 
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Never, "expected tk_Never");
@@ -1608,7 +1608,7 @@ static void ast_certain_parseNeverType(ast_Type *vte,
 
 static void ast_certain_parseFnType(ast_Type *fte,
                                     DiagnosticLogger *diagnostics,
-                                    AstConstructor *parser) {
+                                    ast_Constructor *parser) {
   com_mem_zero_obj_m(fte);
 
   Token t = parse_next(parser, diagnostics);
@@ -1665,7 +1665,7 @@ CLEANUP:
 
 static void ast_certain_parseGroupType(ast_Type *gtep,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
   com_mem_zero_obj_m(gtep);
   gtep->kind = ast_TK_Group;
 
@@ -1695,7 +1695,7 @@ static void ast_certain_parseGroupType(ast_Type *gtep,
 
 static void ast_certain_parseMacroType(ast_Type *tep,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
   com_mem_zero_obj_m(tep);
   tep->kind = ast_TK_Macro;
   tep->macro.macro = parse_alloc_obj_m(parser, ast_Macro);
@@ -1704,7 +1704,7 @@ static void ast_certain_parseMacroType(ast_Type *tep,
 }
 
 static void ast_parseL1Type(ast_Type *l1, DiagnosticLogger *diagnostics,
-                            AstConstructor *parser) {
+                            ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
@@ -1760,7 +1760,7 @@ static void ast_parseL1Type(ast_Type *l1, DiagnosticLogger *diagnostics,
 
 static void ast_parseFieldAccessType(ast_Type *srte,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser, ast_Type *root) {
+                                     ast_Constructor *parser, ast_Type *root) {
   com_mem_zero_obj_m(srte);
   srte->kind = ast_TK_FieldAccess;
   srte->fieldAccess.root = root;
@@ -1776,7 +1776,7 @@ static void ast_parseFieldAccessType(ast_Type *srte,
 }
 
 static void ast_parseL2Type(ast_Type *l2, DiagnosticLogger *diagnostics,
-                            AstConstructor *parser) {
+                            ast_Constructor *parser) {
   // Because it's postfix, we must take a somewhat unorthodox approach here
   // We Parse the level one expr and then use a while loop to process the rest
   // of the stuff
@@ -1876,13 +1876,13 @@ static bool ast_opDetL4Type(tk_Kind tk, ast_TypeBinaryOpKind *val) {
 FN_BINOP_PARSE_LX_EXPR(Type, ast_TK, 4, ast_parseL3Type)
 
 static void ast_parseType(ast_Type *tep, DiagnosticLogger *diagnostics,
-                          AstConstructor *parser) {
+                          ast_Constructor *parser) {
   ast_parseL4Type(tep, diagnostics, parser);
 }
 
 static void ast_certain_parseValRestrictionPat(ast_Pat *vrpe,
                                                DiagnosticLogger *diagnostics,
-                                               AstConstructor *parser) {
+                                               ast_Constructor *parser) {
   com_mem_zero_obj_m(vrpe);
 
   Token t = parse_next(parser, diagnostics);
@@ -1929,7 +1929,7 @@ static void ast_certain_parseValRestrictionPat(ast_Pat *vrpe,
 
 static void ast_certain_parseTypeRestrictionPat(ast_Pat *trpe,
                                                 DiagnosticLogger *diagnostics,
-                                                AstConstructor *parser) {
+                                                ast_Constructor *parser) {
   com_mem_zero_obj_m(trpe);
   trpe->kind = ast_PK_TypeRestriction;
 
@@ -1957,7 +1957,7 @@ static void ast_certain_parseTypeRestrictionPat(ast_Pat *trpe,
 // field '=>' pat
 static void ast_certain_parseFieldPatStructMember(ast_PatStructMember *psmep,
                                                   DiagnosticLogger *diagnostics,
-                                                  AstConstructor *parser) {
+                                                  ast_Constructor *parser) {
   com_mem_zero_obj_m(psmep);
   psmep->kind = ast_PSMK_Field;
 
@@ -1987,7 +1987,7 @@ static void ast_certain_parseFieldPatStructMember(ast_PatStructMember *psmep,
 
 static void ast_certain_parseMacroPatStructMember(ast_PatStructMember *psmep,
                                                   DiagnosticLogger *diagnostics,
-                                                  AstConstructor *parser) {
+                                                  ast_Constructor *parser) {
   com_mem_zero_obj_m(psmep);
   psmep->kind = ast_PSMK_Macro;
   psmep->macro.macro = parse_alloc_obj_m(parser, ast_Macro);
@@ -1997,7 +1997,7 @@ static void ast_certain_parseMacroPatStructMember(ast_PatStructMember *psmep,
 
 static void ast_parsePatStructMember(ast_PatStructMember *psmep,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser) {
+                                     ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
@@ -2027,7 +2027,7 @@ static void ast_parsePatStructMember(ast_PatStructMember *psmep,
 
 static void ast_certain_parseStructPat(ast_Pat *spe,
                                        DiagnosticLogger *diagnostics,
-                                       AstConstructor *parser) {
+                                       ast_Constructor *parser) {
   com_mem_zero_obj_m(spe);
   spe->kind = ast_PK_Struct;
 
@@ -2070,7 +2070,7 @@ CLEANUP:
 
 static void ast_certain_parseGroupPat(ast_Pat *gpep,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   com_mem_zero_obj_m(gpep);
   gpep->kind = ast_PK_Group;
 
@@ -2098,7 +2098,7 @@ static void ast_certain_parseGroupPat(ast_Pat *gpep,
 }
 
 static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
-                           AstConstructor *parser) {
+                           ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
 
   Token t = parse_peek(parser, diagnostics, 1);
@@ -2142,7 +2142,7 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
 }
 
 static void ast_parseL2Pat(ast_Pat *l2, DiagnosticLogger *diagnostics,
-                           AstConstructor *parser) {
+                           ast_Constructor *parser) {
   Token t = parse_peekPastMetadata(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Not: {
@@ -2234,13 +2234,13 @@ static bool ast_opDetL5Pat(tk_Kind tk, ast_PatBinaryOpKind *val) {
 FN_BINOP_PARSE_LX_EXPR(Pat, ast_PK, 5, ast_parseL4Pat)
 
 static void ast_parsePat(ast_Pat *ppe, DiagnosticLogger *diagnostics,
-                         AstConstructor *parser) {
+                         ast_Constructor *parser) {
   ast_parseL5Pat(ppe, diagnostics, parser);
 }
 
 static void ast_certain_parseValDecl(ast_Stmnt *vdsp,
                                      DiagnosticLogger *diagnostics,
-                                     AstConstructor *parser) {
+                                     ast_Constructor *parser) {
   // zero-initialize vdsp
   com_mem_zero_obj_m(vdsp);
 
@@ -2279,7 +2279,7 @@ static void ast_certain_parseValDecl(ast_Stmnt *vdsp,
 
 static void ast_certain_parseTypeDecl(ast_Stmnt *tdp,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   com_mem_zero_obj_m(tdp);
   tdp->kind = ast_SK_TypeDecl;
   Token t = parse_next(parser, diagnostics);
@@ -2318,7 +2318,7 @@ CLEANUP:
 
 static void ast_certain_parseDeferStmnt(ast_Stmnt *dsp,
                                         DiagnosticLogger *diagnostics,
-                                        AstConstructor *parser) {
+                                        ast_Constructor *parser) {
   dsp->kind = ast_SK_DeferStmnt;
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Defer, "expected tk_Defer");
@@ -2339,7 +2339,7 @@ static void ast_certain_parseDeferStmnt(ast_Stmnt *dsp,
 
 static void ast_certain_parseMacroStmnt(ast_Stmnt *msp,
                                         DiagnosticLogger *diagnostics,
-                                        AstConstructor *parser) {
+                                        ast_Constructor *parser) {
   com_mem_zero_obj_m(msp);
   msp->kind = ast_SK_Macro;
   msp->macro.macro = parse_alloc_obj_m(parser, ast_Macro);
@@ -2349,7 +2349,7 @@ static void ast_certain_parseMacroStmnt(ast_Stmnt *msp,
 
 static void ast_certain_parseModStmnt(ast_Stmnt *nsp,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   com_mem_zero_obj_m(nsp);
   nsp->kind = ast_SK_Mod;
   Token t = parse_next(parser, diagnostics);
@@ -2393,7 +2393,7 @@ CLEANUP:
 
 static void ast_certain_parseUseStmnt(ast_Stmnt *usp,
                                       DiagnosticLogger *diagnostics,
-                                      AstConstructor *parser) {
+                                      ast_Constructor *parser) {
   com_mem_zero_obj_m(usp);
   usp->kind = ast_SK_Use;
   Token t = parse_next(parser,
@@ -2409,7 +2409,7 @@ static void ast_certain_parseUseStmnt(ast_Stmnt *usp,
 }
 
 void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
-                           AstConstructor *parser) {
+                           ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
 
   // peek next token
@@ -2453,7 +2453,7 @@ void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
   sp->common.metadata = com_vec_release(&metadata);
 }
 
-bool ast_eof(AstConstructor *parser, DiagnosticLogger*d)
+bool ast_eof(ast_Constructor *parser, DiagnosticLogger*d)
 {
   return parse_peek(parser,  d, 1).kind == tk_Eof;
 }

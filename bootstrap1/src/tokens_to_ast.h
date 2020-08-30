@@ -13,18 +13,18 @@ typedef struct {
   com_allocator *_a;
   com_reader* _reader;
   com_queue _next_tokens_queue;
-} AstConstructor;
+} ast_Constructor;
 
 // Uses memory allocated from a to build a parser with the source as r
-AstConstructor ast_create(com_reader *r, com_allocator* a);
+ast_Constructor ast_create(com_reader *r, com_allocator* a);
 
 // parse statement with errors
-void ast_parseStmnt(ast_Stmnt *s, DiagnosticLogger* diagnostics, AstConstructor *parser);
+void ast_parseStmnt(ast_Stmnt *s, DiagnosticLogger* diagnostics, ast_Constructor *parser);
 
 // test eof 
-bool ast_eof(AstConstructor *parser, DiagnosticLogger*d);
+bool ast_eof(ast_Constructor *parser, DiagnosticLogger*d);
 
 // Frees memory associated with the parser and cleans up
-void ast_destroy(AstConstructor *pp);
+void ast_destroy(ast_Constructor *pp);
 
 #endif

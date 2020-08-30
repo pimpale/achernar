@@ -167,7 +167,7 @@ void com_mem_rotate(void *src, usize size, usize nmemb, isize delta) {
 
 void com_mem_reverse(void *src, usize size, usize nmemb) {
   u8 *src_bytes = src;
-  for (usize i = 0; i < nmemb; i++) {
+  for (usize i = 0; i < nmemb/2; i++) {
     com_mem_swap(src_bytes + i * size, src_bytes + (nmemb - i - 1) * size,
                  size);
   }

@@ -24,7 +24,7 @@ typedef struct hir_Reference_s {
       hir_Identifier *val;
     } reference;
   };
-  ast_Reference source;
+  ast_Reference *source;
 } hir_Reference;
 
 typedef enum {
@@ -34,6 +34,7 @@ typedef enum {
 } hir_BindingKind;
 
 typedef struct {
+  ast_Binding *source;
   hir_BindingKind kind;
   union {
     struct {

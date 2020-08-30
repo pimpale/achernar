@@ -18,8 +18,11 @@ typedef struct {
   // Each index points to an identifier located in identifier_table
   com_vec _scope;
 
-  // the actual vector holding everything
+  // the actual vector holding identifiers
   com_vec _identifier_table;
+
+  // the actual vector holding labels
+  com_vec _label_table;
 
 } hir_Constructor;
 

@@ -17,6 +17,7 @@ typedef struct {
   // com_vec[Identifier]
   // Each index points to an identifier located in identifier_table
   com_vec _scope;
+
   // the actual vector holding everything
   com_vec _identifier_table;
 

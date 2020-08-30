@@ -1,102 +1,81 @@
 #include "ast_to_hir.h"
-#include <string.h>
 
 // the stuff that actually goes inside the identifier table
 typedef enum {
-  hir_IK_Namespace,
-  hir_IK_Identifier,
-  hir_IK_Label
-} IdentifierKind;
-
-typedef struct {
-  IdentifierKind kind;
-
-  // simply a duplicate for convenience
-  char *value;
-
-  union {
-    struct {
-      // namespace source
-      ast_Stmnt *source;
-      // made of the same stuff as a scope
-      Vector scope;
-      // the namespace scope does not include its parent scopes, but does
-      // include uses
-    } namespaceIdentifier;
-    struct {
-      // label source
-      ast_LabelBinding *source;
-    } labelIdentifier;
-    struct {
-      // source for a type or val reference
-      ast_Binding *source;
-    } identifierIdentifier;
-  };
-} Identifier;
-
-// the stuff that goes inside the scope table
-typedef enum {
-  SEK_Boundary,
+  SEK_Namespace,
   SEK_Identifier,
-} ScopeEntryKind;
+  SEK_Label,
+  SEK_ScopeBoundary,
+} ScopeElemKind;
 
 typedef struct {
-  ScopeEntryKind kind;
+  ScopeElemKind kind;
   union {
-    size_t index;
+    struct {
+      // made of the same stuff as a scope
+      com_vec scope;
+      // name of namespace
+      com_str name;
+    } namespace;
+    hir_Label *label;
+    hir_Identifier *identifier;
   };
-} ScopeEntry;
+} ScopeElem;
 
-// creates a HirConstructor using a
-HirConstructor hir_create(AstConstructor *parser, Allocator *a) {
-  HirConstructor hc;
-  hc.a = a;
-  hc.parser = parser;
-  hc.scope = vec_create(a);
-  hc.identifier_table = vec_create(a);
+static com_vec hir_alloc_vec(com_allocator *a) {
+  return com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 20,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_NOLEAK |
+                                             com_allocator_REALLOCABLE}));
+}
+
+// creates a hir_Constructor using a
+hir_Constructor hir_create(ast_Constructor *parser, com_allocator *a) {
+  hir_Constructor hc;
+  hc._a = a;
+  hc._parser = parser;
+  hc._scope = hir_alloc_vec(a);
+  hc._identifier_table = hir_alloc_vec(a);
   return hc;
 }
 
 // inserts the specified identifier into the identifier table and onto the
 // current scope
-static IdentifierId  scope_add(Vector *scope, HirConstructor *constructor,
-                         Identifier identifier) {
+static IdentifierId scope_add(com_vec *scope, hir_Constructor *constructor,
+                              Identifier identifier) {
   // first append to identifier table
   *VEC_PUSH(&constructor->identifier_table, Identifier) = identifier;
   // it is known that vec len must be at least one, so no overflow is possible
   // here
   size_t index = VEC_LEN(&constructor->identifier_table, Identifier) - 1;
   // add index to the scope
-  *VEC_PUSH(&constructor->scope, ScopeEntry) =
-      (ScopeEntry){.kind = SEK_Identifier, .index = index};
+  *VEC_PUSH(&constructor->scope, ScopeElem) =
+      (ScopeElem){.kind = SEK_Identifier, .index = index};
 
   // return the identifier id
-  return (IdentifierId) {
-      .valid=true,
-      .id =index
-  };
+  return (IdentifierId){.valid = true, .id = index};
 }
 
 // pushes a boundary
-static void hir_push_boundary(HirConstructor *constructor) {
-  *VEC_PUSH(&constructor->scope, ScopeEntry) =
-      (ScopeEntry){.kind = SEK_Boundary};
+static void hir_push_boundary(hir_Constructor *constructor) {
+  *VEC_PUSH(&constructor->scope, ScopeElem) = (ScopeElem){.kind = SEK_Boundary};
 }
 
-static Identifier *hir_getIdentifier(HirConstructor *constructor,
+static Identifier *hir_getIdentifier(hir_Constructor *constructor,
                                      IdentifierId id) {
   assert(id.valid);
   return VEC_GET(&constructor->identifier_table, id.id, Identifier);
 }
 
 // Looks through a scope and its parents
-static IdentifierId scope_lookup(Vector *scope, HirConstructor *constructor,
+static IdentifierId scope_lookup(com_vec *scope, hir_Constructor *constructor,
                                  const char *name, IdentifierKind kind) {
   assert(name != NULL);
   // start from the last valid index, and iterate towards 0
-  for (uint64_t i = (uint64_t)VEC_LEN(scope, ScopeEntry) - 1; i >= 0; i--) {
+  for (uint64_t i = (uint64_t)VEC_LEN(scope, ScopeElem) - 1; i >= 0; i--) {
     // get entry
-    ScopeEntry entry = *VEC_GET(scope, i, ScopeEntry);
+    ScopeElem entry = *VEC_GET(scope, i, ScopeElem);
     if (entry.kind != SEK_Identifier) {
       continue;
     }
@@ -117,7 +96,7 @@ static IdentifierId scope_lookup(Vector *scope, HirConstructor *constructor,
 
 static hir_Reference hir_construct_Reference(ast_Reference *in,
                                              DiagnosticLogger *diagnostics,
-                                             HirConstructor *constructor) {
+                                             hir_Constructor *constructor) {
   switch (in->kind) {
   case ast_RK_None: {
     // do nothing, (error should've already been noted by the  AST)
@@ -134,7 +113,7 @@ static hir_Reference hir_construct_Reference(ast_Reference *in,
     size_t ns_segments_len = in->path.segments_len - 1;
     // the current scope we're looking at
     // we start off looking at our present environment
-    Vector *scope = &constructor->scope;
+    com_vec *scope = &constructor->scope;
     for (size_t i = 0; i < ns_segments_len; i++) {
       const char *ns = ns_segments[i];
       IdentifierId result =
@@ -171,51 +150,39 @@ NO_HIR:
   return (hir_Reference){.kind = hir_RK_None, .source = in};
 }
 
-static hir_Binding hir_construct_Binding(ast_Binding *in, DiagnosticLogger *diagnostics, HirConstructor *constructor) {
-  switch(in->kind) {
-    case ast_BK_None: {
-      // just return error
-      return (hir_Binding) {
-          .kind = hir_BK_None,
-          .source = in
-      };
-    }
-    case ast_BK_Ignore: {
-      return (hir_Binding) {
-          .kind = hir_BK_Ignore,
-          .source = in
-      };
-    }
-    case ast_BK_Bind: {
-      Identifier identifier = {
-          .kind = hir_IK_Identifier,
-          .value = in->bind.val,
-          .identifierIdentifier = {
-              .source = in
-          }
-      };
-      IdentifierId id = scope_add(&constructor->scope, constructor, identifier);
-      assert(id.valid);
-      return (hir_Binding) {
-          .kind = hir_BK_Bind,
-          .binding = {
-              .id = id
-          }
-      };
-    }
+static hir_Binding hir_construct_Binding(ast_Binding *in,
+                                         DiagnosticLogger *diagnostics,
+                                         hir_Constructor *constructor) {
+  switch (in->kind) {
+  case ast_BK_None: {
+    // just return error
+    return (hir_Binding){.kind = hir_BK_None, .source = in};
+  }
+  case ast_BK_Ignore: {
+    return (hir_Binding){.kind = hir_BK_Ignore, .source = in};
+  }
+  case ast_BK_Bind: {
+    Identifier identifier = {.kind = hir_IK_Identifier,
+                             .value = in->bind.val,
+                             .identifierIdentifier = {.source = in}};
+    IdentifierId id = scope_add(&constructor->scope, constructor, identifier);
+    assert(id.valid);
+    return (hir_Binding){.kind = hir_BK_Bind, .binding = {.id = id}};
+  }
   }
   // abort if fallthrough somehow
   abort();
 }
 
-static void hir_certain_construct_Namespace(ast_Stmnt *in, DiagnosticLogger *diagnostics, HirConstructor *constructor) {
+static void hir_certain_construct_Namespace(ast_Stmnt *in,
+                                            DiagnosticLogger *diagnostics,
+                                            hir_Constructor *constructor) {
   assert(in->kind == ast_SK_Namespace);
-  
 }
 
-static void hir_construct_Stmnt(Vector *result, ast_Stmnt *source,
+static void hir_construct_Stmnt(com_vec *result, ast_Stmnt *source,
                                 DiagnosticLogger *diagnostics,
-                                HirConstructor *constructor) {
+                                hir_Constructor *constructor) {
   switch (source->kind) {
   case ast_SK_None: {
     // noop
@@ -236,6 +203,6 @@ static void hir_construct_Stmnt(Vector *result, ast_Stmnt *source,
 
   bool hir_nextStmntAndCheckNext(hir_Stmnt * stmnt,
                                  DiagnosticLogger * diagnostics,
-                                 HirConstructor * constructor) {
+                                 hir_Constructor * constructor) {
     return false;
   }

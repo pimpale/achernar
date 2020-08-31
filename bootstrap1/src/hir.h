@@ -8,6 +8,16 @@
 #include "ast.h"
 
 typedef struct {
+  const usize index;
+  const bool valid;
+} LabelId;
+
+typedef struct {
+  const usize index;
+  const bool valid;
+} IdentifierId;
+
+typedef struct {
   ast_Binding* declaration;
   com_str name;
 } hir_Identifier;
@@ -21,7 +31,7 @@ typedef struct hir_Reference_s {
   hir_ReferenceKind kind;
   union {
     struct {
-      hir_Identifier *val;
+      IdentifierId val;
     } reference;
   };
   ast_Reference *source;
@@ -38,7 +48,7 @@ typedef struct {
   hir_BindingKind kind;
   union {
     struct {
-      hir_Identifier *val;
+      IdentifierId val;
     } bind;
   };
 } hir_Binding;
@@ -237,24 +247,25 @@ typedef struct hir_Type_s {
 typedef enum {
   hir_VK_None,
   hir_VK_NilLiteral,
+  hir_VK_UndefinedLiteral, // variables are not actually allowed to have this value
   hir_VK_BoolLiteral,
   hir_VK_IntLiteral,
   hir_VK_FloatLiteral,
   hir_VK_CharLiteral,
+  hir_VK_StringLiteral,
+  hir_VK_StructLiteral,
   hir_VK_Fn,
   hir_VK_Loop,
   hir_VK_As,
-  hir_VK_StringLiteral,
-  hir_VK_StructLiteral,
+  hir_VK_Assign,
   hir_VK_BinaryOp,
   hir_VK_UnaryOp,
   hir_VK_Call,
-  hir_VK_Pipe,
   hir_VK_Ret,
   hir_VK_Match,
   hir_VK_Block,
-  hir_VK_FieldAccess,
-  hir_VK_Reference,
+  hir_VK_Ref,
+  hir_VK_Lval,
 } hir_ValKind;
 
 typedef struct {
@@ -272,7 +283,7 @@ typedef struct {
   hir_LabelBindingKind kind;
   union {
     struct {
-      hir_Label* label;
+      LabelId label;
     } label;
   };
 } hir_LabelBinding;
@@ -286,7 +297,7 @@ typedef struct {
   hir_LabelReferenceKind kind;
   union {
     struct {
-      hir_Label* label;
+      LabelId label;
     } label;
   };
 } hir_LabelReference;
@@ -328,9 +339,30 @@ typedef struct {
 } hir_ValStructMember;
 
 typedef enum {
+  hir_LVK_Deref,
+  hir_LVK_Reference,
+  hir_VK_FieldAccess,
+} hir_LvalKind;
+
+typedef struct hir_Lval_s {
+  ast_Val *source;
+  hir_LvalKind kind;
+  union {
+    struct {
+      hir_Reference *reference;
+    } reference;
+    struct {
+      hir_Val *val;
+    } deref;
+    struct {
+      hir_Val *root;
+      hir_Field *field;
+    } fieldAccess;
+  };
+} hir_Lval;
+
+typedef enum {
   hir_VEUOK_Not,
-  hir_VEUOK_Ref,
-  hir_VEUOK_Deref,
 } hir_ValUnaryOpKind;
 
 typedef enum {
@@ -350,14 +382,13 @@ typedef enum {
   hir_VEBOK_CompLessEqual,
   hir_VEBOK_CompGreater,
   hir_VEBOK_CompGreaterEqual,
-  hir_VEBOK_Assign,
   hir_VEBOK_Product,
   hir_VEBOK_Union,
   hir_VEBOK_Intersection,
 } hir_ValBinaryOpKind;
 
 typedef struct hir_Val_s {
-  ast_Stmnt source;
+  ast_Val *source;
   hir_ValKind kind;
 
   union {
@@ -388,10 +419,6 @@ typedef struct hir_Val_s {
       hir_Val *body;
       hir_LabelBinding *label;
     } loop;
-    struct {
-      hir_Val *root;
-      hir_Field *field;
-    } fieldAccess;
     struct {
       hir_Reference *path;
     } reference;
@@ -429,21 +456,30 @@ typedef struct hir_Val_s {
       hir_Stmnt *stmnts;
       usize stmnts_len;
     } block;
+    struct {
+      hir_Lval *lval;
+    } ref;
+    struct {
+      hir_Lval *lval;
+    } lval;
+    struct {
+      hir_Lval *lhs;
+      hir_Val *rhs;
+    } assign;
   };
 } hir_Val;
 
 typedef enum {
   hir_SK_None,
-  hir_SK_Use,
-  hir_SK_Mod,
   hir_SK_ValDecl,
-  hir_SK_ValDeclDefine,
+  hir_SK_ValDe,
   hir_SK_TypeDecl,
+  hir_SK_Defer,
   hir_SK_Val,
 } hir_StmntKind;
 
 typedef struct hir_Stmnt_s {
-  ast_Stmnt source;
+  ast_Stmnt* source;
   hir_StmntKind kind;
 
   union {
@@ -452,13 +488,13 @@ typedef struct hir_Stmnt_s {
       hir_Pat *pat;
     } valDecl;
     struct {
-      hir_Pat *pat;
-      hir_Val *val;
-    } valDeclDefine;
-    struct {
       hir_Binding *name;
       hir_Type *type;
     } typeDecl;
+    struct {
+      hir_LabelReference *label;
+      hir_Val *val;
+    } deferStmnt;
     struct {
       hir_Val *val;
     } val;

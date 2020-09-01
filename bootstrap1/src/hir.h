@@ -8,13 +8,13 @@
 #include "ast.h"
 
 typedef struct {
-  const usize index;
-  const bool valid;
+  usize index;
+  bool valid;
 } LabelId;
 
 typedef struct {
-  const usize index;
-  const bool valid;
+  usize index;
+  bool valid;
 } IdentifierId;
 
 typedef struct {
@@ -247,7 +247,7 @@ typedef struct hir_Type_s {
 typedef enum {
   hir_VK_None,
   hir_VK_NilLiteral,
-  hir_VK_UndefinedLiteral, // variables are not actually allowed to have this value
+  hir_VK_UndefinedLiteral, // when variables are created without a value
   hir_VK_BoolLiteral,
   hir_VK_IntLiteral,
   hir_VK_FloatLiteral,
@@ -472,7 +472,6 @@ typedef struct hir_Val_s {
 typedef enum {
   hir_SK_None,
   hir_SK_ValDecl,
-  hir_SK_ValDe,
   hir_SK_TypeDecl,
   hir_SK_Defer,
   hir_SK_Val,
@@ -486,6 +485,7 @@ typedef struct hir_Stmnt_s {
     // Declarations
     struct {
       hir_Pat *pat;
+      hir_Val *val;
     } valDecl;
     struct {
       hir_Binding *name;

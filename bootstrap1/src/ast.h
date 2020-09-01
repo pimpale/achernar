@@ -206,21 +206,6 @@ typedef struct ast_Pat_s {
 } ast_Pat;
 
 typedef enum {
-  ast_TK_None,        // Error type
-  ast_TK_Omitted,     // Omitted
-  ast_TK_Macro,       // Macro type
-  ast_TK_Nil,         // Nil type
-  ast_TK_Never,       // Never type
-  ast_TK_Group,       // { something }
-  ast_TK_Reference,   // Reference (primitive or aliased or path)
-  ast_TK_Struct,      // struct
-  ast_TK_Fn,          // function pointer
-  ast_TK_UnaryOp,     // & or @
-  ast_TK_BinaryOp,    // , or |
-  ast_TK_FieldAccess, // .
-} ast_TypeKind;
-
-typedef enum {
   ast_TSK_Struct,
   ast_TSK_Enum,
 } ast_TypeStructKind;
@@ -258,6 +243,23 @@ typedef enum {
   ast_TEBOK_Intersection, // ||
 } ast_TypeBinaryOpKind;
 
+typedef enum {
+  ast_TK_None,        // Error type
+  ast_TK_Omitted,     // Omitted
+  ast_TK_Macro,       // Macro type
+  ast_TK_Nil,         // Nil type
+  ast_TK_Never,       // Never type
+  ast_TK_Group,       // { something }
+  ast_TK_Reference,   // Reference (primitive or aliased or path)
+  ast_TK_Struct,      // struct
+  ast_TK_Fn,          // function pointer
+  ast_TK_TypeFn,      // type constructor
+  ast_TK_TypeFnCall,  // constructing a type
+  ast_TK_UnaryOp,     // & or @
+  ast_TK_BinaryOp,    // , | ,, ||
+  ast_TK_FieldAccess, // .
+} ast_TypeKind;
+
 // essions and operations yielding a type
 typedef struct ast_Type_s {
   ast_Common common;
@@ -281,6 +283,23 @@ typedef struct ast_Type_s {
       ast_Type *type;
     } fn;
     struct {
+      ast_Type *parameters;
+      usize parameters_len;
+      ast_Type *type;
+      com_str name;
+    } recfn;
+    struct {
+      ast_Binding* parameters;
+      usize parameters_len;
+      ast_Type *body;
+    } typefn;
+    struct {
+      com_str name;
+      ast_Binding* parameters;
+      usize parameters_len;
+      ast_Type *body;
+    } rectypefn;
+    struct {
       ast_Type *inner;
     } group;
     struct {
@@ -298,30 +317,6 @@ typedef struct ast_Type_s {
     } fieldAccess;
   };
 } ast_Type;
-
-typedef enum {
-  ast_VK_None,
-  ast_VK_Macro,
-  ast_VK_NilLiteral,
-  ast_VK_BoolLiteral,
-  ast_VK_IntLiteral,
-  ast_VK_FloatLiteral,
-  ast_VK_CharLiteral,
-  ast_VK_Fn,
-  ast_VK_Loop,
-  ast_VK_As,
-  ast_VK_StringLiteral,
-  ast_VK_StructLiteral,
-  ast_VK_BinaryOp,
-  ast_VK_UnaryOp,
-  ast_VK_Call,
-  ast_VK_Pipe,
-  ast_VK_Ret,
-  ast_VK_Match,
-  ast_VK_Block,
-  ast_VK_FieldAccess,
-  ast_VK_Reference,
-} ast_ValKind;
 
 typedef enum {
   ast_LBK_Omitted,
@@ -433,6 +428,33 @@ typedef enum {
   ast_VEBOK_Union,
   ast_VEBOK_Intersection,
 } ast_ValBinaryOpKind;
+
+
+typedef enum {
+  ast_VK_None,
+  ast_VK_Macro,
+  ast_VK_NilLiteral,
+  ast_VK_BoolLiteral,
+  ast_VK_IntLiteral,
+  ast_VK_FloatLiteral,
+  ast_VK_CharLiteral,
+  ast_VK_Fn,
+  ast_VK_RecFn,
+  ast_VK_Loop,
+  ast_VK_As,
+  ast_VK_StringLiteral,
+  ast_VK_StructLiteral,
+  ast_VK_BinaryOp,
+  ast_VK_UnaryOp,
+  ast_VK_Call,
+  ast_VK_Pipe,
+  ast_VK_Ret,
+  ast_VK_Match,
+  ast_VK_Block,
+  ast_VK_FieldAccess,
+  ast_VK_Reference,
+} ast_ValKind;
+
 
 typedef struct ast_Val_s {
   ast_Common common;

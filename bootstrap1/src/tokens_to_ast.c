@@ -502,6 +502,84 @@ CLEANUP:
   fptr->common.span = com_loc_span_m(start, end);
 }
 
+
+static void ast_certain_parseRecFnVal(ast_Val *fptr, DiagnosticLogger *diagnostics,
+                                   ast_Constructor *parser) {
+  com_mem_zero_obj_m(fptr);
+
+  fptr->kind = ast_VK_Fn;
+
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Fn, "rec fn expected tk_Fn");
+  com_loc_LnCol start = t.span.start;
+  com_loc_LnCol end = t.span.end;
+
+  t = parse_next(parser, diagnostics); 
+  com_assert_m(t.kind == tk_Identifier, "rec fn expected tk_Identifier name");
+
+  // check for leftparen
+  t = parse_next(parser, diagnostics);
+  if (t.kind != tk_ParenLeft) {
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = t.span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m("rec fn expected left paren"),
+                     .children_len = 0};
+    goto CLEANUP;
+  }
+
+  com_loc_Span rarenspan = t.span;
+
+  com_vec parameters = parse_alloc_vec(parser);
+
+  PARSE_LIST(&parameters,                  // members_vec_ptr
+             diagnostics,                  // dlogger_ptr
+             ast_parsePat,                 // member_parse_function
+             ast_Pat,                      // member_kind
+             tk_ParenRight,                // delimiting_token_kind
+             "DK_FnValExpectedRightParen", // missing_delimiter_error
+             end,                          // end_lncol
+             parser                        // parser
+  )
+
+  fptr->fn.parameters_len = com_vec_len_m(&parameters, ast_Pat);
+  fptr->fn.parameters = com_vec_release(&parameters);
+
+  t = parse_peek(parser, diagnostics, 1);
+  if (t.kind == tk_Colon) {
+    fptr->fn.type = parse_alloc_obj_m(parser, ast_Type);
+    // advance
+    parse_next(parser, diagnostics);
+
+    ast_parseType(fptr->fn.type, diagnostics, parser);
+  } else {
+    fptr->fn.type = parse_alloc_obj_m(parser, ast_Type);
+    *fptr->fn.type =
+        (ast_Type){.common = {.span = rarenspan, .metadata_len = 0},
+                   .kind = ast_TK_Omitted};
+  }
+
+  t = parse_next(parser, diagnostics);
+
+  if (t.kind != tk_Arrow) {
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = t.span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m("DK_FnValExpectedArrow"),
+                     .children_len = 0};
+    end = t.span.end;
+    goto CLEANUP;
+  }
+
+  fptr->fn.body = parse_alloc_obj_m(parser, ast_Val);
+  ast_parseVal(fptr->fn.body, diagnostics, parser);
+  end = fptr->fn.body->common.span.end;
+
+CLEANUP:
+  fptr->common.span = com_loc_span_m(start, end);
+}
+
+
 static void ast_certain_parseLabelLabelBinding(ast_LabelBinding *r,
                                                DiagnosticLogger *diagnostics,
                                                ast_Constructor *parser) {
@@ -823,7 +901,11 @@ static void parseL1Val(ast_Val *l1, DiagnosticLogger *diagnostics,
     break;
   }
   case tk_Fn: {
-    ast_certain_parseFnVal(l1, diagnostics, parser);
+    if(parse_peek(parser, diagnostics, 2).kind == tk_Identifier) {
+      ast_certain_parseFnRecVal(l1, diagnostics, parser);
+    } else {
+    	ast_certain_parseFnVal(l1, diagnostics, parser);
+    }
     break;
   }
   case tk_Struct: {

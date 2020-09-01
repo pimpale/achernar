@@ -147,8 +147,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Underscore");
   case tk_Label:
     return com_str_lit_m("tk_Label");
-  case tk_Macro:
-    return com_str_lit_m("tk_Macro");
   case tk_Metadata:
     return com_str_lit_m("tk_Metadata");
   }

@@ -12,13 +12,6 @@ typedef struct {
   com_str data;
 } ast_Metadata;
 
-typedef struct {
-  com_loc_Span span;
-  com_str name;
-  Token *tokens;
-  usize tokens_len;
-} ast_Macro;
-
 typedef enum {
   ast_MBK_None,
   ast_MBK_Binding,
@@ -98,9 +91,6 @@ typedef struct {
     struct {
       com_str val;
     } strField;
-    struct {
-      com_bigint val;
-    } intField;
   };
 } ast_Field;
 
@@ -126,7 +116,6 @@ typedef enum {
 
 typedef enum {
   ast_PK_None,            // Error type
-  ast_PK_Macro,           // a macro representing a pattern
   ast_PK_ValRestriction,  // matches a constant val
   ast_PK_TypeRestriction, // matches a type, and binds it
   ast_PK_Struct,          // a container for struct based patterns
@@ -152,7 +141,6 @@ typedef enum {
 
 typedef enum {
   ast_PSMK_None,
-  ast_PSMK_Macro,
   ast_PSMK_Field,
 } ast_PatStructMemberKind;
 
@@ -160,9 +148,7 @@ typedef struct {
   ast_Common common;
   ast_PatStructMemberKind kind;
   union {
-    struct {
-      ast_Macro *macro;
-    } macro;
+
     struct {
       ast_Pat *pat;
       ast_Field *field;
@@ -179,9 +165,7 @@ typedef struct ast_Pat_s {
       ast_PatValRestrictionKind restriction;
       ast_Val *val;
     } valRestriction;
-    struct {
-      ast_Macro *macro;
-    } macro;
+
     struct {
       ast_Type *type;
       ast_Binding *name;
@@ -212,7 +196,6 @@ typedef enum {
 
 typedef enum {
   ast_TSMK_None,
-  ast_TSMK_Macro,
   ast_TSMK_StructMember,
 } ast_TypeStructMemberKind;
 
@@ -225,9 +208,6 @@ typedef struct ast_TypeStructMember_s {
       ast_Field *field;
       ast_Type *type;
     } structMember;
-    struct {
-      ast_Macro *macro;
-    } macro;
   };
 } ast_TypeStructMember;
 
@@ -246,15 +226,15 @@ typedef enum {
 typedef enum {
   ast_TK_None,        // Error type
   ast_TK_Omitted,     // Omitted
-  ast_TK_Macro,       // Macro type
   ast_TK_Nil,         // Nil type
   ast_TK_Never,       // Never type
   ast_TK_Group,       // { something }
   ast_TK_Reference,   // Reference (primitive or aliased or path)
   ast_TK_Struct,      // struct
   ast_TK_Fn,          // function pointer
-  ast_TK_TypeFn,      // type constructor
-  ast_TK_TypeFnCall,  // constructing a type
+  ast_TK_Typefn,      // type constructor
+  ast_TK_RecTypefn,   // recursive type constructor
+  ast_TK_TypefnCall,  // constructing a type
   ast_TK_UnaryOp,     // & or @
   ast_TK_BinaryOp,    // , | ,, ||
   ast_TK_FieldAccess, // .
@@ -266,9 +246,6 @@ typedef struct ast_Type_s {
   ast_TypeKind kind;
 
   union {
-    struct {
-      ast_Macro *macro;
-    } macro;
     struct {
       ast_Reference *path;
     } reference;
@@ -283,22 +260,21 @@ typedef struct ast_Type_s {
       ast_Type *type;
     } fn;
     struct {
-      ast_Type *parameters;
-      usize parameters_len;
-      ast_Type *type;
-      com_str name;
-    } recfn;
-    struct {
-      ast_Binding* parameters;
+      ast_Binding *parameters;
       usize parameters_len;
       ast_Type *body;
     } typefn;
     struct {
       com_str name;
-      ast_Binding* parameters;
+      ast_Binding *parameters;
       usize parameters_len;
       ast_Type *body;
     } rectypefn;
+    struct {
+      ast_Type *root;
+      ast_Type *parameters;
+      usize parameters_len;
+    } call;
     struct {
       ast_Type *inner;
     } group;
@@ -351,7 +327,6 @@ typedef struct {
 typedef enum {
   ast_MCK_None,
   ast_MCK_Case,
-  ast_MCK_Macro,
 } ast_MatchCaseKind;
 
 typedef struct {
@@ -363,16 +338,12 @@ typedef struct {
       ast_Pat *pattern;
       ast_Val *val;
     } matchCase;
-    struct {
-      ast_Macro *macro;
-    } macro;
   };
 
 } ast_MatchCase;
 
 typedef enum {
   ast_VSMK_None,
-  ast_VSMK_Macro,
   ast_VSMK_Member,
 } ast_ValStructMemberKind;
 
@@ -386,9 +357,6 @@ typedef struct {
       ast_Field *field;
       ast_Val *val;
     } member;
-    struct {
-      ast_Macro *macro;
-    } macro;
   };
 } ast_ValStructMember;
 
@@ -429,10 +397,8 @@ typedef enum {
   ast_VEBOK_Intersection,
 } ast_ValBinaryOpKind;
 
-
 typedef enum {
   ast_VK_None,
-  ast_VK_Macro,
   ast_VK_NilLiteral,
   ast_VK_BoolLiteral,
   ast_VK_IntLiteral,
@@ -455,15 +421,11 @@ typedef enum {
   ast_VK_Reference,
 } ast_ValKind;
 
-
 typedef struct ast_Val_s {
   ast_Common common;
   ast_ValKind kind;
 
   union {
-    struct {
-      ast_Macro *macro;
-    } macro;
     struct {
       bool value;
     } boolLiteral;
@@ -523,6 +485,13 @@ typedef struct ast_Val_s {
       ast_Val *body;
     } fn;
     struct {
+      com_str name;
+      ast_Pat *parameters;
+      usize parameters_len;
+      ast_Type *type;
+      ast_Val *body;
+    } recfn;
+    struct {
       ast_Val *value;
       ast_LabelReference *label;
     } returnExpr;
@@ -542,7 +511,6 @@ typedef struct ast_Val_s {
 typedef enum {
   ast_SK_None,
   ast_SK_Use,
-  ast_SK_Macro,
   ast_SK_Mod,
   ast_SK_ValDecl,
   ast_SK_ValDeclDefine,
@@ -566,8 +534,11 @@ typedef struct ast_Stmnt_s {
     } valDeclDefine;
     struct {
       ast_Binding *name;
-      ast_Type *type;
     } typeDecl;
+    struct {
+      ast_Binding *name;
+      ast_Type *type;
+    } typeDeclDefine;
     struct {
       ast_ModReference *path;
     } useStmnt;
@@ -576,9 +547,6 @@ typedef struct ast_Stmnt_s {
       ast_Stmnt *stmnts;
       usize stmnts_len;
     } modStmnt;
-    struct {
-      ast_Macro *macro;
-    } macro;
     struct {
       ast_Val *val;
     } val;

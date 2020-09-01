@@ -95,7 +95,6 @@ typedef enum {
   tk_Underscore,   // _
   // Macros
   tk_Label, // 'label
-  tk_Macro, // macroidentifier!
   // Comments, and Attributes
   tk_Metadata, // #{ comment }#, #comment and ##comment  ${ attribute }$, $attribute and $$attribute
 } tk_Kind;

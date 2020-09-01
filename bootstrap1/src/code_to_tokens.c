@@ -619,8 +619,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
                                              com_allocator_REALLOCABLE |
                                              com_allocator_NOLEAK}));
 
-  bool macro = false;
-
   while (true) {
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
     if (ret.valid) {
@@ -628,10 +626,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
       if (com_format_is_alphanumeric(c) || c == '_') {
         *com_vec_push_m(&data, u8) = c;
         com_reader_drop_u8(r);
-      } else if (c == '!') {
-        com_reader_drop_u8(r);
-        macro = true;
-        break;
       } else {
         // we encountered a nonword char
         break;
@@ -648,11 +642,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
 
   if (com_str_equal(str, com_str_lit_m("_"))) {
     return (Token){.kind = tk_Underscore, .span = span};
-  }
-
-  if (macro) {
-    // It is an identifier, and we need to keep the string
-    return (Token){.kind = tk_Macro, .macroToken = {str}, .span = span};
   }
 
   if (com_str_equal(str, com_str_lit_m("true"))) {

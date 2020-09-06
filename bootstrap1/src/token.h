@@ -19,14 +19,11 @@ typedef enum {
   tk_Loop,      // loop
   tk_Match,     // match
   tk_Val,       // val
-  tk_Template,  // template
   tk_Ret,       // ret
   tk_Defer,     // defer
   tk_Fn,        // fn
   tk_Pat,       // pat
   tk_As,        // as
-  tk_Struct,    // struct
-  tk_Enum,      // enum
   tk_Type,      // type
   tk_Typefn,    // typefn
   tk_Mod,       // mod
@@ -80,8 +77,6 @@ typedef enum {
   // Type operators
   tk_Product,      // ,
   tk_Sum,          // |
-  tk_Union,        // ,,
-  tk_Intersection, // ||
   // Other Miscellaneous Operator Things
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
@@ -93,6 +88,7 @@ typedef enum {
   tk_Colon,        // :
   tk_Semicolon,    // ;
   tk_Underscore,   // _
+  tk_Backslash,    // \
   // Macros
   tk_Label, // 'label
   // Comments, and Attributes

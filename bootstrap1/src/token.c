@@ -17,8 +17,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Match");
   case tk_Val:
     return com_str_lit_m("tk_Val");
-  case tk_Template:
-    return com_str_lit_m("tk_Template");
   case tk_Ret:
     return com_str_lit_m("tk_Ret");
   case tk_Defer:
@@ -29,10 +27,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Pat");
   case tk_As:
     return com_str_lit_m("tk_As");
-  case tk_Struct:
-    return com_str_lit_m("tk_Struct");
-  case tk_Enum:
-    return com_str_lit_m("tk_Enum");
   case tk_Type:
     return com_str_lit_m("tk_Type");
   case tk_Typefn:
@@ -121,10 +115,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Product");
   case tk_Sum:
     return com_str_lit_m("tk_Sum");
-  case tk_Union:
-    return com_str_lit_m("tk_Union");
-  case tk_Intersection:
-    return com_str_lit_m("tk_Intersection");
   case tk_ParenLeft:
     return com_str_lit_m("tk_ParenLeft");
   case tk_ParenRight:
@@ -145,6 +135,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Semicolon");
   case tk_Underscore:
     return com_str_lit_m("tk_Underscore");
+  case tk_Backslash:
+    return com_str_lit_m("tk_Backslash");
   case tk_Label:
     return com_str_lit_m("tk_Label");
   case tk_Metadata:

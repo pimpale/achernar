@@ -661,8 +661,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Pat;
   } else if (com_str_equal(str, com_str_lit_m("val"))) {
     token.kind = tk_Val;
-  } else if (com_str_equal(str, com_str_lit_m("template"))) {
-    token.kind = tk_Template;
   } else if (com_str_equal(str, com_str_lit_m("ret"))) {
     token.kind = tk_Ret;
   } else if (com_str_equal(str, com_str_lit_m("defer"))) {
@@ -677,10 +675,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Type;
   } else if (com_str_equal(str, com_str_lit_m("typefn"))) {
     token.kind = tk_Typefn;
-  } else if (com_str_equal(str, com_str_lit_m("struct"))) {
-    token.kind = tk_Struct;
-  } else if (com_str_equal(str, com_str_lit_m("enum"))) {
-    token.kind = tk_Enum;
   } else if (com_str_equal(str, com_str_lit_m("mod"))) {
     token.kind = tk_Mod;
   } else if (com_str_equal(str, com_str_lit_m("use"))) {
@@ -824,24 +818,10 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       RETURN_RESULT_TOKEN1(tk_Ref)
     }
     case '|': {
-      switch (c2) {
-      case '|': {
-        RETURN_RESULT_TOKEN2(tk_Intersection)
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_Sum)
-      }
-      }
+      RETURN_RESULT_TOKEN1(tk_Sum)
     }
     case ',': {
-      switch (c2) {
-      case ',': {
-        RETURN_RESULT_TOKEN2(tk_Union)
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_Product)
-      }
-      }
+      RETURN_RESULT_TOKEN1(tk_Product)
     }
     case '!': {
       switch (c2) {
@@ -989,6 +969,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     }
     case ';': {
       RETURN_RESULT_TOKEN1(tk_Semicolon)
+    }
+    case '\\': {
+      RETURN_RESULT_TOKEN1(tk_Backslash)
     }
     default: {
       RETURN_UNKNOWN_TOKEN1()

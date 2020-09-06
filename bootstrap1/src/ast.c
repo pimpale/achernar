@@ -24,14 +24,12 @@ com_str ast_strPatKind(ast_PatKind val) {
   switch (val) {
   case ast_PK_None:
     return com_str_lit_m("ast_PK_None");
-  case ast_PK_Macro:
-    return com_str_lit_m("ast_PK_Macro");
   case ast_PK_ValRestriction:
     return com_str_lit_m("ast_PK_ValRestriction");
   case ast_PK_TypeRestriction:
     return com_str_lit_m("ast_PK_TypeRestriction");
-  case ast_PK_Struct:
-    return com_str_lit_m("ast_PK_Struct");
+  case ast_PK_Record:
+    return com_str_lit_m("ast_PK_Record");
   case ast_PK_Group:
     return com_str_lit_m("ast_PK_Group");
   case ast_PK_UnaryOp:
@@ -60,17 +58,7 @@ com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val) {
   com_assert_unreachable_m("unreachable");
 }
 
-com_str ast_strPatStructMemberKind(ast_PatStructMemberKind val) {
-  switch (val) {
-  case ast_PSMK_None:
-    return com_str_lit_m("None");
-  case ast_PSMK_Macro:
-    return com_str_lit_m("Macro");
-  case ast_PSMK_Field:
-    return com_str_lit_m("Field");
-  }
-  com_assert_unreachable_m("unreachable");
-}
+
 
 com_str ast_strTypeKind(ast_TypeKind val) {
   switch (val) {
@@ -78,8 +66,6 @@ com_str ast_strTypeKind(ast_TypeKind val) {
     return com_str_lit_m("ast_TK_None");
   case ast_TK_Omitted:
     return com_str_lit_m("ast_TK_Omitted");
-  case ast_TK_Macro:
-    return com_str_lit_m("ast_TK_Macro");
   case ast_TK_Nil:
     return com_str_lit_m("ast_TK_Nil");
   case ast_TK_Never:
@@ -88,10 +74,16 @@ com_str ast_strTypeKind(ast_TypeKind val) {
     return com_str_lit_m("ast_TK_Group");
   case ast_TK_Reference:
     return com_str_lit_m("ast_TK_Reference");
-  case ast_TK_Struct:
-    return com_str_lit_m("ast_TK_Struct");
+  case ast_TK_Record:
+    return com_str_lit_m("ast_TK_Record");
   case ast_TK_Fn:
     return com_str_lit_m("ast_TK_Fn");
+  case ast_TK_Typefn:
+    return com_str_lit_m("ast_TK_Typefn");
+  case ast_TK_RecTypefn:
+    return com_str_lit_m("ast_TK_RecTypefn");
+  case ast_TK_TypefnCall:
+    return com_str_lit_m("ast_TK_TypefnCall");
   case ast_TK_UnaryOp:
     return com_str_lit_m("ast_TK_UnaryOp");
   case ast_TK_BinaryOp:
@@ -102,27 +94,6 @@ com_str ast_strTypeKind(ast_TypeKind val) {
   com_assert_unreachable_m("unreachable");
 }
 
-com_str ast_strTypeStructKind(ast_TypeStructKind val) {
-  switch (val) {
-  case ast_TSK_Struct:
-    return com_str_lit_m("Struct");
-  case ast_TSK_Enum:
-    return com_str_lit_m("Enum");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strTypeStructMemberKind(ast_TypeStructMemberKind val) {
-  switch (val) {
-  case ast_TSMK_None:
-    return com_str_lit_m("None");
-  case ast_TSMK_Macro:
-    return com_str_lit_m("Macro");
-  case ast_TSMK_StructMember:
-    return com_str_lit_m("StructMember");
-  }
-  com_assert_unreachable_m("unreachable");
-}
 
 com_str ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val) {
   switch (val) {
@@ -152,8 +123,8 @@ com_str ast_strValKind(ast_ValKind val) {
   switch (val) {
   case ast_VK_None:
     return com_str_lit_m("ast_VK_None");
-  case ast_VK_Macro:
-    return com_str_lit_m("ast_VK_Macro");
+  case ast_VK_Omitted:
+    return com_str_lit_m("ast_VK_Omitted");
   case ast_VK_NilLiteral:
     return com_str_lit_m("ast_VK_NilLiteral");
   case ast_VK_BoolLiteral:
@@ -164,6 +135,8 @@ com_str ast_strValKind(ast_ValKind val) {
     return com_str_lit_m("ast_VK_FloatLiteral");
   case ast_VK_CharLiteral:
     return com_str_lit_m("ast_VK_CharLiteral");
+  case ast_VK_RecFn:
+    return com_str_lit_m("ast_VK_RecFn");
   case ast_VK_Fn:
     return com_str_lit_m("ast_VK_Fn");
   case ast_VK_Loop:
@@ -172,8 +145,8 @@ com_str ast_strValKind(ast_ValKind val) {
     return com_str_lit_m("ast_VK_As");
   case ast_VK_StringLiteral:
     return com_str_lit_m("ast_VK_StringLiteral");
-  case ast_VK_StructLiteral:
-    return com_str_lit_m("ast_VK_StructLiteral");
+  case ast_VK_Record:
+    return com_str_lit_m("ast_VK_Record");
   case ast_VK_BinaryOp:
     return com_str_lit_m("ast_VK_BinaryOp");
   case ast_VK_UnaryOp:
@@ -222,20 +195,6 @@ com_str ast_strMatchCaseKind(ast_MatchCaseKind val) {
     return com_str_lit_m("None");
   case ast_MCK_Case:
     return com_str_lit_m("Case");
-  case ast_MCK_Macro:
-    return com_str_lit_m("Macro");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strValStructMemberKind(ast_ValStructMemberKind val) {
-  switch (val) {
-  case ast_VSMK_None:
-    return com_str_lit_m("None");
-  case ast_VSMK_Macro:
-    return com_str_lit_m("Macro");
-  case ast_VSMK_Member:
-    return com_str_lit_m("Member");
   }
   com_assert_unreachable_m("unreachable");
 }
@@ -320,8 +279,6 @@ com_str ast_strStmntKind(ast_StmntKind val) {
     return com_str_lit_m("ast_SK_None");
   case ast_SK_Use:
     return com_str_lit_m("ast_SK_Use");
-  case ast_SK_Macro:
-    return com_str_lit_m("ast_SK_Macro");
   case ast_SK_Mod:
     return com_str_lit_m("ast_SK_Mod");
   case ast_SK_ValDecl:

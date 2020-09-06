@@ -14,6 +14,7 @@ typedef struct {
 
 typedef enum {
   ast_MBK_None,
+  ast_MBK_Omitted,
   ast_MBK_Binding,
 } ast_ModBindingKind;
 
@@ -118,7 +119,7 @@ typedef enum {
   ast_PK_None,            // Error type
   ast_PK_ValRestriction,  // matches a constant val
   ast_PK_TypeRestriction, // matches a type, and binds it
-  ast_PK_Struct,          // a container for struct based patterns
+  ast_PK_Record,          // a container for struct based patterns
   ast_PK_Group,           // ()
   ast_PK_UnaryOp,         // !
   ast_PK_BinaryOp,        // , |
@@ -139,23 +140,6 @@ typedef enum {
   ast_PEUOK_Deref,
 } ast_PatUnaryOpKind;
 
-typedef enum {
-  ast_PSMK_None,
-  ast_PSMK_Field,
-} ast_PatStructMemberKind;
-
-typedef struct {
-  ast_Common common;
-  ast_PatStructMemberKind kind;
-  union {
-
-    struct {
-      ast_Pat *pat;
-      ast_Field *field;
-    } field;
-  };
-} ast_PatStructMember;
-
 typedef struct ast_Pat_s {
   ast_Common common;
 
@@ -165,15 +149,14 @@ typedef struct ast_Pat_s {
       ast_PatValRestrictionKind restriction;
       ast_Val *val;
     } valRestriction;
-
     struct {
       ast_Type *type;
       ast_Binding *name;
     } typeRestriction;
     struct {
-      ast_PatStructMember *members;
-      usize members_len;
-    } structExpr;
+      ast_Pat *pat;
+      ast_Field *field;
+    } record;
     struct {
       ast_Pat *inner;
     } group;
@@ -188,28 +171,6 @@ typedef struct ast_Pat_s {
     } binaryOp;
   };
 } ast_Pat;
-
-typedef enum {
-  ast_TSK_Struct,
-  ast_TSK_Enum,
-} ast_TypeStructKind;
-
-typedef enum {
-  ast_TSMK_None,
-  ast_TSMK_StructMember,
-} ast_TypeStructMemberKind;
-
-typedef struct ast_TypeStructMember_s {
-  ast_Common common;
-  ast_TypeStructMemberKind kind;
-
-  union {
-    struct {
-      ast_Field *field;
-      ast_Type *type;
-    } structMember;
-  };
-} ast_TypeStructMember;
 
 typedef enum {
   ast_TEUOK_Ref,   // $
@@ -230,10 +191,9 @@ typedef enum {
   ast_TK_Never,       // Never type
   ast_TK_Group,       // { something }
   ast_TK_Reference,   // Reference (primitive or aliased or path)
-  ast_TK_Struct,      // struct
+  ast_TK_Record,      // record
   ast_TK_Fn,          // function pointer
   ast_TK_Typefn,      // type constructor
-  ast_TK_RecTypefn,   // recursive type constructor
   ast_TK_TypefnCall,  // constructing a type
   ast_TK_UnaryOp,     // & or @
   ast_TK_BinaryOp,    // , | ,, ||
@@ -250,26 +210,20 @@ typedef struct ast_Type_s {
       ast_Reference *path;
     } reference;
     struct {
-      ast_TypeStructKind kind;
-      ast_TypeStructMember *members;
-      usize members_len;
-    } structExpr;
+      ast_Field *field;
+      ast_Type *type;
+    } record;
     struct {
       ast_Type *parameters;
       usize parameters_len;
       ast_Type *type;
     } fn;
     struct {
+      ast_Binding *name;
       ast_Binding *parameters;
       usize parameters_len;
       ast_Type *body;
     } typefn;
-    struct {
-      com_str name;
-      ast_Binding *parameters;
-      usize parameters_len;
-      ast_Type *body;
-    } rectypefn;
     struct {
       ast_Type *root;
       ast_Type *parameters;
@@ -332,7 +286,6 @@ typedef enum {
 typedef struct {
   ast_Common common;
   ast_MatchCaseKind kind;
-
   union {
     struct {
       ast_Pat *pattern;
@@ -341,24 +294,6 @@ typedef struct {
   };
 
 } ast_MatchCase;
-
-typedef enum {
-  ast_VSMK_None,
-  ast_VSMK_Member,
-} ast_ValStructMemberKind;
-
-typedef struct {
-  ast_Common common;
-
-  ast_ValStructMemberKind kind;
-
-  union {
-    struct {
-      ast_Field *field;
-      ast_Val *val;
-    } member;
-  };
-} ast_ValStructMember;
 
 typedef enum {
   ast_VEUOK_Not,
@@ -399,17 +334,17 @@ typedef enum {
 
 typedef enum {
   ast_VK_None,
+  ast_VK_Omitted,
   ast_VK_NilLiteral,
   ast_VK_BoolLiteral,
   ast_VK_IntLiteral,
   ast_VK_FloatLiteral,
   ast_VK_CharLiteral,
   ast_VK_Fn,
-  ast_VK_RecFn,
   ast_VK_Loop,
   ast_VK_As,
+  ast_VK_Record,
   ast_VK_StringLiteral,
-  ast_VK_StructLiteral,
   ast_VK_BinaryOp,
   ast_VK_UnaryOp,
   ast_VK_Call,
@@ -442,9 +377,9 @@ typedef struct ast_Val_s {
       com_str value;
     } stringLiteral;
     struct {
-      ast_ValStructMember *members;
-      usize members_len;
-    } structExpr;
+      ast_Field *field;
+      ast_Val *val;
+    } record;
     struct {
       ast_Val *root;
       ast_Type *type;
@@ -479,18 +414,12 @@ typedef struct ast_Val_s {
       usize parameters_len;
     } call;
     struct {
+      ast_Binding* name;
       ast_Pat *parameters;
       usize parameters_len;
       ast_Type *type;
       ast_Val *body;
     } fn;
-    struct {
-      com_str name;
-      ast_Pat *parameters;
-      usize parameters_len;
-      ast_Type *type;
-      ast_Val *body;
-    } recfn;
     struct {
       ast_Val *value;
       ast_LabelReference *label;
@@ -513,7 +442,6 @@ typedef enum {
   ast_SK_Use,
   ast_SK_Mod,
   ast_SK_ValDecl,
-  ast_SK_ValDeclDefine,
   ast_SK_TypeDecl,
   ast_SK_Val,
   ast_SK_DeferStmnt,
@@ -525,9 +453,6 @@ typedef struct ast_Stmnt_s {
 
   union {
     // Declarations
-    struct {
-      ast_Pat *pat;
-    } valDecl;
     struct {
       ast_Pat *pat;
       ast_Val *val;
@@ -560,17 +485,13 @@ typedef struct ast_Stmnt_s {
 com_str ast_strPatValRestrictionKind(ast_PatValRestrictionKind val);
 com_str ast_strPatKind(ast_PatKind val);
 com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
-com_str ast_strPatStructMemberKind(ast_PatStructMemberKind val);
 com_str ast_strTypeKind(ast_TypeKind val);
-com_str ast_strTypeStructKind(ast_TypeStructKind val);
-com_str ast_strTypeStructMemberKind(ast_TypeStructMemberKind val);
 com_str ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val);
 com_str ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val);
 com_str ast_strValKind(ast_ValKind val);
 com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
 com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
-com_str ast_strValStructMemberKind(ast_ValStructMemberKind val);
 com_str ast_strValUnaryOpKind(ast_ValUnaryOpKind val);
 com_str ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
 com_str ast_strStmntKind(ast_StmntKind val);

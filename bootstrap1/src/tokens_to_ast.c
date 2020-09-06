@@ -1728,54 +1728,6 @@ static void ast_parseType(ast_Type *tep, DiagnosticLogger *diagnostics,
   ast_parseL3Type(tep, diagnostics, parser);
 }
 
-// '==' val
-static void ast_certain_parseValRestrictionPat(ast_Pat *vrpe,
-                                               DiagnosticLogger *diagnostics,
-                                               ast_Constructor *parser) {
-  com_mem_zero_obj_m(vrpe);
-
-  Token t = parse_next(parser, diagnostics);
-  com_loc_LnCol start = t.span.start;
-
-  vrpe->kind = ast_PK_ValRestriction;
-
-  switch (t.kind) {
-  case tk_CompEqual: {
-    vrpe->valRestriction.restriction = ast_PEVRK_CompEqual;
-    break;
-  }
-  case tk_CompNotEqual: {
-    vrpe->valRestriction.restriction = ast_PEVRK_CompNotEqual;
-    break;
-  }
-  case tk_CompGreaterEqual: {
-    vrpe->valRestriction.restriction = ast_PEVRK_CompGreaterEqual;
-    break;
-  }
-  case tk_CompGreater: {
-    vrpe->valRestriction.restriction = ast_PEVRK_CompGreater;
-    break;
-  }
-  case tk_CompLess: {
-    vrpe->valRestriction.restriction = ast_PEVRK_CompLess;
-    break;
-  }
-  case tk_CompLessEqual: {
-    vrpe->valRestriction.restriction = ast_PEVRK_CompLessEqual;
-    break;
-  }
-  default: {
-    com_assert_unreachable_m("expected a comparator");
-  }
-  }
-  vrpe->valRestriction.val = parse_alloc_obj_m(parser, ast_Val);
-  ast_parseValTerm(vrpe->valRestriction.val, diagnostics, parser);
-  com_loc_LnCol end = vrpe->valRestriction.val->common.span.end;
-
-  vrpe->common.span = com_loc_span_m(start, end);
-  return;
-}
-
 // ':' type
 static void ast_certain_parseTypeRestrictionPat(ast_Pat *trpe,
                                                 DiagnosticLogger *diagnostics,
@@ -1881,12 +1833,16 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
     ast_certain_parseGroupPat(l1, diagnostics, parser);
     break;
   }
+  case tk_Val: {
+    ast_certain_parseValBindingPat(l1, diagnostics, parser);
+    break;
+  }
   case tk_Identifier: {
     Token t2 = parse_peek(parser, diagnostics, 2);
     if (t2.kind == tk_Pipe) {
       ast_certain_parseRecordPat(l1, diagnostics, parser);
     } else {
-      ast_certain_parseBindingPat(l1, diagnostics, parser);
+      ast_certain_parseSubExprBindingPat(l1, diagnostics, parser);
     }
     break;
   }

@@ -1469,7 +1469,7 @@ static void ast_certain_parseTypefnType(ast_Type *ftep,
   com_assert_m(t.kind == tk_Typefn, "expected tk_Typefn");
   com_loc_LnCol start = t.span.start;
 
-  ast_Binding *name = parse_alloc_obj_m(parser,ast_Binding) ;
+  ast_Binding *name = parse_alloc_obj_m(parser, ast_Binding);
 
   // check for identifier (if found then it is a recursive typefn definition)
   t = parse_peek(parser, diagnostics, 1);
@@ -1522,14 +1522,14 @@ static void ast_certain_parseTypefnType(ast_Type *ftep,
   end = t.span.end;
 
   com_loc_Span span = com_loc_span_m(start, end);
-    *ftep = (ast_Type){.kind = ast_TK_Typefn,
-                       .common = {.span = span},
-                       .typefn = {
-                           .name = name,
-                           .parameters = parameters,
-                           .parameters_len = parameters_len,
-                           .body = retType,
-                       }};
+  *ftep = (ast_Type){.kind = ast_TK_Typefn,
+                     .common = {.span = span},
+                     .typefn = {
+                         .name = name,
+                         .parameters = parameters,
+                         .parameters_len = parameters_len,
+                         .body = retType,
+                     }};
 }
 
 static void ast_parseL1Type(ast_Type *l1, DiagnosticLogger *diagnostics,
@@ -1823,6 +1823,45 @@ static void ast_certain_parseGroupPat(ast_Pat *gpep,
   gpep->common.span = com_loc_span_m(start, end);
 }
 
+static void ast_certain_parseValBindingPat(ast_Pat *vbp,
+                                           DiagnosticLogger *diagnostics,
+                                           ast_Constructor *parser) {
+  com_mem_zero_obj_m(vbp);
+  vbp->kind = ast_PK_ValBinding;
+
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Val, "expected tk_Val");
+  com_loc_LnCol start = t.span.start;
+
+  vbp->valBinding.binding = parse_alloc_obj_m(parser, ast_Binding);
+  ast_parseBinding(vbp->valBinding.binding, diagnostics, parser);
+
+  vbp->common.span = com_loc_span_m(start, vbp->valBinding.binding->span.end);
+  return;
+}
+
+static void ast_certain_parseSubExprBindingPat(ast_Pat *sebp,
+                                               DiagnosticLogger *diagnostics,
+                                               ast_Constructor *parser) {
+  com_mem_zero_obj_m(sebp);
+  sebp->kind = ast_PK_SubExprBinding;
+
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Identifier, "expected tk_Identifier");
+
+  sebp->subExprBinding.binding = parse_alloc_obj_m(parser, ast_Binding);
+  ast_parseBinding(sebp->subExprBinding.binding, diagnostics, parser);
+
+  t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Define, "expected tk_Define");
+
+  sebp->subExprBinding.pat = parse_alloc_obj_m(parser, ast_Pat);
+  ast_parsePat(sebp->subExprBinding.pat, diagnostics, parser);
+
+  sebp->common.span = com_loc_span_m(sebp->subExprBinding.binding->span.start,
+                                     sebp->subExprBinding.pat->common.span.end);
+}
+
 static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
                            ast_Constructor *parser) {
   com_vec metadata = parse_getMetadata(parser, diagnostics);
@@ -1839,10 +1878,22 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
   }
   case tk_Identifier: {
     Token t2 = parse_peek(parser, diagnostics, 2);
+    switch(t2.kind) {
+      case tk_Pipe: {
+        ast_certain_parseRecordPat(l1, diagnostics, parser);
+        break;
+      }
+      case tk_Define: {
+        ast_certain_parseSubExprBindingPat(l1, diagnostics, parser);
+        break;
+      }
+      default: {
+        ast_parseValPat(l1, diagnostics, parser);
+      }
+    }
     if (t2.kind == tk_Pipe) {
-      ast_certain_parseRecordPat(l1, diagnostics, parser);
+    } else if (t2.kind == tk_Define) {
     } else {
-      ast_certain_parseSubExprBindingPat(l1, diagnostics, parser);
     }
     break;
   }

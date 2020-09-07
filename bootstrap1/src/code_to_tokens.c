@@ -657,8 +657,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Loop;
   } else if (com_str_equal(str, com_str_lit_m("match"))) {
     token.kind = tk_Match;
-  } else if (com_str_equal(str, com_str_lit_m("pat"))) {
-    token.kind = tk_Pat;
+  } else if (com_str_equal(str, com_str_lit_m("new"))) {
+    token.kind = tk_New;
   } else if (com_str_equal(str, com_str_lit_m("val"))) {
     token.kind = tk_Val;
   } else if (com_str_equal(str, com_str_lit_m("ret"))) {
@@ -931,7 +931,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case ':': {
-      switch (lex_peek(r, 1)) {
+      switch (c2) {
       case ':': {
         RETURN_RESULT_TOKEN2(tk_MemberResolution)
       }
@@ -944,7 +944,21 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '.': {
-      RETURN_RESULT_TOKEN1(tk_FieldAccess)
+      switch (c2) {
+      case '.': {
+        switch (c3) {
+        case '=': {
+          RETURN_RESULT_TOKEN3(tk_RangeInclusive)
+        }
+        default: {
+          RETURN_RESULT_TOKEN2(tk_Range)
+        }
+        }
+      }
+      default: {
+        RETURN_RESULT_TOKEN1(tk_FieldAccess)
+      }
+      }
     }
     case '[': {
       RETURN_RESULT_TOKEN1(tk_BracketLeft)
@@ -967,9 +981,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case '}': {
       RETURN_RESULT_TOKEN1(tk_BraceRight)
     }
-    case ';': {
-      RETURN_RESULT_TOKEN1(tk_Semicolon)
-    }
     case '\\': {
       RETURN_RESULT_TOKEN1(tk_Backslash)
     }
@@ -977,5 +988,4 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       RETURN_UNKNOWN_TOKEN1()
     }
     }
-  }
-}
+  }}

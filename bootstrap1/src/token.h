@@ -22,7 +22,7 @@ typedef enum {
   tk_Ret,       // ret
   tk_Defer,     // defer
   tk_Fn,        // fn
-  tk_Pat,       // pat
+  tk_New,       // new
   tk_As,        // as
   tk_Type,      // type
   tk_Typefn,    // typefn
@@ -47,7 +47,10 @@ typedef enum {
   tk_And, // and
   tk_Or,  // or
   tk_Not, // not
-  tk_Xor,  // or
+  tk_Xor, // or
+  // Range Operators
+  tk_Range,          // .. 
+  tk_RangeInclusive, // ..=
   // Comparison and Equality
   tk_CompEqual,        // ==
   tk_CompNotEqual,     // !=
@@ -86,7 +89,6 @@ typedef enum {
   tk_BraceRight,   // }
   tk_FieldAccess,  // .
   tk_Colon,        // :
-  tk_Semicolon,    // ;
   tk_Underscore,   // _
   tk_Backslash,    // \
   // Macros

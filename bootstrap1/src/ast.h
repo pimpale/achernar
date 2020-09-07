@@ -107,31 +107,20 @@ typedef struct ast_Pat_s ast_Pat;
 typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
-  ast_PEVRK_CompEqual,        // ==
-  ast_PEVRK_CompNotEqual,     // !=
-  ast_PEVRK_CompLess,         // <
-  ast_PEVRK_CompLessEqual,    // <=
-  ast_PEVRK_CompGreater,      // >
-  ast_PEVRK_CompGreaterEqual, // >=
-} ast_PatValRestrictionKind;
-
-typedef enum {
   ast_PK_None,            // Error type
-  ast_PK_ValRestriction,  // matches a constant val
-  ast_PK_TypeRestriction, // matches a type, and binds it
+  ast_PK_ValBinding,      // matches a single element and optionally binds it. Also constrains type
+  ast_PK_ExprBinding,     // binds a whole subexpression, optionally constraining type 
   ast_PK_Record,          // a container for struct based patterns
-  ast_PK_Group,           // ()
+  ast_PK_Group,           // {}
   ast_PK_UnaryOp,         // !
   ast_PK_BinaryOp,        // , |
+  ast_PK_Constructor,     // Type constructor with matching  
+  ast_PK_Val,             // Match if Equal
 } ast_PatKind;
 
 typedef enum {
-  ast_PEBOK_Product,
-  ast_PEBOK_Sum,
-  ast_PEBOK_Union,
-  ast_PEBOK_Intersection,
-  ast_PEBOK_And,
-  ast_PEBOK_Or,
+  ast_PEBOK_Product, // Matches if the scrutinee is a product type, and attempts to match subexpression
+  ast_PEBOK_Sum,     // Tries to match LHS, then tries to match RHS
 } ast_PatBinaryOpKind;
 
 typedef enum {
@@ -146,13 +135,14 @@ typedef struct ast_Pat_s {
   ast_PatKind kind;
   union {
     struct {
-      ast_PatValRestrictionKind restriction;
-      ast_Val *val;
-    } valRestriction;
-    struct {
+      ast_Binding *binding;
       ast_Type *type;
-      ast_Binding *name;
-    } typeRestriction;
+    } valBinding;
+    struct {
+      ast_Pat* pat;
+      ast_Binding *binding;
+      ast_Type *type;
+    } subExprBinding;
     struct {
       ast_Pat *pat;
       ast_Field *field;

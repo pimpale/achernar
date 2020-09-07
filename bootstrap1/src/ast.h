@@ -111,11 +111,12 @@ typedef enum {
   ast_PK_ValBinding,      // matches a single element and optionally binds it. Also constrains type
   ast_PK_ExprBinding,     // binds a whole subexpression, optionally constraining type 
   ast_PK_Record,          // a container for struct based patterns
+  ast_PK_Range,           // Matches a range of integers or numbers
   ast_PK_Group,           // {}
   ast_PK_UnaryOp,         // !
   ast_PK_BinaryOp,        // , |
   ast_PK_Constructor,     // Type constructor with matching  
-  ast_PK_Val,             // Match if Equal
+  ast_PK_Reference,       // Matches if it is equal
 } ast_PatKind;
 
 typedef enum {
@@ -472,7 +473,6 @@ typedef struct ast_Stmnt_s {
   };
 } ast_Stmnt;
 
-com_str ast_strPatValRestrictionKind(ast_PatValRestrictionKind val);
 com_str ast_strPatKind(ast_PatKind val);
 com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
 com_str ast_strTypeKind(ast_TypeKind val);

@@ -737,8 +737,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
 Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
   // always defined after
   inband_reader_result c = -1;
-  inband_reader_result c2 = -1;
-  inband_reader_result c3 = -1;
 
   // Set c to first nonblank character
   while ((c = lex_peek(r, 1)) != -1) {
@@ -746,8 +744,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     if (is_whitespace(c)) {
       com_reader_drop_u8(r);
     } else {
-      c2 = lex_peek(r, 2);
-      c3 = lex_peek(r, 3);
       break;
     }
   }
@@ -761,7 +757,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
   } else {
     switch (c) {
     case '\'': {
-      if (c3 == '\'' || c2 == '\\') {
+      if (lex_peek(r, 3) == '\'' || lex_peek(r, 2) == '\\') {
         return lexCharLiteral(r, diagnostics, a);
       } else {
         return lexLabelLiteral(r, diagnostics, a);
@@ -777,6 +773,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       return lexMetadata(r, diagnostics, a, true);
     }
     case '_': {
+      inband_reader_result c2 = lex_peek(r, 2);
       if (is_alphanumeric(c2) || c2 == '_') {
         return lexWord(r, diagnostics, a);
       } else {
@@ -784,7 +781,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '+': {
-      if (is_digit(c2)) {
+      inband_reader_result c2 = lex_peek(r, 2);
+      if (c2) {
         return lexNumberLiteral(r, diagnostics, a);
       }
 
@@ -798,11 +796,11 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '-': {
-      if (is_digit(c2)) {
+      if (is_digit(lex_peek(r, 2))) {
         return lexNumberLiteral(r, diagnostics, a);
       }
 
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '>': {
         RETURN_RESULT_TOKEN2(tk_Pipe)
       }
@@ -824,7 +822,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       RETURN_RESULT_TOKEN1(tk_Product)
     }
     case '!': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_CompNotEqual)
       }
@@ -834,7 +832,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '=': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_CompEqual)
       }
@@ -847,7 +845,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '<': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_CompLessEqual)
       }
@@ -857,7 +855,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '>': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_CompGreaterEqual)
       }
@@ -867,7 +865,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '*': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_AssignMul)
       }
@@ -877,9 +875,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '/': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '/': {
-        switch (c3) {
+        switch (lex_peek(r, 3)) {
         case '=': {
           RETURN_RESULT_TOKEN3(tk_AssignIDiv)
         }
@@ -889,7 +887,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         }
       }
       case '.': {
-        switch (c3) {
+        switch (lex_peek(r, 3)) {
         case '=': {
           RETURN_RESULT_TOKEN3(tk_AssignFDiv)
         }
@@ -904,9 +902,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '%': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '/': {
-        switch (c3) {
+        switch (lex_peek(r, 3)) {
         case '=': {
           RETURN_RESULT_TOKEN3(tk_AssignIRem)
         }
@@ -916,7 +914,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         }
       }
       case '.': {
-        switch (c3) {
+        switch (lex_peek(r, 3)) {
         case '=': {
           RETURN_RESULT_TOKEN3(tk_AssignFRem)
         }
@@ -931,7 +929,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case ':': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case ':': {
         RETURN_RESULT_TOKEN2(tk_MemberResolution)
       }
@@ -944,9 +942,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '.': {
-      switch (c2) {
+      switch (lex_peek(r, 2)) {
       case '.': {
-        switch (c3) {
+        switch (lex_peek(r, 3)) {
         case '=': {
           RETURN_RESULT_TOKEN3(tk_RangeInclusive)
         }
@@ -988,4 +986,5 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       RETURN_UNKNOWN_TOKEN1()
     }
     }
-  }}
+  }
+}

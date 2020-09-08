@@ -667,8 +667,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Defer;
   } else if (com_str_equal(str, com_str_lit_m("fn"))) {
     token.kind = tk_Fn;
-  } else if (com_str_equal(str, com_str_lit_m("pat"))) {
-    token.kind = tk_Pat;
   } else if (com_str_equal(str, com_str_lit_m("as"))) {
     token.kind = tk_As;
   } else if (com_str_equal(str, com_str_lit_m("type"))) {
@@ -722,6 +720,12 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
   {                                                                            \
     com_reader_drop_u8(r);                                                     \
     RETURN_RESULT_TOKEN2(tokenType)                                            \
+  }
+
+#define RETURN_RESULT_TOKEN4(tokenType)                                        \
+  {                                                                            \
+    com_reader_drop_u8(r);                                                     \
+    RETURN_RESULT_TOKEN3(tokenType)                                            \
   }
 
 #define RETURN_UNKNOWN_TOKEN1()                                                \
@@ -782,7 +786,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     }
     case '+': {
       inband_reader_result c2 = lex_peek(r, 2);
-      if (c2) {
+
+      if (is_digit(c2)) {
         return lexNumberLiteral(r, diagnostics, a);
       }
 
@@ -945,6 +950,16 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       switch (lex_peek(r, 2)) {
       case '.': {
         switch (lex_peek(r, 3)) {
+        case '.': {
+          switch (lex_peek(r, 4)) {
+          case '=': {
+            RETURN_RESULT_TOKEN4(tk_IneqInclusive)
+          }
+          default: {
+            RETURN_RESULT_TOKEN3(tk_Ineq)
+          }
+          }
+        }
         case '=': {
           RETURN_RESULT_TOKEN3(tk_RangeInclusive)
         }

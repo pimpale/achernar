@@ -15,7 +15,6 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_Never,     // unreachable type for when a function does not return
   tk_Loop,      // loop
   tk_Match,     // match
   tk_Val,       // val
@@ -23,11 +22,12 @@ typedef enum {
   tk_Defer,     // defer
   tk_Fn,        // fn
   tk_New,       // new
-  tk_As,        // as
   tk_Type,      // type
   tk_Mod,       // mod
   tk_Use,       // use
+  tk_Has,       // has
   // Literals and constants
+  tk_Never,  // never
   tk_Nil,    // nil
   tk_Bool,   // true
   tk_String, // "string"
@@ -45,7 +45,7 @@ typedef enum {
   tk_And, // and
   tk_Or,  // or
   tk_Not, // not
-  tk_Xor, // or
+  tk_Xor, // xor
   // Range Operators
   tk_Range,          // ..
   tk_RangeInclusive, // ..=
@@ -58,10 +58,8 @@ typedef enum {
   tk_CompLessEqual,    // <=
   tk_CompGreater,      // >
   tk_CompGreaterEqual, // >=
-  // Type Modifiers
-  tk_Ref,   // &
-  tk_Deref, // @
   // Assignment
+  tk_Record,     // .=
   tk_Define,     // :=
   tk_Assign,     // =
   tk_AssignAdd,  // +=
@@ -75,11 +73,12 @@ typedef enum {
   tk_Pipe,  // ->
   tk_Arrow, // =>
   // Scope resolution
-  tk_MemberResolution, // ::
   tk_ModResolution,    // /
   // Type operators
   tk_Product,      // ,
   tk_Sum,          // |
+  tk_Ref,          // &
+  tk_Deref,        // @
   // Other Miscellaneous Operator Things
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
@@ -88,7 +87,7 @@ typedef enum {
   tk_BraceLeft,    // {
   tk_BraceRight,   // }
   tk_FieldAccess,  // .
-  tk_Colon,        // :
+  tk_Constrain,    // :
   tk_Underscore,   // _
   tk_Backslash,    // \
   // Macros
@@ -96,7 +95,6 @@ typedef enum {
   // Comments, and Attributes
   tk_Metadata, // #{ comment }#, #comment and ##comment  ${ attribute }$, $attribute and $$attribute
 } tk_Kind;
-
 
 typedef struct Token_s {
   // The type of this token

@@ -273,6 +273,8 @@ typedef struct ast_Expr_s {
     struct {
       ast_Expr *root;
       ast_Expr *fn;
+      ast_Expr *parameters;
+      usize parameters_len;
     } pipe;
     struct {
       ast_Reference *path;

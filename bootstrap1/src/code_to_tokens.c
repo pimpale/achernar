@@ -427,8 +427,8 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       com_bigdecimal_negate(&decimal);
     }
 
-    return (Token){.kind = tk_Float,
-                   .floatToken = {.data = decimal},
+    return (Token){.kind = tk_Real,
+                   .realToken = {.data = decimal},
                    .span = com_loc_span_m(start, com_reader_position(r))};
   } else {
     return (Token){.kind = tk_Int,
@@ -471,140 +471,6 @@ static Token lexLabelLiteral(com_reader *r,
                  .labelToken = {
                      .data = com_str_demut(com_vec_to_str(&label_data)),
                  }};
-}
-
-static Token lexCharLiteral(com_reader *r, DiagnosticLogger *diagnostics,
-                            attr_UNUSED com_allocator *a) {
-  com_loc_LnCol start = com_reader_position(r);
-  // Skip first quote
-  {
-    com_reader_ReadU8Result ret = com_reader_read_u8(r);
-    com_assert_m(ret.valid && ret.value == '\'', "expected single quote");
-  }
-
-  // State of lexer
-  typedef enum {
-    LCS_Initial,     // the first character
-    LCS_ExpectEnd,   // expects the closing '
-    LCS_SpecialChar, // expects a character
-  } LexCharState;
-
-  // if it is a char literal, only this variable will be used
-  u8 char_literal = 'a';
-  // label data will be uninitialized unless it is a label
-  LexCharState state = LCS_Initial;
-
-  // reused char variable
-  while (true) {
-    switch (state) {
-    case LCS_Initial: {
-      com_reader_ReadU8Result ret = com_reader_read_u8(r);
-      if (ret.valid) {
-        if (ret.value == '\\') {
-          state = LCS_SpecialChar;
-        } else {
-          char_literal = ret.value;
-          state = LCS_ExpectEnd;
-        }
-      } else {
-        com_loc_Span span = com_loc_span_m(start, com_reader_position(r));
-        *dlogger_append(diagnostics) =
-            (Diagnostic){.span = span,
-                         .severity = DSK_Error,
-                         .message = com_str_lit_m(
-                             "unexpected EOF after opening single quote"),
-                         .children_len = 0};
-        return (Token){.kind = tk_None, .span = span};
-      }
-      break;
-    }
-    case LCS_SpecialChar: {
-      com_reader_ReadU8Result ret = com_reader_read_u8(r);
-      if (!ret.valid) {
-        com_loc_Span span = com_loc_span_m(start, com_reader_position(r));
-        *dlogger_append(diagnostics) =
-            (Diagnostic){.span = span,
-                         .severity = DSK_Error,
-                         .message = com_str_lit_m(
-                             "unexpected EOF after backslash in char literal"),
-                         .children_len = 0};
-        return (Token){.kind = tk_Char, .span = span
-
-        };
-      }
-      switch (ret.value) {
-      case '\\': {
-        char_literal = '\\';
-        break;
-      }
-      case '\'': {
-        char_literal = '\'';
-        break;
-      }
-      case '\"': {
-        char_literal = '\"';
-        break;
-      }
-      case 'a': {
-        char_literal = '\a';
-        break;
-      }
-      case 'b': {
-        char_literal = '\b';
-        break;
-      }
-      case 'f': {
-        char_literal = '\f';
-        break;
-      }
-      case 'n': {
-        char_literal = '\n';
-        break;
-      }
-      case 'r': {
-        char_literal = '\r';
-        break;
-      }
-      case 't': {
-        char_literal = '\t';
-        break;
-      }
-      case 'v': {
-        char_literal = '\v';
-        break;
-      }
-      default: {
-        char_literal = ret.value;
-        *dlogger_append(diagnostics) = (Diagnostic){
-            .span = com_loc_span_m(start, com_reader_position(r)),
-            .severity = DSK_Error,
-            .message = com_str_lit_m("char literal unrecognized escape code"),
-            .children_len = 0};
-        break;
-      }
-      }
-      state = LCS_ExpectEnd;
-      break;
-    }
-    case LCS_ExpectEnd: {
-      com_loc_Span sp = com_reader_peek_span_u8(r);
-      com_reader_ReadU8Result ret = com_reader_read_u8(r);
-      if (!(ret.valid && ret.value == '\'')) {
-        *dlogger_append(diagnostics) =
-            (Diagnostic){.span = sp,
-                         .severity = DSK_Error,
-                         .message = com_str_lit_m(
-                             "char literal expected closing single quote"),
-                         .children_len = 0};
-      }
-      return (Token){
-          .kind = tk_Char,
-          .charToken = {.data = char_literal},
-          .span = com_loc_span_m(start, com_reader_position(r)),
-      };
-    }
-    }
-  }
 }
 
 // Parses an identifer or macro or builtin
@@ -671,8 +537,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_As;
   } else if (com_str_equal(str, com_str_lit_m("type"))) {
     token.kind = tk_Type;
-  } else if (com_str_equal(str, com_str_lit_m("typefn"))) {
-    token.kind = tk_Typefn;
   } else if (com_str_equal(str, com_str_lit_m("mod"))) {
     token.kind = tk_Mod;
   } else if (com_str_equal(str, com_str_lit_m("use"))) {
@@ -761,11 +625,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
   } else {
     switch (c) {
     case '\'': {
-      if (lex_peek(r, 3) == '\'' || lex_peek(r, 2) == '\\') {
-        return lexCharLiteral(r, diagnostics, a);
-      } else {
-        return lexLabelLiteral(r, diagnostics, a);
-      }
+      return lexLabelLiteral(r, diagnostics, a);
     }
     case '\"': {
       return lexStringLiteral(r, diagnostics, a);

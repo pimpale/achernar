@@ -13,41 +13,6 @@ typedef struct {
 } ast_Metadata;
 
 typedef enum {
-  ast_MBK_None,
-  ast_MBK_Omitted,
-  ast_MBK_Binding,
-} ast_ModBindingKind;
-
-typedef struct {
-  com_loc_Span span;
-  ast_ModBindingKind kind;
-  union {
-    struct {
-      com_str value;
-    } binding;
-  };
-} ast_ModBinding;
-
-typedef enum {
-  ast_MRK_None,      // some kind of error
-  ast_MRK_Omitted,   // the current mod
-  ast_MRK_Reference, // a named mod
-} ast_ModReferenceKind;
-
-typedef struct ast_ModReference_s ast_ModReference;
-
-typedef struct ast_ModReference_s {
-  com_loc_Span span;
-  ast_ModReferenceKind kind;
-  union {
-    struct {
-      com_str name;
-      ast_ModReference *mod;
-    } reference;
-  };
-} ast_ModReference;
-
-typedef enum {
   ast_RK_None,      // some kind of error
   ast_RK_Reference, // an actual reference
 } ast_ReferenceKind;
@@ -57,8 +22,8 @@ typedef struct ast_Reference_s {
   ast_ReferenceKind kind;
   union {
     struct {
-      com_str name;
-      ast_ModReference *mod;
+      com_str* segments;
+      usize segments_len;
     } reference;
   };
 } ast_Reference;
@@ -101,21 +66,19 @@ typedef struct {
   usize metadata_len;
 } ast_Common;
 
-typedef struct ast_Type_s ast_Type;
-typedef struct ast_Val_s ast_Val;
+typedef struct ast_Expr_s ast_Expr;
 typedef struct ast_Pat_s ast_Pat;
 typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
   ast_PK_None,            // Error type
-  ast_PK_ValBinding,      // matches a single element and optionally binds it. Also constrains type
   ast_PK_ExprBinding,     // binds a whole subexpression, optionally constraining type 
   ast_PK_Record,          // a container for struct based patterns
   ast_PK_Range,           // Matches a range of integers or numbers
   ast_PK_Group,           // {}
   ast_PK_UnaryOp,         // !
   ast_PK_BinaryOp,        // , |
-  ast_PK_Constructor,     // Type constructor with matching  
+  ast_PK_Constructor,     // Expr constructor with matching  
   ast_PK_Reference,       // Matches if it is equal
 } ast_PatKind;
 
@@ -137,12 +100,12 @@ typedef struct ast_Pat_s {
   union {
     struct {
       ast_Binding *binding;
-      ast_Type *type;
+      ast_Expr *type;
     } valBinding;
     struct {
       ast_Pat* pat;
       ast_Binding *binding;
-      ast_Type *type;
+      ast_Expr *type;
     } subExprBinding;
     struct {
       ast_Pat *pat;
@@ -162,82 +125,6 @@ typedef struct ast_Pat_s {
     } binaryOp;
   };
 } ast_Pat;
-
-typedef enum {
-  ast_TEUOK_Ref,   // $
-  ast_TEUOK_Deref, // @
-} ast_TypeUnaryOpKind;
-
-typedef enum {
-  ast_TEBOK_Product,      // ,
-  ast_TEBOK_Sum,          // |
-  ast_TEBOK_Union,        // ,,
-  ast_TEBOK_Intersection, // ||
-} ast_TypeBinaryOpKind;
-
-typedef enum {
-  ast_TK_None,        // Error type
-  ast_TK_Omitted,     // Omitted
-  ast_TK_Nil,         // Nil type
-  ast_TK_Never,       // Never type
-  ast_TK_Group,       // { something }
-  ast_TK_Reference,   // Reference (primitive or aliased or path)
-  ast_TK_Record,      // record
-  ast_TK_Fn,          // function pointer
-  ast_TK_Typefn,      // type constructor
-  ast_TK_TypefnCall,  // constructing a type
-  ast_TK_UnaryOp,     // & or @
-  ast_TK_BinaryOp,    // , | ,, ||
-  ast_TK_FieldAccess, // .
-} ast_TypeKind;
-
-// essions and operations yielding a type
-typedef struct ast_Type_s {
-  ast_Common common;
-  ast_TypeKind kind;
-
-  union {
-    struct {
-      ast_Reference *path;
-    } reference;
-    struct {
-      ast_Field *field;
-      ast_Type *type;
-    } record;
-    struct {
-      ast_Type *parameters;
-      usize parameters_len;
-      ast_Type *type;
-    } fn;
-    struct {
-      ast_Binding *name;
-      ast_Binding *parameters;
-      usize parameters_len;
-      ast_Type *body;
-    } typefn;
-    struct {
-      ast_Type *root;
-      ast_Type *parameters;
-      usize parameters_len;
-    } call;
-    struct {
-      ast_Type *inner;
-    } group;
-    struct {
-      ast_TypeUnaryOpKind op;
-      ast_Type *operand;
-    } unaryOp;
-    struct {
-      ast_TypeBinaryOpKind op;
-      ast_Type *left_operand;
-      ast_Type *right_operand;
-    } binaryOp;
-    struct {
-      ast_Type *root;
-      ast_Field *field;
-    } fieldAccess;
-  };
-} ast_Type;
 
 typedef enum {
   ast_LBK_Omitted,
@@ -280,7 +167,7 @@ typedef struct {
   union {
     struct {
       ast_Pat *pattern;
-      ast_Val *val;
+      ast_Expr *val;
     } matchCase;
   };
 
@@ -290,7 +177,7 @@ typedef enum {
   ast_VEUOK_Not,
   ast_VEUOK_Ref,
   ast_VEUOK_Deref,
-} ast_ValUnaryOpKind;
+} ast_ExprUnaryOpKind;
 
 typedef enum {
   ast_VEBOK_Add,
@@ -321,7 +208,7 @@ typedef enum {
   ast_VEBOK_Product,
   ast_VEBOK_Union,
   ast_VEBOK_Intersection,
-} ast_ValBinaryOpKind;
+} ast_ExprBinaryOpKind;
 
 typedef enum {
   ast_VK_None,
@@ -345,11 +232,11 @@ typedef enum {
   ast_VK_Block,
   ast_VK_FieldAccess,
   ast_VK_Reference,
-} ast_ValKind;
+} ast_ExprKind;
 
-typedef struct ast_Val_s {
+typedef struct ast_Expr_s {
   ast_Common common;
-  ast_ValKind kind;
+  ast_ExprKind kind;
 
   union {
     struct {
@@ -369,54 +256,54 @@ typedef struct ast_Val_s {
     } stringLiteral;
     struct {
       ast_Field *field;
-      ast_Val *val;
+      ast_Expr *val;
     } record;
     struct {
-      ast_Val *root;
-      ast_Type *type;
+      ast_Expr *root;
+      ast_Expr *type;
     } as;
     struct {
-      ast_Val *body;
+      ast_Expr *body;
       ast_LabelBinding *label;
     } loop;
     struct {
-      ast_Val *root;
+      ast_Expr *root;
       ast_Field *field;
     } fieldAccess;
     struct {
-      ast_Val *root;
-      ast_Val *fn;
+      ast_Expr *root;
+      ast_Expr *fn;
     } pipe;
     struct {
       ast_Reference *path;
     } reference;
     struct {
-      ast_ValUnaryOpKind op;
-      ast_Val *operand;
+      ast_ExprUnaryOpKind op;
+      ast_Expr *operand;
     } unaryOp;
     struct {
-      ast_ValBinaryOpKind op;
-      ast_Val *left_operand;
-      ast_Val *right_operand;
+      ast_ExprBinaryOpKind op;
+      ast_Expr *left_operand;
+      ast_Expr *right_operand;
     } binaryOp;
     struct {
-      ast_Val *function;
-      ast_Val *parameters;
+      ast_Expr *function;
+      ast_Expr *parameters;
       usize parameters_len;
     } call;
     struct {
       ast_Binding* name;
       ast_Pat *parameters;
       usize parameters_len;
-      ast_Type *type;
-      ast_Val *body;
+      ast_Expr *type;
+      ast_Expr *body;
     } fn;
     struct {
-      ast_Val *value;
+      ast_Expr *value;
       ast_LabelReference *label;
     } returnExpr;
     struct {
-      ast_Val *root;
+      ast_Expr *root;
       ast_MatchCase *cases;
       usize cases_len;
     } match;
@@ -426,15 +313,14 @@ typedef struct ast_Val_s {
       usize stmnts_len;
     } block;
   };
-} ast_Val;
+} ast_Expr;
 
 typedef enum {
   ast_SK_None,
   ast_SK_Use,
   ast_SK_Mod,
-  ast_SK_ValDecl,
-  ast_SK_TypeDecl,
-  ast_SK_Val,
+  ast_SK_ExprDecl,
+  ast_SK_Expr,
   ast_SK_DeferStmnt,
 } ast_StmntKind;
 
@@ -446,50 +332,38 @@ typedef struct ast_Stmnt_s {
     // Declarations
     struct {
       ast_Pat *pat;
-      ast_Val *val;
-    } valDeclDefine;
+      ast_Expr *val;
+    } valDecl;
     struct {
-      ast_Binding *name;
-    } typeDecl;
-    struct {
-      ast_Binding *name;
-      ast_Type *type;
-    } typeDeclDefine;
-    struct {
-      ast_ModReference *path;
+      ast_Reference *path;
     } useStmnt;
     struct {
-      ast_ModBinding *name;
+      ast_Binding *name;
       ast_Stmnt *stmnts;
       usize stmnts_len;
     } modStmnt;
     struct {
-      ast_Val *val;
+      ast_Expr *val;
     } val;
     struct {
       ast_LabelReference *label;
-      ast_Val *val;
+      ast_Expr *val;
     } deferStmnt;
   };
 } ast_Stmnt;
 
 com_str ast_strPatKind(ast_PatKind val);
 com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
-com_str ast_strTypeKind(ast_TypeKind val);
-com_str ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val);
-com_str ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val);
-com_str ast_strValKind(ast_ValKind val);
+com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
 com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
-com_str ast_strValUnaryOpKind(ast_ValUnaryOpKind val);
-com_str ast_strValBinaryOpKind(ast_ValBinaryOpKind val);
+com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
+com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);
 com_str ast_strStmntKind(ast_StmntKind val);
 com_str ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
 com_str ast_strBindingKind(ast_BindingKind val);
 com_str ast_strFieldKind(ast_FieldKind val);
 com_str ast_strReferenceKind(ast_ReferenceKind val);
-com_str ast_strModReferenceKind(ast_ModReferenceKind val);
-com_str ast_strModBindingKind(ast_ModBindingKind val);
 
 #endif

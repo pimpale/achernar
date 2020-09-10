@@ -25,15 +25,13 @@ typedef enum {
   tk_New,       // new
   tk_As,        // as
   tk_Type,      // type
-  tk_Typefn,    // typefn
   tk_Mod,       // mod
   tk_Use,       // use
   // Literals and constants
   tk_Nil,    // nil
   tk_Bool,   // true
   tk_String, // "string"
-  tk_Char,   // 'a'
-  tk_Float,  // 0.7
+  tk_Real,   // 0.7
   tk_Int,    // 7
   // Math Operators
   tk_Add,    // +
@@ -133,10 +131,7 @@ typedef struct Token_s {
     } intToken;
     struct {
       com_bigdecimal data;
-    } floatToken;
-    struct {
-      u8 data;
-    } charToken;
+    } realToken;
   };
 } Token;
 

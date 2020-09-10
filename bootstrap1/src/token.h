@@ -47,8 +47,10 @@ typedef enum {
   tk_Not, // not
   tk_Xor, // or
   // Range Operators
-  tk_Range,          // .. 
+  tk_Range,          // ..
   tk_RangeInclusive, // ..=
+  tk_Ineq,           // ...
+  tk_IneqInclusive,  // ...=
   // Comparison and Equality
   tk_CompEqual,        // ==
   tk_CompNotEqual,     // !=

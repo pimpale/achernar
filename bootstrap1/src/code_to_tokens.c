@@ -525,16 +525,18 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Match;
   } else if (com_str_equal(str, com_str_lit_m("new"))) {
     token.kind = tk_New;
-  } else if (com_str_equal(str, com_str_lit_m("val"))) {
-    token.kind = tk_Val;
+  } else if (com_str_equal(str, com_str_lit_m("def"))) {
+    token.kind = tk_Def;
   } else if (com_str_equal(str, com_str_lit_m("ret"))) {
     token.kind = tk_Ret;
   } else if (com_str_equal(str, com_str_lit_m("defer"))) {
     token.kind = tk_Defer;
   } else if (com_str_equal(str, com_str_lit_m("fn"))) {
     token.kind = tk_Fn;
-  } else if (com_str_equal(str, com_str_lit_m("as"))) {
-    token.kind = tk_As;
+  } else if (com_str_equal(str, com_str_lit_m("has"))) {
+    token.kind = tk_Has;
+  } else if (com_str_equal(str, com_str_lit_m("let"))) {
+    token.kind = tk_Let;
   } else if (com_str_equal(str, com_str_lit_m("type"))) {
     token.kind = tk_Type;
   } else if (com_str_equal(str, com_str_lit_m("mod"))) {
@@ -795,14 +797,11 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     }
     case ':': {
       switch (lex_peek(r, 2)) {
-      case ':': {
-        RETURN_RESULT_TOKEN2(tk_MemberResolution)
-      }
       case '=': {
         RETURN_RESULT_TOKEN2(tk_Define)
       }
       default: {
-        RETURN_RESULT_TOKEN1(tk_Colon)
+        RETURN_RESULT_TOKEN1(tk_Constrain)
       }
       }
     }
@@ -827,6 +826,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
           RETURN_RESULT_TOKEN2(tk_Range)
         }
         }
+      }
+      case '=': {
+        RETURN_RESULT_TOKEN2(tk_Record)
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_FieldAccess)

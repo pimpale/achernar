@@ -2,9 +2,14 @@
 #define AST_H
 
 #include "com_define.h"
+#include "com_bigdecimal.h" 
+#include "com_bigint.h" 
 #include "com_loc.h"
 #include "com_str.h"
-#include "token.h"
+
+typedef struct ast_Expr_s ast_Expr;
+typedef struct ast_Pat_s ast_Pat;
+typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef struct {
   com_loc_Span span;
@@ -39,7 +44,7 @@ typedef struct {
   ast_BindingKind kind;
   union {
     struct {
-      com_str val;
+      com_str name;
     } bind;
   };
 } ast_Binding;
@@ -65,10 +70,6 @@ typedef struct {
   ast_Metadata *metadata;
   usize metadata_len;
 } ast_Common;
-
-typedef struct ast_Expr_s ast_Expr;
-typedef struct ast_Pat_s ast_Pat;
-typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
   ast_PK_None,            // Error type
@@ -100,12 +101,10 @@ typedef struct ast_Pat_s {
   union {
     struct {
       ast_Binding *binding;
-      ast_Expr *type;
-    } valBinding;
+    } exprBinding;
     struct {
       ast_Pat* pat;
       ast_Binding *binding;
-      ast_Expr *type;
     } subExprBinding;
     struct {
       ast_Pat *pat;
@@ -166,78 +165,102 @@ typedef struct {
   ast_MatchCaseKind kind;
   union {
     struct {
-      ast_Pat *pattern;
+      ast_Pat *pat;
       ast_Expr *val;
     } matchCase;
   };
-
 } ast_MatchCase;
 
 typedef enum {
-  ast_VEUOK_Not,
-  ast_VEUOK_Ref,
-  ast_VEUOK_Deref,
+  ast_DK_None,
+  ast_DK_Binding,
+} ast_DefineKind;
+
+typedef struct {
+  ast_Common common;
+  ast_DefineKind kind;
+  union {
+    struct {
+      ast_Pat  *pat;
+      ast_Expr *val;
+    } define;
+  };
+} ast_Define;
+
+typedef enum {
+  ast_EUOK_Not,
+  ast_EUOK_Ref,
+  ast_EUOK_Deref,
+  ast_EUOK_IneqGreater,
+  ast_EUOK_IneqLesser,
+  ast_EUOK_IneqLesserInclusive,
 } ast_ExprUnaryOpKind;
 
 typedef enum {
-  ast_VEBOK_Add,
-  ast_VEBOK_Sub,
-  ast_VEBOK_Mul,
-  ast_VEBOK_IDiv,
-  ast_VEBOK_FDiv,
-  ast_VEBOK_IRem,
-  ast_VEBOK_FRem,
-  ast_VEBOK_And,
-  ast_VEBOK_Or,
-  ast_VEBOK_Xor,
-  ast_VEBOK_CompEqual,
-  ast_VEBOK_CompNotEqual,
-  ast_VEBOK_CompLess,
-  ast_VEBOK_CompLessEqual,
-  ast_VEBOK_CompGreater,
-  ast_VEBOK_CompGreaterEqual,
-  ast_VEBOK_Pipeline,
-  ast_VEBOK_Assign,
-  ast_VEBOK_AssignAdd,
-  ast_VEBOK_AssignSub,
-  ast_VEBOK_AssignMul,
-  ast_VEBOK_AssignIDiv,
-  ast_VEBOK_AssignFDiv,
-  ast_VEBOK_AssignIRem,
-  ast_VEBOK_AssignFRem,
-  ast_VEBOK_Product,
-  ast_VEBOK_Union,
-  ast_VEBOK_Intersection,
+  ast_EBOK_Add,
+  ast_EBOK_Sub,
+  ast_EBOK_Mul,
+  ast_EBOK_IDiv,
+  ast_EBOK_FDiv,
+  ast_EBOK_IRem,
+  ast_EBOK_FRem,
+  ast_EBOK_And,
+  ast_EBOK_Or,
+  ast_EBOK_Xor,
+  ast_EBOK_CompEqual,
+  ast_EBOK_CompNotEqual,
+  ast_EBOK_CompLess,
+  ast_EBOK_CompLessEqual,
+  ast_EBOK_CompGreater,
+  ast_EBOK_CompGreaterEqual,
+  ast_EBOK_Pipeline,
+  ast_EBOK_Assign,
+  ast_EBOK_AssignAdd,
+  ast_EBOK_AssignSub,
+  ast_EBOK_AssignMul,
+  ast_EBOK_AssignIDiv,
+  ast_EBOK_AssignFDiv,
+  ast_EBOK_AssignIRem,
+  ast_EBOK_AssignFRem,
+  ast_EBOK_Product,
+  ast_EBOK_Union,
+  ast_EBOK_Intersection,
+  ast_EBOK_Range,
+  ast_EBOK_RangeInclusive,
 } ast_ExprBinaryOpKind;
 
 typedef enum {
-  ast_VK_None,
-  ast_VK_Omitted,
-  ast_VK_NilLiteral,
-  ast_VK_BoolLiteral,
-  ast_VK_IntLiteral,
-  ast_VK_FloatLiteral,
-  ast_VK_CharLiteral,
-  ast_VK_Fn,
-  ast_VK_Loop,
-  ast_VK_As,
-  ast_VK_Record,
-  ast_VK_StringLiteral,
-  ast_VK_BinaryOp,
-  ast_VK_UnaryOp,
-  ast_VK_Call,
-  ast_VK_Pipe,
-  ast_VK_Ret,
-  ast_VK_Match,
-  ast_VK_Block,
-  ast_VK_FieldAccess,
-  ast_VK_Reference,
+  ast_EK_None,
+  ast_EK_Omitted,
+  ast_EK_Nil,
+  ast_EK_NilType,
+  ast_EK_NeverType,
+  ast_EK_BoolLiteral,
+  ast_EK_IntLiteral,
+  ast_EK_RealLiteral,
+  ast_EK_CharLiteral,
+  ast_EK_Fn,
+  ast_EK_FnType,
+  ast_EK_Loop,
+  ast_EK_As,
+  ast_EK_Record,
+  ast_EK_StringLiteral,
+  ast_EK_BinaryOp,
+  ast_EK_UnaryOp,
+  ast_EK_Call,
+  ast_EK_Pipe,
+  ast_EK_Ret,
+  ast_EK_Match,
+  ast_EK_Block,
+  ast_EK_FieldAccess,
+  ast_EK_Reference,
+  ast_EK_Has,
+  ast_EK_LetIn,
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
   ast_Common common;
   ast_ExprKind kind;
-
   union {
     struct {
       bool value;
@@ -247,10 +270,7 @@ typedef struct ast_Expr_s {
     } intLiteral;
     struct {
       com_bigdecimal value;
-    } floatLiteral;
-    struct {
-      u8 value;
-    } charLiteral;
+    } realLiteral;
     struct {
       com_str value;
     } stringLiteral;
@@ -258,10 +278,6 @@ typedef struct ast_Expr_s {
       ast_Field *field;
       ast_Expr *val;
     } record;
-    struct {
-      ast_Expr *root;
-      ast_Expr *type;
-    } as;
     struct {
       ast_Expr *body;
       ast_LabelBinding *label;
@@ -301,14 +317,24 @@ typedef struct ast_Expr_s {
       ast_Expr *body;
     } fn;
     struct {
-      ast_Expr *value;
+      ast_Expr *parameters;
+      usize parameters_len;
+      ast_Expr *type;
+    } fnType;
+    struct {
+      ast_Expr *expr;
       ast_LabelReference *label;
-    } returnExpr;
+    } ret;
     struct {
       ast_Expr *root;
       ast_MatchCase *cases;
       usize cases_len;
     } match;
+    struct {
+      ast_Define *definitions;
+      usize definitions_len;
+      ast_Expr *body;
+    } letIn;
     struct {
       ast_LabelBinding *label;
       ast_Stmnt *stmnts;
@@ -321,7 +347,7 @@ typedef enum {
   ast_SK_None,
   ast_SK_Use,
   ast_SK_Mod,
-  ast_SK_ExprDecl,
+  ast_SK_Def,
   ast_SK_Expr,
   ast_SK_DeferStmnt,
 } ast_StmntKind;
@@ -333,9 +359,8 @@ typedef struct ast_Stmnt_s {
   union {
     // Declarations
     struct {
-      ast_Pat *pat;
-      ast_Expr *val;
-    } valDecl;
+      ast_Define *def;
+    } def;
     struct {
       ast_Reference *path;
     } useStmnt;
@@ -343,10 +368,10 @@ typedef struct ast_Stmnt_s {
       ast_Binding *name;
       ast_Stmnt *stmnts;
       usize stmnts_len;
-    } modStmnt;
+    } mod;
     struct {
-      ast_Expr *val;
-    } val;
+      ast_Expr *expr;
+    } expr;
     struct {
       ast_LabelReference *label;
       ast_Expr *val;
@@ -359,6 +384,7 @@ com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
 com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
 com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
+com_str ast_strDefineKind(ast_MatchCaseKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);

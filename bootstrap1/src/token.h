@@ -17,7 +17,6 @@ typedef enum {
   // Keywords
   tk_Loop,      // loop
   tk_Match,     // match
-  tk_Val,       // val
   tk_Ret,       // ret
   tk_Defer,     // defer
   tk_Fn,        // fn
@@ -26,13 +25,18 @@ typedef enum {
   tk_Mod,       // mod
   tk_Use,       // use
   tk_Has,       // has
+  tk_Def,       // def
+  tk_Let,       // let
+  tk_In,        // in
   // Literals and constants
-  tk_Never,  // never
-  tk_Nil,    // nil
-  tk_Bool,   // true
-  tk_String, // "string"
-  tk_Real,   // 0.7
-  tk_Int,    // 7
+  tk_NeverType,  // Never
+  tk_Nil,        // nil
+  tk_NilType,    // Nil
+  tk_FnType,     // Fn
+  tk_Bool,       // true
+  tk_String,     // "string"
+  tk_Real,       // 0.7
+  tk_Int,        // 7
   // Math Operators
   tk_Add,    // +
   tk_Sub,    // -
@@ -90,7 +94,7 @@ typedef enum {
   tk_Constrain,    // :
   tk_Underscore,   // _
   tk_Backslash,    // \
-  // Macros
+  // Label
   tk_Label, // 'label
   // Comments, and Attributes
   tk_Metadata, // #{ comment }#, #comment and ##comment  ${ attribute }$, $attribute and $$attribute

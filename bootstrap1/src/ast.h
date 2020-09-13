@@ -1,21 +1,15 @@
 #ifndef AST_H
 #define AST_H
 
+#include "com_bigdecimal.h"
+#include "com_bigint.h"
 #include "com_define.h"
-#include "com_bigdecimal.h" 
-#include "com_bigint.h" 
 #include "com_loc.h"
 #include "com_str.h"
 
 typedef struct ast_Expr_s ast_Expr;
 typedef struct ast_Pat_s ast_Pat;
 typedef struct ast_Stmnt_s ast_Stmnt;
-
-typedef struct {
-  com_loc_Span span;
-  bool significant;
-  com_str data;
-} ast_Metadata;
 
 typedef enum {
   ast_RK_None,      // some kind of error
@@ -27,7 +21,7 @@ typedef struct ast_Reference_s {
   ast_ReferenceKind kind;
   union {
     struct {
-      com_str* segments;
+      com_str *segments;
       usize segments_len;
     } reference;
   };
@@ -45,25 +39,17 @@ typedef struct {
   union {
     struct {
       com_str name;
+      ast_Expr* constraint;
     } bind;
   };
 } ast_Binding;
 
-typedef enum {
-  ast_FK_None,
-  ast_FK_FieldStr,
-  ast_FK_FieldInt,
-} ast_FieldKind;
 
 typedef struct {
   com_loc_Span span;
-  ast_FieldKind kind;
-  union {
-    struct {
-      com_str val;
-    } strField;
-  };
-} ast_Field;
+  bool significant;
+  com_str data;
+} ast_Metadata;
 
 typedef struct {
   com_loc_Span span;
@@ -72,19 +58,19 @@ typedef struct {
 } ast_Common;
 
 typedef enum {
-  ast_PK_None,            // Error type
-  ast_PK_ExprBinding,     // binds a whole subexpression, optionally constraining type 
-  ast_PK_Record,          // a container for struct based patterns
-  ast_PK_Range,           // Matches a range of integers or numbers
-  ast_PK_Group,           // {}
-  ast_PK_UnaryOp,         // !
-  ast_PK_BinaryOp,        // , |
-  ast_PK_Constructor,     // Expr constructor with matching  
-  ast_PK_Reference,       // Matches if it is equal
+  ast_PK_None,        // Error type
+  ast_PK_Binding,     // binds a single element
+  ast_PK_PatBinding,  // binds a whole subexpression
+  ast_PK_Record,      // a container for struct based patterns
+  ast_PK_Group,       // {}
+  ast_PK_UnaryOp,     // !
+  ast_PK_BinaryOp,    // , |
+  ast_PK_Constructor, // Expr constructor with matching
 } ast_PatKind;
 
 typedef enum {
-  ast_PEBOK_Product, // Matches if the scrutinee is a product type, and attempts to match subexpression
+  ast_PEBOK_Product, // Matches if the scrutinee is a product type, and attempts
+                     // to match subexpression
   ast_PEBOK_Sum,     // Tries to match LHS, then tries to match RHS
 } ast_PatBinaryOpKind;
 
@@ -101,14 +87,14 @@ typedef struct ast_Pat_s {
   union {
     struct {
       ast_Binding *binding;
-    } exprBinding;
-    struct {
-      ast_Pat* pat;
-      ast_Binding *binding;
-    } subExprBinding;
+    } binding;
     struct {
       ast_Pat *pat;
-      ast_Field *field;
+      ast_Binding *binding;
+    } patBinding;
+    struct {
+      ast_Pat *pat;
+      com_str *field;
     } record;
     struct {
       ast_Pat *inner;
@@ -181,7 +167,7 @@ typedef struct {
   ast_DefineKind kind;
   union {
     struct {
-      ast_Pat  *pat;
+      ast_Pat *pat;
       ast_Expr *val;
     } define;
   };
@@ -275,7 +261,7 @@ typedef struct ast_Expr_s {
       com_str value;
     } stringLiteral;
     struct {
-      ast_Field *field;
+      com_str *field;
       ast_Expr *val;
     } record;
     struct {
@@ -284,7 +270,7 @@ typedef struct ast_Expr_s {
     } loop;
     struct {
       ast_Expr *root;
-      ast_Field *field;
+      com_str *field;
     } fieldAccess;
     struct {
       ast_Expr *root;
@@ -310,7 +296,7 @@ typedef struct ast_Expr_s {
       usize parameters_len;
     } call;
     struct {
-      ast_Binding* name;
+      ast_Binding *name;
       ast_Pat *parameters;
       usize parameters_len;
       ast_Expr *type;
@@ -384,14 +370,13 @@ com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
 com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
 com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
-com_str ast_strDefineKind(ast_MatchCaseKind val);
+com_str ast_strDefineKind(ast_DefineKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);
 com_str ast_strStmntKind(ast_StmntKind val);
 com_str ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
 com_str ast_strBindingKind(ast_BindingKind val);
-com_str ast_strFieldKind(ast_FieldKind val);
 com_str ast_strReferenceKind(ast_ReferenceKind val);
 
 #endif

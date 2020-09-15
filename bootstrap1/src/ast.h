@@ -44,6 +44,20 @@ typedef struct {
   };
 } ast_Binding;
 
+typedef enum {
+  ast_FK_None,      // some kind of error
+  ast_FK_Field, // an actual reference
+} ast_FieldKind;
+
+typedef struct ast_Field_s {
+  com_loc_Span span;
+  ast_FieldKind kind;
+  union {
+    struct {
+      com_str val;
+    } field;
+  };
+} ast_Field;
 
 typedef struct {
   com_loc_Span span;
@@ -94,7 +108,7 @@ typedef struct ast_Pat_s {
     } patBinding;
     struct {
       ast_Pat *pat;
-      com_str *field;
+      ast_Field *field;
     } record;
     struct {
       ast_Pat *inner;
@@ -158,22 +172,6 @@ typedef struct {
 } ast_MatchCase;
 
 typedef enum {
-  ast_DK_None,
-  ast_DK_Binding,
-} ast_DefineKind;
-
-typedef struct {
-  ast_Common common;
-  ast_DefineKind kind;
-  union {
-    struct {
-      ast_Pat *pat;
-      ast_Expr *val;
-    } define;
-  };
-} ast_Define;
-
-typedef enum {
   ast_EUOK_Not,
   ast_EUOK_Ref,
   ast_EUOK_Deref,
@@ -228,7 +226,6 @@ typedef enum {
   ast_EK_Fn,
   ast_EK_FnType,
   ast_EK_Loop,
-  ast_EK_As,
   ast_EK_Record,
   ast_EK_StringLiteral,
   ast_EK_BinaryOp,
@@ -241,7 +238,6 @@ typedef enum {
   ast_EK_FieldAccess,
   ast_EK_Reference,
   ast_EK_Has,
-  ast_EK_LetIn,
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -261,7 +257,7 @@ typedef struct ast_Expr_s {
       com_str value;
     } stringLiteral;
     struct {
-      com_str *field;
+      ast_Field *field;
       ast_Expr *val;
     } record;
     struct {
@@ -270,7 +266,7 @@ typedef struct ast_Expr_s {
     } loop;
     struct {
       ast_Expr *root;
-      com_str *field;
+      ast_Field *field;
     } fieldAccess;
     struct {
       ast_Expr *root;
@@ -317,11 +313,6 @@ typedef struct ast_Expr_s {
       usize cases_len;
     } match;
     struct {
-      ast_Define *definitions;
-      usize definitions_len;
-      ast_Expr *body;
-    } letIn;
-    struct {
       ast_LabelBinding *label;
       ast_Stmnt *stmnts;
       usize stmnts_len;
@@ -333,7 +324,7 @@ typedef enum {
   ast_SK_None,
   ast_SK_Use,
   ast_SK_Mod,
-  ast_SK_Def,
+  ast_SK_Let,
   ast_SK_Expr,
   ast_SK_DeferStmnt,
 } ast_StmntKind;
@@ -345,8 +336,9 @@ typedef struct ast_Stmnt_s {
   union {
     // Declarations
     struct {
-      ast_Define *def;
-    } def;
+      ast_Pat *pat;
+      ast_Expr *val;
+    } let;
     struct {
       ast_Reference *path;
     } useStmnt;
@@ -370,7 +362,6 @@ com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
 com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
 com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
-com_str ast_strDefineKind(ast_DefineKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);

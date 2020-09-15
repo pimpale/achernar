@@ -25,9 +25,7 @@ typedef enum {
   tk_Mod,       // mod
   tk_Use,       // use
   tk_Has,       // has
-  tk_Def,       // def
   tk_Let,       // let
-  tk_In,        // in
   // Literals and constants
   tk_NeverType,  // Never
   tk_Nil,        // nil

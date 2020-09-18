@@ -19,6 +19,7 @@ typedef enum {
   tk_Match,     // match
   tk_Ret,       // ret
   tk_Defer,     // defer
+  tk_Def,       // def
   tk_Fn,        // fn
   tk_New,       // new
   tk_Type,      // type
@@ -95,7 +96,7 @@ typedef enum {
   // Label
   tk_Label, // 'label
   // Comments, and Attributes
-  tk_Metadata, // #{ comment }#, #comment and ##comment  ${ attribute }$, $attribute and $$attribute
+  tk_Metadata, // #comment(), #!comment and ##comment
 } tk_Kind;
 
 typedef struct Token_s {

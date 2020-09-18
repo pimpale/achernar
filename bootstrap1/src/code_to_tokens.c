@@ -44,15 +44,12 @@ static bool is_whitespace(inband_reader_result c) {
 // Lexes attributes
 static Token lexMetadata(com_reader *r,
                          attr_UNUSED DiagnosticLogger *diagnostics,
-                         com_allocator *a, bool significant) {
-
-  u8 character = significant ? '$' : '#';
+                         com_allocator *a) {
 
   com_loc_LnCol start = com_reader_position(r);
 
-  com_reader_ReadU8Result c = com_reader_read_u8(r);
-  com_assert_m(c.valid && c.value == character,
-               significant ? "expected $" : " expected #");
+  com_assert_m(lex_peek(r, 1) == '#', "expected #");
+  com_reader_drop_u8(r);
 
   com_vec data = com_vec_create(com_allocator_alloc(
       a, (com_allocator_HandleData){.len = 10,
@@ -60,58 +57,67 @@ static Token lexMetadata(com_reader *r,
                                              com_allocator_REALLOCABLE |
                                              com_allocator_NOLEAK}));
 
+  bool significant;
   // Now we determine the type of comment as well as gather the comment data
-  c = com_reader_peek_u8(r, 1);
-  if (c.valid && c.value == '{') {
+  switch (lex_peek(r, 1)) {
+  case '!':
+  case '#': {
+    significant = false;
+    // it's a single line comment
+    // These are not nestable, and continue till the end of line.
+    // ## metadata
+    // #! metadata
+    while (true) {
+      inband_reader_result c = lex_peek(r, 1);
+      if (c == '\n' || c == -1) {
+        break;
+      } else {
+        *com_vec_push_m(&data, u8) = (u8)c;
+        com_reader_drop_u8(r);
+      }
+    }
+    break;
+  }
+  default: {
+    significant = true;
+    // it's a single word attribute. continues until non alphanumeric or pathSep
+    // and a paren call after #attribute
+    while (true) {
+      inband_reader_result c = lex_peek(r, 1);
+      if (is_alphanumeric(c) || c == '/') {
+        // read and drop
+        *com_vec_push_m(&data, u8) = (u8)c;
+        com_reader_drop_u8(r);
+      } else {
+        break;
+      }
+    }
+
+    // now check if paren pair (nestable) to parse
+
     // This is a multi line attribute. It will continue until another is found.
     // These strings are preserved in the AST. They are nestable
-    // ${ Attribute }$
 
-    usize stackDepth = 1;
-
-    // Drop initial {
-    com_reader_drop_u8(r);
-
+    isize stackDepth = 0;
     while (true) {
-      com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
-      com_reader_ReadU8Result nc = com_reader_peek_u8(r, 2);
-      if (cc.valid) {
-        if (cc.value == '}' && nc.valid && nc.value == character) {
-          stackDepth--;
-          if (stackDepth == 0) {
-            break;
-          }
-        } else if (cc.value == character && nc.valid && nc.value == '{') {
-          stackDepth++;
-        }
-        *com_vec_push_m(&data, u8) = cc.value;
+      inband_reader_result c = lex_peek(r, 1);
+      if (c == -1) {
+        break;
+      } else if (c == '(') {
+        stackDepth++;
+      } else if (c == ')') {
+        stackDepth--;
+      }
+
+      if (stackDepth > 0) {
+        *com_vec_push_m(&data, u8) = (u8)c;
+        com_reader_drop_u8(r);
       } else {
         break;
       }
     }
-  } else if (c.valid && c.value == character) {
-    // it's a normal single line attribute.
-    // These are not nestable, and continue till the end of line.
-    // $$ attribute
-    while (true) {
-      com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
-      if (!cc.valid || cc.value == '\n') {
-        break;
-      } else {
-        *com_vec_push_m(&data, u8) = (u8)cc.value;
-      }
-    }
-  } else {
-    // it's a single word attribute. continues until non alphanumeric
-    // $attribute
-    while (true) {
-      com_reader_ReadU8Result cc = com_reader_peek_u8(r, 1);
-      if (!cc.valid || !com_format_is_alphanumeric(cc.value)) {
-        break;
-      } else {
-        *com_vec_push_m(&data, u8) = (u8)cc.value;
-      }
-    }
+    break;
+  }
   }
 
   return (Token){
@@ -533,6 +539,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Defer;
   } else if (com_str_equal(str, com_str_lit_m("fn"))) {
     token.kind = tk_Fn;
+  } else if (com_str_equal(str, com_str_lit_m("Fn"))) {
+    token.kind = tk_FnType;
   } else if (com_str_equal(str, com_str_lit_m("has"))) {
     token.kind = tk_Has;
   } else if (com_str_equal(str, com_str_lit_m("let"))) {
@@ -553,8 +561,10 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Not;
   } else if (com_str_equal(str, com_str_lit_m("nil"))) {
     token.kind = tk_Nil;
-  } else if (com_str_equal(str, com_str_lit_m("never"))) {
-    token.kind = tk_Never;
+  } else if (com_str_equal(str, com_str_lit_m("Nil"))) {
+    token.kind = tk_NilType;
+  } else if (com_str_equal(str, com_str_lit_m("Never"))) {
+    token.kind = tk_NeverType;
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
@@ -633,10 +643,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       return lexStringLiteral(r, diagnostics, a);
     }
     case '#': {
-      return lexMetadata(r, diagnostics, a, false);
-    }
-    case '$': {
-      return lexMetadata(r, diagnostics, a, true);
+      return lexMetadata(r, diagnostics, a);
     }
     case '_': {
       inband_reader_result c2 = lex_peek(r, 2);

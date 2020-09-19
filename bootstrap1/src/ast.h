@@ -73,8 +73,8 @@ typedef struct {
 
 typedef enum {
   ast_PK_None,        // Error type
-  ast_PK_Binding,     // binds a single element
-  ast_PK_PatBinding,  // binds a whole subexpression
+  ast_PK_Let,         // binds a single element
+  ast_PK_LetExpr,     // binds a single expression but keeps matching 
   ast_PK_Record,      // a container for struct based patterns
   ast_PK_Group,       // {}
   ast_PK_UnaryOp,     // !
@@ -324,7 +324,7 @@ typedef enum {
   ast_SK_None,
   ast_SK_Use,
   ast_SK_Mod,
-  ast_SK_Let,
+  ast_SK_Def,
   ast_SK_Expr,
   ast_SK_DeferStmnt,
 } ast_StmntKind;
@@ -338,7 +338,7 @@ typedef struct ast_Stmnt_s {
     struct {
       ast_Pat *pat;
       ast_Expr *val;
-    } let;
+    } def;
     struct {
       ast_Reference *path;
     } useStmnt;

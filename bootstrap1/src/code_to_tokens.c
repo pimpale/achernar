@@ -551,6 +551,10 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Mod;
   } else if (com_str_equal(str, com_str_lit_m("use"))) {
     token.kind = tk_Use;
+  } else if (com_str_equal(str, com_str_lit_m("self"))) {
+    token.kind = tk_Self;
+  } else if (com_str_equal(str, com_str_lit_m("Self"))) {
+    token.kind = tk_SelfType;
   } else if (com_str_equal(str, com_str_lit_m("and"))) {
     token.kind = tk_And;
   } else if (com_str_equal(str, com_str_lit_m("or"))) {

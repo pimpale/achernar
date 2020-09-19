@@ -1,11 +1,11 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include "com_bigdecimal.h"
+#include "com_bigint.h"
 #include "com_define.h"
 #include "com_loc.h"
 #include "com_str.h"
-#include "com_bigint.h"
-#include "com_bigdecimal.h"
 
 typedef enum {
   // These are not tokens, and do not contain token data
@@ -21,29 +21,37 @@ typedef enum {
   tk_Defer,     // defer
   tk_Def,       // def
   tk_Fn,        // fn
+  tk_FnType,    // Fn
   tk_New,       // new
+  tk_Lhs,       // lhs
   tk_Type,      // type
   tk_Mod,       // mod
   tk_Use,       // use
   tk_Has,       // has
   tk_Let,       // let
+  tk_Self,      // self
+  tk_SelfType,  // Self
+  tk_NeverType, // Never
   // Literals and constants
-  tk_NeverType,  // Never
-  tk_Nil,        // nil
-  tk_NilType,    // Nil
-  tk_FnType,     // Fn
-  tk_Bool,       // true
-  tk_String,     // "string"
-  tk_Real,       // 0.7
-  tk_Int,        // 7
+  tk_String, // "string"
+  tk_Real,   // 0.7
+  tk_Int,    // 7
   // Math Operators
-  tk_Add,    // +
-  tk_Sub,    // -
-  tk_Mul,    // *
-  tk_IRem,   // %%
-  tk_FRem,   // %.
-  tk_IDiv,   // //
-  tk_FDiv,   // /.
+  tk_Add,  // +
+  tk_Sub,  // -
+  tk_Mul,  // *
+  tk_Div,  // /
+  // Set Operators
+  tk_Union,         // ++
+  tk_Difference,    // --
+  tk_Intersection,  // &
+  tk_SymDifference, // ^
+  // Type operators
+  tk_Product, // ,
+  tk_Sum,     // |
+  // Memory Operators
+  tk_Ref,     // $
+  tk_Deref,   // @
   // Logical Operators
   tk_And, // and
   tk_Or,  // or
@@ -65,23 +73,9 @@ typedef enum {
   tk_Record,     // .=
   tk_Define,     // :=
   tk_Assign,     // =
-  tk_AssignAdd,  // +=
-  tk_AssignSub,  // -=
-  tk_AssignMul,  // *=
-  tk_AssignIDiv, // //=
-  tk_AssignFDiv, // /.=
-  tk_AssignIRem, // %%=
-  tk_AssignFRem, // %.=
   // Arrows
   tk_Pipe,  // ->
   tk_Arrow, // =>
-  // Scope resolution
-  tk_ModResolution,    // /
-  // Type operators
-  tk_Product,      // ,
-  tk_Sum,          // |
-  tk_Ref,          // &
-  tk_Deref,        // @
   // Other Miscellaneous Operator Things
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
@@ -92,11 +86,11 @@ typedef enum {
   tk_FieldAccess,  // .
   tk_Constrain,    // :
   tk_Underscore,   // _
-  tk_Backslash,    // \
   // Label
-  tk_Label, // 'label
+  tk_Label,        // 'label
   // Comments, and Attributes
-  tk_Metadata, // #comment(), #!comment and ##comment
+  tk_Hashbang, // #! interpreter
+  tk_Metadata, // #attribute() and ##comment
 } tk_Kind;
 
 typedef struct Token_s {
@@ -124,10 +118,14 @@ typedef struct Token_s {
       com_str content;
     } metadataToken;
     struct {
+      com_str content;
+    } hashbangToken;
+    struct {
       bool data;
     } boolToken;
     struct {
       com_str data;
+      bool block;
     } stringToken;
     struct {
       com_bigint data;

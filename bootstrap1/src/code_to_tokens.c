@@ -60,12 +60,10 @@ static Token lexMetadata(com_reader *r,
   bool significant;
   // Now we determine the type of comment as well as gather the comment data
   switch (lex_peek(r, 1)) {
-  case '!':
-  case '#': {
+  case '!': {
     significant = false;
     // it's a single line comment
     // These are not nestable, and continue till the end of line.
-    // ## metadata
     // #! metadata
     while (true) {
       inband_reader_result c = lex_peek(r, 1);
@@ -479,6 +477,35 @@ static Token lexLabelLiteral(com_reader *r,
                  }};
 }
 
+static Token lexStrop(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics, com_allocator *a) {
+    com_assert_m(lex_peek(r, 1) == '`', "expected backtick");
+
+    com_loc_LnCol start = com_reader_position(r);
+
+    // drop backtick
+    com_reader_drop_u8(r) ;
+    com_vec data = com_vec_create(com_allocator_alloc(
+        a, (com_allocator_HandleData){.len = 10,
+                                      .flags = com_allocator_defaults(a) |
+                                               com_allocator_REALLOCABLE |
+                                               com_allocator_NOLEAK}));
+  while (true) {
+      inband_reader_result c = lex_peek(r, 1) ;
+      if(c == '`' || c == -1) {
+    		com_reader_drop_u8(r) ;
+        break;
+      }
+      *com_vec_push_m(&data, u8) = (u8)c;
+      com_reader_drop_u8(r);
+  }
+
+  return (Token){.span = com_loc_span_m(start, com_reader_position(r)),
+                 .kind = tk_Identifier,
+                 .identifierToken= {
+                     .data = com_str_demut(com_vec_to_str(&data)),
+                 }};
+}
+
 // Parses an identifer or macro or builtin
 static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
                      com_allocator *a) {
@@ -516,12 +543,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     return (Token){.kind = tk_Underscore, .span = span};
   }
 
-  if (com_str_equal(str, com_str_lit_m("true"))) {
-    return (Token){.kind = tk_Bool, .boolToken = {true}, .span = span};
-  } else if (com_str_equal(str, com_str_lit_m("false"))) {
-    return (Token){.kind = tk_Bool, .boolToken = {false}, .span = span};
-  }
-
   Token token;
   token.span = span;
 
@@ -545,8 +566,12 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Has;
   } else if (com_str_equal(str, com_str_lit_m("let"))) {
     token.kind = tk_Let;
-  } else if (com_str_equal(str, com_str_lit_m("type"))) {
-    token.kind = tk_Type;
+  } else if (com_str_equal(str, com_str_lit_m("struct"))) {
+    token.kind = tk_Struct;
+  } else if (com_str_equal(str, com_str_lit_m("enum"))) {
+    token.kind = tk_Enum;
+  } else if (com_str_equal(str, com_str_lit_m("lhs"))) {
+    token.kind = tk_Lhs;
   } else if (com_str_equal(str, com_str_lit_m("mod"))) {
     token.kind = tk_Mod;
   } else if (com_str_equal(str, com_str_lit_m("use"))) {
@@ -563,10 +588,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Xor;
   } else if (com_str_equal(str, com_str_lit_m("not"))) {
     token.kind = tk_Not;
-  } else if (com_str_equal(str, com_str_lit_m("nil"))) {
-    token.kind = tk_Nil;
-  } else if (com_str_equal(str, com_str_lit_m("Nil"))) {
-    token.kind = tk_NilType;
   } else if (com_str_equal(str, com_str_lit_m("Never"))) {
     token.kind = tk_NeverType;
   } else {
@@ -649,6 +670,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case '#': {
       return lexMetadata(r, diagnostics, a);
     }
+    case '`': {
+      return lexStrop(r, diagnostics, a);
+    }
     case '_': {
       inband_reader_result c2 = lex_peek(r, 2);
       if (is_alphanumeric(c2) || c2 == '_') {
@@ -665,8 +689,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
 
       switch (c2) {
-      case '=': {
-        RETURN_RESULT_TOKEN2(tk_AssignAdd)
+      case '+': {
+        RETURN_RESULT_TOKEN2(tk_Union)
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_Add)
@@ -682,16 +706,25 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       case '>': {
         RETURN_RESULT_TOKEN2(tk_Pipe)
       }
-      case '=': {
-        RETURN_RESULT_TOKEN2(tk_AssignSub)
+      case '-': {
+        RETURN_RESULT_TOKEN2(tk_Difference)
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_Sub)
       }
       }
     }
-    case '&': {
+    case '$': {
       RETURN_RESULT_TOKEN1(tk_Ref)
+    }
+    case '@': {
+      RETURN_RESULT_TOKEN1(tk_Deref)
+    }
+    case '&': {
+      RETURN_RESULT_TOKEN1(tk_Intersection)
+    }
+    case '^': {
+      RETURN_RESULT_TOKEN1(tk_SymDifference)
     }
     case '|': {
       RETURN_RESULT_TOKEN1(tk_Sum)
@@ -743,68 +776,13 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '*': {
-      switch (lex_peek(r, 2)) {
-      case '=': {
-        RETURN_RESULT_TOKEN2(tk_AssignMul)
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_Mul)
-      }
-      }
+      RETURN_RESULT_TOKEN1(tk_Mul)
     }
     case '/': {
-      switch (lex_peek(r, 2)) {
-      case '/': {
-        switch (lex_peek(r, 3)) {
-        case '=': {
-          RETURN_RESULT_TOKEN3(tk_AssignIDiv)
-        }
-        default: {
-          RETURN_RESULT_TOKEN2(tk_IDiv)
-        }
-        }
-      }
-      case '.': {
-        switch (lex_peek(r, 3)) {
-        case '=': {
-          RETURN_RESULT_TOKEN3(tk_AssignFDiv)
-        }
-        default: {
-          RETURN_RESULT_TOKEN2(tk_FDiv)
-        }
-        }
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_ModResolution)
-      }
-      }
+      RETURN_RESULT_TOKEN1(tk_Div)
     }
     case '%': {
-      switch (lex_peek(r, 2)) {
-      case '/': {
-        switch (lex_peek(r, 3)) {
-        case '=': {
-          RETURN_RESULT_TOKEN3(tk_AssignIRem)
-        }
-        default: {
-          RETURN_RESULT_TOKEN2(tk_IRem)
-        }
-        }
-      }
-      case '.': {
-        switch (lex_peek(r, 3)) {
-        case '=': {
-          RETURN_RESULT_TOKEN3(tk_AssignFRem)
-        }
-        default: {
-          RETURN_RESULT_TOKEN2(tk_FRem)
-        }
-        }
-      }
-      default: {
-        RETURN_UNKNOWN_TOKEN1()
-      }
-      }
+      RETURN_RESULT_TOKEN1(tk_Rem)
     }
     case ':': {
       switch (lex_peek(r, 2)) {
@@ -852,9 +830,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case ']': {
       RETURN_RESULT_TOKEN1(tk_BracketRight)
     }
-    case '@': {
-      RETURN_RESULT_TOKEN1(tk_Deref)
-    }
     case '(': {
       RETURN_RESULT_TOKEN1(tk_ParenLeft)
     }
@@ -866,9 +841,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     }
     case '}': {
       RETURN_RESULT_TOKEN1(tk_BraceRight)
-    }
-    case '\\': {
-      RETURN_RESULT_TOKEN1(tk_Backslash)
     }
     default: {
       RETURN_UNKNOWN_TOKEN1()

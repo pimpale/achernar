@@ -21,8 +21,7 @@ typedef struct ast_Reference_s {
   ast_ReferenceKind kind;
   union {
     struct {
-      com_str *segments;
-      usize segments_len;
+      com_str name;
     } reference;
   };
 } ast_Reference;
@@ -39,13 +38,13 @@ typedef struct {
   union {
     struct {
       com_str name;
-      ast_Expr* constraint;
+      ast_Expr *constraint;
     } bind;
   };
 } ast_Binding;
 
 typedef enum {
-  ast_FK_None,      // some kind of error
+  ast_FK_None,  // some kind of error
   ast_FK_Field, // an actual reference
 } ast_FieldKind;
 
@@ -54,7 +53,7 @@ typedef struct ast_Field_s {
   ast_FieldKind kind;
   union {
     struct {
-      com_str val;
+      com_str name;
     } field;
   };
 } ast_Field;
@@ -74,8 +73,9 @@ typedef struct {
 typedef enum {
   ast_PK_None,        // Error type
   ast_PK_Let,         // binds a single element
-  ast_PK_LetExpr,     // binds a single expression but keeps matching 
+  ast_PK_LetExpr,     // binds a single expression but keeps matching
   ast_PK_Record,      // a container for struct based patterns
+  ast_PK_New,         // Destructure
   ast_PK_Group,       // {}
   ast_PK_UnaryOp,     // !
   ast_PK_BinaryOp,    // , |
@@ -181,34 +181,33 @@ typedef enum {
 } ast_ExprUnaryOpKind;
 
 typedef enum {
+  // Math
   ast_EBOK_Add,
   ast_EBOK_Sub,
   ast_EBOK_Mul,
-  ast_EBOK_IDiv,
-  ast_EBOK_FDiv,
-  ast_EBOK_IRem,
-  ast_EBOK_FRem,
+  ast_EBOK_Div,
+  ast_EBOK_Rem,
+  // Booleans
   ast_EBOK_And,
   ast_EBOK_Or,
   ast_EBOK_Xor,
+  // Comparison
   ast_EBOK_CompEqual,
   ast_EBOK_CompNotEqual,
   ast_EBOK_CompLess,
   ast_EBOK_CompLessEqual,
   ast_EBOK_CompGreater,
   ast_EBOK_CompGreaterEqual,
-  ast_EBOK_Pipeline,
-  ast_EBOK_Assign,
-  ast_EBOK_AssignAdd,
-  ast_EBOK_AssignSub,
-  ast_EBOK_AssignMul,
-  ast_EBOK_AssignIDiv,
-  ast_EBOK_AssignFDiv,
-  ast_EBOK_AssignIRem,
-  ast_EBOK_AssignFRem,
-  ast_EBOK_Product,
+  // Set Operations
   ast_EBOK_Union,
+  ast_EBOK_Difference,
   ast_EBOK_Intersection,
+  ast_EBOK_SymDifference,
+  // Type Manipulation
+  ast_EBOK_Product,
+  ast_EBOK_Sum,
+  // Misc
+  ast_EBOK_Assign,
   ast_EBOK_Range,
   ast_EBOK_RangeInclusive,
 } ast_ExprBinaryOpKind;
@@ -216,18 +215,15 @@ typedef enum {
 typedef enum {
   ast_EK_None,
   ast_EK_Omitted,
-  ast_EK_Nil,
-  ast_EK_NilType,
+  ast_EK_Lhs,
   ast_EK_NeverType,
-  ast_EK_BoolLiteral,
   ast_EK_IntLiteral,
   ast_EK_RealLiteral,
-  ast_EK_CharLiteral,
+  ast_EK_StringLiteral,
   ast_EK_Fn,
   ast_EK_FnType,
   ast_EK_Loop,
   ast_EK_Record,
-  ast_EK_StringLiteral,
   ast_EK_BinaryOp,
   ast_EK_UnaryOp,
   ast_EK_Call,
@@ -332,7 +328,6 @@ typedef enum {
 typedef struct ast_Stmnt_s {
   ast_Common common;
   ast_StmntKind kind;
-
   union {
     // Declarations
     struct {

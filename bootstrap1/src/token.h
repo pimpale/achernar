@@ -22,17 +22,18 @@ typedef enum {
   tk_Def,       // def
   tk_Fn,        // fn
   tk_FnType,    // Fn
-  tk_New,       // new
   tk_Lhs,       // lhs
-  tk_Type,      // type
   tk_Mod,       // mod
   tk_Use,       // use
   tk_Has,       // has
   tk_Let,       // let
+  tk_Struct,    // struct
+  tk_Enum,      // enum
+  tk_New,       // new
+  // Literals and constants
   tk_Self,      // self
   tk_SelfType,  // Self
   tk_NeverType, // Never
-  // Literals and constants
   tk_String, // "string"
   tk_Real,   // 0.7
   tk_Int,    // 7
@@ -41,6 +42,7 @@ typedef enum {
   tk_Sub,  // -
   tk_Mul,  // *
   tk_Div,  // /
+  tk_Rem,  // %
   // Set Operators
   tk_Union,         // ++
   tk_Difference,    // --
@@ -86,11 +88,11 @@ typedef enum {
   tk_FieldAccess,  // .
   tk_Constrain,    // :
   tk_Underscore,   // _
+  tk_Backtick,     // `
   // Label
   tk_Label,        // 'label
   // Comments, and Attributes
-  tk_Hashbang, // #! interpreter
-  tk_Metadata, // #attribute() and ##comment
+  tk_Metadata, // #attribute() and #! comment
 } tk_Kind;
 
 typedef struct Token_s {
@@ -117,9 +119,6 @@ typedef struct Token_s {
       bool significant;
       com_str content;
     } metadataToken;
-    struct {
-      com_str content;
-    } hashbangToken;
     struct {
       bool data;
     } boolToken;

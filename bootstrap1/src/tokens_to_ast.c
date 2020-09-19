@@ -163,41 +163,24 @@ static void ast_parseReference(ast_Reference *ptr,
                                DiagnosticLogger *diagnostics,
                                ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
-
-  Token t = parse_peek(parser, diagnostics, 1);
-
-  // start and finish
-  com_loc_LnCol start = t.span.start;
-
-  com_vec pathSegments = parse_alloc_vec(parser);
-
-  while (true) {
-    t = parse_next(parser, diagnostics);
-    if (t.kind == tk_Identifier) {
-      *com_vec_push_m(&pathSegments, com_str) = t.identifierToken.data;
-      if (parse_next(parser, diagnostics).kind != tk_ModResolution) {
-        usize segments_len = com_vec_len_m(&pathSegments, com_str);
-        *ptr = (ast_Reference){
-            .kind = ast_RK_Reference,
-            .span = com_loc_span_m(start, t.span.end),
-            .reference = {.segments_len = segments_len,
-                          .segments = com_vec_release(&pathSegments)}};
-        return;
-      }
-    } else {
-      *dlogger_append(diagnostics) = (Diagnostic){
-          .span = t.span,
-          .severity = DSK_Error,
-          .message = com_str_lit_m("mod reference expected an identifier"),
-          .children_len = 0};
-      usize segments_len = com_vec_len_m(&pathSegments, com_str);
-      *ptr = (ast_Reference){
-          .kind = ast_RK_Reference,
-          .span = com_loc_span_m(start, t.span.end),
-          .reference = {.segments_len = segments_len,
-                        .segments = com_vec_release(&pathSegments)}};
-      return;
-    }
+  Token t = parse_next(parser, diagnostics);
+  ptr->span = t.span;
+  switch (t.kind) {
+  case tk_Identifier: {
+    ptr->kind = ast_RK_Reference;
+    ptr->reference.name = t.identifierToken.data;
+    break;
+  }
+  default: {
+    *dlogger_append(diagnostics) = (Diagnostic){
+        .span = t.span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m(
+            "reference expected an identifier"),
+        .children_len = 0};
+    ptr->kind = ast_RK_None;
+    break;
+  }
   }
 }
 
@@ -237,7 +220,7 @@ static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
   switch (t.kind) {
   case tk_Identifier: {
     ptr->kind = ast_FK_Field;
-    ptr->field.val = t.identifierToken.data;
+    ptr->field.name = t.identifierToken.data;
     break;
   }
   default: {
@@ -252,22 +235,12 @@ static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
   }
 }
 
-static void ast_certain_parseNilExpr(ast_Expr *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
+static void ast_certain_parseLhsExpr(ast_Expr *ptr,
+                                 DiagnosticLogger *diagnostics,
+                                 ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Nil, "expected a tk_Nil");
-  ptr->kind = ast_EK_Nil;
-  ptr->common.span = t.span;
-  return;
-}
-
-static void ast_certain_parseNilTypeExpr(ast_Expr *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_NilType, "expected a tk_NilType");
-  ptr->kind = ast_EK_NilType;
+  com_assert_m(t.kind == tk_Lhs, "expected a tk_Lhs");
+  ptr->kind = ast_EK_Lhs;
   ptr->common.span = t.span;
   return;
 }
@@ -289,17 +262,6 @@ static void ast_certain_parseIntExpr(ast_Expr *ptr,
   com_assert_m(t.kind == tk_Int, "expected a tk_Int");
   ptr->kind = ast_EK_IntLiteral;
   ptr->intLiteral.value = t.intToken.data;
-  ptr->common.span = t.span;
-  return;
-}
-
-static void ast_certain_parseBoolExpr(ast_Expr *ptr,
-                                      DiagnosticLogger *diagnostics,
-                                      ast_Constructor *parser) {
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Bool, "expected a tk_Bool");
-  ptr->kind = ast_EK_BoolLiteral;
-  ptr->boolLiteral.value = t.boolToken.data;
   ptr->common.span = t.span;
   return;
 }
@@ -622,16 +584,16 @@ static void ast_certain_parseRecordExpr(ast_Expr *rvp,
 }
 
 // Level1Val braces, literals
-// Level2Val as match () & @ . (postfixes)
-// Level3Val -- ++ ! (prefixes)
-// Level4Val -> (pipeline)
+// Level2Val match () -> $ @ . ... (postfixes)
+// Level3Val not ... ...= (prefixes)
+// Level4Val .. ..= (range)
 // Level5Val * / % (multiplication and division)
 // Level6Val + - (addition and subtraction)
 // Level7Val < <= > >= == != (comparators)
-// Level8Val && (logical and)
-// Level9Val || (logical or)
-// Level10Val , (create tuple)
-// Level11Val = += -= *= /= %= (Assignment)
+// Level8Val and or xor (logical operators)
+// Level9Val ++ -- & ^ (set operators)
+// Level10Val , | (type operators)
+// Level11Val = (Assignment)
 
 static void parseL1Expr(ast_Expr *l1, DiagnosticLogger *diagnostics,
                         ast_Constructor *parser) {
@@ -643,28 +605,20 @@ static void parseL1Expr(ast_Expr *l1, DiagnosticLogger *diagnostics,
   // Decide which expression it is
   switch (t.kind) {
   // Literals
-  case tk_Int: {
-    ast_certain_parseIntExpr(l1, diagnostics, parser);
+  case tk_Lhs: {
+    ast_certain_parseLhsExpr(l1, diagnostics, parser);
     break;
   }
-  case tk_Bool: {
-    ast_certain_parseBoolExpr(l1, diagnostics, parser);
+  case tk_Int: {
+    ast_certain_parseIntExpr(l1, diagnostics, parser);
     break;
   }
   case tk_Real: {
     ast_certain_parseRealExpr(l1, diagnostics, parser);
     break;
   }
-  case tk_Nil: {
-    ast_certain_parseNilExpr(l1, diagnostics, parser);
-    break;
-  }
-  case tk_NilType: {
-    ast_certain_parseNilExpr(l1, diagnostics, parser);
-    break;
-  }
   case tk_NeverType: {
-    ast_certain_parseNilExpr(l1, diagnostics, parser);
+    ast_certain_parseNeverTypeExpr(l1, diagnostics, parser);
     break;
   }
   case tk_String: {
@@ -693,7 +647,7 @@ static void parseL1Expr(ast_Expr *l1, DiagnosticLogger *diagnostics,
   }
   case tk_Identifier: {
     Token t2 = parse_peek(parser, diagnostics, 2);
-    if (t2.kind == tk_Define) {
+    if (t2.kind == tk_Record) {
       ast_certain_parseRecordExpr(l1, diagnostics, parser);
     } else {
       ast_certain_parseReferenceExpr(l1, diagnostics, parser);
@@ -931,6 +885,19 @@ static void parseL2Expr(ast_Expr *l2, DiagnosticLogger *diagnostics,
       parse_next(parser, diagnostics);
       break;
     }
+    case tk_Ineq: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Expr);
+      *v = *root;
+      root->kind = ast_EK_UnaryOp;
+      root->unaryOp.op = ast_EUOK_IneqGreater;
+      root->unaryOp.operand = v;
+      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      parse_next(parser, diagnostics);
+      break;
+    }
     case tk_FieldAccess: {
       com_vec metadata = parse_getMetadata(parser, diagnostics);
       v = parse_alloc_obj_m(parser, ast_Expr);
@@ -981,6 +948,14 @@ static void ast_parseL3Expr(ast_Expr *l3, DiagnosticLogger *diagnostics,
   switch (t.kind) {
   case tk_Not: {
     l3->unaryOp.op = ast_EUOK_Not;
+    break;
+  }
+  case tk_Ineq: {
+    l3->unaryOp.op = ast_EUOK_IneqLesser;
+    break;
+  }
+  case tk_IneqInclusive: {
+    l3->unaryOp.op = ast_EUOK_IneqLesserInclusive;
     break;
   }
   default: {
@@ -1060,24 +1035,12 @@ static void ast_parseL3Expr(ast_Expr *l3, DiagnosticLogger *diagnostics,
 
 static bool ast_opDetL4Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
-  case tk_Mul: {
-    *val = ast_EBOK_Mul;
+  case tk_Range: {
+    *val = ast_EBOK_Range;
     return true;
   }
-  case tk_IDiv: {
-    *val = ast_EBOK_IDiv;
-    return true;
-  }
-  case tk_FDiv: {
-    *val = ast_EBOK_FDiv;
-    return true;
-  }
-  case tk_IRem: {
-    *val = ast_EBOK_IRem;
-    return true;
-  }
-  case tk_FRem: {
-    *val = ast_EBOK_FRem;
+  case tk_RangeInclusive: {
+    *val = ast_EBOK_RangeInclusive;
     return true;
   }
   default: {
@@ -1089,6 +1052,28 @@ static bool ast_opDetL4Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
 FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 4, ast_parseL3Expr)
 
 static bool ast_opDetL5Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+  switch (tk) {
+  case tk_Mul: {
+    *val = ast_EBOK_Mul;
+    return true;
+  }
+  case tk_Div: {
+    *val = ast_EBOK_Div;
+    return true;
+  }
+  case tk_Rem: {
+    *val = ast_EBOK_Rem;
+    return true;
+  }
+  default: {
+    return false;
+  }
+  }
+}
+
+FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 5, ast_parseL4Expr)
+
+static bool ast_opDetL6Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Add: {
     *val = ast_EBOK_Add;
@@ -1104,16 +1089,9 @@ static bool ast_opDetL5Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 5, ast_parseL4Expr)
+FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 6, ast_parseL5Expr)
 
-// Parses a single term that will not collide with
-// patterns
-static void ast_parseExprTerm(ast_Expr *term, DiagnosticLogger *diagnostics,
-                             ast_Constructor *parser) {
-  ast_parseL5Expr(term, diagnostics, parser);
-}
-
-static bool ast_opDetL6Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetL7Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_CompLess: {
     *val = ast_EBOK_CompLess;
@@ -1145,9 +1123,9 @@ static bool ast_opDetL6Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 6, ast_parseL5Expr)
+FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 7, ast_parseL6Expr)
 
-static bool ast_opDetL7Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetL8Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_And: {
     *val = ast_EBOK_And;
@@ -1167,12 +1145,24 @@ static bool ast_opDetL7Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 7, ast_parseL6Expr)
+FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 8, ast_parseL7Expr)
 
-static bool ast_opDetL8Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetL9Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
-  case tk_Product: {
-    *val = ast_EBOK_Product;
+  case tk_Union: {
+    *val = ast_EBOK_Union;
+    return true;
+  }
+  case tk_Difference: {
+    *val = ast_EBOK_Difference;
+    return true;
+  }
+  case tk_Intersection: {
+    *val = ast_EBOK_Intersection;
+    return true;
+  }
+  case tk_SymDifference: {
+    *val = ast_EBOK_SymDifference;
     return true;
   }
   default: {
@@ -1181,40 +1171,12 @@ static bool ast_opDetL8Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 8, ast_parseL7Expr)
+FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 9, ast_parseL8Expr)
 
-static bool ast_opDetL9Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetL10Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Assign: {
     *val = ast_EBOK_Assign;
-    return true;
-  }
-  case tk_AssignAdd: {
-    *val = ast_EBOK_AssignAdd;
-    return true;
-  }
-  case tk_AssignSub: {
-    *val = ast_EBOK_AssignSub;
-    return true;
-  }
-  case tk_AssignMul: {
-    *val = ast_EBOK_AssignMul;
-    return true;
-  }
-  case tk_AssignIDiv: {
-    *val = ast_EBOK_AssignIDiv;
-    return true;
-  }
-  case tk_AssignFDiv: {
-    *val = ast_EBOK_AssignFDiv;
-    return true;
-  }
-  case tk_AssignIRem: {
-    *val = ast_EBOK_AssignIRem;
-    return true;
-  }
-  case tk_AssignFRem: {
-    *val = ast_EBOK_AssignFRem;
     return true;
   }
   default: {

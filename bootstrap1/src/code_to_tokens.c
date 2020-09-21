@@ -566,12 +566,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Has;
   } else if (com_str_equal(str, com_str_lit_m("let"))) {
     token.kind = tk_Let;
-  } else if (com_str_equal(str, com_str_lit_m("struct"))) {
-    token.kind = tk_Struct;
-  } else if (com_str_equal(str, com_str_lit_m("enum"))) {
-    token.kind = tk_Enum;
-  } else if (com_str_equal(str, com_str_lit_m("lhs"))) {
-    token.kind = tk_Lhs;
   } else if (com_str_equal(str, com_str_lit_m("mod"))) {
     token.kind = tk_Mod;
   } else if (com_str_equal(str, com_str_lit_m("use"))) {
@@ -588,6 +582,10 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Xor;
   } else if (com_str_equal(str, com_str_lit_m("not"))) {
     token.kind = tk_Not;
+  } else if (com_str_equal(str, com_str_lit_m("struct"))) {
+    token.kind = tk_Struct;
+  } else if (com_str_equal(str, com_str_lit_m("enum"))) {
+    token.kind = tk_Enum;
   } else if (com_str_equal(str, com_str_lit_m("Never"))) {
     token.kind = tk_NeverType;
   } else {

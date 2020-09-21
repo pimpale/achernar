@@ -72,8 +72,10 @@ typedef struct {
 
 typedef enum {
   ast_PK_None,        // Error type
-  ast_PK_Let,         // binds a single element
-  ast_PK_LetExpr,     // binds a single expression but keeps matching
+  ast_PK_Wildcard,    // ignores a single element
+  ast_PK_Reference,   // compares element to external variable
+  ast_PK_Let,         // binds a single element to new variable
+  ast_PK_LetExpr,     // matches previous
   ast_PK_Record,      // a container for struct based patterns
   ast_PK_New,         // Destructure
   ast_PK_Group,       // {}
@@ -100,12 +102,15 @@ typedef struct ast_Pat_s {
   ast_PatKind kind;
   union {
     struct {
+      ast_Reference *path;
+    } reference;
+    struct {
       ast_Binding *binding;
-    } binding;
+    } let;
     struct {
       ast_Pat *pat;
       ast_Binding *binding;
-    } patBinding;
+    } letExpr;
     struct {
       ast_Pat *pat;
       ast_Field *field;

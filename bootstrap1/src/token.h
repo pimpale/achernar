@@ -22,7 +22,6 @@ typedef enum {
   tk_Def,       // def
   tk_Fn,        // fn
   tk_FnType,    // Fn
-  tk_Lhs,       // lhs
   tk_Mod,       // mod
   tk_Use,       // use
   tk_Has,       // has

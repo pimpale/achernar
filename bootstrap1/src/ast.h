@@ -6,6 +6,7 @@
 #include "com_define.h"
 #include "com_loc.h"
 #include "com_str.h"
+#include "token.h"
 
 typedef struct ast_Expr_s ast_Expr;
 typedef struct ast_Pat_s ast_Pat;
@@ -72,11 +73,13 @@ typedef struct {
 
 typedef enum {
   ast_PK_None,        // Error type
+  ast_PK_IntLiteral,
+  ast_PK_RealLiteral,
+  ast_PK_StringLiteral,
   ast_PK_Wildcard,    // ignores a single element
   ast_PK_Reference,   // compares element to external variable
   ast_PK_Let,         // binds a single element to new variable
-  ast_PK_LetExpr,     // matches previous
-  ast_PK_Record,      // a container for struct based patterns
+  ast_PK_AtLet,       // matches previous
   ast_PK_New,         // Destructure new struct
   ast_PK_Group,       // {}
   ast_PK_UnaryOp,     // !
@@ -96,21 +99,36 @@ typedef enum {
   ast_PEUOK_Deref,
 } ast_PatUnaryOpKind;
 
+
 typedef struct ast_Pat_s {
   ast_Common common;
 
   ast_PatKind kind;
   union {
     struct {
+      com_bigint value;
+    } intLiteral;
+    struct {
+      com_bigdecimal value;
+    } realLiteral;
+    struct {
+      com_str value;
+      tk_StringLiteralKind kind;
+    } stringLiteral;
+    struct {
       ast_Reference *path;
     } reference;
+    struct {
+      ast_Pat *root;
+      ast_Field *field;
+    } fieldAccess;
     struct {
       ast_Binding *binding;
     } let;
     struct {
       ast_Pat *pat;
       ast_Binding *binding;
-    } letExpr;
+    } atLet;
     struct {
       ast_Pat *pat;
       ast_Field *field;
@@ -220,7 +238,7 @@ typedef enum {
 typedef enum {
   ast_EK_None,
   ast_EK_Omitted,
-  ast_EK_Lhs,
+  ast_EK_Self,
   ast_EK_NeverType,
   ast_EK_IntLiteral,
   ast_EK_RealLiteral,
@@ -246,9 +264,6 @@ typedef struct ast_Expr_s {
   ast_ExprKind kind;
   union {
     struct {
-      bool value;
-    } boolLiteral;
-    struct {
       com_bigint value;
     } intLiteral;
     struct {
@@ -256,11 +271,8 @@ typedef struct ast_Expr_s {
     } realLiteral;
     struct {
       com_str value;
+      tk_StringLiteralKind kind;
     } stringLiteral;
-    struct {
-      ast_Field *field;
-      ast_Expr *val;
-    } record;
     struct {
       ast_Expr *body;
       ast_LabelBinding *label;

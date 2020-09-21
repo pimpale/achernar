@@ -90,6 +90,12 @@ typedef enum {
   tk_Metadata, // #attribute and #! comment
 } tk_Kind;
 
+typedef enum {
+  tk_SLK_Quote,
+  tk_SLK_DoubleQuote,
+  tk_SLK_Block
+} tk_StringLiteralKind;
+
 typedef struct Token_s {
   // The type of this token
   tk_Kind kind;
@@ -103,7 +109,6 @@ typedef struct Token_s {
   union {
     struct {
       com_str data;
-      bool lispquoted;
     } identifierToken;
     struct {
       com_str data;
@@ -120,7 +125,7 @@ typedef struct Token_s {
     } boolToken;
     struct {
       com_str data;
-      bool block;
+      tk_StringLiteralKind kind;
     } stringToken;
     struct {
       com_bigint data;

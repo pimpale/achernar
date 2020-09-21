@@ -175,8 +175,7 @@ static void ast_parseReference(ast_Reference *ptr,
     *dlogger_append(diagnostics) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
-        .message = com_str_lit_m(
-            "reference expected an identifier"),
+        .message = com_str_lit_m("reference expected an identifier"),
         .children_len = 0};
     ptr->kind = ast_RK_None;
     break;
@@ -190,10 +189,6 @@ static void ast_parseBinding(ast_Binding *ptr, DiagnosticLogger *diagnostics,
   Token t = parse_next(parser, diagnostics);
   ptr->span = t.span;
   switch (t.kind) {
-  case tk_Underscore: {
-    ptr->kind = ast_BK_Ignore;
-    break;
-  }
   case tk_Identifier: {
     ptr->kind = ast_BK_Bind;
     ptr->bind.name = t.identifierToken.data;
@@ -236,18 +231,18 @@ static void ast_parseField(ast_Field *ptr, DiagnosticLogger *diagnostics,
 }
 
 static void ast_certain_parseSelfExpr(ast_Expr *ptr,
-                                 DiagnosticLogger *diagnostics,
-                                 ast_Constructor *parser) {
+                                      DiagnosticLogger *diagnostics,
+                                      ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Self, "expected a tk_Self");
-  ptr->kind = ast_EK_Lhs;
+  ptr->kind = ast_EK_Self;
   ptr->common.span = t.span;
   return;
 }
 
 static void ast_certain_parseNeverTypeExpr(ast_Expr *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
+                                           DiagnosticLogger *diagnostics,
+                                           ast_Constructor *parser) {
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_NeverType, "expected a tk_NeverType");
   ptr->kind = ast_EK_NeverType;
@@ -284,13 +279,14 @@ static void ast_certain_parseStringExpr(ast_Expr *sptr,
   com_assert_m(t.kind == tk_String, "expected a tk_String");
   sptr->kind = ast_EK_StringLiteral;
   sptr->stringLiteral.value = t.stringToken.data;
+  sptr->stringLiteral.kind = t.stringToken.kind;
   sptr->common.span = t.span;
   return;
 }
 
 static void ast_certain_parseFnExpr(ast_Expr *fptr,
-                                       DiagnosticLogger *diagnostics,
-                                       ast_Constructor *parser) {
+                                    DiagnosticLogger *diagnostics,
+                                    ast_Constructor *parser) {
   com_mem_zero_obj_m(fptr);
 
   Token t = parse_next(parser, diagnostics);
@@ -363,8 +359,8 @@ static void ast_certain_parseFnExpr(ast_Expr *fptr,
 }
 
 static void ast_certain_parseFnTypeExpr(ast_Expr *fte,
-                                    DiagnosticLogger *diagnostics,
-                                    ast_Constructor *parser) {
+                                        DiagnosticLogger *diagnostics,
+                                        ast_Constructor *parser) {
   com_mem_zero_obj_m(fte);
 
   Token t = parse_next(parser, diagnostics);
@@ -407,8 +403,6 @@ static void ast_certain_parseFnTypeExpr(ast_Expr *fte,
 CLEANUP:
   fte->common.span = com_loc_span_m(start, end);
 }
-
-
 
 static void ast_certain_parseLabelLabelBinding(ast_LabelBinding *r,
                                                DiagnosticLogger *diagnostics,
@@ -665,7 +659,7 @@ static void ast_certain_postfix_parseCallExpr(ast_Expr *cptr,
 
   PARSE_LIST(&parameters,            // members_vec_ptr
              diagnostics,            // dlogger_ptr
-             ast_parseExpr,           // member_parse_function
+             ast_parseExpr,          // member_parse_function
              ast_Expr,               // member_kind
              tk_ParenRight,          // delimiting_token_kind
              "DK_CallExpectedParen", // missing_delimiter_error
@@ -697,11 +691,11 @@ static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
 
   com_vec parameters = parse_alloc_vec(parser);
 
-  if(parse_peek(parser,  diagnostics, 1).kind == tk_ParenLeft) {
-    parse_drop(parser, diagnostics) ;
+  if (parse_peek(parser, diagnostics, 1).kind == tk_ParenLeft) {
+    parse_drop(parser, diagnostics);
     PARSE_LIST(&parameters,            // members_vec_ptr
                diagnostics,            // dlogger_ptr
-               ast_parseExpr,           // member_parse_function
+               ast_parseExpr,          // member_parse_function
                ast_Expr,               // member_kind
                tk_ParenRight,          // delimiting_token_kind
                "DK_PipeExpectedParen", // missing_delimiter_error
@@ -1170,38 +1164,7 @@ FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 11, ast_parseL10Expr)
 // shim method
 static void ast_parseExpr(ast_Expr *ptr, DiagnosticLogger *diagnostics,
                           ast_Constructor *parser) {
-  ast_parseL10Expr(ptr, diagnostics, parser);
-}
-
-// field '->' pat
-static void ast_certain_parseRecordPat(ast_Pat *rpp,
-                                       DiagnosticLogger *diagnostics,
-                                       ast_Constructor *parser) {
-  com_mem_zero_obj_m(rpp);
-  rpp->kind = ast_PK_Record;
-
-  // parse field
-  rpp->record.field = parse_alloc_obj_m(parser, ast_Field);
-  ast_parseField(rpp->record.field, diagnostics, parser);
-
-  // expect arrow
-  Token t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Arrow) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m(
-                         "pattern struct field expected arrow after field"),
-                     .children_len = 0};
-  }
-
-  // Parse pattern
-  rpp->record.pat = parse_alloc_obj_m(parser, ast_Pat);
-  ast_parsePat(rpp->record.pat, diagnostics, parser);
-
-  rpp->common.span = com_loc_span_m(rpp->record.field->span.start,
-                                    rpp->record.pat->common.span.end);
-  return;
+  ast_parseL11Expr(ptr, diagnostics, parser);
 }
 
 // '{' pat '}'
@@ -1234,10 +1197,9 @@ static void ast_certain_parseGroupPat(ast_Pat *gpep,
   gpep->common.span = com_loc_span_m(start, end);
 }
 
-// (('let' identifier) | '_' ) [: type]
-static void ast_certain_parseLetPat(ast_Pat *vbp,
-                                        DiagnosticLogger *diagnostics,
-                                        ast_Constructor *parser) {
+// 'let' binding
+static void ast_certain_parseLetPat(ast_Pat *vbp, DiagnosticLogger *diagnostics,
+                                    ast_Constructor *parser) {
   com_mem_zero_obj_m(vbp);
   vbp->kind = ast_PK_Let;
 
@@ -1248,29 +1210,98 @@ static void ast_certain_parseLetPat(ast_Pat *vbp,
   // now parse binding
   ast_Binding *binding = parse_alloc_obj_m(parser, ast_Binding);
   ast_parseBinding(binding, diagnostics, parser);
-  vbp->let.binding= binding;
-  vbp->common.span = vbp->let.binding->span;
+  vbp->let.binding = binding;
+  vbp->common.span = com_loc_span_m(t.span.start, vbp->let.binding->span.end);
   return;
 }
 
+// 'at' pattern 'let' binding
+static void ast_certain_parseAtLetPat(ast_Pat *alpp,
+                                      DiagnosticLogger *diagnostics,
+                                      ast_Constructor *parser) {
+  com_mem_zero_obj_m(alpp);
+  alpp->kind = ast_PK_Let;
+
+  // ensure token is tk at
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_At, "expected tk_At");
+  com_loc_LnCol start = t.span.start;
+
+  // now parse pattern
+  alpp->atLet.pat = parse_alloc_obj_m(parser, ast_Pat);
+  ast_parsePat(alpp->atLet.pat, diagnostics, parser);
+
+  // now ensure that we can find a let
+  t = parse_next(parser, diagnostics);
+  if (t.kind != tk_Let) {
+    *dlogger_append(diagnostics) = (Diagnostic){
+        .span = t.span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("Expected let token after pattern"),
+        .children_len = 0};
+  }
+
+  // now parse binding
+  ast_Binding *binding = parse_alloc_obj_m(parser, ast_Binding);
+  ast_parseBinding(binding, diagnostics, parser);
+  alpp->atLet.binding = binding;
+  alpp->common.span = com_loc_span_m(start, alpp->atLet.binding->span.end);
+  return;
+}
+
+// _
 static void ast_certain_parseWildcardPat(ast_Pat *wpp,
                                          DiagnosticLogger *diagnostics,
-                                         ast_Constructor* parser) {
+                                         ast_Constructor *parser) {
   com_mem_zero_obj_m(wpp);
   wpp->kind = ast_PK_Wildcard;
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Underscore, "expected tk_Underscore");
+  com_assert_m(t.kind == tk_Wildcard, "expected tk_Wildcard");
   wpp->common.span = t.span;
 }
 
 static void ast_certain_parseReferencePat(ast_Pat *rptr,
-                                           DiagnosticLogger *diagnostics,
-                                           ast_Constructor *parser) {
+                                          DiagnosticLogger *diagnostics,
+                                          ast_Constructor *parser) {
   com_mem_zero_obj_m(rptr);
   rptr->kind = ast_PK_Reference;
   rptr->reference.path = parse_alloc_obj_m(parser, ast_Reference);
   ast_parseReference(rptr->reference.path, diagnostics, parser);
   rptr->common.span = rptr->reference.path->span;
+  return;
+}
+
+static void ast_certain_parseIntPat(ast_Pat *ptr,
+                                     DiagnosticLogger *diagnostics,
+                                     ast_Constructor *parser) {
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Int, "expected a tk_Int");
+  ptr->kind = ast_PK_IntLiteral;
+  ptr->intLiteral.value = t.intToken.data;
+  ptr->common.span = t.span;
+  return;
+}
+
+static void ast_certain_parseRealPat(ast_Pat *ptr,
+                                      DiagnosticLogger *diagnostics,
+                                      ast_Constructor *parser) {
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Real, "expected tk_Real");
+  ptr->kind = ast_PK_RealLiteral;
+  ptr->realLiteral.value = t.realToken.data;
+  ptr->common.span = t.span;
+  return;
+}
+
+static void ast_certain_parseStringPat(ast_Pat *sptr,
+                                        DiagnosticLogger *diagnostics,
+                                        ast_Constructor *parser) {
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_String, "expected a tk_String");
+  sptr->kind = ast_PK_StringLiteral;
+  sptr->stringLiteral.value = t.stringToken.data;
+  sptr->stringLiteral.kind = t.stringToken.kind;
+  sptr->common.span = t.span;
   return;
 }
 
@@ -1284,7 +1315,7 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
     ast_certain_parseGroupPat(l1, diagnostics, parser);
     break;
   }
-  case tk_Underscore: {
+  case tk_Wildcard: {
     ast_certain_parseWildcardPat(l1, diagnostics, parser);
     break;
   }
@@ -1292,7 +1323,27 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
     ast_certain_parseLetPat(l1, diagnostics, parser);
     break;
   }
+  case tk_At: {
+    ast_certain_parseAtLetPat(l1, diagnostics, parser);
+    break;
+  }
   case tk_Identifier: {
+    ast_certain_parseReferencePat(l1, diagnostics, parser);
+    break;
+  }
+  case tk_String: {
+    ast_certain_parseStringPat(l1, diagnostics, parser);
+    break;
+  }
+  case tk_Int: {
+    ast_certain_parseIntPat(l1, diagnostics, parser);
+    break;
+  }
+  case tk_Real: {
+    ast_certain_parseRealPat(l1, diagnostics, parser);
+    break;
+  }
+  case tk_FnType: {
     ast_certain_parseReferencePat(l1, diagnostics, parser);
     break;
   }
@@ -1372,10 +1423,8 @@ static void ast_parsePat(ast_Pat *ppe, DiagnosticLogger *diagnostics,
 }
 
 static void ast_certain_parseDefStmnt(ast_Stmnt *vdsp,
-                                     DiagnosticLogger *diagnostics,
-
-                                     ast_Constructor *parser) {
-
+                                      DiagnosticLogger *diagnostics,
+                                      ast_Constructor *parser) {
   vdsp->kind = ast_SK_Def;
   // zero-initialize vdsp
   com_mem_zero_obj_m(vdsp);
@@ -1386,7 +1435,7 @@ static void ast_certain_parseDefStmnt(ast_Stmnt *vdsp,
 
   // Get Binding
   vdsp->def.pat = parse_alloc_obj_m(parser, ast_Pat);
-  ast_parsePat(vdsp->def.pat , diagnostics, parser);
+  ast_parsePat(vdsp->def.pat, diagnostics, parser);
 
   com_loc_LnCol end;
 
@@ -1444,8 +1493,8 @@ static void ast_certain_parseModStmnt(ast_Stmnt *nsp,
   // statements
   com_vec statements = parse_alloc_vec(parser);
 
-  nsp->mod.name = parse_alloc_obj_m(parser, ast_ModBinding);
-  ast_parseModBinding(nsp->mod.name, diagnostics, parser);
+  nsp->mod.name = parse_alloc_obj_m(parser, ast_Binding);
+  ast_parseBinding(nsp->mod.name, diagnostics, parser);
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_BraceLeft) {

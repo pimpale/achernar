@@ -77,7 +77,7 @@ typedef enum {
   ast_PK_Let,         // binds a single element to new variable
   ast_PK_LetExpr,     // matches previous
   ast_PK_Record,      // a container for struct based patterns
-  ast_PK_New,         // Destructure
+  ast_PK_New,         // Destructure new struct
   ast_PK_Group,       // {}
   ast_PK_UnaryOp,     // !
   ast_PK_BinaryOp,    // , |

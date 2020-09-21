@@ -610,6 +610,7 @@ static void parseL1Expr(ast_Expr *l1, DiagnosticLogger *diagnostics,
   }
   case tk_Has: {
     ast_certain_parseHasExpr(l1, diagnostics, parser);
+    break;
   }
   case tk_Identifier: {
     ast_certain_parseReferenceExpr(l1, diagnostics, parser);
@@ -1247,8 +1248,8 @@ static void ast_certain_parseLetPat(ast_Pat *vbp,
   // now parse binding
   ast_Binding *binding = parse_alloc_obj_m(parser, ast_Binding);
   ast_parseBinding(binding, diagnostics, parser);
-  vbp->binding.binding = binding;
-  vbp->common.span = vbp->binding.binding->span;
+  vbp->let.binding= binding;
+  vbp->common.span = vbp->let.binding->span;
   return;
 }
 
@@ -1289,6 +1290,7 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
   }
   case tk_Let: {
     ast_certain_parseLetPat(l1, diagnostics, parser);
+    break;
   }
   case tk_Identifier: {
     ast_certain_parseReferencePat(l1, diagnostics, parser);

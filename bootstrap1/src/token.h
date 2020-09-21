@@ -15,44 +15,42 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_Loop,      // loop
-  tk_Match,     // match
-  tk_Ret,       // ret
-  tk_Defer,     // defer
-  tk_Def,       // def
-  tk_Fn,        // fn
-  tk_FnType,    // Fn
-  tk_Mod,       // mod
-  tk_Use,       // use
-  tk_Has,       // has
-  tk_Let,       // let
-  tk_Struct,    // struct
-  tk_Enum,      // enum
-  tk_New,       // new
+  tk_Loop,   // loop
+  tk_Match,  // match
+  tk_Ret,    // ret
+  tk_Defer,  // defer
+  tk_Def,    // def
+  tk_Fn,     // fn
+  tk_FnType, // Fn
+  tk_Mod,    // mod
+  tk_Use,    // use
+  tk_Has,    // has
+  tk_Let,    // let
+  tk_At,     // at
   // Literals and constants
   tk_Self,      // self
   tk_SelfType,  // Self
   tk_NeverType, // Never
-  tk_String, // "string"
-  tk_Real,   // 0.7
-  tk_Int,    // 7
+  tk_String,    // "string"
+  tk_Real,      // 0.7
+  tk_Int,       // 7
   // Math Operators
-  tk_Add,  // +
-  tk_Sub,  // -
-  tk_Mul,  // *
-  tk_Div,  // /
-  tk_Rem,  // %
+  tk_Add, // +
+  tk_Sub, // -
+  tk_Mul, // *
+  tk_Div, // /
+  tk_Rem, // %
   // Set Operators
   tk_Union,         // ++
   tk_Difference,    // --
-  tk_Intersection,  // &
-  tk_SymDifference, // ^
+  tk_Intersection,  //  &
+  tk_SymDifference, // !&
   // Type operators
   tk_Product, // ,
   tk_Sum,     // |
   // Memory Operators
-  tk_Ref,     // $
-  tk_Deref,   // @
+  tk_Ref,   // $
+  tk_Deref, // @
   // Logical Operators
   tk_And, // and
   tk_Or,  // or
@@ -71,9 +69,8 @@ typedef enum {
   tk_CompGreater,      // >
   tk_CompGreaterEqual, // >=
   // Assignment
-  tk_Record,     // .=
-  tk_Define,     // :=
-  tk_Assign,     // =
+  tk_Define, // :=
+  tk_Assign, // =
   // Arrows
   tk_Pipe,  // ->
   tk_Arrow, // =>
@@ -85,13 +82,12 @@ typedef enum {
   tk_BraceLeft,    // {
   tk_BraceRight,   // }
   tk_FieldAccess,  // .
-  tk_Constrain,    // :
-  tk_Underscore,   // _
-  tk_Backtick,     // `
+  tk_Constrain,    // ::
+  tk_Wildcard,     // _
   // Label
-  tk_Label,        // 'label
+  tk_Label, // :label
   // Comments, and Attributes
-  tk_Metadata, // #attribute() and #! comment
+  tk_Metadata, // #attribute and #! comment
 } tk_Kind;
 
 typedef struct Token_s {
@@ -107,6 +103,7 @@ typedef struct Token_s {
   union {
     struct {
       com_str data;
+      bool lispquoted;
     } identifierToken;
     struct {
       com_str data;

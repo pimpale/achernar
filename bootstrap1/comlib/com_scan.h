@@ -13,16 +13,17 @@ typedef struct {
   bool successful;
 } com_scan_UntilResult;
 
-/// read until `c` is encountered in the stream
+/// read until `terminator` is encountered in the stream
 /// REQUIRES: `destination` is a valid pointer to a valid `com_writer`
 /// REQUIRES: `source` is a valid pointer to a valid `com_reader`
-/// GUARANTEES: will not write `c` into the destination
+/// REQUIRES: `terminator` is a char that will terminate reading of the stream
+/// GUARANTEES: will not write `terminator` into the destination
 /// GUARANTEES: if a read from source or a write to destination fails, will stop
 /// GUARANTEES: is not atomic
-/// GUARANTEES: reads until `c` 
+/// GUARANTEES: reads until `terminator` 
 /// or min(flags(source) & limited ? source.limit : usize_max, flags(destination) & limited ? destination.limit : usize_max)
 /// GUARANTEES: returns successful if no unexpected errors encountered
-com_scan_UntilResult com_scan_until(com_writer* destination, com_reader* source, u8 c);
+com_scan_UntilResult com_scan_until(com_writer* destination, com_reader* source, u8 terminator);
 
 
 // All checked strings obey:
@@ -41,15 +42,16 @@ typedef struct {
     com_loc_Span span;
 } com_scan_CheckedStrResult;
 
-/// parses checked string until syntax error or unescaped close double quote
+/// parses checked string until syntax error or character specified is encountered
 /// REQUIRES: `destination` is a valid pointer to a valid com_writer
 /// REQUIRES: `source` is a valid pointer to a valid com_reader
-/// GUARANTEES: will read "characters" from reader until an unescaped `"` is encountered
+/// GUARANTEES: will read "characters" from reader until an unescaped `terminator` char is encountered
 /// GUARANTEES: will write the unescaped string to destination
+/// GUARANTEES: will not write `terminator` into the destination
 /// GUARANTEES: if a syntax error is encountered, will immediately halt reading
 /// GUARANTEES: this operation is not atomic
 /// GUARANTEES: will ignore any write failures
-com_scan_CheckedStrResult com_scan_checked_str_until_quote(com_writer* destination, com_reader *source);
+com_scan_CheckedStrResult com_scan_checked_str_until(com_writer* destination, com_reader *source, u8 terminator);
 
 /// Scans until non whitespace encounted (as described by `com_format_is_whitespace`)
 /// REQUIRES: `reader` is a valid pointer to a valid com_reader

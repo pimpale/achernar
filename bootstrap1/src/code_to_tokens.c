@@ -133,9 +133,10 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
                               com_allocator *a) {
   com_loc_LnCol start = com_reader_position(r);
 
+  com_assert_m(lex_peek(r, 1) == '\"', "expected quotation mark");
+
   // Skip first quote
-  com_reader_ReadU8Result c = com_reader_read_u8(r);
-  com_assert_m(c.valid && c.value == '\"', "expected quotation mark");
+  com_reader_drop_u8(r);
 
   // parse into vec writer until we get a success or a read error log errors
   // along the way
@@ -150,8 +151,7 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
   com_writer writer = com_writer_vec_create(&vec);
 
   while (true) {
-    com_scan_CheckedStrResult ret =
-        com_scan_checked_str_until_quote(&writer, r);
+    com_scan_CheckedStrResult ret = com_scan_checked_str_until(&writer, r, '"');
     switch (ret.result) {
     case com_scan_CheckedStrSuccessful: {
       // We're finished, we can deallocate writer and release vec into a string
@@ -162,7 +162,8 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       return (Token){
           .kind = tk_String,
           .span = com_loc_span_m(start, com_reader_position(r)),
-          .stringToken = {.data = com_str_demut(com_vec_to_str(&vec))}};
+          .stringToken = {.kind = tk_SLK_DoubleQuote,
+                          .data = com_str_demut(com_vec_to_str(&vec))}};
     }
     case com_scan_CheckedStrReadFailed: {
       // deallocate resources
@@ -198,6 +199,85 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     }
     }
   }
+}
+
+static Token lexBlockStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
+                                   com_allocator *a) {
+  com_loc_LnCol start = com_reader_position(r);
+
+  // create vector writer
+  com_vec vec = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){
+             .flags = com_allocator_defaults(a) | com_allocator_NOLEAK |
+                      com_allocator_REALLOCABLE,
+             // let's just go with 12 for now as initial capacity
+             .len = 12}));
+  com_writer writer = com_writer_vec_create(&vec);
+
+  while (true) {
+    com_assert_m(lex_peek(r, 1) == '"' && lex_peek(r, 2) == '"',
+                 "expected double quotation mark");
+
+    // drop two double quotes
+    com_reader_drop_u8(r);
+    com_reader_drop_u8(r);
+
+    // parse into vec writer until we get a success or a read error log errors
+    // along the way
+
+    while (true) {
+      com_scan_CheckedStrResult ret =
+          com_scan_checked_str_until(&writer, r, '\n');
+      switch (ret.result) {
+      case com_scan_CheckedStrSuccessful: {
+        goto ENDBLOCKLINE;
+      }
+      case com_scan_CheckedStrReadFailed: {
+        // give error
+        *dlogger_append(diagnostics) =
+            (Diagnostic){.span = ret.span,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m(
+                             "unexpected EOF, expected closing \\n character"),
+                         .children_len = 0};
+        goto END;
+      }
+      case com_scan_CheckedStrInvalidControlChar: {
+        *dlogger_append(diagnostics) = (Diagnostic){
+            .span = ret.span,
+            .severity = DSK_Error,
+            .message = com_str_lit_m("invalid control char after backslash"),
+            .children_len = 0};
+        break;
+      }
+      case com_scan_CheckedStrInvalidUnicodeSpecifier: {
+        *dlogger_append(diagnostics) =
+            (Diagnostic){.span = ret.span,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m("invalid unicode point"),
+                         .children_len = 0};
+        break;
+      }
+      }
+    }
+
+  ENDBLOCKLINE:
+    // skip whitespace to and check if we have two double quotes
+    com_scan_skip_whitespace(r);
+    if (lex_peek(r, 1) != '"' || lex_peek(r, 2) != '"') {
+      // otherwise end
+      goto END;
+    }
+  }
+
+  // We're finished, we can deallocate writer and release vec into a string
+  // that we return as an element
+END:
+  com_writer_destroy(&writer);
+  return (Token){.kind = tk_String,
+                 .span = com_loc_span_m(start, com_reader_position(r)),
+                 .stringToken = {.kind = tk_SLK_Block,
+                                 .data = com_str_demut(com_vec_to_str(&vec))}};
 }
 
 // Parses integer with radix
@@ -474,9 +554,10 @@ static Token lexLabelLiteral(com_reader *r,
                  }};
 }
 
-static Token lexQuoteIdentifierLiteral(com_reader *r,
-                             attr_UNUSED DiagnosticLogger *diagnostics,
-                             com_allocator *a) {
+static Token
+lexQuoteIdentifierLiteral(com_reader *r,
+                          attr_UNUSED DiagnosticLogger *diagnostics,
+                          com_allocator *a) {
   com_assert_m(lex_peek(r, 1) == '\'', "expected quote");
   com_loc_LnCol start = com_reader_position(r);
   // Skip first colon
@@ -497,14 +578,12 @@ static Token lexQuoteIdentifierLiteral(com_reader *r,
     }
   }
 
-  return (Token){.span = com_loc_span_m(start, com_reader_position(r)),
-                 .kind = tk_Identifier,
-                 .identifierToken= {
-                     .data = com_str_demut(com_vec_to_str(&label_data)),
-                     .lispquoted = true
-                 }};
+  return (Token){
+      .span = com_loc_span_m(start, com_reader_position(r)),
+      .kind = tk_String,
+      .stringToken = {.data = com_str_demut(com_vec_to_str(&label_data)),
+                      .kind = tk_SLK_Quote}};
 }
-
 
 static Token lexStrop(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
                       com_allocator *a) {
@@ -616,7 +695,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
     token.identifierToken.data = str;
-    token.identifierToken.lispquoted = false;
     return token;
   }
 
@@ -690,14 +768,21 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case '\'': {
       return lexQuoteIdentifierLiteral(r, diagnostics, a);
     }
-    case '\"': {
-      return lexStringLiteral(r, diagnostics, a);
-    }
     case '#': {
       return lexMetadata(r, diagnostics, a);
     }
     case '`': {
       return lexStrop(r, diagnostics, a);
+    }
+    case '"': {
+      switch (lex_peek(r, 2)) {
+      case '"': {
+        return lexBlockStringLiteral(r, diagnostics, a);
+      }
+      default: {
+        return lexStringLiteral(r, diagnostics, a);
+      }
+      }
     }
     case '_': {
       inband_reader_result c2 = lex_peek(r, 2);
@@ -872,4 +957,5 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       RETURN_UNKNOWN_TOKEN1()
     }
     }
-  }}
+  }
+}

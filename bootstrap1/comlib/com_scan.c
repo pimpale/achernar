@@ -47,7 +47,7 @@ com_scan_UntilResult com_scan_until(com_writer *destination, com_reader *source,
 }
 
 com_scan_CheckedStrResult
-com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
+com_scan_checked_str_until(com_writer *destination, com_reader *reader, u8 terminator) {
 
   // Tagged union representing the state of the parser
 
@@ -74,21 +74,16 @@ com_scan_checked_str_until_quote(com_writer *destination, com_reader *reader) {
       }
       u8 c = read_ret.value;
 
-      switch (c) {
-      case '\\': {
+      if(c == '\\') {
         state = StringParserBackslash;
-        break;
-      }
-      case '\"': {
+      } else if(c == terminator) {
         return (com_scan_CheckedStrResult){
             .result = com_scan_CheckedStrSuccessful,
             .span = com_loc_span_m(startloc, com_reader_position(reader))};
-      }
-      default: {
+      } else {
         com_writer_append_u8(destination, c);
-        break;
       }
-      }
+
       break;
     }
     case StringParserBackslash: {

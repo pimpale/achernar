@@ -9,7 +9,6 @@
 #include "token.h"
 
 typedef struct ast_Expr_s ast_Expr;
-typedef struct ast_Pat_s ast_Pat;
 typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
@@ -72,83 +71,6 @@ typedef struct {
 } ast_Common;
 
 typedef enum {
-  ast_PK_None,        // Error type
-  ast_PK_IntLiteral,
-  ast_PK_RealLiteral,
-  ast_PK_StringLiteral,
-  ast_PK_Wildcard,    // ignores a single element
-  ast_PK_Reference,   // compares element to external variable
-  ast_PK_Let,         // binds a single element to new variable
-  ast_PK_AtLet,       // matches previous
-  ast_PK_New,         // Destructure new struct
-  ast_PK_Group,       // {}
-  ast_PK_UnaryOp,     // !
-  ast_PK_BinaryOp,    // , |
-  ast_PK_Constructor, // Expr constructor with matching
-} ast_PatKind;
-
-typedef enum {
-  ast_PEBOK_Product, // Matches if the scrutinee is a product type, and attempts
-                     // to match subexpression
-  ast_PEBOK_Sum,     // Tries to match LHS, then tries to match RHS
-} ast_PatBinaryOpKind;
-
-typedef enum {
-  ast_PEUOK_Not,
-  ast_PEUOK_Ref,
-  ast_PEUOK_Deref,
-} ast_PatUnaryOpKind;
-
-
-typedef struct ast_Pat_s {
-  ast_Common common;
-
-  ast_PatKind kind;
-  union {
-    struct {
-      com_bigint value;
-    } intLiteral;
-    struct {
-      com_bigdecimal value;
-    } realLiteral;
-    struct {
-      com_str value;
-      tk_StringLiteralKind kind;
-    } stringLiteral;
-    struct {
-      ast_Reference *path;
-    } reference;
-    struct {
-      ast_Pat *root;
-      ast_Field *field;
-    } fieldAccess;
-    struct {
-      ast_Binding *binding;
-    } let;
-    struct {
-      ast_Pat *pat;
-      ast_Binding *binding;
-    } atLet;
-    struct {
-      ast_Pat *pat;
-      ast_Field *field;
-    } record;
-    struct {
-      ast_Pat *inner;
-    } group;
-    struct {
-      ast_PatUnaryOpKind op;
-      ast_Pat *operand;
-    } unaryOp;
-    struct {
-      ast_PatBinaryOpKind op;
-      ast_Pat *left_operand;
-      ast_Pat *right_operand;
-    } binaryOp;
-  };
-} ast_Pat;
-
-typedef enum {
   ast_LBK_Omitted,
   ast_LBK_Label,
 } ast_LabelBindingKind;
@@ -188,7 +110,7 @@ typedef struct {
   ast_MatchCaseKind kind;
   union {
     struct {
-      ast_Pat *pat;
+      ast_Expr *pat;
       ast_Expr *val;
     } matchCase;
   };
@@ -240,23 +162,25 @@ typedef enum {
   ast_EK_Omitted,
   ast_EK_Self,
   ast_EK_NeverType,
-  ast_EK_IntLiteral,
-  ast_EK_RealLiteral,
-  ast_EK_StringLiteral,
-  ast_EK_Fn,
-  ast_EK_FnType,
-  ast_EK_Loop,
-  ast_EK_Record,
-  ast_EK_BinaryOp,
-  ast_EK_UnaryOp,
-  ast_EK_Call,
-  ast_EK_Pipe,
-  ast_EK_Ret,
-  ast_EK_Match,
-  ast_EK_Block,
-  ast_EK_FieldAccess,
-  ast_EK_Reference,
-  ast_EK_Has,
+  ast_EK_IntLiteral,    // Literal for an integer number
+  ast_EK_RealLiteral,   // A literal for a real (floating point) number
+  ast_EK_StringLiteral, // A string literal
+  ast_EK_Fn,            // Creates a new function
+  ast_EK_FnType,        // Creates a new type of a function
+  ast_EK_Loop,          // Loops until a scope is returned
+  ast_EK_New,           // Constructs a new record type
+  ast_EK_BinaryOp,      // Binary operation
+  ast_EK_UnaryOp,       // Unary operation
+  ast_EK_Call,          // Call a function with a product type
+  ast_EK_Pipe,          // Syntactic sugar operator to evaluate a function postfix
+  ast_EK_Ret,           // Returns from a scope with a value
+  ast_EK_Match,         // Matches an expression to the first matching pattern and destructures it
+  ast_EK_Block,         // Groups together several statements and returns the last statement's value, or nil
+  ast_EK_FieldAccess,   // Accessing the field of a record object
+  ast_EK_Reference,     // A reference to a previously defined module, function, or variable
+  ast_PK_Wildcard,      // (PATTERN) ignores a single element
+  ast_PK_Let,           // (PATTERN) binds a single element to new variable
+  ast_PK_AtLet,         // (PATTERN) matches previous
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -306,7 +230,7 @@ typedef struct ast_Expr_s {
     } call;
     struct {
       ast_Binding *name;
-      ast_Pat *parameters;
+      ast_Expr *parameters;
       usize parameters_len;
       ast_Expr *type;
       ast_Expr *body;
@@ -330,7 +254,13 @@ typedef struct ast_Expr_s {
       ast_Stmnt *stmnts;
       usize stmnts_len;
     } block;
-  };
+    struct {
+      ast_Binding *binding;
+    } let;
+    struct {
+      ast_Expr *pat;
+      ast_Binding *binding;
+    } atLet;  };
 } ast_Expr;
 
 typedef enum {
@@ -348,7 +278,7 @@ typedef struct ast_Stmnt_s {
   union {
     // Declarations
     struct {
-      ast_Pat *pat;
+      ast_Expr *pat;
       ast_Expr *val;
     } def;
     struct {
@@ -369,8 +299,6 @@ typedef struct ast_Stmnt_s {
   };
 } ast_Stmnt;
 
-com_str ast_strPatKind(ast_PatKind val);
-com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val);
 com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
 com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
@@ -378,7 +306,6 @@ com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);
 com_str ast_strStmntKind(ast_StmntKind val);
-com_str ast_strPatUnaryOpKind(ast_PatUnaryOpKind val);
 com_str ast_strBindingKind(ast_BindingKind val);
 com_str ast_strReferenceKind(ast_ReferenceKind val);
 

@@ -1363,6 +1363,108 @@ static void ast_parseL1Pat(ast_Pat *l1, DiagnosticLogger *diagnostics,
   l1->common.metadata = com_vec_release(&metadata);
 }
 
+static void parseL2Expr(ast_Expr *l2, DiagnosticLogger *diagnostics,
+                        ast_Constructor *parser) {
+  // Because it's postfix, we must take a somewhat
+  // unorthodox approach here We Parse the level
+  // one expr and then use a while loop to process
+  // the rest of the stuff
+
+  ast_Pat *root = l2;
+  parseL1Pat(root, diagnostics, parser);
+
+  while (true) {
+    // represents the old operation
+    ast_Pat *v;
+
+    Token t = parse_peekPastMetadata(parser, diagnostics, 1);
+    switch (t.kind) {
+    case tk_Ref: {
+      // get metadata
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      // allocate space for operation
+      v = parse_alloc_obj_m(parser, ast_Pat);
+      *v = *root;
+      root->kind = ast_EK_UnaryOp;
+      root->unaryOp.op = ast_EUOK_Ref;
+      root->unaryOp.operand = v;
+      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      parse_next(parser, diagnostics);
+      break;
+    }
+    case tk_Deref: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Pat);
+      *v = *root;
+      root->kind = ast_EK_UnaryOp;
+      root->unaryOp.op = ast_EUOK_Deref;
+      root->unaryOp.operand = v;
+      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      parse_next(parser, diagnostics);
+      break;
+    }
+    case tk_Ineq: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Pat);
+      *v = *root;
+      root->kind = ast_EK_UnaryOp;
+      root->unaryOp.op = ast_EUOK_IneqGreater;
+      root->unaryOp.operand = v;
+      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      parse_next(parser, diagnostics);
+      break;
+    }
+    case tk_FieldAccess: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Pat);
+      *v = *root;
+      ast_certain_postfix_parseFieldAcessPat(root, diagnostics, parser, v);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      break;
+    }
+    case tk_ParenLeft: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Pat);
+      *v = *root;
+      ast_certain_postfix_parseCallPat(root, diagnostics, parser, v);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      break;
+    }
+    case tk_Pipe: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Pat);
+      *v = *root;
+      ast_certain_postfix_parsePipePat(root, diagnostics, parser, v);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      break;
+    }
+    case tk_Match: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Pat);
+      *v = *root;
+      ast_certain_postfix_parseMatchPat(root, diagnostics, parser, v);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      break;
+    }
+    default: {
+      // there are no more level 2 expressions
+      return;
+    }
+    }
+  }
+}
+
+
 static void ast_parseL2Pat(ast_Pat *l2, DiagnosticLogger *diagnostics,
                            ast_Constructor *parser) {
   Token t = parse_peekPastMetadata(parser, diagnostics, 1);

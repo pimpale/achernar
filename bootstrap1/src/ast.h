@@ -12,51 +12,19 @@ typedef struct ast_Expr_s ast_Expr;
 typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
-  ast_RK_None,      // some kind of error
-  ast_RK_Reference, // an actual reference
-} ast_ReferenceKind;
-
-typedef struct ast_Reference_s {
-  com_loc_Span span;
-  ast_ReferenceKind kind;
-  union {
-    struct {
-      com_str name;
-    } reference;
-  };
-} ast_Reference;
-
-typedef enum {
-  ast_BK_None,
-  ast_BK_Bind,
-  ast_BK_Ignore,
-} ast_BindingKind;
+  ast_IK_None,
+  ast_IK_Identifier,
+} ast_IdentifierKind;
 
 typedef struct {
   com_loc_Span span;
-  ast_BindingKind kind;
+  ast_IdentifierKind kind;
   union {
     struct {
       com_str name;
-      ast_Expr *constraint;
-    } bind;
+    } id;
   };
-} ast_Binding;
-
-typedef enum {
-  ast_FK_None,  // some kind of error
-  ast_FK_Field, // an actual reference
-} ast_FieldKind;
-
-typedef struct ast_Field_s {
-  com_loc_Span span;
-  ast_FieldKind kind;
-  union {
-    struct {
-      com_str name;
-    } field;
-  };
-} ast_Field;
+} ast_Identifier;
 
 typedef struct {
   com_loc_Span span;
@@ -71,34 +39,20 @@ typedef struct {
 } ast_Common;
 
 typedef enum {
-  ast_LBK_Omitted,
-  ast_LBK_Label,
-} ast_LabelBindingKind;
+  ast_LK_None,
+  ast_LK_Omitted,
+  ast_LK_Label,
+} ast_LabelKind;
 
 typedef struct {
   com_loc_Span span;
-  ast_LabelBindingKind kind;
+  ast_LabelKind kind;
   union {
     struct {
       com_str label;
     } label;
   };
-} ast_LabelBinding;
-
-typedef enum {
-  ast_LRK_None,
-  ast_LRK_Label,
-} ast_LabelReferenceKind;
-
-typedef struct {
-  com_loc_Span span;
-  ast_LabelReferenceKind kind;
-  union {
-    struct {
-      com_str label;
-    } label;
-  };
-} ast_LabelReference;
+} ast_Label;
 
 typedef enum {
   ast_MCK_None,
@@ -117,6 +71,38 @@ typedef struct {
 } ast_MatchCase;
 
 typedef enum {
+  ast_CTEK_None,
+  ast_CTEK_Element,
+} ast_CompoundTypeElementKind;
+
+typedef struct {
+  ast_Common common;
+  ast_CompoundTypeElementKind kind;
+  union {
+    struct {
+      ast_Identifier *name;
+      ast_Expr *type;
+    } element;
+  };
+} ast_CompoundTypeElement;
+
+typedef enum {
+  ast_CEK_None,
+  ast_CEK_Element,
+} ast_CompoundElementKind;
+
+typedef struct {
+  ast_Common common;
+  ast_CompoundElementKind kind;
+  union {
+    struct {
+      ast_Identifier *name;
+      ast_Expr *val;
+    } element;
+  };
+} ast_CompoundElement;
+
+typedef enum {
   ast_EUOK_Not,
   ast_EUOK_Ref,
   ast_EUOK_Deref,
@@ -126,6 +112,8 @@ typedef enum {
 } ast_ExprUnaryOpKind;
 
 typedef enum {
+  // Type Assertion
+  ast_EBOK_TypeAssert,
   // Math
   ast_EBOK_Add,
   ast_EBOK_Sub,
@@ -158,29 +146,35 @@ typedef enum {
 } ast_ExprBinaryOpKind;
 
 typedef enum {
-  ast_EK_None,
-  ast_EK_Omitted,
-  ast_EK_Self,
-  ast_EK_NeverType,
-  ast_EK_IntLiteral,    // Literal for an integer number
-  ast_EK_RealLiteral,   // A literal for a real (floating point) number
-  ast_EK_StringLiteral, // A string literal
-  ast_EK_Fn,            // Creates a new function
-  ast_EK_FnType,        // Creates a new type of a function
-  ast_EK_Loop,          // Loops until a scope is returned
-  ast_EK_New,           // Constructs a new record type
-  ast_EK_BinaryOp,      // Binary operation
-  ast_EK_UnaryOp,       // Unary operation
-  ast_EK_Call,          // Call a function with a product type
-  ast_EK_Pipe,          // Syntactic sugar operator to evaluate a function postfix
-  ast_EK_Ret,           // Returns from a scope with a value
-  ast_EK_Match,         // Matches an expression to the first matching pattern and destructures it
-  ast_EK_Block,         // Groups together several statements and returns the last statement's value, or nil
-  ast_EK_FieldAccess,   // Accessing the field of a record object
-  ast_EK_Reference,     // A reference to a previously defined module, function, or variable
-  ast_PK_Wildcard,      // (PATTERN) ignores a single element
-  ast_PK_Let,           // (PATTERN) binds a single element to new variable
-  ast_PK_AtLet,         // (PATTERN) matches previous
+  ast_EK_None,        // An error when parsing
+  ast_EK_NeverType,   // The type of the special value returned by ret,
+                      // neverending loops, and functions that dont return
+  ast_EK_Nil,         // Literal for nil
+  ast_EK_NilType,     // Literal for the type of nil, Nil
+  ast_EK_Int,         // Literal for an integer number
+  ast_EK_Real,        // Literal for a real (floating point) number
+  ast_EK_String,      // A string literal
+  ast_EK_StructType,  // Creates a new struct type from fields
+  ast_EK_EnumType,    // Creates a new enum type from fields
+  ast_EK_Fn,          // Creates a new function
+  ast_EK_FnType,      // Creates a new type of a function
+  ast_EK_Loop,        // Loops until a scope is returned
+  ast_EK_New,         // Constructs a new compound type of another type
+  ast_EK_Struct,      // Constructs a new compound type
+  ast_EK_BinaryOp,    // Binary operation
+  ast_EK_UnaryOp,     // Unary operation
+  ast_EK_Call,        // Call a function with a product type
+  ast_EK_Pipe,        // Syntactic sugar operator to evaluate a function postfix
+  ast_EK_Ret,         // Returns from a scope with a value
+  ast_EK_Match,       // Matches an expression to the first matching pattern and
+                      // destructures it
+  ast_EK_Block,       // Groups together several statements and returns the last
+                      // statement's value, or nil
+  ast_EK_FieldAccess, // Accessing the field of a record object
+  ast_EK_Reference,   // A reference to a previously defined variable
+  ast_PK_BindIgnore,  // (PATTERN ONLY) ignores a single element
+  ast_PK_Bind,        // (PATTERN ONLY) binds a single element to new variable
+  ast_PK_AtBind,      // (PATTERN ONLY) matches previous
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -198,12 +192,29 @@ typedef struct ast_Expr_s {
       tk_StringLiteralKind kind;
     } stringLiteral;
     struct {
+      ast_CompoundTypeElement *elements;
+      usize elements_len;
+    } structType;
+    struct {
+      ast_CompoundTypeElement *elements;
+      usize elements_len;
+    } enumType;
+    struct {
+      ast_CompoundElement *elements;
+      usize elements_len;
+    } structLiteral;
+    struct {
+      ast_Expr *type;
+      ast_CompoundElement *elements;
+      usize elements_len;
+    } new;
+    struct {
       ast_Expr *body;
-      ast_LabelBinding *label;
+      ast_Label *label;
     } loop;
     struct {
       ast_Expr *root;
-      ast_Field *field;
+      ast_Identifier *field;
     } fieldAccess;
     struct {
       ast_Expr *root;
@@ -212,7 +223,7 @@ typedef struct ast_Expr_s {
       usize parameters_len;
     } pipe;
     struct {
-      ast_Reference *path;
+      ast_Identifier *reference;
     } reference;
     struct {
       ast_ExprUnaryOpKind op;
@@ -229,7 +240,6 @@ typedef struct ast_Expr_s {
       usize parameters_len;
     } call;
     struct {
-      ast_Binding *name;
       ast_Expr *parameters;
       usize parameters_len;
       ast_Expr *type;
@@ -242,7 +252,7 @@ typedef struct ast_Expr_s {
     } fnType;
     struct {
       ast_Expr *expr;
-      ast_LabelReference *label;
+      ast_Label *label;
     } ret;
     struct {
       ast_Expr *root;
@@ -250,23 +260,23 @@ typedef struct ast_Expr_s {
       usize cases_len;
     } match;
     struct {
-      ast_LabelBinding *label;
+      ast_Label *label;
       ast_Stmnt *stmnts;
       usize stmnts_len;
     } block;
     struct {
-      ast_Binding *binding;
-    } let;
+      ast_Identifier *binding;
+    } binding;
     struct {
       ast_Expr *pat;
-      ast_Binding *binding;
-    } atLet;  };
+      ast_Identifier *binding;
+    } atBinding;
+  };
 } ast_Expr;
 
 typedef enum {
   ast_SK_None,
   ast_SK_Use,
-  ast_SK_Mod,
   ast_SK_Def,
   ast_SK_Expr,
   ast_SK_DeferStmnt,
@@ -280,33 +290,28 @@ typedef struct ast_Stmnt_s {
     struct {
       ast_Expr *pat;
       ast_Expr *val;
+    } let;
+    struct {
+      ast_Expr *pat;
     } def;
-    struct {
-      ast_Reference *path;
-    } useStmnt;
-    struct {
-      ast_Binding *name;
-      ast_Stmnt *stmnts;
-      usize stmnts_len;
-    } mod;
     struct {
       ast_Expr *expr;
     } expr;
     struct {
-      ast_LabelReference *label;
+      ast_Label *label;
       ast_Expr *val;
     } deferStmnt;
   };
 } ast_Stmnt;
 
 com_str ast_strExprKind(ast_ExprKind val);
-com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val);
-com_str ast_strLabelBindingKind(ast_LabelBindingKind val);
+com_str ast_strLabelKind(ast_LabelKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
+com_str ast_strCompoundTypeElementKind(ast_CompoundTypeElementKind val);
+com_str ast_strCompoundElementKind(ast_CompoundElementKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);
 com_str ast_strStmntKind(ast_StmntKind val);
-com_str ast_strBindingKind(ast_BindingKind val);
-com_str ast_strReferenceKind(ast_ReferenceKind val);
+com_str ast_strIdentifierKind(ast_IdentifierKind val);
 
 #endif

@@ -20,43 +20,6 @@ com_str ast_strPatValRestrictionKind(ast_PatValRestrictionKind val) {
   com_assert_unreachable_m("unreachable");
 }
 
-com_str ast_strPatKind(ast_PatKind val) {
-  switch (val) {
-  case ast_PK_None:
-    return com_str_lit_m("ast_PK_None");
-  case ast_PK_ValRestriction:
-    return com_str_lit_m("ast_PK_ValRestriction");
-  case ast_PK_TypeRestriction:
-    return com_str_lit_m("ast_PK_TypeRestriction");
-  case ast_PK_Record:
-    return com_str_lit_m("ast_PK_Record");
-  case ast_PK_Group:
-    return com_str_lit_m("ast_PK_Group");
-  case ast_PK_UnaryOp:
-    return com_str_lit_m("ast_PK_UnaryOp");
-  case ast_PK_BinaryOp:
-    return com_str_lit_m("ast_PK_BinaryOp");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strPatBinaryOpKind(ast_PatBinaryOpKind val) {
-  switch (val) {
-  case ast_PEBOK_Product:
-    return com_str_lit_m("ast_PEBOK_Product");
-  case ast_PEBOK_Sum:
-    return com_str_lit_m("ast_PEBOK_Sum");
-  case ast_PEBOK_Union:
-    return com_str_lit_m("ast_PEBOK_Union");
-  case ast_PEBOK_Intersection:
-    return com_str_lit_m("ast_PEBOK_Intersection");
-  case ast_PEBOK_And:
-    return com_str_lit_m("ast_PEBOK_And");
-  case ast_PEBOK_Or:
-    return com_str_lit_m("ast_PEBOK_Or");
-  }
-  com_assert_unreachable_m("unreachable");
-}
 
 
 

@@ -15,21 +15,22 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_Loop,   // loop
-  tk_Match,  // match
-  tk_Ret,    // ret
-  tk_Defer,  // defer
-  tk_Def,    // def
-  tk_Fn,     // fn
-  tk_FnType, // Fn
-  tk_Mod,    // mod
-  tk_Use,    // use
-  tk_Has,    // has
-  tk_Let,    // let
-  tk_At,     // at
+  tk_Loop,       // loop
+  tk_Match,      // match
+  tk_Ret,        // ret
+  tk_Defer,      // defer
+  tk_Let,        // let
+  tk_Def,        // def
+  tk_Fn,         // fn
+  tk_FnType,     // Fn
+  tk_At,         // at
+  tk_StructType, // Struct
+  tk_EnumType,   // Enum
+  tk_Struct,     // struct
+  tk_New,        // new
   // Literals and constants
-  tk_Self,      // self
-  tk_SelfType,  // Self
+  tk_Nil,       // nil
+  tk_NilType,   // Nil
   tk_NeverType, // Never
   tk_String,    // "string"
   tk_Real,      // 0.7
@@ -43,13 +44,13 @@ typedef enum {
   // Set Operators
   tk_Union,         // ++
   tk_Difference,    // --
-  tk_Intersection,  //  &
-  tk_SymDifference, // !&
+  tk_Intersection,  // ^
+  tk_SymDifference, // !^
   // Type operators
   tk_Product, // ,
   tk_Sum,     // |
   // Memory Operators
-  tk_Ref,   // $
+  tk_Ref,   // &
   tk_Deref, // @
   // Logical Operators
   tk_And, // and
@@ -75,6 +76,8 @@ typedef enum {
   tk_Pipe,  // ->
   tk_Arrow, // =>
   // Other Miscellaneous Operator Things
+  tk_Bind,         // $
+  tk_BindIgnore,   // $_
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
   tk_BracketLeft,  // [
@@ -82,19 +85,14 @@ typedef enum {
   tk_BraceLeft,    // {
   tk_BraceRight,   // }
   tk_FieldAccess,  // .
-  tk_Constrain,    // ::
-  tk_Wildcard,     // _
+  tk_Constrain,    // :
   // Label
-  tk_Label, // :label
+  tk_Label, // 'label
   // Comments, and Attributes
   tk_Metadata, // #attribute and #! comment
 } tk_Kind;
 
-typedef enum {
-  tk_SLK_Quote,
-  tk_SLK_DoubleQuote,
-  tk_SLK_Block
-} tk_StringLiteralKind;
+typedef enum { tk_SLK_DoubleQuote, tk_SLK_Block } tk_StringLiteralKind;
 
 typedef struct Token_s {
   // The type of this token

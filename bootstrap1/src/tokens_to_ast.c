@@ -253,56 +253,28 @@ static void ast_certain_parseFnExpr(ast_Expr *fptr,
   com_assert_m(t.kind == tk_Fn, "expected tk_Fn");
   com_loc_LnCol start = t.span.start;
 
-  // check for leftparen
+  ast_Expr *parameters = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(parameters, diagnostics, parser);
+
   t = parse_next(parser, diagnostics);
-  if (t.kind != tk_ParenLeft) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("fn expected left paren"),
-                     .children_len = 0};
-  }
-
-  com_vec parametersv = parse_alloc_vec(parser);
-
-  com_loc_LnCol end;
-  PARSE_LIST(&parametersv,                 // members_vec_ptr
-             diagnostics,                  // dlogger_ptr
-             ast_parseExpr,                // member_parse_function
-             ast_Expr,                     // member_kind
-             tk_ParenRight,                // delimiting_token_kind
-             "DK_FnValExpectedRightParen", // missing_delimiter_error
-             end,                          // end_lncol
-             parser                        // parser
-  )
-
-  usize parameters_len = com_vec_len_m(&parametersv, ast_Expr);
-  ast_Expr *parameters = com_vec_release(&parametersv);
-
-  ast_Expr *retType = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(retType, diagnostics, parser);
-
   if (t.kind != tk_Arrow) {
     *dlogger_append(diagnostics) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m("DK_FnValExpectedArrow"),
                      .children_len = 0};
-    end = t.span.end;
   }
 
   ast_Expr *body = parse_alloc_obj_m(parser, ast_Expr);
   ast_parseExpr(fptr->fn.body, diagnostics, parser);
 
-  end = body->common.span.end;
+  com_loc_LnCol end = body->common.span.end;
 
   com_loc_Span span = com_loc_span_m(start, end);
+
   *fptr = (ast_Expr){.kind = ast_EK_Fn,
                      .common = {.span = span},
-                     .fn = {.parameters = parameters,
-                            .parameters_len = parameters_len,
-                            .type = retType,
-                            .body = body}};
+                     .fn = {.parameters = parameters, .body = body}};
 }
 
 static void ast_certain_parseFnTypeExpr(ast_Expr *fte,
@@ -311,44 +283,31 @@ static void ast_certain_parseFnTypeExpr(ast_Expr *fte,
   com_mem_zero_obj_m(fte);
 
   Token t = parse_next(parser, diagnostics);
-
-  com_assert_m(t.kind == tk_Fn, "expected tk_Fn");
-
+  com_assert_m(t.kind == tk_FnType, "expected tk_FnType");
   com_loc_LnCol start = t.span.start;
-  com_loc_LnCol end;
 
-  // check for leftparen
+  ast_Expr *parameters = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(parameters, diagnostics, parser);
+
   t = parse_next(parser, diagnostics);
-  if (t.kind != tk_ParenLeft) {
+  if (t.kind != tk_Arrow) {
     *dlogger_append(diagnostics) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
-                     .message = com_str_lit_m("DK_FnTypeExpectedLeftParen"),
+                     .message = com_str_lit_m("DK_FnTypeValExpectedArrow"),
                      .children_len = 0};
-    end = t.span.end;
-    goto CLEANUP;
   }
 
-  com_vec parameters = parse_alloc_vec(parser);
+  ast_Expr *body = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(fte->fn.body, diagnostics, parser);
 
-  PARSE_LIST(&parameters,                   // members_vec_ptr
-             diagnostics,                   // dlogger_ptr
-             ast_parseExpr,                 // member_parse_function
-             ast_Expr,                      // member_kind
-             tk_ParenRight,                 // delimiting_token_kind
-             "DK_FnTypeExpectedRightParen", // missing_delimiter_error
-             end,                           // end_lncol
-             parser                         // parser
-  )
+  com_loc_LnCol end = body->common.span.end;
 
-  fte->fnType.parameters_len = com_vec_len_m(&parameters, ast_Expr);
-  fte->fnType.parameters = com_vec_release(&parameters);
+  com_loc_Span span = com_loc_span_m(start, end);
 
-  fte->fnType.type = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(fte->fnType.type, diagnostics, parser);
-
-CLEANUP:
-  fte->common.span = com_loc_span_m(start, end);
+  *fte = (ast_Expr){.kind = ast_EK_FnType,
+                    .common = {.span = span},
+                    .fn = {.parameters = parameters, .body = body}};
 }
 
 static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
@@ -901,73 +860,73 @@ static void ast_certain_postfix_parseCallExpr(ast_Expr *cptr,
                                               DiagnosticLogger *diagnostics,
                                               ast_Constructor *parser,
                                               ast_Expr *root) {
+
+  com_assert_m(parse_peek(parser, diagnostics, 1).kind == tk_ParenLeft,
+               "expected tk_ParenLeft");
+  parse_drop(parser, diagnostics);
+
   com_mem_zero_obj_m(cptr);
 
   cptr->kind = ast_EK_Call;
-  cptr->call.function = root;
+  cptr->call.root = root;
+
+  cptr->call.parameters = parse_alloc_obj_m(parser, ast_Expr);
 
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_ParenLeft, "expected tk_ParenLeft");
+  if (t.kind != tk_ParenRight) {
+    *dlogger_append(diagnostics) = (Diagnostic){
+        .span = t.span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("call expr expected closing paren after expr"),
+        .children_len = 0};
+  }
 
-  com_loc_LnCol end;
-
-  com_vec parameters = parse_alloc_vec(parser);
-
-  PARSE_LIST(&parameters,            // members_vec_ptr
-             diagnostics,            // dlogger_ptr
-             ast_parseExpr,          // member_parse_function
-             ast_Expr,               // member_kind
-             tk_ParenRight,          // delimiting_token_kind
-             "DK_CallExpectedParen", // missing_delimiter_error
-             end,                    // end_lncol
-             parser                  // parser
-  )
-
-  cptr->call.parameters_len = com_vec_len_m(&parameters, ast_Expr);
-  cptr->call.parameters = com_vec_release(&parameters);
-
-  cptr->common.span = com_loc_span_m(root->common.span.start, end);
+  cptr->common.span = com_loc_span_m(root->common.span.start, t.span.end);
 }
 
 static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
                                               DiagnosticLogger *diagnostics,
                                               ast_Constructor *parser,
                                               ast_Expr *root) {
+
+  com_assert_m(parse_peek(parser, diagnostics, 1).kind == tk_Pipe,
+               "expected tk_Pipe");
+  parse_drop(parser, diagnostics);
+
+
   com_mem_zero_obj_m(pptr);
   pptr->kind = ast_EK_Pipe;
   pptr->pipe.root = root;
 
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Pipe, "expected tk_Pipe");
-
   pptr->pipe.fn = parse_alloc_obj_m(parser, ast_Expr);
   parseL1Expr(pptr->pipe.fn, diagnostics, parser);
 
-  com_loc_LnCol end;
-
-  com_vec parameters = parse_alloc_vec(parser);
-
-  if (parse_peek(parser, diagnostics, 1).kind == tk_ParenLeft) {
-    parse_drop(parser, diagnostics);
-    PARSE_LIST(&parameters,            // members_vec_ptr
-               diagnostics,            // dlogger_ptr
-               ast_parseExpr,          // member_parse_function
-               ast_Expr,               // member_kind
-               tk_ParenRight,          // delimiting_token_kind
-               "DK_PipeExpectedParen", // missing_delimiter_error
-               end,                    // end_lncol
-               parser                  // parser
-    )
+  Token t = parse_next(parser, diagnostics);
+  if (t.kind != tk_ParenLeft) {
+    *dlogger_append(diagnostics) = (Diagnostic){
+        .span = t.span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("pipe expr expected opening paren after function"),
+        .children_len = 0};
   }
 
-  pptr->pipe.parameters_len = com_vec_len_m(&parameters, ast_Expr);
-  pptr->pipe.parameters = com_vec_release(&parameters);
+  pptr->pipe.parameters = parse_alloc_obj_m(parser, ast_Expr);
+  parseL1Expr(pptr->pipe.parameters, diagnostics, parser);
+
+  t = parse_next(parser, diagnostics);
+  if (t.kind != tk_ParenRight) {
+    *dlogger_append(diagnostics) = (Diagnostic){
+        .span = t.span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("pipe expr expected closing paren after parameters"),
+        .children_len = 0};
+  }
 
   pptr->common.span =
-      com_loc_span_m(root->common.span.start, pptr->pipe.fn->common.span.end);
+      com_loc_span_m(root->common.span.start, t.span.end);
 }
 
-// Exprtern `=>` Val
+// Expr `=>` Expr
 static void ast_parseMatchCase(ast_MatchCase *mcep,
                                DiagnosticLogger *diagnostics,
                                ast_Constructor *parser) {

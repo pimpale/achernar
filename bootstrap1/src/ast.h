@@ -219,7 +219,6 @@ typedef struct ast_Expr_s {
       ast_Expr *root;
       ast_Expr *fn;
       ast_Expr *parameters;
-      usize parameters_len;
     } pipe;
     struct {
       ast_Identifier *reference;
@@ -234,19 +233,15 @@ typedef struct ast_Expr_s {
       ast_Expr *right_operand;
     } binaryOp;
     struct {
-      ast_Expr *function;
+      ast_Expr *root;
       ast_Expr *parameters;
-      usize parameters_len;
     } call;
     struct {
       ast_Expr *parameters;
-      usize parameters_len;
-      ast_Expr *type;
       ast_Expr *body;
     } fn;
     struct {
       ast_Expr *parameters;
-      usize parameters_len;
       ast_Expr *type;
     } fnType;
     struct {

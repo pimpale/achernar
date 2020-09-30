@@ -53,7 +53,8 @@ static com_json_Elem print_Span(com_loc_Span span, com_allocator *a) {
 
 static com_json_Elem print_bigint(com_bigint bigint, com_allocator *a) {
   com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) = mkprop_m("kind", com_json_str_m(com_str_lit_m("bigint")));
+  *push_prop_m(&obj) =
+      mkprop_m("kind", com_json_str_m(com_str_lit_m("bigint")));
   com_vec words = print_vec_create_m(a);
   for (usize i = 0; i < com_bigint_len(&bigint); i++) {
     *push_elem_m(&words) = com_json_uint_m(com_bigint_get_at(&bigint, i));
@@ -62,16 +63,22 @@ static com_json_Elem print_bigint(com_bigint bigint, com_allocator *a) {
   return print_objectify(&obj);
 }
 
-static com_json_Elem print_bigdecimal(com_bigdecimal bigdecimal, com_allocator *a) {
+static com_json_Elem print_bigdecimal(com_bigdecimal bigdecimal,
+                                      com_allocator *a) {
   com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) = mkprop_m("kind", com_json_str_m(com_str_lit_m("bigdecimal")));
-  *push_prop_m(&obj) = mkprop_m("negative", com_json_bool_m(com_bigdecimal_sign(&bigdecimal) == com_math_NEGATIVE));
+  *push_prop_m(&obj) =
+      mkprop_m("kind", com_json_str_m(com_str_lit_m("bigdecimal")));
+  *push_prop_m(&obj) =
+      mkprop_m("negative", com_json_bool_m(com_bigdecimal_sign(&bigdecimal) ==
+                                           com_math_NEGATIVE));
   com_vec words = print_vec_create_m(a);
   for (usize i = 0; i < com_bigdecimal_len(&bigdecimal); i++) {
-    *push_elem_m(&words) = com_json_uint_m(com_bigdecimal_get_at(&bigdecimal, i));
+    *push_elem_m(&words) =
+        com_json_uint_m(com_bigdecimal_get_at(&bigdecimal, i));
   }
   *push_prop_m(&obj) = mkprop_m("words", print_arrayify(&words));
-  *push_prop_m(&obj) = mkprop_m("precision", com_json_uint_m(com_bigdecimal_get_precision(&bigdecimal)));
+  *push_prop_m(&obj) = mkprop_m(
+      "precision", com_json_uint_m(com_bigdecimal_get_precision(&bigdecimal)));
   return print_objectify(&obj);
 }
 
@@ -120,14 +127,15 @@ static com_json_Elem print_Expr(ast_Expr *ep, com_allocator *a);
 static com_json_Elem print_Stmnt(ast_Stmnt *sp, com_allocator *a);
 
 static com_json_Elem print_Identifier(ast_Identifier *identifier,
-                                     com_allocator *a) {
+                                      com_allocator *a) {
   com_vec obj = print_vec_create_m(a);
   *push_prop_m(&obj) =
       mkprop_m("kind", com_json_str_m(com_str_lit_m("identifier")));
   *push_prop_m(&obj) = mkprop_m("span", print_Span(identifier->span, a));
 
-  *push_prop_m(&obj) = mkprop_m(
-      "identifier_kind", com_json_str_m(ast_strIdentifierKind(identifier->kind)));
+  *push_prop_m(&obj) =
+      mkprop_m("identifier_kind",
+               com_json_str_m(ast_strIdentifierKind(identifier->kind)));
   switch (identifier->kind) {
   case ast_IK_None: {
     // nop
@@ -142,13 +150,12 @@ static com_json_Elem print_Identifier(ast_Identifier *identifier,
   return print_objectify(&obj);
 }
 
-static com_json_Elem print_Label(ast_Label *label,
-                                          com_allocator *a) {
+static com_json_Elem print_Label(ast_Label *label, com_allocator *a) {
   com_vec obj = print_vec_create_m(a);
   *push_prop_m(&obj) = mkprop_m("kind", com_json_str_m(com_str_lit_m("label")));
   *push_prop_m(&obj) = mkprop_m("span", print_Span(label->span, a));
-  *push_prop_m(&obj) = mkprop_m(
-      "label_kind", com_json_str_m(ast_strLabelKind(label->kind)));
+  *push_prop_m(&obj) =
+      mkprop_m("label_kind", com_json_str_m(ast_strLabelKind(label->kind)));
   switch (label->kind) {
   case ast_LK_Label: {
     *push_prop_m(&obj) = mkprop_m("label", com_json_str_m(label->label.label));
@@ -166,29 +173,54 @@ static com_json_Elem print_Label(ast_Label *label,
   return print_objectify(&obj);
 }
 
-
-static com_json_Elem print_ExprStructMember(ast_TypeStructMember *tsmep,
-                                            com_allocator *a) {
-  if (tsmep == NULL) {
+static com_json_Elem print_CompoundTypeElement(ast_CompoundTypeElement *ctep,
+                                               com_allocator *a) {
+  if (ctep == NULL) {
     return com_json_null_m;
   }
   com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) = mkprop_m(
-      "kind", com_json_str_m(com_str_lit_m("type_struct_member_expr")));
-  print_appendCommon(tsmep->common, &obj, a);
   *push_prop_m(&obj) =
-      mkprop_m("type_struct_member_expr_kind",
-               com_json_str_m(ast_strTypeStructMemberKind(tsmep->kind)));
-  switch (tsmep->kind) {
-  case ast_TSMK_None: {
+      mkprop_m("kind", com_json_str_m(com_str_lit_m("compound_type_element")));
+  print_appendCommon(ctep->common, &obj, a);
+  *push_prop_m(&obj) =
+      mkprop_m("compound_type_element_expr_kind",
+               com_json_str_m(ast_strCompoundTypeElementKind(ctep->kind)));
+  switch (ctep->kind) {
+  case ast_CTEK_None: {
     // nop
     break;
   }
-  case ast_TSMK_StructMember: {
+  case ast_CTEK_Element: {
     *push_prop_m(&obj) =
-        mkprop_m("member_field", print_Identifier(tsmep->structMember.field, a));
+        mkprop_m("name", print_Identifier(ctep->element.name, a));
+    *push_prop_m(&obj) = mkprop_m("type", print_Expr(ctep->element.type, a));
+    break;
+  }
+  }
+  return print_objectify(&obj);
+}
+
+static com_json_Elem print_CompoundElement(ast_CompoundElement *cep,
+                                           com_allocator *a) {
+  if (cep == NULL) {
+    return com_json_null_m;
+  }
+  com_vec obj = print_vec_create_m(a);
+  *push_prop_m(&obj) =
+      mkprop_m("kind", com_json_str_m(com_str_lit_m("compound_element")));
+  print_appendCommon(cep->common, &obj, a);
+  *push_prop_m(&obj) =
+      mkprop_m("compound_element_expr_kind",
+               com_json_str_m(ast_strCompoundElementKind(cep->kind)));
+  switch (cep->kind) {
+  case ast_CEK_None: {
+    // nop
+    break;
+  }
+  case ast_CEK_Element: {
     *push_prop_m(&obj) =
-        mkprop_m("member_type", print_Expr(tsmep->structMember.type, a));
+        mkprop_m("name", print_Identifier(cep->element.name, a));
+    *push_prop_m(&obj) = mkprop_m("val", print_Expr(cep->element.val, a));
     break;
   }
   }
@@ -211,68 +243,46 @@ static com_json_Elem print_MatchCase(ast_MatchCase *mcep, com_allocator *a) {
     break;
   }
   case ast_MCK_Case: {
-    *push_prop_m(&obj) =
-        mkprop_m("case_pat", print_Expr(mcep->matchCase.pattern, a));
-    *push_prop_m(&obj) =
-        mkprop_m("case_val", print_Expr(mcep->matchCase.val, a));
+    *push_prop_m(&obj) = mkprop_m("pat", print_Expr(mcep->matchCase.pat, a));
+    *push_prop_m(&obj) = mkprop_m("val", print_Expr(mcep->matchCase.val, a));
     break;
   }
   }
   return print_objectify(&obj);
 }
-
-static com_json_Elem print_ExprStructMember(ast_ExprStructMember *vsmep,
-                                           com_allocator *a) {
-  if (vsmep == NULL) {
-    return com_json_null_m;
-  }
-  com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) =
-      mkprop_m("kind", com_json_str_m(com_str_lit_m("val_struct_member_expr")));
-  print_appendCommon(vsmep->common, &obj, a);
-  *push_prop_m(&obj) =
-      mkprop_m("val_struct_member_expr_kind",
-               com_json_str_m(ast_strValStructMemberKind(vsmep->kind)));
-  switch (vsmep->kind) {
-  case ast_VSMK_None: {
-    // nop
-    break;
-  }
-  case ast_VSMK_Macro: {
-    *push_prop_m(&obj) = mkprop_m("macro", print_Macro(vsmep->macro.macro, a));
-    break;
-  }
-  case ast_VSMK_Member: {
-    *push_prop_m(&obj) =
-        mkprop_m("member_name", print_Identifier(vsmep->member.field, a));
-    *push_prop_m(&obj) =
-        mkprop_m("member_val", print_Expr(vsmep->member.val, a));
-    break;
-  }
-  }
-  return print_objectify(&obj);
-}
-
 
 static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   if (vep == NULL) {
     return com_json_null_m;
   }
   com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) = mkprop_m("kind", com_json_str_m(com_str_lit_m("val")));
   print_appendCommon(vep->common, &obj, a);
   *push_prop_m(&obj) =
-      mkprop_m("val_kind", com_json_str_m(ast_strValKind(vep->kind)));
+      mkprop_m("kind", com_json_str_m(ast_strExprKind(vep->kind)));
   switch (vep->kind) {
   case ast_EK_None:
   case ast_EK_NeverType:
   case ast_EK_NilType:
+  case ast_EK_BindIgnore:
   case ast_EK_Nil: {
     // nop
     break;
   }
+  case ast_EK_Bind: {
+    *push_prop_m(&obj) =
+        mkprop_m("binding", print_Identifier(vep->binding.binding, a));
+    break;
+  }
+  case ast_EK_AtBind: {
+    *push_prop_m(&obj) =
+        mkprop_m("at_binding_pat", print_Identifier(vep->atBinding.binding, a));
+    *push_prop_m(&obj) =
+        mkprop_m("at_binding_id", print_Expr(vep->atBinding.pat, a));
+    break;
+  }
   case ast_EK_Int: {
-    *push_prop_m(&obj) = mkprop_m("int", print_bigint(vep->intLiteral.value, a));
+    *push_prop_m(&obj) =
+        mkprop_m("int", print_bigint(vep->intLiteral.value, a));
     break;
   }
   case ast_EK_Real: {
@@ -289,23 +299,47 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     com_vec elements = print_vec_create_m(a);
     for (usize i = 0; i < vep->structLiteral.elements_len; i++) {
       *com_vec_push_m(&elements, com_json_Elem) =
-          print_ExprStructMember(&vep->structLiteral.elements[i], a);
+          print_CompoundElement(&vep->structLiteral.elements[i], a);
     }
-    *push_prop_m(&obj) = mkprop_m("struct_literal_members", print_arrayify(&elements ));
+    *push_prop_m(&obj) =
+        mkprop_m("struct_literal_elements", print_arrayify(&elements));
+    break;
+  }
+  case ast_EK_New: {
+    *push_prop_m(&obj) = mkprop_m("new_root", print_Expr(vep->new.root, a));
+    com_vec elements = print_vec_create_m(a);
+    for (usize i = 0; i < vep->new.elements_len; i++) {
+      *com_vec_push_m(&elements, com_json_Elem) =
+          print_CompoundElement(&vep->new.elements[i], a);
+    }
+    *push_prop_m(&obj) = mkprop_m("new_elements", print_arrayify(&elements));
     break;
   }
   case ast_EK_StructType: {
     com_vec elements = print_vec_create_m(a);
     for (usize i = 0; i < vep->structType.elements_len; i++) {
       *com_vec_push_m(&elements, com_json_Elem) =
-          print_ExprStructMember(&vep->structLiteral.elements[i], a);
+          print_CompoundTypeElement(&vep->structType.elements[i], a);
     }
-    *push_prop_m(&obj) = mkprop_m("struct_type_members", print_arrayify(&elements ));
+    *push_prop_m(&obj) =
+        mkprop_m("struct_type_elements", print_arrayify(&elements));
+    break;
+  }
+  case ast_EK_EnumType: {
+    com_vec elements = print_vec_create_m(a);
+    for (usize i = 0; i < vep->enumType.elements_len; i++) {
+      *com_vec_push_m(&elements, com_json_Elem) =
+          print_CompoundTypeElement(&vep->enumType.elements[i], a);
+    }
+    *push_prop_m(&obj) =
+        mkprop_m("enum_type_elements", print_arrayify(&elements));
     break;
   }
   case ast_EK_Pipe: {
     *push_prop_m(&obj) = mkprop_m("pipe_root", print_Expr(vep->pipe.root, a));
-    *push_prop_m(&obj) = mkprop_m("pipe_type", print_Expr(vep->pipe.fn, a));
+    *push_prop_m(&obj) = mkprop_m("pipe_fn", print_Expr(vep->pipe.fn, a));
+    *push_prop_m(&obj) =
+        mkprop_m("pipe_parameters", print_Expr(vep->pipe.parameters, a));
     break;
   }
   case ast_EK_Loop: {
@@ -329,14 +363,15 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   case ast_EK_UnaryOp: {
     *push_prop_m(&obj) =
         mkprop_m("unary_operation",
-                 com_json_str_m(ast_strValUnaryOpKind(vep->unaryOp.op)));
+                 com_json_str_m(ast_strExprUnaryOpKind(vep->unaryOp.op)));
     *push_prop_m(&obj) =
         mkprop_m("unary_operand", print_Expr(vep->unaryOp.operand, a));
     break;
   }
   case ast_EK_BinaryOp: {
-    *push_prop_m(&obj) = mkprop_m("binary_operation",
-        com_json_str_m(ast_strValBinaryOpKind(vep->binaryOp.op)));
+    *push_prop_m(&obj) =
+        mkprop_m("binary_operation",
+                 com_json_str_m(ast_strExprBinaryOpKind(vep->binaryOp.op)));
     *push_prop_m(&obj) = mkprop_m("binary_left_operand",
                                   print_Expr(vep->binaryOp.left_operand, a));
     *push_prop_m(&obj) = mkprop_m("binary_right_operand",
@@ -344,31 +379,27 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     break;
   }
   case ast_EK_Fn: {
-    com_vec parameters = print_vec_create_m(a);
-    for (usize i = 0; i < vep->fn.parameters_len; i++) {
-      *com_vec_push_m(&parameters, com_json_Elem) =
-          print_Expr(&vep->fn.parameters[i], a);
-    }
-    *push_prop_m(&obj) = mkprop_m("fn_parameters", print_arrayify(&parameters));
-    *push_prop_m(&obj) = mkprop_m("fn_type", print_Expr(vep->fn.type, a));
+    *push_prop_m(&obj) =
+        mkprop_m("fn_parameters", print_Expr(vep->fn.parameters, a));
     *push_prop_m(&obj) = mkprop_m("fn_body", print_Expr(vep->fn.body, a));
     break;
   }
-  case ast_EK_Call: {
-    com_vec parameters = print_vec_create_m(a);
-    for (usize i = 0; i < vep->call.parameters_len; i++) {
-      *com_vec_push_m(&parameters, com_json_Elem) =
-          print_Expr(&vep->call.parameters[i], a);
-    }
+  case ast_EK_FnType: {
     *push_prop_m(&obj) =
-        mkprop_m("call_parameters", print_arrayify(&parameters));
+        mkprop_m("fn_type_parameters", print_Expr(vep->fnType.parameters, a));
+    *push_prop_m(&obj) =
+        mkprop_m("fn_type_body", print_Expr(vep->fnType.type, a));
+    break;
+  }
+  case ast_EK_Call: {
+    *push_prop_m(&obj) = mkprop_m("call_root", print_Expr(vep->call.root, a));
+    *push_prop_m(&obj) =
+        mkprop_m("call_parameters", print_Expr(vep->call.parameters, a));
     break;
   }
   case ast_EK_Ret: {
-    *push_prop_m(&obj) = mkprop_m(
-        "return_label", print_Label(vep->returnExpr.label, a));
-    *push_prop_m(&obj) =
-        mkprop_m("return_value", print_Expr(vep->returnExpr.value, a));
+    *push_prop_m(&obj) = mkprop_m("ret_label", print_Label(vep->ret.label, a));
+    *push_prop_m(&obj) = mkprop_m("ret_value", print_Expr(vep->ret.expr, a));
     break;
   }
   case ast_EK_Match: {
@@ -411,22 +442,18 @@ static com_json_Elem print_Stmnt(ast_Stmnt *sp, com_allocator *a) {
     break;
   }
   case ast_SK_Def: {
-    *push_prop_m(&obj) =
-        mkprop_m("def_pat", print_Expr(sp->def.pat, a));
+    *push_prop_m(&obj) = mkprop_m("def_pat", print_Expr(sp->def.pat, a));
     break;
   }
   case ast_SK_Let: {
-    *push_prop_m(&obj) =
-        mkprop_m("let_pat", print_Expr(sp->let.pat, a));
-    *push_prop_m(&obj) =
-        mkprop_m("let_val", print_Expr(sp->let.val, a));
+    *push_prop_m(&obj) = mkprop_m("let_pat", print_Expr(sp->let.pat, a));
+    *push_prop_m(&obj) = mkprop_m("let_val", print_Expr(sp->let.val, a));
     break;
   }
   case ast_SK_Defer: {
     *push_prop_m(&obj) =
         mkprop_m("defer_label", print_Label(sp->defer.label, a));
-    *push_prop_m(&obj) =
-        mkprop_m("defer_val", print_Expr(sp->defer.val, a));
+    *push_prop_m(&obj) = mkprop_m("defer_val", print_Expr(sp->defer.val, a));
     break;
   }
   case ast_SK_Expr: {
@@ -437,7 +464,8 @@ static com_json_Elem print_Stmnt(ast_Stmnt *sp, com_allocator *a) {
   return print_objectify(&obj);
 }
 
-void print_stream(ast_Constructor *parser, com_allocator* a, com_writer* writer) {
+void print_stream(ast_Constructor *parser, com_allocator *a,
+                  com_writer *writer) {
   while (true) {
 
     // check for EOF
@@ -445,14 +473,14 @@ void print_stream(ast_Constructor *parser, com_allocator* a, com_writer* writer)
 
     bool eof = ast_eof(parser, &dlogger);
 
-    if(!eof) {
+    if (!eof) {
       // Parse the next statement
       ast_Stmnt stmnt;
       ast_parseStmnt(&stmnt, &dlogger, parser);
 
       // print the json
       com_json_Elem sjson = print_Stmnt(&stmnt, a);
-      com_json_serialize(&sjson, writer) ;
+      com_json_serialize(&sjson, writer);
       com_writer_append_u8(writer, '\n');
     }
 
@@ -461,7 +489,7 @@ void print_stream(ast_Constructor *parser, com_allocator* a, com_writer* writer)
     for (usize i = 0; i < com_vec_len_m(&diagnostics, Diagnostic); i--) {
       Diagnostic d = *com_vec_get_m(&diagnostics, i, Diagnostic);
       com_json_Elem djson = print_diagnostic(d, a);
-      com_json_serialize(&djson, writer) ;
+      com_json_serialize(&djson, writer);
       com_writer_append_u8(writer, '\n');
     }
 
@@ -471,8 +499,8 @@ void print_stream(ast_Constructor *parser, com_allocator* a, com_writer* writer)
     // Clean up
     com_vec_destroy(&diagnostics);
 
-    if(eof) {
-        break;
+    if (eof) {
+      break;
     }
   }
 }

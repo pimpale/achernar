@@ -1,4 +1,5 @@
 #include "token.h"
+#include "com_str.h"
 #include "com_assert.h"
 
 com_str tk_strKind(tk_Kind val) {
@@ -9,42 +10,42 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_None");
   case tk_Identifier:
     return com_str_lit_m("tk_Identifier");
-  case tk_Never:
-    return com_str_lit_m("tk_Never");
   case tk_Loop:
     return com_str_lit_m("tk_Loop");
   case tk_Match:
     return com_str_lit_m("tk_Match");
-  case tk_Val:
-    return com_str_lit_m("tk_Val");
   case tk_Ret:
     return com_str_lit_m("tk_Ret");
   case tk_Defer:
     return com_str_lit_m("tk_Defer");
+  case tk_Let:
+    return com_str_lit_m("tk_Let");
+  case tk_Def:
+    return com_str_lit_m("tk_Def");
   case tk_Fn:
     return com_str_lit_m("tk_Fn");
-  case tk_Pat:
-    return com_str_lit_m("tk_Pat");
-  case tk_As:
-    return com_str_lit_m("tk_As");
-  case tk_Type:
-    return com_str_lit_m("tk_Type");
-  case tk_Typefn:
-    return com_str_lit_m("tk_Typefn");
-  case tk_Mod:
-    return com_str_lit_m("tk_Mod");
-  case tk_Use:
-    return com_str_lit_m("tk_Use");
+  case tk_FnType:
+    return com_str_lit_m("tk_FnType");
+  case tk_At:
+    return com_str_lit_m("tk_At");
+  case tk_StructType:
+    return com_str_lit_m("tk_StructType");
+  case tk_EnumType:
+    return com_str_lit_m("tk_EnumType");
+  case tk_Struct:
+    return com_str_lit_m("tk_Struct");
+  case tk_New:
+    return com_str_lit_m("tk_New");
   case tk_Nil:
     return com_str_lit_m("tk_Nil");
-  case tk_Bool:
-    return com_str_lit_m("tk_Bool");
+  case tk_NilType:
+    return com_str_lit_m("tk_NilType");
+  case tk_NeverType:
+    return com_str_lit_m("tk_NeverType");
   case tk_String:
     return com_str_lit_m("tk_String");
-  case tk_Char:
-    return com_str_lit_m("tk_Char");
-  case tk_Float:
-    return com_str_lit_m("tk_Float");
+  case tk_Real:
+    return com_str_lit_m("tk_Real");
   case tk_Int:
     return com_str_lit_m("tk_Int");
   case tk_Add:
@@ -53,14 +54,26 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Sub");
   case tk_Mul:
     return com_str_lit_m("tk_Mul");
-  case tk_IRem:
-    return com_str_lit_m("tk_IRem");
-  case tk_FRem:
-    return com_str_lit_m("tk_FRem");
-  case tk_IDiv:
-    return com_str_lit_m("tk_IDiv");
-  case tk_FDiv:
-    return com_str_lit_m("tk_FDiv");
+  case tk_Div:
+    return com_str_lit_m("tk_Div");
+  case tk_Rem:
+    return com_str_lit_m("tk_Rem");
+  case tk_Union:
+    return com_str_lit_m("tk_Union");
+  case tk_Difference:
+    return com_str_lit_m("tk_Difference");
+  case tk_Intersection:
+    return com_str_lit_m("tk_Intersection");
+  case tk_SymDifference:
+    return com_str_lit_m("tk_SymDifference");
+  case tk_Product:
+    return com_str_lit_m("tk_Product");
+  case tk_Sum:
+    return com_str_lit_m("tk_Sum");
+  case tk_Ref:
+    return com_str_lit_m("tk_Ref");
+  case tk_Deref:
+    return com_str_lit_m("tk_Deref");
   case tk_And:
     return com_str_lit_m("tk_And");
   case tk_Or:
@@ -69,6 +82,14 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Not");
   case tk_Xor:
     return com_str_lit_m("tk_Xor");
+  case tk_Range:
+    return com_str_lit_m("tk_Range");
+  case tk_RangeInclusive:
+    return com_str_lit_m("tk_RangeInclusive");
+  case tk_Ineq:
+    return com_str_lit_m("tk_Ineq");
+  case tk_IneqInclusive:
+    return com_str_lit_m("tk_IneqInclusive");
   case tk_CompEqual:
     return com_str_lit_m("tk_CompEqual");
   case tk_CompNotEqual:
@@ -81,40 +102,18 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_CompGreater");
   case tk_CompGreaterEqual:
     return com_str_lit_m("tk_CompGreaterEqual");
-  case tk_Ref:
-    return com_str_lit_m("tk_Ref");
-  case tk_Deref:
-    return com_str_lit_m("tk_Deref");
   case tk_Define:
     return com_str_lit_m("tk_Define");
   case tk_Assign:
     return com_str_lit_m("tk_Assign");
-  case tk_AssignAdd:
-    return com_str_lit_m("tk_AssignAdd");
-  case tk_AssignSub:
-    return com_str_lit_m("tk_AssignSub");
-  case tk_AssignMul:
-    return com_str_lit_m("tk_AssignMul");
-  case tk_AssignIDiv:
-    return com_str_lit_m("tk_AssignIDiv");
-  case tk_AssignFDiv:
-    return com_str_lit_m("tk_AssignFDiv");
-  case tk_AssignIRem:
-    return com_str_lit_m("tk_AssignIRem");
-  case tk_AssignFRem:
-    return com_str_lit_m("tk_AssignFRem");
   case tk_Pipe:
     return com_str_lit_m("tk_Pipe");
   case tk_Arrow:
     return com_str_lit_m("tk_Arrow");
-  case tk_MemberResolution:
-    return com_str_lit_m("tk_MemberResolution");
-  case tk_ModResolution:
-    return com_str_lit_m("tk_ModResolution");
-  case tk_Product:
-    return com_str_lit_m("tk_Product");
-  case tk_Sum:
-    return com_str_lit_m("tk_Sum");
+  case tk_Bind:
+    return com_str_lit_m("tk_Bind");
+  case tk_BindIgnore:
+    return com_str_lit_m("tk_BindIgnore");
   case tk_ParenLeft:
     return com_str_lit_m("tk_ParenLeft");
   case tk_ParenRight:
@@ -129,18 +128,13 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_BraceRight");
   case tk_FieldAccess:
     return com_str_lit_m("tk_FieldAccess");
-  case tk_Colon:
-    return com_str_lit_m("tk_Colon");
-  case tk_Semicolon:
-    return com_str_lit_m("tk_Semicolon");
-  case tk_Underscore:
-    return com_str_lit_m("tk_Underscore");
-  case tk_Backslash:
-    return com_str_lit_m("tk_Backslash");
+  case tk_Constrain:
+    return com_str_lit_m("tk_Constrain");
   case tk_Label:
     return com_str_lit_m("tk_Label");
   case tk_Metadata:
     return com_str_lit_m("tk_Metadata");
   }
+
   com_assert_unreachable_m("control flow reaches end of token");
 }

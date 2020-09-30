@@ -8,9 +8,6 @@
 #include "com_str.h"
 #include "token.h"
 
-typedef struct ast_Expr_s ast_Expr;
-typedef struct ast_Stmnt_s ast_Stmnt;
-
 typedef enum {
   ast_IK_None,
   ast_IK_Identifier,
@@ -53,6 +50,9 @@ typedef struct {
     } label;
   };
 } ast_Label;
+
+typedef struct ast_Expr_s ast_Expr;
+typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
   ast_MCK_None,
@@ -112,8 +112,8 @@ typedef enum {
 } ast_ExprUnaryOpKind;
 
 typedef enum {
-  // Type Assertion
-  ast_EBOK_TypeAssert,
+  // Type assertion
+  ast_EBOK_Constrain,
   // Math
   ast_EBOK_Add,
   ast_EBOK_Sub,
@@ -168,13 +168,12 @@ typedef enum {
   ast_EK_Ret,         // Returns from a scope with a value
   ast_EK_Match,       // Matches an expression to the first matching pattern and
                       // destructures it
-  ast_EK_Block,       // Groups together several statements and returns the last
-                      // statement's value, or nil
+  ast_EK_Block,       // Groups together several statements, returning last val
   ast_EK_FieldAccess, // Accessing the field of a record object
   ast_EK_Reference,   // A reference to a previously defined variable
-  ast_PK_BindIgnore,  // (PATTERN ONLY) ignores a single element
-  ast_PK_Bind,        // (PATTERN ONLY) binds a single element to new variable
-  ast_PK_AtBind,      // (PATTERN ONLY) matches previous
+  ast_EK_BindIgnore,  // (PATTERN ONLY) ignores a single element
+  ast_EK_Bind,        // (PATTERN ONLY) binds a single element to new variable
+  ast_EK_AtBind,      // (PATTERN ONLY) matches previous
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -204,7 +203,7 @@ typedef struct ast_Expr_s {
       usize elements_len;
     } structLiteral;
     struct {
-      ast_Expr *type;
+      ast_Expr *root;
       ast_CompoundElement *elements;
       usize elements_len;
     } new;
@@ -276,10 +275,10 @@ typedef struct ast_Expr_s {
 
 typedef enum {
   ast_SK_None,
-  ast_SK_Use,
+  ast_SK_Let,
   ast_SK_Def,
   ast_SK_Expr,
-  ast_SK_DeferStmnt,
+  ast_SK_Defer,
 } ast_StmntKind;
 
 typedef struct ast_Stmnt_s {
@@ -300,11 +299,12 @@ typedef struct ast_Stmnt_s {
     struct {
       ast_Label *label;
       ast_Expr *val;
-    } deferStmnt;
+    } defer;
   };
 } ast_Stmnt;
 
 com_str ast_strExprKind(ast_ExprKind val);
+com_str ast_strIdentifierKind(ast_IdentifierKind val);
 com_str ast_strLabelKind(ast_LabelKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
 com_str ast_strCompoundTypeElementKind(ast_CompoundTypeElementKind val);
@@ -312,6 +312,5 @@ com_str ast_strCompoundElementKind(ast_CompoundElementKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);
 com_str ast_strStmntKind(ast_StmntKind val);
-com_str ast_strIdentifierKind(ast_IdentifierKind val);
 
 #endif

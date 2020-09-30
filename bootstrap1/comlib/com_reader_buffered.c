@@ -91,7 +91,7 @@ static com_reader_ReadU8Result internal_peek_u8_fn(const com_reader *w,
 
 static com_loc_Span internal_peek_span_fn(const com_reader *w) {
   com_loc_LnCol loc = internal_position_fn(w);
-  com_loc_LnCol nloc = loc;
+  com_loc_LnCol nloc;
   com_reader_ReadU8Result ret = internal_peek_u8_fn(w, 1);
   if (ret.valid && ret.value == '\n') {
     nloc = lex_incrementLn(loc);

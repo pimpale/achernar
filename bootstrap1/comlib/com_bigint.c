@@ -329,6 +329,8 @@ com_math_cmptype com_bigint_cmp(const com_bigint *a, const com_bigint *b) {
     }
     }
   }
+
+  com_assert_unreachable_m("enum value must be corrupted");
 }
 
 void com_bigint_negate(com_bigint *a) {

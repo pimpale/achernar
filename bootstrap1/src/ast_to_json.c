@@ -113,6 +113,8 @@ static com_json_Elem print_Metadata(ast_Metadata metadata, com_allocator *a) {
 // add shared data to the vector
 static void print_appendCommon(ast_Common node, com_vec *props,
                                com_allocator *a) {
+  // TODO
+  return;
   *push_prop_m(props) = mkprop_m("span", print_Span(node.span, a));
   com_vec metadata = print_vec_create_m(a);
   for (usize i = 0; i < node.metadata_len; i++) {

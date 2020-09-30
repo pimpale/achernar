@@ -414,7 +414,7 @@ static com_str_mut certain_internal_str_parse(com_reader *l,
 
   while (true) {
     com_scan_CheckedStrResult ret =
-        com_scan_checked_str_until_quote(&writer, l);
+        com_scan_checked_str_until(&writer, l, '"');
     switch (ret.result) {
     case com_scan_CheckedStrSuccessful: {
       // We're finished, we can deallocate writer and release vec into a string

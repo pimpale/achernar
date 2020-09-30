@@ -266,7 +266,7 @@ static void ast_certain_parseFnExpr(ast_Expr *fptr,
   }
 
   ast_Expr *body = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(fptr->fn.body, diagnostics, parser);
+  ast_parseExpr(body, diagnostics, parser);
 
   com_loc_LnCol end = body->common.span.end;
 
@@ -299,7 +299,7 @@ static void ast_certain_parseFnTypeExpr(ast_Expr *fte,
   }
 
   ast_Expr *body = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(fte->fn.body, diagnostics, parser);
+  ast_parseExpr(body, diagnostics, parser);
 
   com_loc_LnCol end = body->common.span.end;
 
@@ -441,7 +441,7 @@ static void ast_certain_parseBindExpr(ast_Expr *vbp,
 
   // ensure token is tk let
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Let, "expected tk_Let");
+  com_assert_m(t.kind == tk_Bind, "expected tk_Bind");
 
   // now parse binding
   ast_Identifier *binding = parse_alloc_obj_m(parser, ast_Identifier);
@@ -470,7 +470,7 @@ static void ast_certain_parseAtLetExpr(ast_Expr *alpp,
 
   // now ensure that we can find a let
   t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Let) {
+  if (t.kind != tk_Bind) {
     *dlogger_append(diagnostics) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
@@ -657,18 +657,17 @@ static void ast_parseCompoundElement(ast_CompoundElement *ptr,
   ast_parseIdentifier(ptr->element.name, diagnostics, parser);
 
   com_loc_LnCol start = ptr->element.name->span.start;
-  com_loc_LnCol end = ptr->element.name->span.end;
+  com_loc_LnCol end;
 
-  // Expect colon
+  // Expect define
   Token t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Constrain) {
+  if (t.kind != tk_Define) {
     *dlogger_append(diagnostics) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m(
                          "compound element expected define after identifier"),
                      .children_len = 0};
-    goto CLEANUP;
   }
 
   // Get Value
@@ -676,7 +675,6 @@ static void ast_parseCompoundElement(ast_CompoundElement *ptr,
   ast_parseExpr(ptr->element.val, diagnostics, parser);
   end = ptr->element.val->common.span.end;
 
-CLEANUP:
   ptr->common.span = com_loc_span_m(start, end);
   return;
 }
@@ -871,6 +869,7 @@ static void ast_certain_postfix_parseCallExpr(ast_Expr *cptr,
   cptr->call.root = root;
 
   cptr->call.parameters = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(cptr->call.parameters, diagnostics, parser);
 
   Token t = parse_next(parser, diagnostics);
   if (t.kind != tk_ParenRight) {
@@ -1024,7 +1023,7 @@ static void ast_certain_postfix_parseNewExpr(ast_Expr *nptr,
                                              ast_Constructor *parser,
                                              ast_Expr *root) {
   com_mem_zero_obj_m(nptr);
-  nptr->kind = ast_EK_Match;
+  nptr->kind = ast_EK_New;
   nptr->new.root = root;
 
   // guarantee token exists
@@ -1046,7 +1045,7 @@ static void ast_certain_postfix_parseNewExpr(ast_Expr *nptr,
                ast_parseCompoundElement, // member_parse_function
                ast_CompoundElement,      // member_kind
                tk_BraceRight,            // delimiting_token_kind
-               "DK_MatchNoRightBrace",   // missing_delimiter_error
+               "DK_NewNoRightBrace",   // missing_delimiter_error
                end,                      // end_lncol
                parser                    // parser
     )

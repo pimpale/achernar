@@ -759,7 +759,7 @@ void com_biguint_mul(com_biguint *dest, const com_biguint *a,
   com_biguint_destroy(&tmp);
 }
 
-void com_biguint_div_u32() {
+void com_biguint_div_u32(attr_UNUSED com_biguint *dest, attr_UNUSED const com_biguint *a, attr_UNUSED u32 b){
   // TODO
   // Need to figure out way without memory allocation
 }

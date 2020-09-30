@@ -2,326 +2,194 @@
 #include "com_assert.h"
 #include "com_str.h"
 
-com_str ast_strPatValRestrictionKind(ast_PatValRestrictionKind val) {
+com_str ast_strExprKind(ast_ExprKind val) {
+
   switch (val) {
-  case ast_PEVRK_CompEqual:
-    return com_str_lit_m("CompEqual");
-  case ast_PEVRK_CompNotEqual:
-    return com_str_lit_m("CompNotEqual");
-  case ast_PEVRK_CompLess:
-    return com_str_lit_m("CompLess");
-  case ast_PEVRK_CompLessEqual:
-    return com_str_lit_m("CompLessEqual");
-  case ast_PEVRK_CompGreater:
-    return com_str_lit_m("CompGreater");
-  case ast_PEVRK_CompGreaterEqual:
-    return com_str_lit_m("CompGreaterEqual");
+  case ast_EK_None:
+    return com_str_lit_m("ast_EK_None");
+  case ast_EK_NeverType:
+    return com_str_lit_m("ast_EK_NeverType");
+  case ast_EK_Nil:
+    return com_str_lit_m("ast_EK_Nil");
+  case ast_EK_NilType:
+    return com_str_lit_m("ast_EK_NilType");
+  case ast_EK_Int:
+    return com_str_lit_m("ast_EK_Int");
+  case ast_EK_Real:
+    return com_str_lit_m("ast_EK_Real");
+  case ast_EK_String:
+    return com_str_lit_m("ast_EK_String");
+  case ast_EK_StructType:
+    return com_str_lit_m("ast_EK_StructType");
+  case ast_EK_EnumType:
+    return com_str_lit_m("ast_EK_EnumType");
+  case ast_EK_Fn:
+    return com_str_lit_m("ast_EK_Fn");
+  case ast_EK_FnType:
+    return com_str_lit_m("ast_EK_FnType");
+  case ast_EK_Loop:
+    return com_str_lit_m("ast_EK_Loop");
+  case ast_EK_New:
+    return com_str_lit_m("ast_EK_New");
+  case ast_EK_Struct:
+    return com_str_lit_m("ast_EK_Struct");
+  case ast_EK_BinaryOp:
+    return com_str_lit_m("ast_EK_BinaryOp");
+  case ast_EK_UnaryOp:
+    return com_str_lit_m("ast_EK_UnaryOp");
+  case ast_EK_Call:
+    return com_str_lit_m("ast_EK_Call");
+  case ast_EK_Pipe:
+    return com_str_lit_m("ast_EK_Pipe");
+  case ast_EK_Ret:
+    return com_str_lit_m("ast_EK_Ret");
+  case ast_EK_Match:
+    return com_str_lit_m("ast_EK_Match");
+  case ast_EK_Block:
+    return com_str_lit_m("ast_EK_Block");
+  case ast_EK_FieldAccess:
+    return com_str_lit_m("ast_EK_FieldAccess");
+  case ast_EK_Reference:
+    return com_str_lit_m("ast_EK_Reference");
+  case ast_EK_BindIgnore:
+    return com_str_lit_m("ast_EK_BindIgnore");
+  case ast_EK_Bind:
+    return com_str_lit_m("ast_EK_Bind");
+  case ast_EK_AtBind:
+    return com_str_lit_m("ast_EK_AtBind");
   }
-  com_assert_unreachable_m("unreachable");
 }
 
-
-
-
-com_str ast_strTypeKind(ast_TypeKind val) {
+com_str ast_strIdentifierKind(ast_IdentifierKind val) {
   switch (val) {
-  case ast_TK_None:
-    return com_str_lit_m("ast_TK_None");
-  case ast_TK_Omitted:
-    return com_str_lit_m("ast_TK_Omitted");
-  case ast_TK_Nil:
-    return com_str_lit_m("ast_TK_Nil");
-  case ast_TK_Never:
-    return com_str_lit_m("ast_TK_Never");
-  case ast_TK_Group:
-    return com_str_lit_m("ast_TK_Group");
-  case ast_TK_Reference:
-    return com_str_lit_m("ast_TK_Reference");
-  case ast_TK_Record:
-    return com_str_lit_m("ast_TK_Record");
-  case ast_TK_Fn:
-    return com_str_lit_m("ast_TK_Fn");
-  case ast_TK_Typefn:
-    return com_str_lit_m("ast_TK_Typefn");
-  case ast_TK_RecTypefn:
-    return com_str_lit_m("ast_TK_RecTypefn");
-  case ast_TK_TypefnCall:
-    return com_str_lit_m("ast_TK_TypefnCall");
-  case ast_TK_UnaryOp:
-    return com_str_lit_m("ast_TK_UnaryOp");
-  case ast_TK_BinaryOp:
-    return com_str_lit_m("ast_TK_BinaryOp");
-  case ast_TK_FieldAccess:
-    return com_str_lit_m("ast_TK_FieldAccess");
+  case ast_IK_None:
+    return com_str_lit_m("ast_IK_None");
+  case ast_IK_Identifier:
+    return com_str_lit_m("ast_IK_Identifier");
   }
-  com_assert_unreachable_m("unreachable");
 }
 
-
-com_str ast_strTypeUnaryOpKind(ast_TypeUnaryOpKind val) {
+com_str ast_strLabelKind(ast_LabelKind val) {
   switch (val) {
-  case ast_TEUOK_Ref:
-    return com_str_lit_m("Ref");
-  case ast_TEUOK_Deref:
-    return com_str_lit_m("Deref");
+  case ast_LK_None:
+    return com_str_lit_m("ast_LK_None");
+  case ast_LK_Omitted:
+    return com_str_lit_m("ast_LK_Omitted");
+  case ast_LK_Label:
+    return com_str_lit_m("ast_LK_Label");
   }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strTypeBinaryOpKind(ast_TypeBinaryOpKind val) {
-  switch (val) {
-  case ast_TEBOK_Product:
-    return com_str_lit_m("ast_TEBOK_Product");
-  case ast_TEBOK_Sum:
-    return com_str_lit_m("ast_TEBOK_Sum");
-  case ast_TEBOK_Union:
-    return com_str_lit_m("ast_TEBOK_Union");
-  case ast_TEBOK_Intersection:
-    return com_str_lit_m("ast_TEBOK_Intersection");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strValKind(ast_ValKind val) {
-  switch (val) {
-  case ast_VK_None:
-    return com_str_lit_m("ast_VK_None");
-  case ast_VK_Omitted:
-    return com_str_lit_m("ast_VK_Omitted");
-  case ast_VK_NilLiteral:
-    return com_str_lit_m("ast_VK_NilLiteral");
-  case ast_VK_BoolLiteral:
-    return com_str_lit_m("ast_VK_BoolLiteral");
-  case ast_VK_IntLiteral:
-    return com_str_lit_m("ast_VK_IntLiteral");
-  case ast_VK_FloatLiteral:
-    return com_str_lit_m("ast_VK_FloatLiteral");
-  case ast_VK_CharLiteral:
-    return com_str_lit_m("ast_VK_CharLiteral");
-  case ast_VK_RecFn:
-    return com_str_lit_m("ast_VK_RecFn");
-  case ast_VK_Fn:
-    return com_str_lit_m("ast_VK_Fn");
-  case ast_VK_Loop:
-    return com_str_lit_m("ast_VK_Loop");
-  case ast_VK_As:
-    return com_str_lit_m("ast_VK_As");
-  case ast_VK_StringLiteral:
-    return com_str_lit_m("ast_VK_StringLiteral");
-  case ast_VK_Record:
-    return com_str_lit_m("ast_VK_Record");
-  case ast_VK_BinaryOp:
-    return com_str_lit_m("ast_VK_BinaryOp");
-  case ast_VK_UnaryOp:
-    return com_str_lit_m("ast_VK_UnaryOp");
-  case ast_VK_Call:
-    return com_str_lit_m("ast_VK_Call");
-  case ast_VK_Pipe:
-    return com_str_lit_m("ast_VK_Pipe");
-  case ast_VK_Ret:
-    return com_str_lit_m("ast_VK_Ret");
-  case ast_VK_Match:
-    return com_str_lit_m("ast_VK_Match");
-  case ast_VK_Block:
-    return com_str_lit_m("ast_VK_Block");
-  case ast_VK_FieldAccess:
-    return com_str_lit_m("ast_VK_FieldAccess");
-  case ast_VK_Reference:
-    return com_str_lit_m("ast_VK_Reference");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strLabelBindingKind(ast_LabelBindingKind val) {
-  switch (val) {
-  case ast_LBK_Omitted:
-    return com_str_lit_m("Omitted");
-  case ast_LBK_Label:
-    return com_str_lit_m("Label");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strLabelReferenceKind(ast_LabelReferenceKind val) {
-  switch (val) {
-  case ast_LRK_None:
-    return com_str_lit_m("None");
-  case ast_LRK_Label:
-    return com_str_lit_m("Label");
-  }
-  com_assert_unreachable_m("unreachable");
 }
 
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val) {
   switch (val) {
   case ast_MCK_None:
-    return com_str_lit_m("None");
+    return com_str_lit_m("ast_MCK_None");
   case ast_MCK_Case:
-    return com_str_lit_m("Case");
+    return com_str_lit_m("ast_MCK_Case");
   }
-  com_assert_unreachable_m("unreachable");
 }
 
-com_str ast_strValUnaryOpKind(ast_ValUnaryOpKind val) {
+com_str ast_strCompoundTypeElementKind(ast_CompoundTypeElementKind val) {
   switch (val) {
-  case ast_VEUOK_Not:
-    return com_str_lit_m("Not");
-  case ast_VEUOK_Ref:
-    return com_str_lit_m("Ref");
-  case ast_VEUOK_Deref:
-    return com_str_lit_m("Deref");
+  case ast_CTEK_None:
+    return com_str_lit_m("ast_CTEK_None");
+  case ast_CTEK_Element:
+    return com_str_lit_m("ast_CTEK_Element");
   }
-  com_assert_unreachable_m("unreachable");
 }
 
-com_str ast_strValBinaryOpKind(ast_ValBinaryOpKind val) {
+com_str ast_strCompoundElementKind(ast_CompoundElementKind val) {
   switch (val) {
-  case ast_VEBOK_Add:
-    return com_str_lit_m("ast_VEBOK_Add");
-  case ast_VEBOK_Sub:
-    return com_str_lit_m("ast_VEBOK_Sub");
-  case ast_VEBOK_Mul:
-    return com_str_lit_m("ast_VEBOK_Mul");
-  case ast_VEBOK_IDiv:
-    return com_str_lit_m("ast_VEBOK_IDiv");
-  case ast_VEBOK_FDiv:
-    return com_str_lit_m("ast_VEBOK_FDiv");
-  case ast_VEBOK_IRem:
-    return com_str_lit_m("ast_VEBOK_IRem");
-  case ast_VEBOK_FRem:
-    return com_str_lit_m("ast_VEBOK_FRem");
-  case ast_VEBOK_And:
-    return com_str_lit_m("ast_VEBOK_And");
-  case ast_VEBOK_Or:
-    return com_str_lit_m("ast_VEBOK_Or");
-  case ast_VEBOK_Xor:
-    return com_str_lit_m("ast_VEBOK_Xor");
-  case ast_VEBOK_CompEqual:
-    return com_str_lit_m("ast_VEBOK_CompEqual");
-  case ast_VEBOK_CompNotEqual:
-    return com_str_lit_m("ast_VEBOK_CompNotEqual");
-  case ast_VEBOK_CompLess:
-    return com_str_lit_m("ast_VEBOK_CompLess");
-  case ast_VEBOK_CompLessEqual:
-    return com_str_lit_m("ast_VEBOK_CompLessEqual");
-  case ast_VEBOK_CompGreater:
-    return com_str_lit_m("ast_VEBOK_CompGreater");
-  case ast_VEBOK_CompGreaterEqual:
-    return com_str_lit_m("ast_VEBOK_CompGreaterEqual");
-  case ast_VEBOK_Pipeline:
-    return com_str_lit_m("ast_VEBOK_Pipeline");
-  case ast_VEBOK_Assign:
-    return com_str_lit_m("ast_VEBOK_Assign");
-  case ast_VEBOK_AssignAdd:
-    return com_str_lit_m("ast_VEBOK_AssignAdd");
-  case ast_VEBOK_AssignSub:
-    return com_str_lit_m("ast_VEBOK_AssignSub");
-  case ast_VEBOK_AssignMul:
-    return com_str_lit_m("ast_VEBOK_AssignMul");
-  case ast_VEBOK_AssignIDiv:
-    return com_str_lit_m("ast_VEBOK_AssignIDiv");
-  case ast_VEBOK_AssignFDiv:
-    return com_str_lit_m("ast_VEBOK_AssignFDiv");
-  case ast_VEBOK_AssignIRem:
-    return com_str_lit_m("ast_VEBOK_AssignIRem");
-  case ast_VEBOK_AssignFRem:
-    return com_str_lit_m("ast_VEBOK_AssignFRem");
-  case ast_VEBOK_Product:
-    return com_str_lit_m("ast_VEBOK_Product");
-  case ast_VEBOK_Union:
-    return com_str_lit_m("ast_VEBOK_Union");
-  case ast_VEBOK_Intersection:
-    return com_str_lit_m("ast_VEBOK_Intersection");
+  case ast_CEK_None:
+    return com_str_lit_m("ast_CEK_None");
+  case ast_CEK_Element:
+    return com_str_lit_m("ast_CEK_Element");
   }
-  com_assert_unreachable_m("unreachable");
 }
 
+com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val) {
+
+  switch (val) {
+  case ast_EUOK_Not:
+    return com_str_lit_m("ast_EUOK_Not");
+  case ast_EUOK_Ref:
+    return com_str_lit_m("ast_EUOK_Ref");
+  case ast_EUOK_Deref:
+    return com_str_lit_m("ast_EUOK_Deref");
+  case ast_EUOK_IneqGreater:
+    return com_str_lit_m("ast_EUOK_IneqGreater");
+  case ast_EUOK_IneqLesser:
+    return com_str_lit_m("ast_EUOK_IneqLesser");
+  case ast_EUOK_IneqLesserInclusive:
+    return com_str_lit_m("ast_EUOK_IneqLesserInclusive");
+  }
+}
+
+com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
+
+  switch (val) {
+  case ast_EBOK_Constrain:
+    return com_str_lit_m("ast_EBOK_Constrain");
+  case ast_EBOK_Add:
+    return com_str_lit_m("ast_EBOK_Add");
+  case ast_EBOK_Sub:
+    return com_str_lit_m("ast_EBOK_Sub");
+  case ast_EBOK_Mul:
+    return com_str_lit_m("ast_EBOK_Mul");
+  case ast_EBOK_Div:
+    return com_str_lit_m("ast_EBOK_Div");
+  case ast_EBOK_Rem:
+    return com_str_lit_m("ast_EBOK_Rem");
+  case ast_EBOK_And:
+    return com_str_lit_m("ast_EBOK_And");
+  case ast_EBOK_Or:
+    return com_str_lit_m("ast_EBOK_Or");
+  case ast_EBOK_Xor:
+    return com_str_lit_m("ast_EBOK_Xor");
+  case ast_EBOK_CompEqual:
+    return com_str_lit_m("ast_EBOK_CompEqual");
+  case ast_EBOK_CompNotEqual:
+    return com_str_lit_m("ast_EBOK_CompNotEqual");
+  case ast_EBOK_CompLess:
+    return com_str_lit_m("ast_EBOK_CompLess");
+  case ast_EBOK_CompLessEqual:
+    return com_str_lit_m("ast_EBOK_CompLessEqual");
+  case ast_EBOK_CompGreater:
+    return com_str_lit_m("ast_EBOK_CompGreater");
+  case ast_EBOK_CompGreaterEqual:
+    return com_str_lit_m("ast_EBOK_CompGreaterEqual");
+  case ast_EBOK_Union:
+    return com_str_lit_m("ast_EBOK_Union");
+  case ast_EBOK_Difference:
+    return com_str_lit_m("ast_EBOK_Difference");
+  case ast_EBOK_Intersection:
+    return com_str_lit_m("ast_EBOK_Intersection");
+  case ast_EBOK_SymDifference:
+    return com_str_lit_m("ast_EBOK_SymDifference");
+  case ast_EBOK_Product:
+    return com_str_lit_m("ast_EBOK_Product");
+  case ast_EBOK_Sum:
+    return com_str_lit_m("ast_EBOK_Sum");
+  case ast_EBOK_Assign:
+    return com_str_lit_m("ast_EBOK_Assign");
+  case ast_EBOK_Range:
+    return com_str_lit_m("ast_EBOK_Range");
+  case ast_EBOK_RangeInclusive:
+    return com_str_lit_m("ast_EBOK_RangeInclusive");
+  }
+}
 com_str ast_strStmntKind(ast_StmntKind val) {
+
   switch (val) {
   case ast_SK_None:
     return com_str_lit_m("ast_SK_None");
-  case ast_SK_Use:
-    return com_str_lit_m("ast_SK_Use");
-  case ast_SK_Mod:
-    return com_str_lit_m("ast_SK_Mod");
-  case ast_SK_ValDecl:
-    return com_str_lit_m("ast_SK_ValDecl");
-  case ast_SK_ValDeclDefine:
-    return com_str_lit_m("ast_SK_ValDeclDefine");
-  case ast_SK_TypeDecl:
-    return com_str_lit_m("ast_SK_TypeDecl");
-  case ast_SK_Val:
-    return com_str_lit_m("ast_SK_Val");
-  case ast_SK_DeferStmnt:
-    return com_str_lit_m("ast_SK_DeferStmnt");
+  case ast_SK_Let:
+    return com_str_lit_m("ast_SK_Let");
+  case ast_SK_Def:
+    return com_str_lit_m("ast_SK_Def");
+  case ast_SK_Expr:
+    return com_str_lit_m("ast_SK_Expr");
+  case ast_SK_Defer:
+    return com_str_lit_m("ast_SK_Defer");
   }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strPatUnaryOpKind(ast_PatUnaryOpKind val) {
-  switch (val) {
-  case ast_PEUOK_Not:
-    return com_str_lit_m("ast_PEUOK_Not");
-  case ast_PEUOK_Ref:
-    return com_str_lit_m("ast_PEUOK_Ref");
-  case ast_PEUOK_Deref:
-    return com_str_lit_m("ast_PEUOK_Deref");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strBindingKind(ast_BindingKind val) {
-  switch (val) {
-  case ast_BK_None:
-    return com_str_lit_m("None");
-  case ast_BK_Bind:
-    return com_str_lit_m("Bind");
-  case ast_BK_Ignore:
-    return com_str_lit_m("Ignore");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strReferenceKind(ast_ReferenceKind val) {
-  switch (val) {
-  case ast_RK_None:
-    return com_str_lit_m("None");
-  case ast_RK_Reference:
-    return com_str_lit_m("Reference");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strFieldKind(ast_FieldKind val) {
-  switch (val) {
-  case ast_FK_None:
-    return com_str_lit_m("ast_FK_None");
-  case ast_FK_FieldStr:
-    return com_str_lit_m("ast_FK_FieldStr");
-  case ast_FK_FieldInt:
-    return com_str_lit_m("ast_FK_FieldInt");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strModReferenceKind(ast_ModReferenceKind val) {
-  switch (val) {
-  case ast_MRK_None:
-    return com_str_lit_m("ast_MRK_None");
-  case ast_MRK_Omitted:
-    return com_str_lit_m("ast_MRK_Omitted");
-  case ast_MRK_Reference:
-    return com_str_lit_m("ast_MRK_Reference");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
-com_str ast_strModBindingKind(ast_ModBindingKind val) {
-  switch (val) {
-  case ast_MBK_None:
-    return com_str_lit_m("ast_MBK_None");
-  case ast_MBK_Binding:
-    return com_str_lit_m("ast_MBK_Binding");
-  }
-  com_assert_unreachable_m("unreachable");
 }

@@ -7,6 +7,9 @@
 #include "com_loc.h"
 #include "com_str.h"
 
+
+#include "ast.h"
+
 typedef enum {
   hir_IK_None,
   hir_IK_Identifier,
@@ -28,29 +31,18 @@ typedef struct {
   com_str data;
 } hir_Metadata;
 
-typedef struct {
-  com_loc_Span span;
-  hir_Metadata *metadata;
-  usize metadata_len;
-} hir_Common;
-
 typedef enum {
   hir_LK_None,
-  hir_LK_Omitted,
   hir_LK_Label,
 } hir_LabelKind;
 
 typedef struct {
-  com_loc_Span span;
-  hir_LabelKind kind;
-  union {
-    struct {
-      com_str label;
-    } label;
-  };
+  bool generated;
+  ast_Label* src;
 } hir_Label;
 
 typedef struct hir_Expr_s hir_Expr;
+typedef struct hir_Pat_s hir_Pat;
 typedef struct hir_Stmnt_s hir_Stmnt;
 
 typedef enum {
@@ -59,7 +51,6 @@ typedef enum {
 } hir_MatchCaseKind;
 
 typedef struct {
-  hir_Common common;
   hir_MatchCaseKind kind;
   union {
     struct {
@@ -75,7 +66,6 @@ typedef enum {
 } hir_CompoundTypeElementKind;
 
 typedef struct {
-  hir_Common common;
   hir_CompoundTypeElementKind kind;
   union {
     struct {
@@ -91,7 +81,6 @@ typedef enum {
 } hir_CompoundElementKind;
 
 typedef struct {
-  hir_Common common;
   hir_CompoundElementKind kind;
   union {
     struct {
@@ -176,7 +165,6 @@ typedef enum {
 } hir_ExprKind;
 
 typedef struct hir_Expr_s {
-  hir_Common common;
   hir_ExprKind kind;
   union {
     struct {
@@ -266,6 +254,11 @@ typedef struct hir_Expr_s {
   };
 } hir_Expr;
 
+typedef struct hir_Pat_s {
+} hir_Pat;
+
+
+
 typedef enum {
   hir_SK_None,
   hir_SK_Let,
@@ -275,7 +268,6 @@ typedef enum {
 } hir_StmntKind;
 
 typedef struct hir_Stmnt_s {
-  hir_Common common;
   hir_StmntKind kind;
   union {
     // Declarations

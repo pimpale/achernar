@@ -99,7 +99,7 @@ typedef enum {
   hir_EK_FnType,      // Creates a new type of a function
   hir_EK_Loop,        // Loops until a scope is returned
   hir_EK_New,         // Constructs a new compound type of another type
-  hir_EK_Struct,      // Constructs a new compound type
+  hir_EK_Struct,      // Constructs a new compound type ad hoc
   hir_EK_Call,        // Call a function with a product type
   hir_EK_Pipe,        // Syntactic sugar operator to evaluate a function postfix
   hir_EK_Ret,         // Returns from a scope with a value

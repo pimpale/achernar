@@ -1185,10 +1185,6 @@ static void ast_parsePrefixExpr(ast_Expr *l3, DiagnosticLogger *diagnostics,
 
 static bool ast_opDetRangeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
-  case tk_Constrain: {
-    *val = ast_EBOK_Constrain;
-    return true;
-  }
   case tk_Range: {
     *val = ast_EBOK_Range;
     return true;
@@ -1209,14 +1205,6 @@ static bool ast_opDetConstrainExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Constrain: {
     *val = ast_EBOK_Constrain;
-    return true;
-  }
-  case tk_Range: {
-    *val = ast_EBOK_Range;
-    return true;
-  }
-  case tk_RangeInclusive: {
-    *val = ast_EBOK_RangeInclusive;
     return true;
   }
   default: {

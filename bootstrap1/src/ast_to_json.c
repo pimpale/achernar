@@ -175,33 +175,6 @@ static com_json_Elem print_Label(ast_Label *label, com_allocator *a) {
   return print_objectify(&obj);
 }
 
-static com_json_Elem print_CompoundTypeElement(ast_CompoundTypeElement *ctep,
-                                               com_allocator *a) {
-  if (ctep == NULL) {
-    return com_json_null_m;
-  }
-  com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) =
-      mkprop_m("kind", com_json_str_m(com_str_lit_m("compound_type_element")));
-  print_appendCommon(ctep->common, &obj, a);
-  *push_prop_m(&obj) =
-      mkprop_m("compound_type_element_expr_kind",
-               com_json_str_m(ast_strCompoundTypeElementKind(ctep->kind)));
-  switch (ctep->kind) {
-  case ast_CTEK_None: {
-    // nop
-    break;
-  }
-  case ast_CTEK_Element: {
-    *push_prop_m(&obj) =
-        mkprop_m("name", print_Identifier(ctep->element.name, a));
-    *push_prop_m(&obj) = mkprop_m("type", print_Expr(ctep->element.type, a));
-    break;
-  }
-  }
-  return print_objectify(&obj);
-}
-
 static com_json_Elem print_CompoundElement(ast_CompoundElement *cep,
                                            com_allocator *a) {
   if (cep == NULL) {
@@ -321,7 +294,7 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     com_vec elements = print_vec_create_m(a);
     for (usize i = 0; i < vep->structType.elements_len; i++) {
       *com_vec_push_m(&elements, com_json_Elem) =
-          print_CompoundTypeElement(&vep->structType.elements[i], a);
+          print_CompoundElement(&vep->structType.elements[i], a);
     }
     *push_prop_m(&obj) =
         mkprop_m("struct_type_elements", print_arrayify(&elements));
@@ -331,7 +304,7 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     com_vec elements = print_vec_create_m(a);
     for (usize i = 0; i < vep->enumType.elements_len; i++) {
       *com_vec_push_m(&elements, com_json_Elem) =
-          print_CompoundTypeElement(&vep->enumType.elements[i], a);
+          print_CompoundElement(&vep->enumType.elements[i], a);
     }
     *push_prop_m(&obj) =
         mkprop_m("enum_type_elements", print_arrayify(&elements));

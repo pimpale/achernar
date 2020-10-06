@@ -37,7 +37,7 @@ typedef enum {
   tk_String,    // "string"
   tk_Int,       // 7
   // Math Operators
-  tk_Add,   // +
+  tk_Plus,  // +
   tk_Minus, // -
   tk_Mul,   // *
   tk_Div,   // /

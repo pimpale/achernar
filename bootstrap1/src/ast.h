@@ -90,9 +90,8 @@ typedef enum {
   ast_EUOK_Not,
   ast_EUOK_Ref,
   ast_EUOK_Deref,
-  ast_EUOK_IneqGreater,
-  ast_EUOK_IneqLesser,
-  ast_EUOK_IneqLesserInclusive,
+  ast_EUOK_Neg,
+  ast_EUOK_Pos,
 } ast_ExprUnaryOpKind;
 
 typedef enum {

@@ -713,7 +713,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         RETURN_RESULT_TOKEN2(tk_Union)
       }
       default: {
-        RETURN_RESULT_TOKEN1(tk_Add)
+        RETURN_RESULT_TOKEN1(tk_Plus)
       }
       }
     }

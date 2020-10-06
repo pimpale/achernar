@@ -686,7 +686,7 @@ static void ast_certain_parseStructExpr(ast_Expr *ptr,
 // 11 , | (type operators)
 // 12 = (Assignment)
 
-static void parseTermExpr(ast_Expr *l1, DiagnosticLogger *diagnostics,
+static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                           ast_Constructor *parser) {
 
   // value metadata;
@@ -697,80 +697,80 @@ static void parseTermExpr(ast_Expr *l1, DiagnosticLogger *diagnostics,
   switch (t.kind) {
   // Literals
   case tk_Nil: {
-    ast_certain_parseNilExpr(l1, diagnostics, parser);
+    ast_certain_parseNilExpr(l, diagnostics, parser);
     break;
   }
   case tk_NilType: {
-    ast_certain_parseNilTypeExpr(l1, diagnostics, parser);
+    ast_certain_parseNilTypeExpr(l, diagnostics, parser);
     break;
   }
   case tk_Int: {
-    ast_certain_parseIntExpr(l1, diagnostics, parser);
+    ast_certain_parseIntExpr(l, diagnostics, parser);
     break;
   }
   case tk_Real: {
-    ast_certain_parseRealExpr(l1, diagnostics, parser);
+    ast_certain_parseRealExpr(l, diagnostics, parser);
     break;
   }
   case tk_BracketLeft: {
-    ast_certain_parseStructExpr(l1, diagnostics, parser);
+    ast_certain_parseStructExpr(l, diagnostics, parser);
     break;
   }
   case tk_NeverType: {
-    ast_certain_parseNeverTypeExpr(l1, diagnostics, parser);
+    ast_certain_parseNeverTypeExpr(l, diagnostics, parser);
     break;
   }
   case tk_String: {
-    ast_certain_parseStringExpr(l1, diagnostics, parser);
+    ast_certain_parseStringExpr(l, diagnostics, parser);
     break;
   }
   case tk_BraceLeft: {
-    ast_certain_parseBlockExpr(l1, diagnostics, parser);
+    ast_certain_parseBlockExpr(l, diagnostics, parser);
     break;
   }
   case tk_Fn: {
-    ast_certain_parseFnExpr(l1, diagnostics, parser);
+    ast_certain_parseFnExpr(l, diagnostics, parser);
     break;
   }
   case tk_FnType: {
-    ast_certain_parseFnTypeExpr(l1, diagnostics, parser);
+    ast_certain_parseFnTypeExpr(l, diagnostics, parser);
     break;
   }
   case tk_Struct: {
-    ast_certain_parseStructTypeExpr(l1, diagnostics, parser);
+    ast_certain_parseStructTypeExpr(l, diagnostics, parser);
     break;
   }
   case tk_Enum: {
-    ast_certain_parseEnumTypeExpr(l1, diagnostics, parser);
+    ast_certain_parseEnumTypeExpr(l, diagnostics, parser);
     break;
   }
   case tk_Ret: {
-    ast_certain_parseRetExpr(l1, diagnostics, parser);
+    ast_certain_parseRetExpr(l, diagnostics, parser);
     break;
   }
   case tk_Loop: {
-    ast_certain_parseLoopExpr(l1, diagnostics, parser);
+    ast_certain_parseLoopExpr(l, diagnostics, parser);
     break;
   }
   case tk_At: {
-    ast_certain_parseAtLetExpr(l1, diagnostics, parser);
+    ast_certain_parseAtLetExpr(l, diagnostics, parser);
     break;
   }
   case tk_Bind: {
-    ast_certain_parseBindExpr(l1, diagnostics, parser);
+    ast_certain_parseBindExpr(l, diagnostics, parser);
     break;
   }
   case tk_BindIgnore: {
-    ast_certain_parseBindIgnoreExpr(l1, diagnostics, parser);
+    ast_certain_parseBindIgnoreExpr(l, diagnostics, parser);
     break;
   }
   case tk_Identifier: {
-    ast_certain_parseIdentifierExpr(l1, diagnostics, parser);
+    ast_certain_parseIdentifierExpr(l, diagnostics, parser);
     break;
   }
   default: {
-    l1->kind = ast_EK_None;
-    l1->common.span = t.span;
+    l->kind = ast_EK_None;
+    l->common.span = t.span;
     parse_next(parser, diagnostics);
     *dlogger_append(diagnostics) =
         (Diagnostic){.span = t.span,
@@ -779,8 +779,8 @@ static void parseTermExpr(ast_Expr *l1, DiagnosticLogger *diagnostics,
                      .children_len = 0};
   }
   }
-  l1->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  l1->common.metadata = com_vec_release(&metadata);
+  l->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  l->common.metadata = com_vec_release(&metadata);
 }
 
 static void ast_certain_postfix_parseFieldAcessExpr(
@@ -1004,14 +1004,14 @@ static void ast_certain_postfix_parseNewExpr(ast_Expr *nptr,
   return;
 }
 
-static void parsePostfixExpr(ast_Expr *l2, DiagnosticLogger *diagnostics,
+static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                              ast_Constructor *parser) {
   // Because it's postfix, we must take a somewhat
   // unorthodox approach here We Parse the level
   // one expr and then use a while loop to process
   // the rest of the stuff
 
-  ast_Expr *root = l2;
+  ast_Expr *root = l;
   parseTermExpr(root, diagnostics, parser);
 
   while (true) {
@@ -1101,39 +1101,47 @@ static void parsePostfixExpr(ast_Expr *l2, DiagnosticLogger *diagnostics,
   }
 }
 
-static void ast_parsePrefixExpr(ast_Expr *l3, DiagnosticLogger *diagnostics,
+static void ast_parsePrefixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                                 ast_Constructor *parser) {
   Token t = parse_peekPastMetadata(parser, diagnostics, 1);
   switch (t.kind) {
+  case tk_Plus: {
+    l->unaryOp.op = ast_EUOK_Pos;
+    break;
+  }
+  case tk_Minus: {
+    l->unaryOp.op = ast_EUOK_Neg;
+    break;
+  }
   case tk_Not: {
-    l3->unaryOp.op = ast_EUOK_Not;
+    l->unaryOp.op = ast_EUOK_Not;
     break;
   }
   default: {
     // there is no level 3 expression
-    parsePostfixExpr(l3, diagnostics, parser);
+    parsePostfixExpr(l, diagnostics, parser);
     return;
   }
   }
 
   // this will only execute if an L3 operator
   // exists
-  l3->kind = ast_EK_UnaryOp;
+  l->kind = ast_EK_UnaryOp;
 
   // first get metadata
   com_vec metadata = parse_getMetadata(parser, diagnostics);
-  l3->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  l3->common.metadata = com_vec_release(&metadata);
+  l->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  l->common.metadata = com_vec_release(&metadata);
   // consume operator
   parse_next(parser, diagnostics);
 
   // Now parse the rest of the expression
-  l3->unaryOp.operand = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parsePrefixExpr(l3->unaryOp.operand, diagnostics, parser);
+  l->unaryOp.operand = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parsePrefixExpr(l->unaryOp.operand, diagnostics, parser);
 
   // finally calculate the misc stuff
-  l3->common.span =
-      com_loc_span_m(t.span.start, l3->unaryOp.operand->common.span.end);
+  l->common.span =
+      com_loc_span_m(t.span.start, l->unaryOp.operand->common.span.end);
 
   // metadata
 }
@@ -1239,7 +1247,7 @@ FN_BINOP_PARSE_EXPR(ast_parseConstrainExpr, ast_opDetProductExpr, ast_parseProdu
 
 static bool ast_opDetSumExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
-  case tk_Add: {
+  case tk_Plus: {
     *val = ast_EBOK_Add;
     return true;
   }

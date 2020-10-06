@@ -427,17 +427,6 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
 
   com_loc_LnCol start = com_reader_position(r);
 
-  // drop any leading plus sign
-  if (lex_peek(r, 1) == '+') {
-    com_reader_drop_u8(r);
-  }
-  // drop any leading minus sign
-  bool negative = false;
-  if (lex_peek(r, 1) == '-') {
-    com_reader_drop_u8(r);
-    negative = true;
-  }
-
   u8 radix = 10;
   {
     // char one ahead
@@ -507,10 +496,6 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     com_bigdecimal decimal =
         parseNumFractionalComponent(r, diagnostics, a, radix, base_component);
 
-    if (negative) {
-      com_bigdecimal_negate(&decimal);
-    }
-
     return (Token){.kind = tk_Real,
                    .realToken = {.data = decimal},
                    .span = com_loc_span_m(start, com_reader_position(r))};
@@ -518,7 +503,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
     return (Token){.kind = tk_Int,
                    .intToken =
                        {
-                           .data = com_bigint_from(base_component, negative),
+                           .data = com_bigint_from(base_component, false),
                        },
                    .span = com_loc_span_m(start, com_reader_position(r))};
   }
@@ -607,10 +592,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_FnType;
   } else if (com_str_equal(str, com_str_lit_m("let"))) {
     token.kind = tk_Let;
-  } else if (com_str_equal(str, com_str_lit_m("Struct"))) {
-    token.kind = tk_StructType;
-  } else if (com_str_equal(str, com_str_lit_m("Enum"))) {
-    token.kind = tk_EnumType;
+  } else if (com_str_equal(str, com_str_lit_m("enum"))) {
+    token.kind = tk_Enum;
   } else if (com_str_equal(str, com_str_lit_m("struct"))) {
     token.kind = tk_Struct;
   } else if (com_str_equal(str, com_str_lit_m("new"))) {
@@ -625,6 +608,10 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Not;
   } else if (com_str_equal(str, com_str_lit_m("at"))) {
     token.kind = tk_At;
+  } else if (com_str_equal(str, com_str_lit_m("inf"))) {
+    token.kind = tk_Inf;
+  } else if (com_str_equal(str, com_str_lit_m("nan"))) {
+    token.kind = tk_Nan;
   } else if (com_str_equal(str, com_str_lit_m("Never"))) {
     token.kind = tk_NeverType;
   } else {
@@ -661,12 +648,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
   {                                                                            \
     com_reader_drop_u8(r);                                                     \
     RETURN_RESULT_TOKEN2(tokenType)                                            \
-  }
-
-#define RETURN_RESULT_TOKEN4(tokenType)                                        \
-  {                                                                            \
-    com_reader_drop_u8(r);                                                     \
-    RETURN_RESULT_TOKEN3(tokenType)                                            \
   }
 
 #define RETURN_UNKNOWN_TOKEN1()                                                \
@@ -737,10 +718,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '-': {
-      if (is_digit(lex_peek(r, 2))) {
-        return lexNumberLiteral(r, diagnostics, a);
-      }
-
       switch (lex_peek(r, 2)) {
       case '>': {
         RETURN_RESULT_TOKEN2(tk_Pipe)
@@ -749,7 +726,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         RETURN_RESULT_TOKEN2(tk_Difference)
       }
       default: {
-        RETURN_RESULT_TOKEN1(tk_Sub)
+        RETURN_RESULT_TOKEN1(tk_Minus)
       }
       }
     }
@@ -764,14 +741,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case ':': {
-      switch (lex_peek(r, 2)) {
-      case '=': {
-        RETURN_RESULT_TOKEN2(tk_Define)
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_Constrain)
-      }
-      }
+      RETURN_RESULT_TOKEN1(tk_Constrain)
     }
     case '&': {
       RETURN_RESULT_TOKEN1(tk_Ref)
@@ -847,16 +817,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       switch (lex_peek(r, 2)) {
       case '.': {
         switch (lex_peek(r, 3)) {
-        case '.': {
-          switch (lex_peek(r, 4)) {
-          case '=': {
-            RETURN_RESULT_TOKEN4(tk_IneqInclusive)
-          }
-          default: {
-            RETURN_RESULT_TOKEN3(tk_Ineq)
-          }
-          }
-        }
         case '=': {
           RETURN_RESULT_TOKEN3(tk_RangeInclusive)
         }

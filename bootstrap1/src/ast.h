@@ -71,22 +71,6 @@ typedef struct {
 } ast_MatchCase;
 
 typedef enum {
-  ast_CTEK_None,
-  ast_CTEK_Element,
-} ast_CompoundTypeElementKind;
-
-typedef struct {
-  ast_Common common;
-  ast_CompoundTypeElementKind kind;
-  union {
-    struct {
-      ast_Identifier *name;
-      ast_Expr *type;
-    } element;
-  };
-} ast_CompoundTypeElement;
-
-typedef enum {
   ast_CEK_None,
   ast_CEK_Element,
 } ast_CompoundElementKind;
@@ -139,10 +123,11 @@ typedef enum {
   // Type Manipulation
   ast_EBOK_Product,
   ast_EBOK_Sum,
-  // Misc
-  ast_EBOK_Assign,
+  // Range
   ast_EBOK_Range,
   ast_EBOK_RangeInclusive,
+  // Assign
+  ast_EBOK_Assign,
 } ast_ExprBinaryOpKind;
 
 typedef enum {
@@ -191,11 +176,11 @@ typedef struct ast_Expr_s {
       tk_StringLiteralKind kind;
     } stringLiteral;
     struct {
-      ast_CompoundTypeElement *elements;
+      ast_CompoundElement *elements;
       usize elements_len;
     } structType;
     struct {
-      ast_CompoundTypeElement *elements;
+      ast_CompoundElement *elements;
       usize elements_len;
     } enumType;
     struct {
@@ -302,7 +287,6 @@ com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strIdentifierKind(ast_IdentifierKind val);
 com_str ast_strLabelKind(ast_LabelKind val);
 com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
-com_str ast_strCompoundTypeElementKind(ast_CompoundTypeElementKind val);
 com_str ast_strCompoundElementKind(ast_CompoundElementKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);

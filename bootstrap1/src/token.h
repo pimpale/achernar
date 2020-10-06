@@ -15,32 +15,33 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_Loop,       // loop
-  tk_Match,      // match
-  tk_Ret,        // ret
-  tk_Defer,      // defer
-  tk_Let,        // let
-  tk_Def,        // def
-  tk_Fn,         // fn
-  tk_FnType,     // Fn
-  tk_At,         // at
-  tk_StructType, // Struct
-  tk_EnumType,   // Enum
-  tk_Struct,     // struct
-  tk_New,        // new
+  tk_Loop,   // loop
+  tk_Match,  // match
+  tk_Ret,    // ret
+  tk_Defer,  // defer
+  tk_Let,    // let
+  tk_Def,    // def
+  tk_Fn,     // fn
+  tk_FnType, // Fn
+  tk_At,     // at
+  tk_Enum,   // enum
+  tk_Struct, // struct
+  tk_New,    // new
   // Literals and constants
+  tk_Inf,       // inf
+  tk_Nan,       // nan
+  tk_Real,      // 0.7
   tk_Nil,       // nil
   tk_NilType,   // Nil
   tk_NeverType, // Never
   tk_String,    // "string"
-  tk_Real,      // 0.7
   tk_Int,       // 7
   // Math Operators
-  tk_Add, // +
-  tk_Sub, // -
-  tk_Mul, // *
-  tk_Div, // /
-  tk_Rem, // %
+  tk_Add,   // +
+  tk_Minus, // -
+  tk_Mul,   // *
+  tk_Div,   // /
+  tk_Rem,   // %
   // Set Operators
   tk_Union,         // ++
   tk_Difference,    // --
@@ -60,8 +61,6 @@ typedef enum {
   // Range Operators
   tk_Range,          // ..
   tk_RangeInclusive, // ..=
-  tk_Ineq,           // ...
-  tk_IneqInclusive,  // ...=
   // Comparison and Equality
   tk_CompEqual,        // ==
   tk_CompNotEqual,     // !=
@@ -70,7 +69,6 @@ typedef enum {
   tk_CompGreater,      // >
   tk_CompGreaterEqual, // >=
   // Assignment
-  tk_Define, // :=
   tk_Assign, // =
   // Arrows
   tk_Pipe,  // ->

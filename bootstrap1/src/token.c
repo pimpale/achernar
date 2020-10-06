@@ -28,10 +28,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_FnType");
   case tk_At:
     return com_str_lit_m("tk_At");
-  case tk_StructType:
-    return com_str_lit_m("tk_StructType");
-  case tk_EnumType:
-    return com_str_lit_m("tk_EnumType");
+  case tk_Enum:
+    return com_str_lit_m("tk_Enum");
   case tk_Struct:
     return com_str_lit_m("tk_Struct");
   case tk_New:
@@ -44,14 +42,18 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_NeverType");
   case tk_String:
     return com_str_lit_m("tk_String");
+  case tk_Nan:
+    return com_str_lit_m("tk_Nan");
+  case tk_Inf:
+    return com_str_lit_m("tk_Inf");
   case tk_Real:
     return com_str_lit_m("tk_Real");
   case tk_Int:
     return com_str_lit_m("tk_Int");
   case tk_Add:
     return com_str_lit_m("tk_Add");
-  case tk_Sub:
-    return com_str_lit_m("tk_Sub");
+  case tk_Minus:
+    return com_str_lit_m("tk_Minus");
   case tk_Mul:
     return com_str_lit_m("tk_Mul");
   case tk_Div:
@@ -86,10 +88,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Range");
   case tk_RangeInclusive:
     return com_str_lit_m("tk_RangeInclusive");
-  case tk_Ineq:
-    return com_str_lit_m("tk_Ineq");
-  case tk_IneqInclusive:
-    return com_str_lit_m("tk_IneqInclusive");
   case tk_CompEqual:
     return com_str_lit_m("tk_CompEqual");
   case tk_CompNotEqual:
@@ -102,8 +100,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_CompGreater");
   case tk_CompGreaterEqual:
     return com_str_lit_m("tk_CompGreaterEqual");
-  case tk_Define:
-    return com_str_lit_m("tk_Define");
   case tk_Assign:
     return com_str_lit_m("tk_Assign");
   case tk_Pipe:

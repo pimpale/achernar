@@ -498,11 +498,11 @@ static void ast_certain_parseBindIgnoreExpr(ast_Expr *wpp,
 }
 
 // Identifier `:` Type
-static void ast_parseCompoundTypeElement(ast_CompoundTypeElement *ptr,
-                                         DiagnosticLogger *diagnostics,
-                                         ast_Constructor *parser) {
+static void ast_parseCompoundElement(ast_CompoundElement *ptr,
+                                     DiagnosticLogger *diagnostics,
+                                     ast_Constructor *parser) {
   com_mem_zero_obj_m(ptr);
-  ptr->kind = ast_CTEK_Element;
+  ptr->kind = ast_CEK_Element;
 
   // accept metadata
   com_vec metadata = parse_getMetadata(parser, diagnostics);
@@ -530,9 +530,9 @@ static void ast_parseCompoundTypeElement(ast_CompoundTypeElement *ptr,
   }
 
   // Get Value
-  ptr->element.type = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(ptr->element.type, diagnostics, parser);
-  end = ptr->element.type->common.span.end;
+  ptr->element.val = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(ptr->element.val, diagnostics, parser);
+  end = ptr->element.val->common.span.end;
 
 CLEANUP:
   ptr->common.span = com_loc_span_m(start, end);
@@ -547,7 +547,7 @@ static void ast_certain_parseStructTypeExpr(ast_Expr *ptr,
 
   // guarantee token exists
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_StructType, "expected tk_StructType");
+  com_assert_m(t.kind == tk_Struct, "expected tk_Struct");
   com_loc_LnCol start = t.span.start;
 
   // now we must parse the block containing the
@@ -556,34 +556,33 @@ static void ast_certain_parseStructTypeExpr(ast_Expr *ptr,
 
   com_loc_LnCol end;
 
-  // Expect beginning brace
+  // Expect beginning bracket
   t = parse_next(parser, diagnostics);
 
-  if (t.kind != tk_BraceLeft) {
+  if (t.kind != tk_BracketLeft) {
     *dlogger_append(diagnostics) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
-                     .message = com_str_lit_m("expected left brace"),
+                     .message = com_str_lit_m("expected left bracket"),
                      .children_len = 0};
     end = t.span.end;
     goto CLEANUP;
   }
 
   PARSE_LIST(
-      &elements,                    // members_vec_ptr
-      diagnostics,                  // dlogger_ptr
-      ast_parseCompoundTypeElement, // member_parse_function
-      ast_CompoundTypeElement,      // member_kind
-      tk_BraceRight,                // delimiting_token_kind
-      "expected a closing right brace for struct type def ", // missing_delimiter_error
+      &elements,                // members_vec_ptr
+      diagnostics,              // dlogger_ptr
+      ast_parseCompoundElement, // member_parse_function
+      ast_CompoundElement,      // member_kind
+      tk_BracketRight,            // delimiting_token_kind
+      "expected a closing right bracket for struct type def ", // missing_delimiter_error
       end,                                                   // end_lncol
       parser                                                 // parser
   )
 
 CLEANUP:
   // Get interior elements
-  ptr->structType.elements_len =
-      com_vec_len_m(&elements, ast_CompoundTypeElement);
+  ptr->structType.elements_len = com_vec_len_m(&elements, ast_CompoundElement);
   ptr->structType.elements = com_vec_release(&elements);
   ptr->common.span = com_loc_span_m(start, end);
   return;
@@ -597,7 +596,7 @@ static void ast_certain_parseEnumTypeExpr(ast_Expr *ptr,
 
   // guarantee token exists
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_EnumType, "expected tk_EnumType");
+  com_assert_m(t.kind == tk_Enum, "expected tk_Enum");
   com_loc_LnCol start = t.span.start;
 
   // now we must parse the block containing the
@@ -606,75 +605,34 @@ static void ast_certain_parseEnumTypeExpr(ast_Expr *ptr,
 
   com_loc_LnCol end;
 
-  // Expect beginning brace
+  // Expect beginning bracket
   t = parse_next(parser, diagnostics);
 
-  if (t.kind != tk_BraceLeft) {
+  if (t.kind != tk_BracketLeft) {
     *dlogger_append(diagnostics) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
-                     .message = com_str_lit_m("expected left brace"),
+                     .message = com_str_lit_m("expected left bracket"),
                      .children_len = 0};
     end = t.span.end;
     goto CLEANUP;
   }
 
   PARSE_LIST(
-      &elements,                    // members_vec_ptr
-      diagnostics,                  // dlogger_ptr
-      ast_parseCompoundTypeElement, // member_parse_function
-      ast_CompoundTypeElement,      // member_kind
-      tk_BraceRight,                // delimiting_token_kind
-      "expected a closing right brace for enum type def ", // missing_delimiter_error
-      end,                                                 // end_lncol
-      parser                                               // parser
+      &elements,                // members_vec_ptr
+      diagnostics,              // dlogger_ptr
+      ast_parseCompoundElement, // member_parse_function
+      ast_CompoundElement,      // member_kind
+      tk_BracketRight,          // delimiting_token_kind
+      "expected a closing right bracket for enum type def ", // missing_delimiter_error
+      end,                                                   // end_lncol
+      parser                                                 // parser
   )
 
 CLEANUP:
   // Get interior elements
-  ptr->enumType.elements_len =
-      com_vec_len_m(&elements, ast_CompoundTypeElement);
+  ptr->enumType.elements_len = com_vec_len_m(&elements, ast_CompoundElement);
   ptr->enumType.elements = com_vec_release(&elements);
-  ptr->common.span = com_loc_span_m(start, end);
-  return;
-}
-
-// Identifier `:=` Value
-static void ast_parseCompoundElement(ast_CompoundElement *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
-  com_mem_zero_obj_m(ptr);
-  ptr->kind = ast_CEK_Element;
-
-  // accept metadata
-  com_vec metadata = parse_getMetadata(parser, diagnostics);
-
-  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  ptr->common.metadata = com_vec_release(&metadata);
-
-  // Get pattern
-  ptr->element.name = parse_alloc_obj_m(parser, ast_Identifier);
-  ast_parseIdentifier(ptr->element.name, diagnostics, parser);
-
-  com_loc_LnCol start = ptr->element.name->span.start;
-  com_loc_LnCol end;
-
-  // Expect define
-  Token t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Define) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m(
-                         "compound element expected define after identifier"),
-                     .children_len = 0};
-  }
-
-  // Get Value
-  ptr->element.val = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(ptr->element.val, diagnostics, parser);
-  end = ptr->element.val->common.span.end;
-
   ptr->common.span = com_loc_span_m(start, end);
   return;
 }
@@ -687,7 +645,7 @@ static void ast_certain_parseStructExpr(ast_Expr *ptr,
 
   // guarantee token exists
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Struct, "expected tk_Struct");
+  com_assert_m(t.kind == tk_BracketLeft, "expected tk_BracketLeft");
   com_loc_LnCol start = t.span.start;
 
   // now we must parse the block containing the
@@ -696,31 +654,17 @@ static void ast_certain_parseStructExpr(ast_Expr *ptr,
 
   com_loc_LnCol end;
 
-  // Expect beginning brace
-  t = parse_next(parser, diagnostics);
-
-  if (t.kind != tk_BraceLeft) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("expected left brace"),
-                     .children_len = 0};
-    end = t.span.end;
-    goto CLEANUP;
-  }
-
   PARSE_LIST(
       &elements,                // members_vec_ptr
       diagnostics,              // dlogger_ptr
       ast_parseCompoundElement, // member_parse_function
       ast_CompoundElement,      // member_kind
-      tk_BraceRight,            // delimiting_token_kind
-      "expected a closing right brace for struct type def ", // missing_delimiter_error
-      end,                                                   // end_lncol
-      parser                                                 // parser
+      tk_BracketRight,          // delimiting_token_kind
+      "expected a closing right bracket for struct type def ", // missing_delimiter_error
+      end,                                                     // end_lncol
+      parser                                                   // parser
   )
 
-CLEANUP:
   // Get interior elements
   ptr->structLiteral.elements_len =
       com_vec_len_m(&elements, ast_CompoundElement);
@@ -729,20 +673,21 @@ CLEANUP:
   return;
 }
 
-// Level1Val braces, literals
-// Level2Val match new () -> $ @ . ... (postfixes)
-// Level3Val not ... ...= (prefixes)
-// Level4Val .. ..= : (range + constraints)
-// Level5Val * / % (multiplication and division)
-// Level6Val + - (addition and subtraction)
-// Level7Val < <= > >= == != (comparators)
-// Level8Val and or xor (logical operators)
-// Level9Val ++ -- ^ !^ (set operators)
-// Level10Val , | (type operators)
-// Level11Val = (Assignment)
+// 1 braces, literals
+// 2 match new () -> $ @ . ... (postfixes)
+// 3 not - + (prefixes)
+// 4 .. ..= (range)
+// 5 : (constraints)
+// 6 * / % (multiplication and division)
+// 7 + - (addition and subtraction)
+// 8 < <= > >= == != (comparators)
+// 9 and or xor (logical operators)
+// 10 ++ -- ^ !^ (set operators)
+// 11 , | (type operators)
+// 12 = (Assignment)
 
-static void parseL1Expr(ast_Expr *l1, DiagnosticLogger *diagnostics,
-                        ast_Constructor *parser) {
+static void parseTermExpr(ast_Expr *l1, DiagnosticLogger *diagnostics,
+                          ast_Constructor *parser) {
 
   // value metadata;
   com_vec metadata = parse_getMetadata(parser, diagnostics);
@@ -767,7 +712,7 @@ static void parseL1Expr(ast_Expr *l1, DiagnosticLogger *diagnostics,
     ast_certain_parseRealExpr(l1, diagnostics, parser);
     break;
   }
-  case tk_Struct: {
+  case tk_BracketLeft: {
     ast_certain_parseStructExpr(l1, diagnostics, parser);
     break;
   }
@@ -791,11 +736,11 @@ static void parseL1Expr(ast_Expr *l1, DiagnosticLogger *diagnostics,
     ast_certain_parseFnTypeExpr(l1, diagnostics, parser);
     break;
   }
-  case tk_StructType: {
+  case tk_Struct: {
     ast_certain_parseStructTypeExpr(l1, diagnostics, parser);
     break;
   }
-  case tk_EnumType: {
+  case tk_Enum: {
     ast_certain_parseEnumTypeExpr(l1, diagnostics, parser);
     break;
   }
@@ -892,37 +837,37 @@ static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
                "expected tk_Pipe");
   parse_drop(parser, diagnostics);
 
-
   com_mem_zero_obj_m(pptr);
   pptr->kind = ast_EK_Pipe;
   pptr->pipe.root = root;
 
   pptr->pipe.fn = parse_alloc_obj_m(parser, ast_Expr);
-  parseL1Expr(pptr->pipe.fn, diagnostics, parser);
+  parseTermExpr(pptr->pipe.fn, diagnostics, parser);
 
   Token t = parse_next(parser, diagnostics);
   if (t.kind != tk_ParenLeft) {
-    *dlogger_append(diagnostics) = (Diagnostic){
-        .span = t.span,
-        .severity = DSK_Error,
-        .message = com_str_lit_m("pipe expr expected opening paren after function"),
-        .children_len = 0};
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = t.span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m(
+                         "pipe expr expected opening paren after function"),
+                     .children_len = 0};
   }
 
   pptr->pipe.parameters = parse_alloc_obj_m(parser, ast_Expr);
-  parseL1Expr(pptr->pipe.parameters, diagnostics, parser);
+  parseTermExpr(pptr->pipe.parameters, diagnostics, parser);
 
   t = parse_next(parser, diagnostics);
   if (t.kind != tk_ParenRight) {
-    *dlogger_append(diagnostics) = (Diagnostic){
-        .span = t.span,
-        .severity = DSK_Error,
-        .message = com_str_lit_m("pipe expr expected closing paren after parameters"),
-        .children_len = 0};
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = t.span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m(
+                         "pipe expr expected closing paren after parameters"),
+                     .children_len = 0};
   }
 
-  pptr->common.span =
-      com_loc_span_m(root->common.span.start, t.span.end);
+  pptr->common.span = com_loc_span_m(root->common.span.start, t.span.end);
 }
 
 // Expr `=>` Expr
@@ -1045,7 +990,7 @@ static void ast_certain_postfix_parseNewExpr(ast_Expr *nptr,
                ast_parseCompoundElement, // member_parse_function
                ast_CompoundElement,      // member_kind
                tk_BraceRight,            // delimiting_token_kind
-               "DK_NewNoRightBrace",   // missing_delimiter_error
+               "DK_NewNoRightBrace",     // missing_delimiter_error
                end,                      // end_lncol
                parser                    // parser
     )
@@ -1059,15 +1004,15 @@ static void ast_certain_postfix_parseNewExpr(ast_Expr *nptr,
   return;
 }
 
-static void parseL2Expr(ast_Expr *l2, DiagnosticLogger *diagnostics,
-                        ast_Constructor *parser) {
+static void parsePostfixExpr(ast_Expr *l2, DiagnosticLogger *diagnostics,
+                             ast_Constructor *parser) {
   // Because it's postfix, we must take a somewhat
   // unorthodox approach here We Parse the level
   // one expr and then use a while loop to process
   // the rest of the stuff
 
   ast_Expr *root = l2;
-  parseL1Expr(root, diagnostics, parser);
+  parseTermExpr(root, diagnostics, parser);
 
   while (true) {
     // represents the old operation
@@ -1096,19 +1041,6 @@ static void parseL2Expr(ast_Expr *l2, DiagnosticLogger *diagnostics,
       *v = *root;
       root->kind = ast_EK_UnaryOp;
       root->unaryOp.op = ast_EUOK_Deref;
-      root->unaryOp.operand = v;
-      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      parse_next(parser, diagnostics);
-      break;
-    }
-    case tk_Ineq: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      root->kind = ast_EK_UnaryOp;
-      root->unaryOp.op = ast_EUOK_IneqGreater;
       root->unaryOp.operand = v;
       root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
       root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
@@ -1169,25 +1101,17 @@ static void parseL2Expr(ast_Expr *l2, DiagnosticLogger *diagnostics,
   }
 }
 
-static void ast_parseL3Expr(ast_Expr *l3, DiagnosticLogger *diagnostics,
-                            ast_Constructor *parser) {
+static void ast_parsePrefixExpr(ast_Expr *l3, DiagnosticLogger *diagnostics,
+                                ast_Constructor *parser) {
   Token t = parse_peekPastMetadata(parser, diagnostics, 1);
   switch (t.kind) {
   case tk_Not: {
     l3->unaryOp.op = ast_EUOK_Not;
     break;
   }
-  case tk_Ineq: {
-    l3->unaryOp.op = ast_EUOK_IneqLesser;
-    break;
-  }
-  case tk_IneqInclusive: {
-    l3->unaryOp.op = ast_EUOK_IneqLesserInclusive;
-    break;
-  }
   default: {
     // there is no level 3 expression
-    parseL2Expr(l3, diagnostics, parser);
+    parsePostfixExpr(l3, diagnostics, parser);
     return;
   }
   }
@@ -1205,7 +1129,7 @@ static void ast_parseL3Expr(ast_Expr *l3, DiagnosticLogger *diagnostics,
 
   // Now parse the rest of the expression
   l3->unaryOp.operand = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseL3Expr(l3->unaryOp.operand, diagnostics, parser);
+  ast_parsePrefixExpr(l3->unaryOp.operand, diagnostics, parser);
 
   // finally calculate the misc stuff
   l3->common.span =
@@ -1220,25 +1144,24 @@ static void ast_parseL3Expr(ast_Expr *l3, DiagnosticLogger *diagnostics,
 // and right op_det_fn is the name of the function that determines the binary
 // operator this function should take a pointer to the type and return a bool if
 // successful
-#define FN_BINOP_PARSE_LX_EXPR(type, type_shorthand, x, lower_fn)              \
-  static void ast_parseL##x##type(ast_##type *expr,                            \
-                                  DiagnosticLogger *diagnostics,               \
-                                  ast_Constructor *parser) {                   \
-    ast_##type v;                                                              \
+#define FN_BINOP_PARSE_EXPR(lower_fn, switch_fn, fn_name)                   \
+  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics, \
+                                ast_Constructor *parser) {                     \
+    ast_Expr v;                                                                \
     lower_fn(&v, diagnostics, parser);                                         \
                                                                                \
     Token t = parse_peekPastMetadata(parser, diagnostics, 1);                  \
-    bool success = ast_opDetL##x##type(t.kind, &expr->binaryOp.op);            \
+    bool success = switch_fn(t.kind, &expr->binaryOp.op);                      \
     if (!success) {                                                            \
       /* there is no level x expression */                                     \
       *expr = v;                                                               \
       return;                                                                  \
     }                                                                          \
     /* this will only execute if the operator exists */                        \
-    expr->kind = type_shorthand##_BinaryOp;                                    \
+    expr->kind = ast_EK_BinaryOp;                                              \
                                                                                \
     /* set the left side */                                                    \
-    expr->binaryOp.left_operand = parse_alloc_obj_m(parser, ast_##type);       \
+    expr->binaryOp.left_operand = parse_alloc_obj_m(parser, ast_Expr);         \
     *expr->binaryOp.left_operand = v;                                          \
                                                                                \
     /* first get metadata */                                                   \
@@ -1249,8 +1172,8 @@ static void ast_parseL3Expr(ast_Expr *l3, DiagnosticLogger *diagnostics,
     parse_next(parser, diagnostics);                                           \
                                                                                \
     /* now parse the rest of the expression */                                 \
-    expr->binaryOp.right_operand = parse_alloc_obj_m(parser, ast_##type);      \
-    ast_parseL##x##type(expr->binaryOp.right_operand, diagnostics, parser);    \
+    expr->binaryOp.right_operand = parse_alloc_obj_m(parser, ast_Expr);        \
+    fn_name(expr->binaryOp.right_operand, diagnostics, parser);                \
                                                                                \
     /* calculate misc stuff */                                                 \
     expr->common.span =                                                        \
@@ -1260,7 +1183,7 @@ static void ast_parseL3Expr(ast_Expr *l3, DiagnosticLogger *diagnostics,
     return;                                                                    \
   }
 
-static bool ast_opDetL4Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetRangeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Constrain: {
     *val = ast_EBOK_Constrain;
@@ -1280,9 +1203,31 @@ static bool ast_opDetL4Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 4, ast_parseL3Expr)
+FN_BINOP_PARSE_EXPR(ast_parsePrefixExpr, ast_opDetRangeExpr, ast_parseRangeExpr)
 
-static bool ast_opDetL5Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetConstrainExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+  switch (tk) {
+  case tk_Constrain: {
+    *val = ast_EBOK_Constrain;
+    return true;
+  }
+  case tk_Range: {
+    *val = ast_EBOK_Range;
+    return true;
+  }
+  case tk_RangeInclusive: {
+    *val = ast_EBOK_RangeInclusive;
+    return true;
+  }
+  default: {
+    return false;
+  }
+  }
+}
+
+FN_BINOP_PARSE_EXPR(ast_parseRangeExpr, ast_opDetConstrainExpr, ast_parseConstrainExpr)
+
+static bool ast_opDetProductExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Mul: {
     *val = ast_EBOK_Mul;
@@ -1302,15 +1247,15 @@ static bool ast_opDetL5Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 5, ast_parseL4Expr)
+FN_BINOP_PARSE_EXPR(ast_parseConstrainExpr, ast_opDetProductExpr, ast_parseProductExpr)
 
-static bool ast_opDetL6Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetSumExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Add: {
     *val = ast_EBOK_Add;
     return true;
   }
-  case tk_Sub: {
+  case tk_Minus: {
     *val = ast_EBOK_Sub;
     return true;
   }
@@ -1320,9 +1265,9 @@ static bool ast_opDetL6Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 6, ast_parseL5Expr)
+FN_BINOP_PARSE_EXPR(ast_parseProductExpr, ast_opDetSumExpr, ast_parseSumExpr)
 
-static bool ast_opDetL7Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetCompareExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_CompLess: {
     *val = ast_EBOK_CompLess;
@@ -1354,9 +1299,9 @@ static bool ast_opDetL7Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 7, ast_parseL6Expr)
+FN_BINOP_PARSE_EXPR(ast_parseSumExpr, ast_opDetCompareExpr, ast_parseCompareExpr)
 
-static bool ast_opDetL8Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetBooleanExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_And: {
     *val = ast_EBOK_And;
@@ -1376,9 +1321,9 @@ static bool ast_opDetL8Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 8, ast_parseL7Expr)
+FN_BINOP_PARSE_EXPR(ast_parseCompareExpr, ast_opDetBooleanExpr, ast_parseBooleanExpr)
 
-static bool ast_opDetL9Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetSetExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Union: {
     *val = ast_EBOK_Union;
@@ -1402,9 +1347,9 @@ static bool ast_opDetL9Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 9, ast_parseL8Expr)
+FN_BINOP_PARSE_EXPR(ast_parseBooleanExpr, ast_opDetSetExpr, ast_parseSetExpr)
 
-static bool ast_opDetL10Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetTypeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Sum: {
     *val = ast_EBOK_Sum;
@@ -1420,9 +1365,9 @@ static bool ast_opDetL10Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 10, ast_parseL9Expr)
+FN_BINOP_PARSE_EXPR(ast_parseSetExpr, ast_opDetTypeExpr, ast_parseTypeExpr)
 
-static bool ast_opDetL11Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetAssignExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Assign: {
     *val = ast_EBOK_Assign;
@@ -1434,12 +1379,12 @@ static bool ast_opDetL11Expr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_LX_EXPR(Expr, ast_EK, 11, ast_parseL10Expr)
+FN_BINOP_PARSE_EXPR(ast_parseTypeExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
 
 // shim method
 static void ast_parseExpr(ast_Expr *ptr, DiagnosticLogger *diagnostics,
                           ast_Constructor *parser) {
-  ast_parseL11Expr(ptr, diagnostics, parser);
+  ast_parseAssignExpr(ptr, diagnostics, parser);
 }
 
 static void ast_certain_parseDefStmnt(ast_Stmnt *vdsp,
@@ -1479,7 +1424,7 @@ static void ast_certain_parseLetStmnt(ast_Stmnt *vlsp,
 
   // Expect define
   t = parse_peek(parser, diagnostics, 1);
-  if (t.kind == tk_Define) {
+  if (t.kind == tk_Assign) {
     // accept the define token
     parse_next(parser, diagnostics);
 
@@ -1492,7 +1437,7 @@ static void ast_certain_parseLetStmnt(ast_Stmnt *vlsp,
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m(
-                         "Expected := after pattern and a value to assign"),
+                         "Expected tk_Assign after pattern and a value to assign"),
                      .children_len = 0};
 
     vlsp->let.val = parse_alloc_obj_m(parser, ast_Expr);

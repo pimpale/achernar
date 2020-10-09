@@ -93,8 +93,6 @@ typedef enum {
   hir_EK_Int,         // Literal for an integer number
   hir_EK_Real,        // Literal for a real (floating point) number
   hir_EK_String,      // A string literal
-  hir_EK_StructType,  // Creates a new struct type from fields
-  hir_EK_EnumType,    // Creates a new enum type from fields
   hir_EK_Fn,          // Creates a new function
   hir_EK_FnType,      // Creates a new type of a function
   hir_EK_Loop,        // Loops until a scope is returned
@@ -123,14 +121,6 @@ typedef struct hir_Expr_s {
     struct {
       com_str value;
     } stringLiteral;
-    struct {
-      hir_CompoundTypeElement *elements;
-      usize elements_len;
-    } structType;
-    struct {
-      hir_CompoundTypeElement *elements;
-      usize elements_len;
-    } enumType;
     struct {
       hir_CompoundElement *elements;
       usize elements_len;

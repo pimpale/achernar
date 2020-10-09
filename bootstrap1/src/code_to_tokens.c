@@ -592,10 +592,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_FnType;
   } else if (com_str_equal(str, com_str_lit_m("let"))) {
     token.kind = tk_Let;
-  } else if (com_str_equal(str, com_str_lit_m("enum"))) {
-    token.kind = tk_Enum;
-  } else if (com_str_equal(str, com_str_lit_m("struct"))) {
-    token.kind = tk_Struct;
   } else if (com_str_equal(str, com_str_lit_m("new"))) {
     token.kind = tk_New;
   } else if (com_str_equal(str, com_str_lit_m("and"))) {

@@ -138,8 +138,6 @@ typedef enum {
   ast_EK_Int,         // Literal for an integer number
   ast_EK_Real,        // Literal for a real (floating point) number
   ast_EK_String,      // A string literal
-  ast_EK_StructType,  // Creates a new struct type from fields
-  ast_EK_EnumType,    // Creates a new enum type from fields
   ast_EK_Fn,          // Creates a new function
   ast_EK_FnType,      // Creates a new type of a function
   ast_EK_Loop,        // Loops until a scope is returned
@@ -174,14 +172,6 @@ typedef struct ast_Expr_s {
       com_str value;
       tk_StringLiteralKind kind;
     } stringLiteral;
-    struct {
-      ast_CompoundElement *elements;
-      usize elements_len;
-    } structType;
-    struct {
-      ast_CompoundElement *elements;
-      usize elements_len;
-    } enumType;
     struct {
       ast_CompoundElement *elements;
       usize elements_len;

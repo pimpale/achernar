@@ -539,104 +539,6 @@ CLEANUP:
   return;
 }
 
-static void ast_certain_parseStructTypeExpr(ast_Expr *ptr,
-                                            DiagnosticLogger *diagnostics,
-                                            ast_Constructor *parser) {
-  com_mem_zero_obj_m(ptr);
-  ptr->kind = ast_EK_StructType;
-
-  // guarantee token exists
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Struct, "expected tk_Struct");
-  com_loc_LnCol start = t.span.start;
-
-  // now we must parse the block containing the
-  // cases
-  com_vec elements = parse_alloc_vec(parser);
-
-  com_loc_LnCol end;
-
-  // Expect beginning bracket
-  t = parse_next(parser, diagnostics);
-
-  if (t.kind != tk_BracketLeft) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("expected left bracket"),
-                     .children_len = 0};
-    end = t.span.end;
-    goto CLEANUP;
-  }
-
-  PARSE_LIST(
-      &elements,                // members_vec_ptr
-      diagnostics,              // dlogger_ptr
-      ast_parseCompoundElement, // member_parse_function
-      ast_CompoundElement,      // member_kind
-      tk_BracketRight,            // delimiting_token_kind
-      "expected a closing right bracket for struct type def ", // missing_delimiter_error
-      end,                                                   // end_lncol
-      parser                                                 // parser
-  )
-
-CLEANUP:
-  // Get interior elements
-  ptr->structType.elements_len = com_vec_len_m(&elements, ast_CompoundElement);
-  ptr->structType.elements = com_vec_release(&elements);
-  ptr->common.span = com_loc_span_m(start, end);
-  return;
-}
-
-static void ast_certain_parseEnumTypeExpr(ast_Expr *ptr,
-                                          DiagnosticLogger *diagnostics,
-                                          ast_Constructor *parser) {
-  com_mem_zero_obj_m(ptr);
-  ptr->kind = ast_EK_EnumType;
-
-  // guarantee token exists
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Enum, "expected tk_Enum");
-  com_loc_LnCol start = t.span.start;
-
-  // now we must parse the block containing the
-  // cases
-  com_vec elements = parse_alloc_vec(parser);
-
-  com_loc_LnCol end;
-
-  // Expect beginning bracket
-  t = parse_next(parser, diagnostics);
-
-  if (t.kind != tk_BracketLeft) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("expected left bracket"),
-                     .children_len = 0};
-    end = t.span.end;
-    goto CLEANUP;
-  }
-
-  PARSE_LIST(
-      &elements,                // members_vec_ptr
-      diagnostics,              // dlogger_ptr
-      ast_parseCompoundElement, // member_parse_function
-      ast_CompoundElement,      // member_kind
-      tk_BracketRight,          // delimiting_token_kind
-      "expected a closing right bracket for enum type def ", // missing_delimiter_error
-      end,                                                   // end_lncol
-      parser                                                 // parser
-  )
-
-CLEANUP:
-  // Get interior elements
-  ptr->enumType.elements_len = com_vec_len_m(&elements, ast_CompoundElement);
-  ptr->enumType.elements = com_vec_release(&elements);
-  ptr->common.span = com_loc_span_m(start, end);
-  return;
-}
-
 static void ast_certain_parseStructExpr(ast_Expr *ptr,
                                         DiagnosticLogger *diagnostics,
                                         ast_Constructor *parser) {
@@ -734,14 +636,6 @@ static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   }
   case tk_FnType: {
     ast_certain_parseFnTypeExpr(l, diagnostics, parser);
-    break;
-  }
-  case tk_Struct: {
-    ast_certain_parseStructTypeExpr(l, diagnostics, parser);
-    break;
-  }
-  case tk_Enum: {
-    ast_certain_parseEnumTypeExpr(l, diagnostics, parser);
     break;
   }
   case tk_Ret: {

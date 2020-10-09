@@ -28,10 +28,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_FnType");
   case tk_At:
     return com_str_lit_m("tk_At");
-  case tk_Enum:
-    return com_str_lit_m("tk_Enum");
-  case tk_Struct:
-    return com_str_lit_m("tk_Struct");
   case tk_New:
     return com_str_lit_m("tk_New");
   case tk_Nil:
@@ -50,8 +46,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Real");
   case tk_Int:
     return com_str_lit_m("tk_Int");
-  case tk_Add:
-    return com_str_lit_m("tk_Add");
+  case tk_Plus:
+    return com_str_lit_m("tk_Plus");
   case tk_Minus:
     return com_str_lit_m("tk_Minus");
   case tk_Mul:

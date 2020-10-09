@@ -24,8 +24,6 @@ typedef enum {
   tk_Fn,     // fn
   tk_FnType, // Fn
   tk_At,     // at
-  tk_Enum,   // enum
-  tk_Struct, // struct
   tk_New,    // new
   // Literals and constants
   tk_Inf,       // inf

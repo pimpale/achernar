@@ -7,7 +7,12 @@
 #include "com_loc.h"
 #include "com_str.h"
 
-#include "ast.h"
+typedef struct {
+  bool generated;
+  com_loc_Span span;
+  com_str *metadata;
+  usize metadata_len;
+} hir_Common;
 
 typedef enum {
   hir_IK_None,
@@ -15,6 +20,7 @@ typedef enum {
 } hir_IdentifierKind;
 
 typedef struct {
+  hir_Common common;
   hir_IdentifierKind kind;
   union {
     struct {
@@ -22,18 +28,6 @@ typedef struct {
     } id;
   };
 } hir_Identifier;
-
-typedef enum {
-  hir_LK_None,
-  hir_LK_Label,
-} hir_LabelKind;
-
-typedef struct {
-  bool generated;
-  ast_Label* src;
-
-
-} hir_Label;
 
 typedef struct hir_Expr_s hir_Expr;
 typedef struct hir_Pat_s hir_Pat;
@@ -45,6 +39,7 @@ typedef enum {
 } hir_MatchCaseKind;
 
 typedef struct {
+  hir_Common common;
   hir_MatchCaseKind kind;
   union {
     struct {
@@ -55,26 +50,12 @@ typedef struct {
 } hir_MatchCase;
 
 typedef enum {
-  hir_CTEK_None,
-  hir_CTEK_Element,
-} hir_CompoundTypeElementKind;
-
-typedef struct {
-  hir_CompoundTypeElementKind kind;
-  union {
-    struct {
-      hir_Identifier *name;
-      hir_Expr *type;
-    } element;
-  };
-} hir_CompoundTypeElement;
-
-typedef enum {
   hir_CEK_None,
   hir_CEK_Element,
 } hir_CompoundElementKind;
 
 typedef struct {
+  hir_Common common;
   hir_CompoundElementKind kind;
   union {
     struct {
@@ -110,6 +91,7 @@ typedef enum {
 
 
 typedef struct hir_Expr_s {
+  hir_Common common;
   hir_ExprKind kind;
   union {
     struct {
@@ -132,7 +114,9 @@ typedef struct hir_Expr_s {
     } new;
     struct {
       hir_Expr *body;
-      hir_Label *label;
+
+      hir_Expr *defers;
+      usize defers_len;
     } loop;
     struct {
       hir_Expr *root;
@@ -163,7 +147,7 @@ typedef struct hir_Expr_s {
     } fnType;
     struct {
       hir_Expr *expr;
-      hir_Label *label;
+      hir_Expr *targetConstruct;
     } ret;
     struct {
       hir_Expr *root;
@@ -171,9 +155,13 @@ typedef struct hir_Expr_s {
       usize cases_len;
     } match;
     struct {
-      hir_Label *label;
       hir_Stmnt *stmnts;
       usize stmnts_len;
+
+      hir_Expr *retval;
+
+      hir_Expr *defers;
+      usize defers_len;
     } block;
   };
 } hir_Expr;
@@ -187,6 +175,9 @@ typedef enum {
 } hir_PatKind;
 
 typedef struct hir_Pat_s {
+  hir_Common common;
+  hir_PatKind kind;
+  union {
     struct {
       hir_Pat *pat;
     } any;
@@ -194,13 +185,14 @@ typedef struct hir_Pat_s {
       hir_Pat *pat;
       hir_Identifier *binding;
     } bind;
+  };
 } hir_Pat;
 
 typedef enum {
   hir_SK_None,
   hir_SK_Let,
+  hir_SK_Def,
   hir_SK_Expr,
-  hir_SK_Defer,
 } hir_StmntKind;
 
 typedef struct hir_Stmnt_s {
@@ -212,20 +204,17 @@ typedef struct hir_Stmnt_s {
       hir_Expr *val;
     } let;
     struct {
+      hir_Expr *pat;
+    } def;
+    struct {
       hir_Expr *expr;
     } expr;
-    struct {
-      hir_Label *label;
-      hir_Expr *val;
-    } defer;
   };
 } hir_Stmnt;
 
 com_str hir_strExprKind(hir_ExprKind val);
 com_str hir_strIdentifierKind(hir_IdentifierKind val);
-com_str hir_strLabelKind(hir_LabelKind val);
 com_str hir_strMatchCaseKind(hir_MatchCaseKind val);
-com_str hir_strCompoundTypeElementKind(hir_CompoundTypeElementKind val);
 com_str hir_strCompoundElementKind(hir_CompoundElementKind val);
 com_str hir_strStmntKind(hir_StmntKind val);
 

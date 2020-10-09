@@ -19,10 +19,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Real");
   case ast_EK_String:
     return com_str_lit_m("ast_EK_String");
-  case ast_EK_StructType:
-    return com_str_lit_m("ast_EK_StructType");
-  case ast_EK_EnumType:
-    return com_str_lit_m("ast_EK_EnumType");
   case ast_EK_Fn:
     return com_str_lit_m("ast_EK_Fn");
   case ast_EK_FnType:
@@ -89,15 +85,6 @@ com_str ast_strMatchCaseKind(ast_MatchCaseKind val) {
   }
 }
 
-com_str ast_strCompoundTypeElementKind(ast_CompoundTypeElementKind val) {
-  switch (val) {
-  case ast_CTEK_None:
-    return com_str_lit_m("ast_CTEK_None");
-  case ast_CTEK_Element:
-    return com_str_lit_m("ast_CTEK_Element");
-  }
-}
-
 com_str ast_strCompoundElementKind(ast_CompoundElementKind val) {
   switch (val) {
   case ast_CEK_None:
@@ -108,20 +95,17 @@ com_str ast_strCompoundElementKind(ast_CompoundElementKind val) {
 }
 
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val) {
-
   switch (val) {
   case ast_EUOK_Not:
     return com_str_lit_m("ast_EUOK_Not");
+  case ast_EUOK_Neg:
+    return com_str_lit_m("ast_EUOK_Neg");
+  case ast_EUOK_Pos:
+    return com_str_lit_m("ast_EUOK_Pos");
   case ast_EUOK_Ref:
     return com_str_lit_m("ast_EUOK_Ref");
   case ast_EUOK_Deref:
     return com_str_lit_m("ast_EUOK_Deref");
-  case ast_EUOK_IneqGreater:
-    return com_str_lit_m("ast_EUOK_IneqGreater");
-  case ast_EUOK_IneqLesser:
-    return com_str_lit_m("ast_EUOK_IneqLesser");
-  case ast_EUOK_IneqLesserInclusive:
-    return com_str_lit_m("ast_EUOK_IneqLesserInclusive");
   }
 }
 

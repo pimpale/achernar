@@ -277,7 +277,7 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
           print_CompoundElement(&vep->structLiteral.elements[i], a);
     }
     *push_prop_m(&obj) =
-        mkprop_m("struct_literal_elements", print_arrayify(&elements));
+        mkprop_m("struct_elements", print_arrayify(&elements));
     break;
   }
   case ast_EK_New: {
@@ -288,26 +288,6 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
           print_CompoundElement(&vep->new.elements[i], a);
     }
     *push_prop_m(&obj) = mkprop_m("new_elements", print_arrayify(&elements));
-    break;
-  }
-  case ast_EK_StructType: {
-    com_vec elements = print_vec_create_m(a);
-    for (usize i = 0; i < vep->structType.elements_len; i++) {
-      *com_vec_push_m(&elements, com_json_Elem) =
-          print_CompoundElement(&vep->structType.elements[i], a);
-    }
-    *push_prop_m(&obj) =
-        mkprop_m("struct_type_elements", print_arrayify(&elements));
-    break;
-  }
-  case ast_EK_EnumType: {
-    com_vec elements = print_vec_create_m(a);
-    for (usize i = 0; i < vep->enumType.elements_len; i++) {
-      *com_vec_push_m(&elements, com_json_Elem) =
-          print_CompoundElement(&vep->enumType.elements[i], a);
-    }
-    *push_prop_m(&obj) =
-        mkprop_m("enum_type_elements", print_arrayify(&elements));
     break;
   }
   case ast_EK_Pipe: {

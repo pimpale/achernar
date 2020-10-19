@@ -202,30 +202,6 @@ static com_json_Elem print_CompoundElement(ast_CompoundElement *cep,
   return print_objectify(&obj);
 }
 
-static com_json_Elem print_MatchCase(ast_MatchCase *mcep, com_allocator *a) {
-  if (mcep == NULL) {
-    return com_json_null_m;
-  }
-  com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) =
-      mkprop_m("kind", com_json_str_m(com_str_lit_m("match_case")));
-  print_appendCommon(mcep->common, &obj, a);
-  *push_prop_m(&obj) = mkprop_m(
-      "match_case_kind", com_json_str_m(ast_strMatchCaseKind(mcep->kind)));
-  switch (mcep->kind) {
-  case ast_MCK_None: {
-    // nop
-    break;
-  }
-  case ast_MCK_Case: {
-    *push_prop_m(&obj) = mkprop_m("pat", print_Expr(mcep->matchCase.pat, a));
-    *push_prop_m(&obj) = mkprop_m("val", print_Expr(mcep->matchCase.val, a));
-    break;
-  }
-  }
-  return print_objectify(&obj);
-}
-
 static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   if (vep == NULL) {
     return com_json_null_m;
@@ -238,8 +214,7 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   case ast_EK_None:
   case ast_EK_NeverType:
   case ast_EK_NilType:
-  case ast_EK_BindIgnore:
-  case ast_EK_Nil: {
+  case ast_EK_BindIgnore: {
     // nop
     break;
   }
@@ -293,8 +268,6 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   case ast_EK_Pipe: {
     *push_prop_m(&obj) = mkprop_m("pipe_root", print_Expr(vep->pipe.root, a));
     *push_prop_m(&obj) = mkprop_m("pipe_fn", print_Expr(vep->pipe.fn, a));
-    *push_prop_m(&obj) =
-        mkprop_m("pipe_parameters", print_Expr(vep->pipe.parameters, a));
     break;
   }
   case ast_EK_Loop: {
@@ -333,13 +306,8 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
                                   print_Expr(vep->binaryOp.right_operand, a));
     break;
   }
-  case ast_EK_Fn: {
-    *push_prop_m(&obj) =
-        mkprop_m("fn_parameters", print_Expr(vep->fn.parameters, a));
-    *push_prop_m(&obj) = mkprop_m("fn_body", print_Expr(vep->fn.body, a));
-    break;
-  }
   case ast_EK_FnType: {
+    // TODO
     *push_prop_m(&obj) =
         mkprop_m("fn_type_parameters", print_Expr(vep->fnType.parameters, a));
     *push_prop_m(&obj) =
@@ -362,7 +330,7 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     com_vec cases = print_vec_create_m(a);
     for (usize i = 0; i < vep->match.cases_len; i++) {
       *com_vec_push_m(&cases, com_json_Elem) =
-          print_MatchCase(&vep->match.cases[i], a);
+          print_Expr(&vep->match.cases[i], a);
     }
     *push_prop_m(&obj) = mkprop_m("match_cases", print_arrayify(&cases));
     break;
@@ -396,13 +364,9 @@ static com_json_Elem print_Stmnt(ast_Stmnt *sp, com_allocator *a) {
     // nop
     break;
   }
-  case ast_SK_Def: {
-    *push_prop_m(&obj) = mkprop_m("def_pat", print_Expr(sp->def.pat, a));
-    break;
-  }
-  case ast_SK_Let: {
-    *push_prop_m(&obj) = mkprop_m("let_pat", print_Expr(sp->let.pat, a));
-    *push_prop_m(&obj) = mkprop_m("let_val", print_Expr(sp->let.val, a));
+  case ast_SK_Assign: {
+    *push_prop_m(&obj) = mkprop_m("assign_pat", print_Expr(sp->assign.pat, a));
+    *push_prop_m(&obj) = mkprop_m("assign_val", print_Expr(sp->assign.val, a));
     break;
   }
   case ast_SK_Defer: {

@@ -20,18 +20,12 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Defer");
   case tk_Let:
     return com_str_lit_m("tk_Let");
-  case tk_Def:
-    return com_str_lit_m("tk_Def");
-  case tk_Fn:
-    return com_str_lit_m("tk_Fn");
   case tk_FnType:
     return com_str_lit_m("tk_FnType");
   case tk_At:
     return com_str_lit_m("tk_At");
   case tk_New:
     return com_str_lit_m("tk_New");
-  case tk_Nil:
-    return com_str_lit_m("tk_Nil");
   case tk_NilType:
     return com_str_lit_m("tk_NilType");
   case tk_NeverType:

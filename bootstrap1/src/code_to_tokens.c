@@ -580,14 +580,10 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Loop;
   } else if (com_str_equal(str, com_str_lit_m("match"))) {
     token.kind = tk_Match;
-  } else if (com_str_equal(str, com_str_lit_m("def"))) {
-    token.kind = tk_Def;
   } else if (com_str_equal(str, com_str_lit_m("ret"))) {
     token.kind = tk_Ret;
   } else if (com_str_equal(str, com_str_lit_m("defer"))) {
     token.kind = tk_Defer;
-  } else if (com_str_equal(str, com_str_lit_m("fn"))) {
-    token.kind = tk_Fn;
   } else if (com_str_equal(str, com_str_lit_m("Fn"))) {
     token.kind = tk_FnType;
   } else if (com_str_equal(str, com_str_lit_m("let"))) {

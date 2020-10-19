@@ -76,15 +76,6 @@ com_str ast_strLabelKind(ast_LabelKind val) {
   }
 }
 
-com_str ast_strMatchCaseKind(ast_MatchCaseKind val) {
-  switch (val) {
-  case ast_MCK_None:
-    return com_str_lit_m("ast_MCK_None");
-  case ast_MCK_Case:
-    return com_str_lit_m("ast_MCK_Case");
-  }
-}
-
 com_str ast_strCompoundElementKind(ast_CompoundElementKind val) {
   switch (val) {
   case ast_CEK_None:
@@ -114,6 +105,8 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
   switch (val) {
   case ast_EBOK_Constrain:
     return com_str_lit_m("ast_EBOK_Constrain");
+  case ast_EBOK_Fn:
+    return com_str_lit_m("ast_EBOK_Fn");
   case ast_EBOK_Add:
     return com_str_lit_m("ast_EBOK_Add");
   case ast_EBOK_Sub:
@@ -154,8 +147,6 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
     return com_str_lit_m("ast_EBOK_Product");
   case ast_EBOK_Sum:
     return com_str_lit_m("ast_EBOK_Sum");
-  case ast_EBOK_Assign:
-    return com_str_lit_m("ast_EBOK_Assign");
   case ast_EBOK_Range:
     return com_str_lit_m("ast_EBOK_Range");
   case ast_EBOK_RangeInclusive:
@@ -167,10 +158,8 @@ com_str ast_strStmntKind(ast_StmntKind val) {
   switch (val) {
   case ast_SK_None:
     return com_str_lit_m("ast_SK_None");
-  case ast_SK_Let:
-    return com_str_lit_m("ast_SK_Let");
-  case ast_SK_Def:
-    return com_str_lit_m("ast_SK_Def");
+  case ast_SK_Assign:
+    return com_str_lit_m("ast_SK_Assign");
   case ast_SK_Expr:
     return com_str_lit_m("ast_SK_Expr");
   case ast_SK_Defer:

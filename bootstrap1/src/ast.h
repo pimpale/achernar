@@ -55,22 +55,6 @@ typedef struct ast_Expr_s ast_Expr;
 typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
-  ast_MCK_None,
-  ast_MCK_Case,
-} ast_MatchCaseKind;
-
-typedef struct {
-  ast_Common common;
-  ast_MatchCaseKind kind;
-  union {
-    struct {
-      ast_Expr *pat;
-      ast_Expr *val;
-    } matchCase;
-  };
-} ast_MatchCase;
-
-typedef enum {
   ast_CEK_None,
   ast_CEK_Element,
 } ast_CompoundElementKind;
@@ -97,6 +81,8 @@ typedef enum {
 typedef enum {
   // Type assertion
   ast_EBOK_Constrain,
+  // Function
+  ast_EBOK_Fn,
   // Math
   ast_EBOK_Add,
   ast_EBOK_Sub,
@@ -125,20 +111,16 @@ typedef enum {
   // Range
   ast_EBOK_Range,
   ast_EBOK_RangeInclusive,
-  // Assign
-  ast_EBOK_Assign,
 } ast_ExprBinaryOpKind;
 
 typedef enum {
   ast_EK_None,        // An error when parsing
   ast_EK_NeverType,   // The type of the special value returned by ret,
                       // neverending loops, and functions that dont return
-  ast_EK_Nil,         // Literal for nil
   ast_EK_NilType,     // Literal for the type of nil, Nil
   ast_EK_Int,         // Literal for an integer number
   ast_EK_Real,        // Literal for a real (floating point) number
   ast_EK_String,      // A string literal
-  ast_EK_Fn,          // Creates a new function
   ast_EK_FnType,      // Creates a new type of a function
   ast_EK_Loop,        // Loops until a scope is returned
   ast_EK_New,         // Constructs a new compound type of another type
@@ -192,7 +174,6 @@ typedef struct ast_Expr_s {
     struct {
       ast_Expr *root;
       ast_Expr *fn;
-      ast_Expr *parameters;
     } pipe;
     struct {
       ast_Identifier *reference;
@@ -212,10 +193,6 @@ typedef struct ast_Expr_s {
     } call;
     struct {
       ast_Expr *parameters;
-      ast_Expr *body;
-    } fn;
-    struct {
-      ast_Expr *parameters;
       ast_Expr *type;
     } fnType;
     struct {
@@ -224,7 +201,7 @@ typedef struct ast_Expr_s {
     } ret;
     struct {
       ast_Expr *root;
-      ast_MatchCase *cases;
+      ast_Expr *cases;
       usize cases_len;
     } match;
     struct {
@@ -244,8 +221,7 @@ typedef struct ast_Expr_s {
 
 typedef enum {
   ast_SK_None,
-  ast_SK_Let,
-  ast_SK_Def,
+  ast_SK_Assign,
   ast_SK_Expr,
   ast_SK_Defer,
 } ast_StmntKind;
@@ -258,10 +234,7 @@ typedef struct ast_Stmnt_s {
     struct {
       ast_Expr *pat;
       ast_Expr *val;
-    } let;
-    struct {
-      ast_Expr *pat;
-    } def;
+    } assign;
     struct {
       ast_Expr *expr;
     } expr;
@@ -275,7 +248,6 @@ typedef struct ast_Stmnt_s {
 com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strIdentifierKind(ast_IdentifierKind val);
 com_str ast_strLabelKind(ast_LabelKind val);
-com_str ast_strMatchCaseKind(ast_MatchCaseKind val);
 com_str ast_strCompoundElementKind(ast_CompoundElementKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);

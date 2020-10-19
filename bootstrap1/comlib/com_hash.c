@@ -121,6 +121,7 @@ u64 com_hash_fnv1a(u64 seed, const com_str data) {
 }
 
 u64 com_hash_sip(u64 seed, const com_str data) {
-  // not really as secure as it could be, but good enough for practical purposes
+  // setting the first half of the 128 bit seed to zero
+  // not really as secure as it could be, but good enough
   return SIP64(data.data, data.len, 0, seed);
 }

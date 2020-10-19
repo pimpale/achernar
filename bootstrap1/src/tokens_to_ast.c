@@ -180,16 +180,6 @@ static void ast_parseIdentifier(ast_Identifier *ptr,
   }
 }
 
-static void ast_certain_parseNilExpr(ast_Expr *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Nil, "expected a tk_Nil");
-  ptr->kind = ast_EK_Nil;
-  ptr->common.span = t.span;
-  return;
-}
-
 static void ast_certain_parseNilTypeExpr(ast_Expr *ptr,
                                          DiagnosticLogger *diagnostics,
                                          ast_Constructor *parser) {
@@ -244,39 +234,6 @@ static void ast_certain_parseStringExpr(ast_Expr *sptr,
   return;
 }
 
-static void ast_certain_parseFnExpr(ast_Expr *fptr,
-                                    DiagnosticLogger *diagnostics,
-                                    ast_Constructor *parser) {
-  com_mem_zero_obj_m(fptr);
-
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Fn, "expected tk_Fn");
-  com_loc_LnCol start = t.span.start;
-
-  ast_Expr *parameters = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(parameters, diagnostics, parser);
-
-  t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Arrow) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("DK_FnValExpectedArrow"),
-                     .children_len = 0};
-  }
-
-  ast_Expr *body = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(body, diagnostics, parser);
-
-  com_loc_LnCol end = body->common.span.end;
-
-  com_loc_Span span = com_loc_span_m(start, end);
-
-  *fptr = (ast_Expr){.kind = ast_EK_Fn,
-                     .common = {.span = span},
-                     .fn = {.parameters = parameters, .body = body}};
-}
-
 static void ast_certain_parseFnTypeExpr(ast_Expr *fte,
                                         DiagnosticLogger *diagnostics,
                                         ast_Constructor *parser) {
@@ -307,7 +264,7 @@ static void ast_certain_parseFnTypeExpr(ast_Expr *fte,
 
   *fte = (ast_Expr){.kind = ast_EK_FnType,
                     .common = {.span = span},
-                    .fn = {.parameters = parameters, .body = body}};
+                    .fnType = {.parameters = parameters, .type = body}};
 }
 
 static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
@@ -598,10 +555,6 @@ static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   // Decide which expression it is
   switch (t.kind) {
   // Literals
-  case tk_Nil: {
-    ast_certain_parseNilExpr(l, diagnostics, parser);
-    break;
-  }
   case tk_NilType: {
     ast_certain_parseNilTypeExpr(l, diagnostics, parser);
     break;
@@ -628,10 +581,6 @@ static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   }
   case tk_BraceLeft: {
     ast_certain_parseBlockExpr(l, diagnostics, parser);
-    break;
-  }
-  case tk_Fn: {
-    ast_certain_parseFnExpr(l, diagnostics, parser);
     break;
   }
   case tk_FnType: {
@@ -738,73 +687,8 @@ static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
   pptr->pipe.fn = parse_alloc_obj_m(parser, ast_Expr);
   parseTermExpr(pptr->pipe.fn, diagnostics, parser);
 
-  Token t = parse_next(parser, diagnostics);
-  if (t.kind != tk_ParenLeft) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m(
-                         "pipe expr expected opening paren after function"),
-                     .children_len = 0};
-  }
-
-  pptr->pipe.parameters = parse_alloc_obj_m(parser, ast_Expr);
-  parseTermExpr(pptr->pipe.parameters, diagnostics, parser);
-
-  t = parse_next(parser, diagnostics);
-  if (t.kind != tk_ParenRight) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m(
-                         "pipe expr expected closing paren after parameters"),
-                     .children_len = 0};
-  }
-
-  pptr->common.span = com_loc_span_m(root->common.span.start, t.span.end);
-}
-
-// Expr `=>` Expr
-static void ast_parseMatchCase(ast_MatchCase *mcep,
-                               DiagnosticLogger *diagnostics,
-                               ast_Constructor *parser) {
-
-  // accept metadata
-  com_vec metadata = parse_getMetadata(parser, diagnostics);
-
-  mcep->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  mcep->common.metadata = com_vec_release(&metadata);
-
-  com_mem_zero_obj_m(mcep);
-  mcep->kind = ast_MCK_Case;
-
-  com_loc_LnCol start = parse_peek(parser, diagnostics, 1).span.start;
-
-  // Get pattern
-  mcep->matchCase.pat = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(mcep->matchCase.pat, diagnostics, parser);
-
-  com_loc_LnCol end = mcep->matchCase.pat->common.span.end;
-
-  // Expect colon
-  Token t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Arrow) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("DK_MatchCaseNoArrow"),
-                     .children_len = 0};
-    goto CLEANUP;
-  }
-
-  // Get Value
-  mcep->matchCase.val = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(mcep->matchCase.val, diagnostics, parser);
-  end = mcep->matchCase.val->common.span.end;
-
-CLEANUP:
-  mcep->common.span = com_loc_span_m(start, end);
-  return;
+  pptr->common.span =
+      com_loc_span_m(root->common.span.start, pptr->pipe.fn->common.span.end);
 }
 
 static void ast_certain_postfix_parseMatchExpr(ast_Expr *mptr,
@@ -840,8 +724,8 @@ static void ast_certain_postfix_parseMatchExpr(ast_Expr *mptr,
 
   PARSE_LIST(&cases,                 // members_vec_ptr
              diagnostics,            // dlogger_ptr
-             ast_parseMatchCase,     // member_parse_function
-             ast_MatchCase,          // member_kind
+             ast_parseExpr,          // member_parse_function
+             ast_Expr,               // member_kind
              tk_BraceRight,          // delimiting_token_kind
              "DK_MatchNoRightBrace", // missing_delimiter_error
              end,                    // end_lncol
@@ -850,7 +734,7 @@ static void ast_certain_postfix_parseMatchExpr(ast_Expr *mptr,
 
 CLEANUP:
   // Get interior cases
-  mptr->match.cases_len = com_vec_len_m(&cases, ast_MatchCase);
+  mptr->match.cases_len = com_vec_len_m(&cases, ast_Expr);
   mptr->match.cases = com_vec_release(&cases);
 
   mptr->common.span = com_loc_span_m(root->common.span.start, end);
@@ -1046,9 +930,9 @@ static void ast_parsePrefixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
 // and right op_det_fn is the name of the function that determines the binary
 // operator this function should take a pointer to the type and return a bool if
 // successful
-#define FN_BINOP_PARSE_EXPR(lower_fn, switch_fn, fn_name)                   \
-  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics, \
-                                ast_Constructor *parser) {                     \
+#define FN_BINOP_PARSE_EXPR(lower_fn, switch_fn, fn_name)                      \
+  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
+                      ast_Constructor *parser) {                               \
     ast_Expr v;                                                                \
     lower_fn(&v, diagnostics, parser);                                         \
                                                                                \
@@ -1115,7 +999,8 @@ static bool ast_opDetConstrainExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseRangeExpr, ast_opDetConstrainExpr, ast_parseConstrainExpr)
+FN_BINOP_PARSE_EXPR(ast_parseRangeExpr, ast_opDetConstrainExpr,
+                    ast_parseConstrainExpr)
 
 static bool ast_opDetProductExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1137,7 +1022,8 @@ static bool ast_opDetProductExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseConstrainExpr, ast_opDetProductExpr, ast_parseProductExpr)
+FN_BINOP_PARSE_EXPR(ast_parseConstrainExpr, ast_opDetProductExpr,
+                    ast_parseProductExpr)
 
 static bool ast_opDetSumExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1189,7 +1075,8 @@ static bool ast_opDetCompareExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseSumExpr, ast_opDetCompareExpr, ast_parseCompareExpr)
+FN_BINOP_PARSE_EXPR(ast_parseSumExpr, ast_opDetCompareExpr,
+                    ast_parseCompareExpr)
 
 static bool ast_opDetBooleanExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1211,7 +1098,8 @@ static bool ast_opDetBooleanExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseCompareExpr, ast_opDetBooleanExpr, ast_parseBooleanExpr)
+FN_BINOP_PARSE_EXPR(ast_parseCompareExpr, ast_opDetBooleanExpr,
+                    ast_parseBooleanExpr)
 
 static bool ast_opDetSetExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1257,10 +1145,10 @@ static bool ast_opDetTypeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
 
 FN_BINOP_PARSE_EXPR(ast_parseSetExpr, ast_opDetTypeExpr, ast_parseTypeExpr)
 
-static bool ast_opDetAssignExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast_opDetFnExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Assign: {
-    *val = ast_EBOK_Assign;
+    *val = ast_EBOK_Fn;
     return true;
   }
   default: {
@@ -1269,74 +1157,12 @@ static bool ast_opDetAssignExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseTypeExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
+FN_BINOP_PARSE_EXPR(ast_parseTypeExpr, ast_opDetFnExpr, ast_parseFnExpr)
 
 // shim method
 static void ast_parseExpr(ast_Expr *ptr, DiagnosticLogger *diagnostics,
                           ast_Constructor *parser) {
-  ast_parseAssignExpr(ptr, diagnostics, parser);
-}
-
-static void ast_certain_parseDefStmnt(ast_Stmnt *vdsp,
-                                      DiagnosticLogger *diagnostics,
-                                      ast_Constructor *parser) {
-  vdsp->kind = ast_SK_Def;
-  // zero-initialize vdsp
-  com_mem_zero_obj_m(vdsp);
-
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Def, "expected tk_Def");
-  com_loc_LnCol start = t.span.start;
-
-  // Get Identifier
-  vdsp->def.pat = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(vdsp->def.pat, diagnostics, parser);
-
-  vdsp->common.span = com_loc_span_m(start, vdsp->def.pat->common.span.end);
-}
-
-static void ast_certain_parseLetStmnt(ast_Stmnt *vlsp,
-                                      DiagnosticLogger *diagnostics,
-                                      ast_Constructor *parser) {
-  vlsp->kind = ast_SK_Let;
-  // zero-initialize vlsp
-  com_mem_zero_obj_m(vlsp);
-
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Let, "expected tk_Let");
-  com_loc_LnCol start = t.span.start;
-
-  // Get Identifier
-  vlsp->let.pat = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(vlsp->let.pat, diagnostics, parser);
-
-  com_loc_LnCol end;
-
-  // Expect define
-  t = parse_peek(parser, diagnostics, 1);
-  if (t.kind == tk_Assign) {
-    // accept the define token
-    parse_next(parser, diagnostics);
-
-    // create val
-    vlsp->let.val = parse_alloc_obj_m(parser, ast_Expr);
-    ast_parseExpr(vlsp->let.val, diagnostics, parser);
-    end = vlsp->let.val->common.span.end;
-  } else {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = t.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m(
-                         "Expected tk_Assign after pattern and a value to assign"),
-                     .children_len = 0};
-
-    vlsp->let.val = parse_alloc_obj_m(parser, ast_Expr);
-    vlsp->let.val->kind = ast_EK_None;
-    vlsp->let.val->common.span = vlsp->let.pat->common.span;
-    vlsp->let.val->common.metadata_len = 0;
-    end = vlsp->let.pat->common.span.end;
-  }
-  vlsp->common.span = com_loc_span_m(start, end);
+  ast_parseFnExpr(ptr, diagnostics, parser);
 }
 
 static void ast_certain_parseDeferStmnt(ast_Stmnt *dsp,
@@ -1367,25 +1193,31 @@ void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
   // peek next token
   Token t = parse_peek(parser, diagnostics, 1);
   switch (t.kind) {
-    // Macros
-  case tk_Let: {
-    ast_certain_parseLetStmnt(sp, diagnostics, parser);
-    break;
-  }
-  case tk_Def: {
-    ast_certain_parseDefStmnt(sp, diagnostics, parser);
-    break;
-  }
   case tk_Defer: {
     ast_certain_parseDeferStmnt(sp, diagnostics, parser);
     break;
   }
-  // essions
   default: {
-    sp->kind = ast_SK_Expr;
-    sp->expr.expr = parse_alloc_obj_m(parser, ast_Expr);
-    ast_parseExpr(sp->expr.expr, diagnostics, parser);
-    sp->common.span = sp->expr.expr->common.span;
+    ast_Expr *expr = parse_alloc_obj_m(parser, ast_Expr);
+    ast_parseExpr(expr, diagnostics, parser);
+
+    if (parse_peek(parser, diagnostics, 1).kind != tk_Assign) {
+      sp->kind = ast_SK_Expr;
+      sp->expr.expr = expr;
+      sp->common.span = sp->expr.expr->common.span;
+      break;
+    }
+
+    parse_drop(parser, diagnostics);
+
+    ast_Expr *val = parse_alloc_obj_m(parser, ast_Expr);
+    ast_parseExpr(val, diagnostics, parser);
+
+    sp->kind = ast_SK_Assign;
+    sp->assign.pat = expr;
+    sp->assign.val = val;
+    sp->common.span = com_loc_span_m(sp->assign.pat->common.span.start,
+                                     sp->assign.val->common.span.end);
     break;
   }
   }

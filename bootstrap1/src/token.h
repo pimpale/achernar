@@ -20,8 +20,6 @@ typedef enum {
   tk_Ret,    // ret
   tk_Defer,  // defer
   tk_Let,    // let
-  tk_Def,    // def
-  tk_Fn,     // fn
   tk_FnType, // Fn
   tk_At,     // at
   tk_New,    // new
@@ -29,7 +27,6 @@ typedef enum {
   tk_Inf,       // inf
   tk_Nan,       // nan
   tk_Real,      // 0.7
-  tk_Nil,       // nil
   tk_NilType,   // Nil
   tk_NeverType, // Never
   tk_String,    // "string"

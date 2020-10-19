@@ -190,8 +190,7 @@ typedef struct hir_Pat_s {
 
 typedef enum {
   hir_SK_None,
-  hir_SK_Let,
-  hir_SK_Def,
+  hir_SK_Assign,
   hir_SK_Expr,
 } hir_StmntKind;
 
@@ -200,12 +199,9 @@ typedef struct hir_Stmnt_s {
   union {
     // Declarations
     struct {
-      hir_Expr *pat;
+      hir_Pat *pat;
       hir_Expr *val;
-    } let;
-    struct {
-      hir_Expr *pat;
-    } def;
+    } assign;
     struct {
       hir_Expr *expr;
     } expr;

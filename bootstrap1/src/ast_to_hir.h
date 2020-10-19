@@ -14,13 +14,6 @@ typedef struct {
   com_allocator *_a;
   ast_Constructor *_parser;
 
-  // com_vec[Identifier]
-  // Each index points to an identifier located in identifier_table
-  com_vec _scope;
-
-  // the actual vector holding identifiers
-  com_vec _identifier_table;
-
   // the actual vector holding labels
   com_vec _label_table;
 

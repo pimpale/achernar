@@ -3,27 +3,12 @@
 #include "com_mem.h"
 #include "com_str.h"
 
-// the stuff that actually goes inside the identifier table
-typedef enum {
-  SEK_Mod,
-  SEK_Identifier,
-  SEK_Label,
-  SEK_Boundary,
-} ScopeElemKind;
 
+// the stuff that actually goes inside the identifier table
 typedef struct {
-  ScopeElemKind kind;
-  union {
-    struct {
-      // made of the same stuff as a scope
-      com_vec scope;
-      // name of mod
-      com_str name;
-    } mod;
-    usize label;
-    usize identifier;
-  };
-} ScopeElem;
+    hir_Expr* expr;
+    com_str identifier;
+} LabelTableElem;
 
 // utility method to allocate some noleak memory from the constructor
 static void *hir_alloc(hir_Constructor *constructor, usize len) {
@@ -55,55 +40,17 @@ hir_Constructor hir_create(ast_Constructor *parser, com_allocator *a) {
   return hc;
 }
 
-// pushes a boundary
-static void hir_push_boundary(hir_Constructor *constructor) {
-  *com_vec_push_m(&constructor->_scope, ScopeElem) =
-      (ScopeElem){.kind = SEK_Boundary};
-}
-
-// Utility structs to prevent accidentallyp plugging in the the wrong index
-
-static hir_Label *hir_getLabel(const hir_Constructor *constructor, LabelId id) {
-  com_assert_m(id.valid, "id is invalid");
-  return com_vec_get_m(&constructor->_label_table, id.index, hir_Label);
-}
-
-static hir_Identifier *hir_getIdentifier(const hir_Constructor *constructor,
-                                         IdentifierId id) {
-
-  com_assert_m(id.valid, "id is invalid");
-  return com_vec_get_m(&constructor->_identifier_table, id.index,
-                       hir_Identifier);
-}
-
-// inserts the specified identifier into the identifier table and onto the
-// current scope
-static IdentifierId hir_addIdentifier(hir_Constructor *constructor,
-                                      hir_Identifier identifier) {
-  // first append to identifier table
-  *com_vec_push_m(&constructor->_identifier_table, hir_Identifier) = identifier;
-  // it is known that vec len must be at least one, so no overflow is possible
-  // here
-  usize index =
-      com_vec_len_m(&constructor->_identifier_table, hir_Identifier) - 1;
-  // add index to the scope
-  *com_vec_push_m(&constructor->_identifier_table, ScopeElem) =
-      (ScopeElem){.kind = SEK_Identifier, .identifier = index};
-
-  // return the identifier id
-  return (IdentifierId){.index = index, .valid = true};
-}
 
 // Looks through a scope
 static LabelId hir_lookupLabel(com_vec *scope, hir_Constructor *constructor,
                                com_str name) {
   // start from the last valid index, and iterate towards 0
-  for (usize i_plus_one = com_vec_len_m(scope, ScopeElem); i_plus_one > 0;
+  for (usize i_plus_one = com_vec_len_m(scope, LabelTableElem); i_plus_one > 0;
        i_plus_one--) {
     const usize i = i_plus_one - 1;
 
     // get entry
-    ScopeElem entry = *com_vec_get_m(scope, i, ScopeElem);
+    LabelTableElem entry = *com_vec_get_m(scope, i, LabelTableElem);
     if (entry.kind == SEK_Label) {
       continue;
     }
@@ -127,40 +74,7 @@ typedef struct {
   bool valid;
 } MaybeScopeMod;
 
-// returns null if couldn't find anything
-static MaybeScopeMod
-hir_constructor_ModReferenceHelper(com_vec *scope, ast_ModReference *mod,
-                                   DiagnosticLogger *diagnostics,
-                                   hir_Constructor *constructor) {
-  switch (mod->kind) {
-  case ast_MRK_None: {
-    return (MaybeScopeMod){.valid = false};
-  }
-  case ast_MRK_Reference: {
-    for (usize i_plus_one = com_vec_len_m(scope, ScopeElem); i_plus_one > 0;
-         i_plus_one--) {
-      const usize i = i_plus_one - 1;
 
-      // get entry
-      ScopeElem entry = *com_vec_get_m(scope, i, ScopeElem);
-      if (entry.kind == SEK_Mod &&
-          com_str_equal(mod->reference.name, entry.mod.name)) {
-        return hir_constructor_ModReferenceHelper(
-            &entry.mod.scope, mod->reference.mod, diagnostics, constructor);
-      }
-    }
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = mod->span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("could not resolve mod name"),
-                     .children_len = 0};
-    return (MaybeScopeMod){.valid = false};
-  }
-  case ast_MRK_Omitted: {
-    return (MaybeScopeMod){.scope = &constructor->_scope, .valid = true};
-  }
-  }
-}
 
 static hir_Reference* hir_construct_Reference(ast_Reference *in,
                                              DiagnosticLogger *diagnostics,
@@ -180,12 +94,12 @@ static hir_Reference* hir_construct_Reference(ast_Reference *in,
       com_vec *scope = ret.scope;
 
       // start from the last valid index, and iterate towards 0
-      for (usize i_plus_one = com_vec_len_m(scope, ScopeElem); i_plus_one > 0;
+      for (usize i_plus_one = com_vec_len_m(scope, LabelTableElem); i_plus_one > 0;
            i_plus_one--) {
         const usize i = i_plus_one - 1;
 
         // get entry
-        ScopeElem entry = *com_vec_get_m(scope, i, ScopeElem);
+        LabelTableElem entry = *com_vec_get_m(scope, i, LabelTableElem);
         if (entry.kind == SEK_Identifier) {
           continue;
         }
@@ -307,18 +221,18 @@ static com_vec hir_construct_Stmnt(ast_Stmnt *in, DiagnosticLogger *diagnostics,
     // now we pop off the stack till we encounter a boundary
     // push it into the mod scope
     while (true) {
-      ScopeElem se;
-      com_vec_pop_m(&constructor->_scope, &se, ScopeElem);
+      LabelTableElem se;
+      com_vec_pop_m(&constructor->_scope, &se, LabelTableElem);
       if (se.kind == SEK_Boundary) {
         break;
       } else {
         // push to the front of the scope
-        *com_vec_push_m(&mod_scope, ScopeElem) = se;
+        *com_vec_push_m(&mod_scope, LabelTableElem) = se;
       }
     }
 
     // push mod into the current scope
-    *com_vec_push_m(&constructor->_scope, ScopeElem) = (ScopeElem){
+    *com_vec_push_m(&constructor->_scope, LabelTableElem) = (LabelTableElem){
         .kind = SEK_Mod,
         .mod = {.scope = mod_scope, .name = in->modStmnt.name->binding.value}};
     break;

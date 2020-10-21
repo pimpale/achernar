@@ -9,8 +9,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_None");
   case ast_EK_NeverType:
     return com_str_lit_m("ast_EK_NeverType");
-  case ast_EK_Nil:
-    return com_str_lit_m("ast_EK_Nil");
   case ast_EK_NilType:
     return com_str_lit_m("ast_EK_NilType");
   case ast_EK_Int:
@@ -19,8 +17,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Real");
   case ast_EK_String:
     return com_str_lit_m("ast_EK_String");
-  case ast_EK_Fn:
-    return com_str_lit_m("ast_EK_Fn");
   case ast_EK_FnType:
     return com_str_lit_m("ast_EK_FnType");
   case ast_EK_Loop:
@@ -53,6 +49,10 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Bind");
   case ast_EK_AtBind:
     return com_str_lit_m("ast_EK_AtBind");
+  case ast_EK_Mutate:
+    return com_str_lit_m("ast_EK_Mutate");
+  case ast_EK_AtMutate:
+    return com_str_lit_m("ast_EK_AtMutate");
   }
 }
 
@@ -97,6 +97,8 @@ com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val) {
     return com_str_lit_m("ast_EUOK_Ref");
   case ast_EUOK_Deref:
     return com_str_lit_m("ast_EUOK_Deref");
+  case ast_EUOK_Copy:
+    return com_str_lit_m("ast_EUOK_Copy");
   }
 }
 

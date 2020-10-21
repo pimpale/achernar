@@ -66,6 +66,51 @@ typedef struct {
 } hir_CompoundElement;
 
 typedef enum {
+  // Filesystem Abstractions
+  hir_IFK_Import, // Evaluates a source file, yielding an object
+  // Type stuff
+  hir_IFK_Struct, // creates a struct from an ad hoc compound object
+  hir_IFK_Enum,   // creates a disjoint union from an ad hoc compound object
+  hir_IFK_BitVec, // creates a bitvector
+  // Math with integers
+  hir_IFK_AddInt,
+  hir_IFK_SubInt,
+  hir_IFK_MulInt,
+  hir_IFK_DivInt,
+  hir_IFK_RemInt,
+  // Math with reals
+  hir_IFK_AddReal,
+  hir_IFK_SubReal,
+  hir_IFK_MulReal,
+  hir_IFK_DivReal,
+  // Conversion between integers and reals
+  hir_IFK_TruncateReal,
+  hir_IFK_RoundReal,
+  hir_IFK_PromoteInt,
+  // Unsigned Bit Vectors and their manipulations
+  // Math
+  hir_IFK_AddBitVec,
+  hir_IFK_SubBitVec,
+  hir_IFK_MulBitVec,
+  hir_IFK_DivBitVec,
+  // Math with Overflow
+  hir_IFK_AddWithOverflowBitVec,
+  hir_IFK_SubWithOverflowBitVec,
+  hir_IFK_MulWithOverflowBitVec,
+  hir_IFK_DivWithOverflowBitVec,
+
+  hir_IFK_RemBitVec,
+  hir_IFK_ShrBitVec,
+  hir_IFK_ShlBitVec,
+  hir_IFK_RorBitVec,
+  hir_IFK_RolBitVec,
+
+  hir_IFK_GetPtr,
+  hir_IFK_DerefPtr,
+
+} hir_IntrinsicFnKind;
+
+typedef enum {
   hir_EK_None,        // An error when parsing
   hir_EK_NeverType,   // The type of the special value returned by ret,
                       // neverending loops, and functions that dont return
@@ -75,7 +120,6 @@ typedef enum {
   hir_EK_Real,        // Literal for a real (floating point) number
   hir_EK_String,      // A string literal
   hir_EK_Fn,          // Creates a new function
-  hir_EK_FnType,      // Creates a new type of a function
   hir_EK_Loop,        // Loops until a scope is returned
   hir_EK_New,         // Constructs a new compound type of another type
   hir_EK_Struct,      // Constructs a new compound type ad hoc
@@ -88,7 +132,6 @@ typedef enum {
   hir_EK_FieldAccess, // Accessing the field of a record object
   hir_EK_Reference,   // A reference to a previously defined variable
 } hir_ExprKind;
-
 
 typedef struct hir_Expr_s {
   hir_Common common;
@@ -167,11 +210,11 @@ typedef struct hir_Expr_s {
 } hir_Expr;
 
 typedef enum {
-  hir_PK_None,        // an error in compuation
-  hir_PK_Value,       // A Expr with no holes
-  hir_PK_RevFn,       // Calling the reverse function
-  hir_PK_Wildcard,         // matches a value
-  hir_PK_WildcardBind,        // binds a single element to new variable
+  hir_PK_None,       // an error
+  hir_PK_Fn,         // Calls function with current scrutinee and then matches on the results
+  hir_PK_Wildcard,   // matches any value
+  hir_PK_Bind,       // binds a single element to new variable
+  hir_PK_Mutate,     // binds a single element to new variable
 } hir_PatKind;
 
 typedef struct hir_Pat_s {
@@ -185,6 +228,10 @@ typedef struct hir_Pat_s {
       hir_Pat *pat;
       hir_Identifier *binding;
     } bind;
+    struct {
+      hir_Pat *pat;
+      hir_Identifier *binding;
+    } mutate;
   };
 } hir_Pat;
 

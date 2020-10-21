@@ -19,15 +19,14 @@ typedef enum {
   tk_Match,  // match
   tk_Ret,    // ret
   tk_Defer,  // defer
-  tk_Let,    // let
-  tk_FnType, // Fn
   tk_At,     // at
   tk_New,    // new
+  tk_Let,    // let
+  tk_Mut,    // mut
   // Literals and constants
   tk_Inf,       // inf
   tk_Nan,       // nan
   tk_Real,      // 0.7
-  tk_NilType,   // Nil
   tk_NeverType, // Never
   tk_String,    // "string"
   tk_Int,       // 7
@@ -48,6 +47,7 @@ typedef enum {
   // Memory Operators
   tk_Ref,   // &
   tk_Deref, // @
+  tk_Copy,  // ~
   // Logical Operators
   tk_And, // and
   tk_Or,  // or
@@ -69,8 +69,8 @@ typedef enum {
   tk_Pipe,  // ->
   tk_Arrow, // =>
   // Other Miscellaneous Operator Things
-  tk_Bind,         // $
-  tk_BindIgnore,   // $_
+  tk_Ignore,       // _
+  tk_Splat,        // **
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
   tk_BracketLeft,  // [
@@ -86,6 +86,7 @@ typedef enum {
 } tk_Kind;
 
 typedef enum { tk_SLK_DoubleQuote, tk_SLK_Block } tk_StringLiteralKind;
+typedef enum { tk_SLK_Literal, tk_IK_Strop} tk_IdentifierKind;
 
 typedef struct Token_s {
   // The type of this token
@@ -100,6 +101,7 @@ typedef struct Token_s {
   union {
     struct {
       com_str data;
+      tk_IdentifierKind kind;
     } identifierToken;
     struct {
       com_str data;

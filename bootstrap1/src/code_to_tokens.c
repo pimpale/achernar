@@ -538,6 +538,36 @@ static Token lexLabel(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
                  }};
 }
 
+static Token lexStrop(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
+                      com_allocator *a) {
+  com_assert_m(lex_peek(r, 1) == '`', "expected backtick");
+
+  com_loc_LnCol start = com_reader_position(r);
+
+  // drop backtick
+  com_reader_drop_u8(r);
+  com_vec data = com_vec_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 10,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_REALLOCABLE |
+                                             com_allocator_NOLEAK}));
+  while (true) {
+    inband_reader_result c = lex_peek(r, 1);
+    if (c == '`' || c == -1) {
+      com_reader_drop_u8(r);
+      break;
+    }
+    *com_vec_push_m(&data, u8) = (u8)c;
+    com_reader_drop_u8(r);
+  }
+
+  return (Token){.span = com_loc_span_m(start, com_reader_position(r)),
+                 .kind = tk_Identifier,
+                 .identifierToken = {
+                     .kind = tk_IK_Strop,
+                     .data = com_str_demut(com_vec_to_str(&data)),
+                 }};
+}
 // Parses an identifer or macro or builtin
 static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
                      com_allocator *a) {
@@ -559,6 +589,11 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
       if (com_format_is_alphanumeric(c) || c == '_') {
         *com_vec_push_m(&data, u8) = c;
         com_reader_drop_u8(r);
+      } else if (c == '!') {
+        // Is intrinsic
+        *com_vec_push_m(&data, u8) = c;
+        com_reader_drop_u8(r);
+        break;
       } else {
         // we encountered a nonword char
         break;
@@ -588,6 +623,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_FnType;
   } else if (com_str_equal(str, com_str_lit_m("let"))) {
     token.kind = tk_Let;
+  } else if (com_str_equal(str, com_str_lit_m("mut"))) {
+    token.kind = tk_Mut;
   } else if (com_str_equal(str, com_str_lit_m("new"))) {
     token.kind = tk_New;
   } else if (com_str_equal(str, com_str_lit_m("and"))) {
@@ -610,6 +647,7 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
     token.identifierToken.data = str;
+    token.identifierToken.kind = tk_IK_Strop;
     return token;
   }
 
@@ -674,8 +712,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     return lexNumberLiteral(r, diagnostics, a);
   } else {
     switch (c) {
-    case '_': {
-      return lexWord(r, diagnostics, a);
+    case '`': {
+      return lexStrop(r, diagnostics, a);
     }
     case '\'': {
       return lexLabel(r, diagnostics, a);
@@ -722,15 +760,8 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
       }
     }
-    case '$': {
-      switch (lex_peek(r, 2)) {
-      case '_': {
-        RETURN_RESULT_TOKEN2(tk_BindIgnore)
-      }
-      default: {
-        RETURN_RESULT_TOKEN1(tk_Bind)
-      }
-      }
+    case '_': {
+      RETURN_RESULT_TOKEN1(tk_Ignore)
     }
     case ':': {
       RETURN_RESULT_TOKEN1(tk_Constrain)
@@ -740,6 +771,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     }
     case '@': {
       RETURN_RESULT_TOKEN1(tk_Deref)
+    }
+    case '~': {
+      RETURN_RESULT_TOKEN1(tk_Copy)
     }
     case '^': {
       RETURN_RESULT_TOKEN1(tk_Intersection)
@@ -797,7 +831,14 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case '*': {
-      RETURN_RESULT_TOKEN1(tk_Mul)
+      switch (lex_peek(r, 2)) {
+      case '*': {
+        RETURN_RESULT_TOKEN2(tk_Splat)
+      }
+      default: {
+        RETURN_RESULT_TOKEN1(tk_Mul)
+      }
+      }
     }
     case '/': {
       RETURN_RESULT_TOKEN1(tk_Div)

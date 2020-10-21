@@ -74,6 +74,7 @@ typedef enum {
   ast_EUOK_Not,
   ast_EUOK_Ref,
   ast_EUOK_Deref,
+  ast_EUOK_Copy,
   ast_EUOK_Neg,
   ast_EUOK_Pos,
 } ast_ExprUnaryOpKind;
@@ -117,7 +118,6 @@ typedef enum {
   ast_EK_None,        // An error when parsing
   ast_EK_NeverType,   // The type of the special value returned by ret,
                       // neverending loops, and functions that dont return
-  ast_EK_NilType,     // Literal for the type of nil, Nil
   ast_EK_Int,         // Literal for an integer number
   ast_EK_Real,        // Literal for a real (floating point) number
   ast_EK_String,      // A string literal
@@ -138,6 +138,8 @@ typedef enum {
   ast_EK_BindIgnore,  // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,        // (PATTERN ONLY) binds a single element to new variable
   ast_EK_AtBind,      // (PATTERN ONLY) matches previous
+  ast_EK_Mutate,      // (PATTERN ONLY) matches a single variable and mutates the variable
+  ast_EK_AtMutate,    // (PATTERN ONLY) matches previous and then mutates variable
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -209,6 +211,13 @@ typedef struct ast_Expr_s {
       ast_Stmnt *stmnts;
       usize stmnts_len;
     } block;
+    struct {
+      ast_Identifier *mutate;
+    } mutate;
+    struct {
+      ast_Expr *pat;
+      ast_Identifier *mutate;
+    } atMutate;
     struct {
       ast_Identifier *binding;
     } binding;

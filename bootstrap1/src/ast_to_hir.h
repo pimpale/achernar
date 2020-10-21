@@ -14,7 +14,7 @@ typedef struct {
   com_allocator *_a;
   ast_Constructor *_parser;
 
-  // the actual vector holding labels
+  // the vector holding labels
   com_vec _label_table;
 
 } hir_Constructor;

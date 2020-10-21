@@ -20,6 +20,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Defer");
   case tk_Let:
     return com_str_lit_m("tk_Let");
+  case tk_Mut:
+    return com_str_lit_m("tk_Mut");
   case tk_FnType:
     return com_str_lit_m("tk_FnType");
   case tk_At:
@@ -96,9 +98,7 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Pipe");
   case tk_Arrow:
     return com_str_lit_m("tk_Arrow");
-  case tk_Bind:
-    return com_str_lit_m("tk_Bind");
-  case tk_BindIgnore:
+  case tk_Ignore:
     return com_str_lit_m("tk_BindIgnore");
   case tk_ParenLeft:
     return com_str_lit_m("tk_ParenLeft");
@@ -120,6 +120,10 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Label");
   case tk_Metadata:
     return com_str_lit_m("tk_Metadata");
+  case tk_Splat:
+    return com_str_lit_m("tk_Splat");
+  case tk_Copy:
+    return com_str_lit_m("tk_Copy");
   }
 
   com_assert_unreachable_m("control flow reaches end of token");

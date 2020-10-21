@@ -398,7 +398,7 @@ static void ast_certain_parseBindExpr(ast_Expr *vbp,
 
   // ensure token is tk let
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Bind, "expected tk_Bind");
+  com_assert_m(t.kind == tk_Let, "expected tk_Let");
 
   // now parse binding
   ast_Identifier *binding = parse_alloc_obj_m(parser, ast_Identifier);
@@ -427,7 +427,7 @@ static void ast_certain_parseAtLetExpr(ast_Expr *alpp,
 
   // now ensure that we can find a let
   t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Bind) {
+  if (t.kind != tk_Let) {
     *dlogger_append(diagnostics) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
@@ -450,7 +450,7 @@ static void ast_certain_parseBindIgnoreExpr(ast_Expr *wpp,
   com_mem_zero_obj_m(wpp);
   wpp->kind = ast_EK_BindIgnore;
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_BindIgnore, "expected tk_BindIgnore");
+  com_assert_m(t.kind == tk_Ignore, "expected tk_Ignore");
   wpp->common.span = t.span;
 }
 
@@ -599,11 +599,11 @@ static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     ast_certain_parseAtLetExpr(l, diagnostics, parser);
     break;
   }
-  case tk_Bind: {
+  case tk_Let: {
     ast_certain_parseBindExpr(l, diagnostics, parser);
     break;
   }
-  case tk_BindIgnore: {
+  case tk_Ignore: {
     ast_certain_parseBindIgnoreExpr(l, diagnostics, parser);
     break;
   }
@@ -819,6 +819,19 @@ static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
       *v = *root;
       root->kind = ast_EK_UnaryOp;
       root->unaryOp.op = ast_EUOK_Deref;
+      root->unaryOp.operand = v;
+      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
+      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+      root->common.metadata = com_vec_release(&metadata);
+      parse_next(parser, diagnostics);
+      break;
+    }
+    case tk_Copy: {
+      com_vec metadata = parse_getMetadata(parser, diagnostics);
+      v = parse_alloc_obj_m(parser, ast_Expr);
+      *v = *root;
+      root->kind = ast_EK_UnaryOp;
+      root->unaryOp.op = ast_EUOK_Copy;
       root->unaryOp.operand = v;
       root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
       root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);

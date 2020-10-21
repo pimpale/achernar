@@ -54,6 +54,11 @@ file_read_peek_u8_fn(attr_UNUSED const com_reader *w, attr_UNUSED usize n) {
   com_assert_unreachable_m("file reader does not support peeking");
 }
 
+static com_loc_Span attr_NORETURN
+file_read_peek_span_u8_fn(attr_UNUSED const com_reader *w) {
+  com_assert_unreachable_m("file reader does not peeking span");
+}
+
 static com_loc_LnCol attr_NORETURN
 file_read_position_fn(attr_UNUSED const com_reader *w) {
   com_assert_unreachable_m("file reader does not support querying position");
@@ -70,6 +75,7 @@ static com_reader file_read_create(FILE *file) {
                       ._query_fn = file_read_query_fn,
                       ._position_fn = file_read_position_fn,
                       ._peek_u8_fn = file_read_peek_u8_fn,
+                      ._peek_span_u8_fn = file_read_peek_span_u8_fn,
                       ._destroy_fn = file_read_destroy_fn};
 }
 

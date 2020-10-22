@@ -65,50 +65,76 @@ typedef struct {
   };
 } hir_CompoundElement;
 
+
+
 typedef enum {
   // Filesystem Abstractions
-  hir_IFK_Import, // Evaluates a source file, yielding an object
+  hir_IIK_Import, // Evaluates a source file, yielding an object
   // Type stuff
-  hir_IFK_Struct, // creates a struct from an ad hoc compound object
-  hir_IFK_Enum,   // creates a disjoint union from an ad hoc compound object
-  hir_IFK_BitVec, // creates a bitvector
+  hir_IIK_Struct, // creates a struct from an ad hoc compound object
+  hir_IIK_Enum,   // creates a disjoint union from an ad hoc compound object
+  hir_IIK_Int,    // compile time only arbitrary size integer
+  hir_IIK_Real,   // compile time only arbitrary size real number
   // Math with integers
-  hir_IFK_AddInt,
-  hir_IFK_SubInt,
-  hir_IFK_MulInt,
-  hir_IFK_DivInt,
-  hir_IFK_RemInt,
+  hir_IIK_IntAdd,
+  hir_IIK_IntSub,
+  hir_IIK_IntMul,
+  hir_IIK_IntDiv,
+  hir_IIK_IntRem,
+  hir_IIK_IntDivRem,
   // Math with reals
-  hir_IFK_AddReal,
-  hir_IFK_SubReal,
-  hir_IFK_MulReal,
-  hir_IFK_DivReal,
+  hir_IIK_RealAdd,
+  hir_IIK_RealSub,
+  hir_IIK_RealMul,
+  hir_IIK_RealDiv,
+  hir_IIK_RealRem,
   // Conversion between integers and reals
-  hir_IFK_TruncateReal,
-  hir_IFK_RoundReal,
-  hir_IFK_PromoteInt,
-  // Unsigned Bit Vectors and their manipulations
-  // Math
-  hir_IFK_AddBitVec,
-  hir_IFK_SubBitVec,
-  hir_IFK_MulBitVec,
-  hir_IFK_DivBitVec,
-  // Math with Overflow
-  hir_IFK_AddWithOverflowBitVec,
-  hir_IFK_SubWithOverflowBitVec,
-  hir_IFK_MulWithOverflowBitVec,
-  hir_IFK_DivWithOverflowBitVec,
+  hir_IIK_RealRound,
+  hir_IIK_RNE, // round to nearest
+  hir_IIK_RTZ, // round to zero
+  hir_IIK_RDN, // round down 
+  hir_IIK_RUP, // round up
+  hir_IIK_IntPromote,
+  // Bit Vectors
+  hir_IIK_SignedBitVec, // creates a bitvector from an integer
+  hir_IIK_UnsignedBitVec, // creates a bitvector from an integer
 
-  hir_IFK_RemBitVec,
-  hir_IFK_ShrBitVec,
-  hir_IFK_ShlBitVec,
-  hir_IFK_RorBitVec,
-  hir_IFK_RolBitVec,
+  // Unsigned Operations
+  hir_IIK_UnsignedBitVecAdd,
+  hir_IIK_UnsignedBitVecAddOverflow,
+  hir_IIK_UnsignedBitVecSub,
+  hir_IIK_UnsignedBitVecSubOverflow,
+  hir_IIK_UnsignedBitVecMul,
+  hir_IIK_UnsignedBitVecMulOverflow,
+  hir_IIK_UnsignedBitVecDiv,
+  hir_IIK_UnsignedBitVecRem,
+  hir_IIK_UnsignedBitVecDivRem,
+  hir_IIK_UnsignedBitVecShr,
+  hir_IIK_UnsignedBitVecShrOverflow,
+  hir_IIK_UnsignedBitVecShl,
+  hir_IIK_UnsignedBitVecShlOverflow,
+  hir_IIK_UnsignedBitVecRol,
+  hir_IIK_UnsignedBitVecRor,
+  // Signed Operations
+  hir_IIK_SignedBitVecAdd,
+  hir_IIK_SignedBitVecAddOverflow,
+  hir_IIK_SignedBitVecSub,
+  hir_IIK_SignedBitVecSubOverflow,
+  hir_IIK_SignedBitVecMul,
+  hir_IIK_SignedBitVecMulOverflow,
+  hir_IIK_SignedBitVecDiv,
+  hir_IIK_SignedBitVecRem,
+  hir_IIK_SignedBitVecDivRem,
+  hir_IIK_SignedBitVecShr,
+  hir_IIK_SignedBitVecShrOverflow,
+  hir_IIK_SignedBitVecShl,
+  hir_IIK_SignedBitVecShlOverflow,
+  hir_IIK_SignedBitVecRol,
+  hir_IIK_SignedBitVecRor,
 
-  hir_IFK_GetPtr,
-  hir_IFK_DerefPtr,
-
-} hir_IntrinsicFnKind;
+  hir_IIK_GetPtr,
+  hir_IIK_DerefPtr,
+} hir_IntrinsicIdentifierKind;
 
 typedef enum {
   hir_EK_None,        // An error when parsing
@@ -157,7 +183,6 @@ typedef struct hir_Expr_s {
     } new;
     struct {
       hir_Expr *body;
-
       hir_Expr *defers;
       usize defers_len;
     } loop;
@@ -215,6 +240,7 @@ typedef enum {
   hir_PK_Wildcard,   // matches any value
   hir_PK_Bind,       // binds a single element to new variable
   hir_PK_Mutate,     // binds a single element to new variable
+  hir_PK_MutatePtr,  // binds a single element to new variable
 } hir_PatKind;
 
 typedef struct hir_Pat_s {
@@ -232,6 +258,10 @@ typedef struct hir_Pat_s {
       hir_Pat *pat;
       hir_Identifier *binding;
     } mutate;
+    struct {
+      hir_Pat *pat;
+      hir_Expr *ptr;
+    } mutatePtr;
   };
 } hir_Pat;
 

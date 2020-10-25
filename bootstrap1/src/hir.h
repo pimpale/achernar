@@ -161,8 +161,6 @@ typedef struct hir_Expr_s {
     } structLiteral;
     struct {
       hir_Expr *body;
-      hir_Expr *defers;
-      usize defers_len;
     } loop;
     struct {
       hir_Expr *root;
@@ -250,6 +248,7 @@ typedef enum {
 } hir_StmntKind;
 
 typedef struct hir_Stmnt_s {
+  hir_Common common;
   hir_StmntKind kind;
   union {
     // Declarations

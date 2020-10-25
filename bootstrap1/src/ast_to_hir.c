@@ -40,67 +40,82 @@ hir_Constructor hir_create(ast_Constructor *parser, com_allocator *a) {
 }
 
 typedef struct {
-  hir_Expr *expr;
+  LabelTableElem lte;
   bool valid;
 } MaybeLabel;
 
 // Looks through a scope
-static MaybeLabel hir_lookupLabel(hir_Constructor *constructor,
-                                  com_str identifier) {
-  // start from the last valid index, and iterate towards 0
-  for (usize i_plus_one =
-           com_vec_len_m(&constructor->_label_table, LabelTableElem);
-       i_plus_one > 0; i_plus_one--) {
-    const usize i = i_plus_one - 1;
-
-    // get entry
-    LabelTableElem entry = 
-        *com_vec_get_m(&constructor->_label_table, i, LabelTableElem);
-
-    if (com_str_equal(entry.identifier, identifier)) {
-      // if it matched our requirements, then set `result` and return true
-      return (MaybeLabel){.expr = entry.expr, .valid = true};
-    }
+static MaybeLabel hir_lookupLabel(hir_Constructor *constructor, DiagnosticLogger *diagnostics,
+                                  ast_Label *label) {
+  switch (label->kind) {
+  case ast_LK_None:
+  case ast_LK_Omitted: {
+    *dlogger_append(diagnostics) = (Diagnostic){
+        .span = label->span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("unknown label name"),
+        .children_len = 0};
+    return (MaybeLabel){.valid = false};
   }
+  case ast_LK_Label: {
+    com_str identifier = label->label.label;
 
-  // if we went through all entries in this scope and found nothing
-  return (MaybeLabel){.valid = false};
+    // start from the last valid index, and iterate towards 0
+    for (usize i_plus_one =
+             com_vec_len_m(&constructor->_label_table, LabelTableElem);
+         i_plus_one > 0; i_plus_one--) {
+      const usize i = i_plus_one - 1;
+
+      // get entry
+      LabelTableElem entry =
+          *com_vec_get_m(&constructor->_label_table, i, LabelTableElem);
+
+      if (com_str_equal(entry.identifier, identifier)) {
+        // if it matched our requirements, then set `result` and return true
+        return (MaybeLabel){.lte = entry, .valid = true};
+      }
+    }
+    // if we went through all entries in this scope and found nothing
+    return (MaybeLabel){.valid = false};
+  }
+  }
 }
 
-static hir_Common hir_getCommon(const ast_Common *in, bool generated, hir_Constructor * constructor) {
-  com_vec metadata = hir_alloc_vec(constructor) ;
-  for(usize i = 0; i < in->metadata_len; i++) {
-    if(in->metadata[i].significant) {
+static hir_Common hir_getCommon(const ast_Common in, bool generated,
+                                hir_Constructor *constructor) {
+  com_vec metadata = hir_alloc_vec(constructor);
+  for (usize i = 0; i < in.metadata_len; i++) {
+    if (in.metadata[i].significant) {
       // clone string
-      com_str src = in->metadata[i].data;
-      com_str_mut dest = (com_str_mut) {
-          .data = hir_alloc(constructor, src.len),
-          .len = src.len
-      };
+      com_str src = in.metadata[i].data;
+      com_str_mut dest = (com_str_mut){.data = hir_alloc(constructor, src.len),
+                                       .len = src.len};
       com_mem_move(dest.data, src.data, src.len);
       *com_vec_push_m(&metadata, com_str) = com_str_demut(dest);
     }
   }
 
-  usize metadata_len = com_vec_len_m(&metadata, com_str*);
-  return (hir_Common) {
-      .generated = generated,
-      .span = in->span,
-      .metadata = com_vec_release(&metadata),
-      .metadata_len = metadata_len
-  };
+  usize metadata_len = com_vec_len_m(&metadata, com_str *);
+  return (hir_Common){.generated = generated,
+                      .span = in.span,
+                      .metadata = com_vec_release(&metadata),
+                      .metadata_len = metadata_len};
 }
 
-static com_vec hir_construct_Stmnt(const ast_Stmnt *in, DiagnosticLogger *diagnostics,
+static com_vec hir_construct_Stmnt(const ast_Stmnt *in,
+                                   DiagnosticLogger *diagnostics,
                                    hir_Constructor *constructor);
 
-static hir_Expr *hir_construct_Expr(const ast_Expr *in, DiagnosticLogger *diagnostics,
+static hir_Expr *hir_construct_Expr(const ast_Expr *in,
+                                    DiagnosticLogger *diagnostics,
                                     hir_Constructor *constructor);
 
-static hir_Pat *hir_construct_Pat(const ast_Expr *in, DiagnosticLogger *diagnostics,
+static hir_Pat *hir_construct_Pat(const ast_Expr *in,
+                                  DiagnosticLogger *diagnostics,
                                   hir_Constructor *constructor);
 
-static com_vec hir_construct_Stmnt(const ast_Stmnt *in, DiagnosticLogger *diagnostics,
+static com_vec hir_construct_Stmnt(const ast_Stmnt *in,
+                                   DiagnosticLogger *diagnostics,
                                    hir_Constructor *constructor) {
 
   com_vec stmnts = hir_alloc_vec(constructor);
@@ -119,6 +134,7 @@ static com_vec hir_construct_Stmnt(const ast_Stmnt *in, DiagnosticLogger *diagno
   case ast_SK_Assign: {
     *com_vec_push_m(&stmnts, hir_Stmnt) = (hir_Stmnt){
         .kind = hir_SK_Assign,
+        .common = hir_getCommon(in->common, false, constructor),
         .assign = {
             .pat = hir_construct_Pat(in->assign.pat, diagnostics, constructor),
             .val =
@@ -126,14 +142,21 @@ static com_vec hir_construct_Stmnt(const ast_Stmnt *in, DiagnosticLogger *diagno
     break;
   }
   case ast_SK_Defer: {
-    *com_vec_push_m(&stmnts, hir_Stmnt) = (hir_Stmnt){
-        .kind = hir_SK_Defer,
-        .source = in,
-        .deferStmnt = {.val = hir_construct_Expr(in->deferStmnt.val,
-                                                 diagnostics, constructor)},
-    };
+    MaybeLabel ret = hir_lookupLabel(constructor, diagnostics, in->defer.label);
+    if (ret.valid) {
+      *com_vec_push_m(&ret.lte.defers, hir_Expr *) =
+          hir_construct_Expr(in->defer.val, diagnostics, constructor);
+    }
   }
   }
 
   return stmnts;
+}
+
+
+
+static hir_Expr *hir_construct_Expr(const ast_Expr *in,
+                                    DiagnosticLogger *diagnostics,
+                                    hir_Constructor *constructor) {
+
 }

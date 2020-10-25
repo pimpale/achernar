@@ -14,14 +14,8 @@ typedef struct {
   usize metadata_len;
 } hir_Common;
 
-typedef enum {
-  hir_IK_None,
-  hir_IK_Identifier,
-} hir_IdentifierKind;
-
 typedef struct {
   hir_Common common;
-  hir_IdentifierKind kind;
   union {
     struct {
       com_str name;
@@ -33,14 +27,8 @@ typedef struct hir_Expr_s hir_Expr;
 typedef struct hir_Pat_s hir_Pat;
 typedef struct hir_Stmnt_s hir_Stmnt;
 
-typedef enum {
-  hir_MCK_None,
-  hir_MCK_Case,
-} hir_MatchCaseKind;
-
 typedef struct {
   hir_Common common;
-  hir_MatchCaseKind kind;
   union {
     struct {
       hir_Expr *pat;
@@ -49,14 +37,8 @@ typedef struct {
   };
 } hir_MatchCase;
 
-typedef enum {
-  hir_CEK_None,
-  hir_CEK_Element,
-} hir_CompoundElementKind;
-
 typedef struct {
   hir_Common common;
-  hir_CompoundElementKind kind;
   union {
     struct {
       hir_Identifier *name;
@@ -65,16 +47,15 @@ typedef struct {
   };
 } hir_CompoundElement;
 
-
-
 typedef enum {
   // Filesystem Abstractions
   hir_IIK_Import, // Evaluates a source file, yielding an object
   // Type stuff
   hir_IIK_Struct, // creates a struct from an ad hoc compound object
   hir_IIK_Enum,   // creates a disjoint union from an ad hoc compound object
-  hir_IIK_Int,    // compile time only arbitrary size integer
-  hir_IIK_Real,   // compile time only arbitrary size real number
+  hir_IIK_New,    // Creates a function constructing the compound type provided
+  // Type Reflection
+  hir_IIK_Int, // compile time only arbitrary size integer
   // Math with integers
   hir_IIK_IntAdd,
   hir_IIK_IntSub,
@@ -82,6 +63,7 @@ typedef enum {
   hir_IIK_IntDiv,
   hir_IIK_IntRem,
   hir_IIK_IntDivRem,
+  hir_IIK_Real, // compile time only arbitrary size real number
   // Math with reals
   hir_IIK_RealAdd,
   hir_IIK_RealSub,
@@ -92,13 +74,11 @@ typedef enum {
   hir_IIK_RealRound,
   hir_IIK_RNE, // round to nearest
   hir_IIK_RTZ, // round to zero
-  hir_IIK_RDN, // round down 
+  hir_IIK_RDN, // round down
   hir_IIK_RUP, // round up
   hir_IIK_IntPromote,
   // Bit Vectors
   hir_IIK_SignedBitVec, // creates a bitvector from an integer
-  hir_IIK_UnsignedBitVec, // creates a bitvector from an integer
-
   // Unsigned Operations
   hir_IIK_UnsignedBitVecAdd,
   hir_IIK_UnsignedBitVecAddOverflow,
@@ -115,6 +95,7 @@ typedef enum {
   hir_IIK_UnsignedBitVecShlOverflow,
   hir_IIK_UnsignedBitVecRol,
   hir_IIK_UnsignedBitVecRor,
+  hir_IIK_UnsignedBitVec, // creates a bitvector from an integer
   // Signed Operations
   hir_IIK_SignedBitVecAdd,
   hir_IIK_SignedBitVecAddOverflow,
@@ -132,12 +113,15 @@ typedef enum {
   hir_IIK_SignedBitVecRol,
   hir_IIK_SignedBitVecRor,
 
-  hir_IIK_GetPtr,
-  hir_IIK_DerefPtr,
+  // Handle memory addresses
+  hir_IIK_GetMemAddr,
+  hir_IIK_DerefMemAddr,
+
+  // Returns a place! from a memory address
+  hir_IIK_MutateMemAddr,
 } hir_IntrinsicIdentifierKind;
 
 typedef enum {
-  hir_EK_None,        // An error when parsing
   hir_EK_NeverType,   // The type of the special value returned by ret,
                       // neverending loops, and functions that dont return
   hir_EK_Nil,         // Literal for nil
@@ -147,7 +131,6 @@ typedef enum {
   hir_EK_String,      // A string literal
   hir_EK_Fn,          // Creates a new function
   hir_EK_Loop,        // Loops until a scope is returned
-  hir_EK_New,         // Constructs a new compound type of another type
   hir_EK_Struct,      // Constructs a new compound type ad hoc
   hir_EK_Call,        // Call a function with a product type
   hir_EK_Pipe,        // Syntactic sugar operator to evaluate a function postfix
@@ -177,11 +160,6 @@ typedef struct hir_Expr_s {
       usize elements_len;
     } structLiteral;
     struct {
-      hir_Expr *root;
-      hir_CompoundElement *elements;
-      usize elements_len;
-    } new;
-    struct {
       hir_Expr *body;
       hir_Expr *defers;
       usize defers_len;
@@ -196,7 +174,7 @@ typedef struct hir_Expr_s {
     } typeConstrain;
     struct {
       hir_Pat *target;
-      hir_Expr* value;
+      hir_Expr *value;
     } assign;
     struct {
       hir_Identifier *reference;
@@ -230,17 +208,17 @@ typedef struct hir_Expr_s {
 
       hir_Expr *defers;
       usize defers_len;
-    } block;
+    } scope;
   };
 } hir_Expr;
 
 typedef enum {
-  hir_PK_None,       // an error
-  hir_PK_Fn,         // Calls function with current scrutinee and then matches on the results
-  hir_PK_Wildcard,   // matches any value
-  hir_PK_Bind,       // binds a single element to new variable
-  hir_PK_Mutate,     // binds a single element to new variable
-  hir_PK_MutatePtr,  // binds a single element to new variable
+  hir_PK_Fn,   // Calls function with current scrutinee and then matches on the
+               // results
+  hir_PK_Wildcard,  // matches any value
+  hir_PK_Bind,      // binds a single element to new variable
+  hir_PK_Mutate,    // binds a single element to new variable
+  hir_PK_MutatePtr, // binds a single element to new variable
 } hir_PatKind;
 
 typedef struct hir_Pat_s {
@@ -286,9 +264,6 @@ typedef struct hir_Stmnt_s {
 } hir_Stmnt;
 
 com_str hir_strExprKind(hir_ExprKind val);
-com_str hir_strIdentifierKind(hir_IdentifierKind val);
-com_str hir_strMatchCaseKind(hir_MatchCaseKind val);
-com_str hir_strCompoundElementKind(hir_CompoundElementKind val);
 com_str hir_strStmntKind(hir_StmntKind val);
 
 #endif

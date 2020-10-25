@@ -19,8 +19,8 @@ typedef enum {
   tk_Match,  // match
   tk_Ret,    // ret
   tk_Defer,  // defer
+  tk_In,     // in
   tk_At,     // at
-  tk_New,    // new
   tk_Let,    // let
   tk_Mut,    // mut
   // Literals and constants

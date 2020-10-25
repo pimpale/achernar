@@ -213,9 +213,20 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   switch (vep->kind) {
   case ast_EK_None:
   case ast_EK_NeverType:
-  case ast_EK_NilType:
   case ast_EK_BindIgnore: {
     // nop
+    break;
+  }
+  case ast_EK_Mutate: {
+    *push_prop_m(&obj) =
+        mkprop_m("binding", print_Identifier(vep->binding.binding, a));
+    break;
+  }
+  case ast_EK_AtMutate: {
+    *push_prop_m(&obj) =
+        mkprop_m("at_mutate_pat", print_Identifier(vep->atMutate.mutate, a));
+    *push_prop_m(&obj) =
+        mkprop_m("at_mutate_id", print_Expr(vep->atMutate.pat, a));
     break;
   }
   case ast_EK_Bind: {
@@ -255,21 +266,6 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
         mkprop_m("struct_elements", print_arrayify(&elements));
     break;
   }
-  case ast_EK_New: {
-    *push_prop_m(&obj) = mkprop_m("new_root", print_Expr(vep->new.root, a));
-    com_vec elements = print_vec_create_m(a);
-    for (usize i = 0; i < vep->new.elements_len; i++) {
-      *com_vec_push_m(&elements, com_json_Elem) =
-          print_CompoundElement(&vep->new.elements[i], a);
-    }
-    *push_prop_m(&obj) = mkprop_m("new_elements", print_arrayify(&elements));
-    break;
-  }
-  case ast_EK_Pipe: {
-    *push_prop_m(&obj) = mkprop_m("pipe_root", print_Expr(vep->pipe.root, a));
-    *push_prop_m(&obj) = mkprop_m("pipe_fn", print_Expr(vep->pipe.fn, a));
-    break;
-  }
   case ast_EK_Loop: {
     *push_prop_m(&obj) =
         mkprop_m("loop_label", print_Label(vep->loop.label, a));
@@ -304,20 +300,6 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
                                   print_Expr(vep->binaryOp.left_operand, a));
     *push_prop_m(&obj) = mkprop_m("binary_right_operand",
                                   print_Expr(vep->binaryOp.right_operand, a));
-    break;
-  }
-  case ast_EK_FnType: {
-    // TODO
-    *push_prop_m(&obj) =
-        mkprop_m("fn_type_parameters", print_Expr(vep->fnType.parameters, a));
-    *push_prop_m(&obj) =
-        mkprop_m("fn_type_body", print_Expr(vep->fnType.type, a));
-    break;
-  }
-  case ast_EK_Call: {
-    *push_prop_m(&obj) = mkprop_m("call_root", print_Expr(vep->call.root, a));
-    *push_prop_m(&obj) =
-        mkprop_m("call_parameters", print_Expr(vep->call.parameters, a));
     break;
   }
   case ast_EK_Ret: {

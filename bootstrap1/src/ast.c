@@ -9,8 +9,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_None");
   case ast_EK_NeverType:
     return com_str_lit_m("ast_EK_NeverType");
-  case ast_EK_NilType:
-    return com_str_lit_m("ast_EK_NilType");
   case ast_EK_Int:
     return com_str_lit_m("ast_EK_Int");
   case ast_EK_Real:
@@ -21,8 +19,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_FnType");
   case ast_EK_Loop:
     return com_str_lit_m("ast_EK_Loop");
-  case ast_EK_New:
-    return com_str_lit_m("ast_EK_New");
   case ast_EK_Struct:
     return com_str_lit_m("ast_EK_Struct");
   case ast_EK_BinaryOp:

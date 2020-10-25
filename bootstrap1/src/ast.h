@@ -80,10 +80,14 @@ typedef enum {
 } ast_ExprUnaryOpKind;
 
 typedef enum {
-  // Type assertion
+  // scoping & precedence
+  ast_EBOK_In,
+  // Type coercion
   ast_EBOK_Constrain,
   // Function
   ast_EBOK_Fn,
+  ast_EBOK_Call,
+  ast_EBOK_Pipe,
   // Math
   ast_EBOK_Add,
   ast_EBOK_Sub,
@@ -121,14 +125,10 @@ typedef enum {
   ast_EK_Int,         // Literal for an integer number
   ast_EK_Real,        // Literal for a real (floating point) number
   ast_EK_String,      // A string literal
-  ast_EK_FnType,      // Creates a new type of a function
   ast_EK_Loop,        // Loops until a scope is returned
-  ast_EK_New,         // Constructs a new compound type of another type
   ast_EK_Struct,      // Constructs a new compound type
   ast_EK_BinaryOp,    // Binary operation
   ast_EK_UnaryOp,     // Unary operation
-  ast_EK_Call,        // Call a function with a product type
-  ast_EK_Pipe,        // Syntactic sugar operator to evaluate a function postfix
   ast_EK_Ret,         // Returns from a scope with a value
   ast_EK_Match,       // Matches an expression to the first matching pattern and
                       // destructures it
@@ -161,11 +161,6 @@ typedef struct ast_Expr_s {
       usize elements_len;
     } structLiteral;
     struct {
-      ast_Expr *root;
-      ast_CompoundElement *elements;
-      usize elements_len;
-    } new;
-    struct {
       ast_Expr *body;
       ast_Label *label;
     } loop;
@@ -173,10 +168,6 @@ typedef struct ast_Expr_s {
       ast_Expr *root;
       ast_Identifier *field;
     } fieldAccess;
-    struct {
-      ast_Expr *root;
-      ast_Expr *fn;
-    } pipe;
     struct {
       ast_Identifier *reference;
     } reference;
@@ -189,14 +180,6 @@ typedef struct ast_Expr_s {
       ast_Expr *left_operand;
       ast_Expr *right_operand;
     } binaryOp;
-    struct {
-      ast_Expr *root;
-      ast_Expr *parameters;
-    } call;
-    struct {
-      ast_Expr *parameters;
-      ast_Expr *type;
-    } fnType;
     struct {
       ast_Expr *expr;
       ast_Label *label;

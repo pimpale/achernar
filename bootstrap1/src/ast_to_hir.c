@@ -13,11 +13,11 @@ typedef struct {
 
 // utility method to allocate some noleak memory from the constructor
 static void *hir_alloc(hir_Constructor *constructor, usize len) {
-  return com_allocator_handle_get((com_allocator_alloc(
+  return com_allocator_handle_get(com_allocator_alloc(
       constructor->_a, (com_allocator_HandleData){
                            .len = len,
                            .flags = com_allocator_defaults(constructor->_a) |
-                                    com_allocator_NOLEAK})));
+                                    com_allocator_NOLEAK}));
 }
 
 #define hir_alloc_obj_m(constructor, type)                                     \
@@ -54,7 +54,7 @@ static MaybeLabel hir_lookupLabel(hir_Constructor *constructor,
     const usize i = i_plus_one - 1;
 
     // get entry
-    LabelTableElem entry =
+    LabelTableElem entry = 
         *com_vec_get_m(&constructor->_label_table, i, LabelTableElem);
 
     if (com_str_equal(entry.identifier, identifier)) {
@@ -68,11 +68,27 @@ static MaybeLabel hir_lookupLabel(hir_Constructor *constructor,
 }
 
 static hir_Common hir_getCommon(const ast_Common *in, bool generated, hir_Constructor * constructor) {
-  com_vec strs = hir_alloc_vec(constructor) ;
+  com_vec metadata = hir_alloc_vec(constructor) ;
   for(usize i = 0; i < in->metadata_len; i++) {
-      com_reader_st
-    com_vec_push_m(&strs, in->metadata[i]
+    if(in->metadata[i].significant) {
+      // clone string
+      com_str src = in->metadata[i].data;
+      com_str_mut dest = (com_str_mut) {
+          .data = hir_alloc(constructor, src.len),
+          .len = src.len
+      };
+      com_mem_move(dest.data, src.data, src.len);
+      *com_vec_push_m(&metadata, com_str) = com_str_demut(dest);
+    }
   }
+
+  usize metadata_len = com_vec_len_m(&metadata, com_str*);
+  return (hir_Common) {
+      .generated = generated,
+      .span = in->span,
+      .metadata = com_vec_release(&metadata),
+      .metadata_len = metadata_len
+  };
 }
 
 static com_vec hir_construct_Stmnt(const ast_Stmnt *in, DiagnosticLogger *diagnostics,

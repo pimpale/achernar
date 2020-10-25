@@ -27,7 +27,6 @@ typedef enum {
   tk_Inf,       // inf
   tk_Nan,       // nan
   tk_Real,      // 0.7
-  tk_NeverType, // Never
   tk_String,    // "string"
   tk_Int,       // 7
   // Math Operators

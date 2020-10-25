@@ -45,16 +45,17 @@ typedef struct {
 } MaybeLabel;
 
 // Looks through a scope
-static MaybeLabel hir_lookupLabel(hir_Constructor *constructor, DiagnosticLogger *diagnostics,
+static MaybeLabel hir_lookupLabel(hir_Constructor *constructor,
+                                  DiagnosticLogger *diagnostics,
                                   ast_Label *label) {
   switch (label->kind) {
   case ast_LK_None:
   case ast_LK_Omitted: {
-    *dlogger_append(diagnostics) = (Diagnostic){
-        .span = label->span,
-        .severity = DSK_Error,
-        .message = com_str_lit_m("unknown label name"),
-        .children_len = 0};
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = label->span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m("unknown label name"),
+                     .children_len = 0};
     return (MaybeLabel){.valid = false};
   }
   case ast_LK_Label: {
@@ -102,9 +103,20 @@ static hir_Common hir_getCommon(const ast_Common in, bool generated,
                       .metadata_len = metadata_len};
 }
 
-static com_vec hir_construct_Stmnt(const ast_Stmnt *in,
-                                   DiagnosticLogger *diagnostics,
-                                   hir_Constructor *constructor);
+// generates a nil expr that will be returned in the case of an instruction
+// that does not exist
+static hir_Expr *hir_generate_NilExpr(com_loc_Span span,
+                                      hir_Constructor *constructor) {
+  hir_Expr *ret = hir_alloc_obj_m(constructor, hir_Expr);
+  *ret = (hir_Expr){
+      .kind = hir_EK_Nil,
+      .common = {.span = span, .metadata_len = 0, .generated = true}};
+  return ret;
+}
+
+static hir_Stmnt *hir_construct_Stmnt(const ast_Stmnt *in,
+                                      DiagnosticLogger *diagnostics,
+                                      hir_Constructor *constructor);
 
 static hir_Expr *hir_construct_Expr(const ast_Expr *in,
                                     DiagnosticLogger *diagnostics,
@@ -114,25 +126,28 @@ static hir_Pat *hir_construct_Pat(const ast_Expr *in,
                                   DiagnosticLogger *diagnostics,
                                   hir_Constructor *constructor);
 
-static com_vec hir_construct_Stmnt(const ast_Stmnt *in,
-                                   DiagnosticLogger *diagnostics,
-                                   hir_Constructor *constructor) {
-
-  com_vec stmnts = hir_alloc_vec(constructor);
+static hir_Stmnt *hir_construct_Stmnt(const ast_Stmnt *in,
+                                      DiagnosticLogger *diagnostics,
+                                      hir_Constructor *constructor) {
+  hir_Stmnt stmnt;
   switch (in->kind) {
   case ast_SK_None: {
-    // empty vector
+    // return nil stmnt
+    stmnt = (hir_Stmnt){
+        .kind = hir_SK_Expr,
+        .common = hir_getCommon(in->common, false, constructor),
+        .expr = {hir_generate_NilExpr(in->common.span, constructor)}};
     break;
   }
   case ast_SK_Expr: {
-    *com_vec_push_m(&stmnts, hir_Stmnt) =
-        (hir_Stmnt){.kind = hir_SK_Expr,
-                    .expr = {.expr = hir_construct_Expr(
-                                 in->expr.expr, diagnostics, constructor)}};
+    stmnt = (hir_Stmnt){
+        .kind = hir_SK_Expr,
+        .common = hir_getCommon(in->common, false, constructor),
+        .expr = {hir_construct_Expr(in->expr.expr, diagnostics, constructor)}};
     break;
   }
   case ast_SK_Assign: {
-    *com_vec_push_m(&stmnts, hir_Stmnt) = (hir_Stmnt){
+    stmnt = (hir_Stmnt){
         .kind = hir_SK_Assign,
         .common = hir_getCommon(in->common, false, constructor),
         .assign = {
@@ -142,21 +157,163 @@ static com_vec hir_construct_Stmnt(const ast_Stmnt *in,
     break;
   }
   case ast_SK_Defer: {
+    // push the expr to the scopes table for the label
     MaybeLabel ret = hir_lookupLabel(constructor, diagnostics, in->defer.label);
     if (ret.valid) {
       *com_vec_push_m(&ret.lte.defers, hir_Expr *) =
           hir_construct_Expr(in->defer.val, diagnostics, constructor);
     }
+    // return nil stmnt
+    stmnt = (hir_Stmnt){
+        .kind = hir_SK_Expr,
+        .common = hir_getCommon(in->common, false, constructor),
+        .expr = {hir_generate_NilExpr(in->common.span, constructor)}};
+    break;
   }
   }
 
-  return stmnts;
+  hir_Stmnt *ret = hir_alloc_obj_m(constructor, hir_Stmnt);
+  *ret = stmnt;
+  return ret;
 }
-
-
-
 static hir_Expr *hir_construct_Expr(const ast_Expr *in,
                                     DiagnosticLogger *diagnostics,
                                     hir_Constructor *constructor) {
+  hir_Expr expr;
+
+  switch(in->kind) {
+    case ast_EK_None: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_Nil,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Int: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_Int,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Real: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_Real,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_String: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Loop: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Struct: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_BindIgnore: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Bind: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_AtBind: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Mutate: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_AtMutate: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_BinaryOp: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_UnaryOp: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Ret: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Block: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Match: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_FieldAccess: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+    case ast_EK_Reference: {
+      expr = (hir_Expr) {
+          .kind = hir_EK_NeverType,
+          .common = hir_getCommon(in->common, false, constructor)
+      };
+      break;
+    }
+  }
+
+
+  // return
+  hir_Expr *ret = hir_alloc_obj_m(constructor, hir_Expr);
+  *ret = expr;
+  return ret;
 
 }

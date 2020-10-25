@@ -120,8 +120,6 @@ typedef enum {
 
 typedef enum {
   ast_EK_None,        // An error when parsing
-  ast_EK_NeverType,   // The type of the special value returned by ret,
-                      // neverending loops, and functions that dont return
   ast_EK_Int,         // Literal for an integer number
   ast_EK_Real,        // Literal for a real (floating point) number
   ast_EK_String,      // A string literal

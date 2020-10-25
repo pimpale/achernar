@@ -125,7 +125,6 @@ typedef enum {
   hir_EK_NeverType,   // The type of the special value returned by ret,
                       // neverending loops, and functions that dont return
   hir_EK_Nil,         // Literal for nil
-  hir_EK_NilType,     // Literal for the type of nil, Nil
   hir_EK_Int,         // Literal for an integer number
   hir_EK_Real,        // Literal for a real (floating point) number
   hir_EK_String,      // A string literal
@@ -137,7 +136,7 @@ typedef enum {
   hir_EK_Ret,         // Returns from a scope with a value
   hir_EK_Match,       // Matches an expression to the first matching pattern and
                       // destructures it
-  hir_EK_Block,       // Groups together several statements, returning last val
+  hir_EK_Scope,       // Groups together several statements, returning last val
   hir_EK_FieldAccess, // Accessing the field of a record object
   hir_EK_Reference,   // A reference to a previously defined variable
 } hir_ExprKind;

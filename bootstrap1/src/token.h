@@ -19,10 +19,10 @@ typedef enum {
   tk_Match,  // match
   tk_Ret,    // ret
   tk_Defer,  // defer
-  tk_In,     // in
   tk_At,     // at
-  tk_Let,    // let
   tk_Mut,    // mut
+  tk_Let,    // let
+  tk_In,     // in
   // Literals and constants
   tk_Inf,       // inf
   tk_Nan,       // nan
@@ -65,11 +65,12 @@ typedef enum {
   // Assignment
   tk_Assign, // =
   // Arrows
-  tk_Pipe,  // ->
-  tk_Arrow, // =>
+  tk_Pipe,  // >>
+  tk_Arrow, // ->
   // Other Miscellaneous Operator Things
-  tk_Ignore,       // _
-  tk_Splat,        // **
+  tk_Bind,         // $
+  tk_Ignore,       // $_
+  tk_Splat,        // $*
   tk_ParenLeft,    // (
   tk_ParenRight,   // )
   tk_BracketLeft,  // [

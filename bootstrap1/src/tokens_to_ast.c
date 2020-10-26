@@ -180,16 +180,6 @@ static void ast_parseIdentifier(ast_Identifier *ptr,
   }
 }
 
-static void ast_certain_parseNeverTypeExpr(ast_Expr *ptr,
-                                           DiagnosticLogger *diagnostics,
-                                           ast_Constructor *parser) {
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_NeverType, "expected a tk_NeverType");
-  ptr->kind = ast_EK_NeverType;
-  ptr->common.span = t.span;
-  return;
-}
-
 static void ast_certain_parseIntExpr(ast_Expr *ptr,
                                      DiagnosticLogger *diagnostics,
                                      ast_Constructor *parser) {
@@ -522,10 +512,6 @@ static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   }
   case tk_BracketLeft: {
     ast_certain_parseStructExpr(l, diagnostics, parser);
-    break;
-  }
-  case tk_NeverType: {
-    ast_certain_parseNeverTypeExpr(l, diagnostics, parser);
     break;
   }
   case tk_String: {

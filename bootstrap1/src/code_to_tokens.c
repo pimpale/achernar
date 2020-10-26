@@ -639,8 +639,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Inf;
   } else if (com_str_equal(str, com_str_lit_m("nan"))) {
     token.kind = tk_Nan;
-  } else if (com_str_equal(str, com_str_lit_m("Never"))) {
-    token.kind = tk_NeverType;
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
@@ -748,7 +746,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case '-': {
       switch (lex_peek(r, 2)) {
       case '>': {
-        RETURN_RESULT_TOKEN2(tk_Pipe)
+        RETURN_RESULT_TOKEN2(tk_Arrow)
       }
       case '-': {
         RETURN_RESULT_TOKEN2(tk_Difference)
@@ -800,9 +798,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_CompEqual)
       }
-      case '>': {
-        RETURN_RESULT_TOKEN2(tk_Arrow)
-      }
       default: {
         RETURN_RESULT_TOKEN1(tk_Assign)
       }
@@ -822,6 +817,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       switch (lex_peek(r, 2)) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_CompGreaterEqual)
+      }
+      case '>': {
+        RETURN_RESULT_TOKEN2(tk_Pipe)
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_CompGreater)

@@ -20,18 +20,20 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Defer");
   case tk_Let:
     return com_str_lit_m("tk_Let");
+  case tk_In:
+    return com_str_lit_m("tk_In");
+  case tk_Where:
+    return com_str_lit_m("tk_Where");
   case tk_Mut:
     return com_str_lit_m("tk_Mut");
-  case tk_FnType:
-    return com_str_lit_m("tk_FnType");
   case tk_At:
     return com_str_lit_m("tk_At");
-  case tk_New:
-    return com_str_lit_m("tk_New");
-  case tk_NilType:
-    return com_str_lit_m("tk_NilType");
-  case tk_NeverType:
-    return com_str_lit_m("tk_NeverType");
+  case tk_Dyn:
+    return com_str_lit_m("tk_Dyn");
+  case tk_Impl:
+    return com_str_lit_m("tk_Impl");
+  case tk_Has:
+    return com_str_lit_m("tk_Has");
   case tk_String:
     return com_str_lit_m("tk_String");
   case tk_Nan:
@@ -120,6 +122,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Label");
   case tk_Metadata:
     return com_str_lit_m("tk_Metadata");
+  case tk_Bind:
+    return com_str_lit_m("tk_Bind");
   case tk_Splat:
     return com_str_lit_m("tk_Splat");
   case tk_Copy:

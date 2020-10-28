@@ -23,6 +23,10 @@ typedef enum {
   tk_Mut,    // mut
   tk_Let,    // let
   tk_In,     // in
+  tk_Has,    // has
+  tk_Where,  // where
+  tk_Dyn,    // dyn
+  tk_Impl,   // impl
   // Literals and constants
   tk_Inf,       // inf
   tk_Nan,       // nan
@@ -30,11 +34,13 @@ typedef enum {
   tk_String,    // "string"
   tk_Int,       // 7
   // Math Operators
-  tk_Plus,  // +
-  tk_Minus, // -
-  tk_Mul,   // *
-  tk_Div,   // /
-  tk_Rem,   // %
+  tk_Add, // +
+  tk_Sub, // -
+  tk_Mul, // *
+  tk_Div, // /
+  tk_Rem, // %
+  tk_Neg, // neg
+  tk_Pos, // pos
   // Set Operators
   tk_Union,         // ++
   tk_Difference,    // --
@@ -86,7 +92,7 @@ typedef enum {
 } tk_Kind;
 
 typedef enum { tk_SLK_DoubleQuote, tk_SLK_Block } tk_StringLiteralKind;
-typedef enum { tk_SLK_Literal, tk_IK_Strop} tk_IdentifierKind;
+typedef enum { tk_IK_Literal, tk_IK_Strop} tk_IdentifierKind;
 
 typedef struct Token_s {
   // The type of this token

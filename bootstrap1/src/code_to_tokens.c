@@ -639,11 +639,23 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Inf;
   } else if (com_str_equal(str, com_str_lit_m("nan"))) {
     token.kind = tk_Nan;
+  } else if (com_str_equal(str, com_str_lit_m("neg"))) {
+    token.kind = tk_Neg;
+  } else if (com_str_equal(str, com_str_lit_m("pos"))) {
+    token.kind = tk_Pos;
+  } else if (com_str_equal(str, com_str_lit_m("has"))) {
+    token.kind = tk_Has;
+  } else if (com_str_equal(str, com_str_lit_m("dyn"))) {
+    token.kind = tk_Dyn;
+  } else if (com_str_equal(str, com_str_lit_m("impl"))) {
+    token.kind = tk_Impl;
+  } else if (com_str_equal(str, com_str_lit_m("where"))) {
+    token.kind = tk_Where;
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
     token.identifierToken.data = str;
-    token.identifierToken.kind = tk_IK_Strop;
+    token.identifierToken.kind = tk_IK_Literal;
     return token;
   }
 
@@ -702,7 +714,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
 
   com_loc_LnCol start = com_reader_position(r);
 
-  if (is_alpha(c)) {
+  if (is_alpha(c) || c == '_') {
     return lexWord(r, diagnostics, a);
   } else if (is_digit(c)) {
     return lexNumberLiteral(r, diagnostics, a);
@@ -739,12 +751,18 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         RETURN_RESULT_TOKEN2(tk_Union)
       }
       default: {
-        RETURN_RESULT_TOKEN1(tk_Plus)
+        RETURN_RESULT_TOKEN1(tk_Add)
       }
       }
     }
     case '-': {
-      switch (lex_peek(r, 2)) {
+      inband_reader_result c2 = lex_peek(r, 2);
+
+      if (is_digit(c2)) {
+        return lexNumberLiteral(r, diagnostics, a);
+      }
+
+      switch (c2) {
       case '>': {
         RETURN_RESULT_TOKEN2(tk_Arrow)
       }
@@ -752,12 +770,22 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         RETURN_RESULT_TOKEN2(tk_Difference)
       }
       default: {
-        RETURN_RESULT_TOKEN1(tk_Minus)
+        RETURN_RESULT_TOKEN1(tk_Sub)
       }
       }
     }
-    case '_': {
-      RETURN_RESULT_TOKEN1(tk_Ignore)
+    case '$': {
+      switch (lex_peek(r, 2)) {
+      case '_': {
+        RETURN_RESULT_TOKEN2(tk_Ignore)
+      }
+      case '*': {
+        RETURN_RESULT_TOKEN2(tk_Splat)
+      }
+      default: {
+        RETURN_RESULT_TOKEN1(tk_Bind)
+      }
+      }
     }
     case ':': {
       RETURN_RESULT_TOKEN1(tk_Constrain)

@@ -619,12 +619,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Ret;
   } else if (com_str_equal(str, com_str_lit_m("defer"))) {
     token.kind = tk_Defer;
-  } else if (com_str_equal(str, com_str_lit_m("let"))) {
-    token.kind = tk_Let;
   } else if (com_str_equal(str, com_str_lit_m("mut"))) {
     token.kind = tk_Mut;
-  } else if (com_str_equal(str, com_str_lit_m("in"))) {
-    token.kind = tk_In;
   } else if (com_str_equal(str, com_str_lit_m("and"))) {
     token.kind = tk_And;
   } else if (com_str_equal(str, com_str_lit_m("or"))) {

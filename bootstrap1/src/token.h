@@ -21,8 +21,6 @@ typedef enum {
   tk_Defer,  // defer
   tk_At,     // at
   tk_Mut,    // mut
-  tk_Let,    // let
-  tk_In,     // in
   tk_Has,    // has
   tk_Where,  // where
   tk_Dyn,    // dyn

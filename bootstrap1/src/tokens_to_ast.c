@@ -343,9 +343,9 @@ static void ast_certain_parseBindExpr(ast_Expr *vbp,
   com_mem_zero_obj_m(vbp);
   vbp->kind = ast_EK_Bind;
 
-  // ensure token is tk let
+  // ensure token is tk bind
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Let, "expected tk_Let");
+  com_assert_m(t.kind == tk_Bind, "expected tk_Bind");
 
   // now parse binding
   ast_Identifier *binding = parse_alloc_obj_m(parser, ast_Identifier);
@@ -356,7 +356,7 @@ static void ast_certain_parseBindExpr(ast_Expr *vbp,
   return;
 }
 
-// 'at' pattern 'let' binding
+// 'at' pattern 'dollar' binding
 static void ast_certain_parseAtLetExpr(ast_Expr *alpp,
                                        DiagnosticLogger *diagnostics,
                                        ast_Constructor *parser) {
@@ -374,11 +374,11 @@ static void ast_certain_parseAtLetExpr(ast_Expr *alpp,
 
   // now ensure that we can find a let
   t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Let) {
+  if (t.kind != tk_Bind) {
     *dlogger_append(diagnostics) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
-        .message = com_str_lit_m("Expected let token after pattern"),
+        .message = com_str_lit_m("Expected bind token after pattern"),
         .children_len = 0};
   }
 
@@ -479,18 +479,19 @@ static void ast_certain_parseStructExpr(ast_Expr *ptr,
   return;
 }
 
-// 1 braces, literals
-// 2 match new () -> $ @ . ... (postfixes)
-// 3 not - + (prefixes)
-// 4 .. ..= (range)
-// 5 : (constraints)
-// 6 * / % (multiplication and division)
-// 7 + - (addition and subtraction)
-// 8 < <= > >= == != (comparators)
-// 9 and or xor (logical operators)
-// 10 ++ -- ^ !^ (set operators)
-// 11 , | (type operators)
-// 12 = (Assignment)
+// braces, literals
+// (function application) match >> @ & . ... [] (postfixes)
+// neg pos not - + ...= ... (prefixes)
+// .. ..= (range)
+// : (constraints)
+// * / % (multiplication and division)
+// + - (addition and subtraction)
+// < <= > >= == != (comparators)
+// and or xor (logical operators)
+// ++ -- ^ !^ (set operators)
+// , | (type operators)
+// -> (Function definiton ) RIGHT ASSOCIATIVE
+// = (Assignment)
 
 static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                           ast_Constructor *parser) {
@@ -534,8 +535,12 @@ static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     ast_certain_parseAtLetExpr(l, diagnostics, parser);
     break;
   }
-  case tk_Let: {
+  case tk_Bind: {
     ast_certain_parseBindExpr(l, diagnostics, parser);
+    break;
+  }
+  case tk_Mut: {
+    ast_certain_parseMutExpr(l, diagnostics, parser);
     break;
   }
   case tk_Ignore: {
@@ -632,28 +637,6 @@ static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
       com_loc_span_m(root->common.span.start, rhs->common.span.end);
 }
 
-static void ast_certain_postfix_parseInExpr(ast_Expr *iptr,
-                                              DiagnosticLogger *diagnostics,
-                                              ast_Constructor *parser,
-                                              ast_Expr *root) {
-
-  com_assert_m(parse_peek(parser, diagnostics, 1).kind == tk_In,
-               "expected tk_In");
-  parse_drop(parser, diagnostics);
-
-  com_mem_zero_obj_m(iptr);
-  iptr->kind = ast_EK_BinaryOp;
-  iptr->binaryOp.op = ast_EBOK_In;
-
-  ast_Expr *rhs = parse_alloc_obj_m(parser, ast_Expr);
-  parseTermExpr(rhs, diagnostics, parser);
-
-  iptr->binaryOp.left_operand = root;
-  iptr->binaryOp.right_operand = rhs;
-  iptr->common.span =
-      com_loc_span_m(root->common.span.start, rhs->common.span.end);
-}
-
 static void ast_certain_postfix_parseMatchExpr(ast_Expr *mptr,
                                                DiagnosticLogger *diagnostics,
                                                ast_Constructor *parser,
@@ -702,6 +685,22 @@ CLEANUP:
 
   mptr->common.span = com_loc_span_m(root->common.span.start, end);
   return;
+}
+
+static bool ast (tk_Kind tk, ast_ExprBinaryOpKind *val) {
+  switch (tk) {
+  case tk_Range: {
+    *val = ast_EBOK_Range;
+    return true;
+  }
+  case tk_RangeInclusive: {
+    *val = ast_EBOK_RangeInclusive;
+    return true;
+  }
+  default: {
+    return false;
+  }
+  }
 }
 
 static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,

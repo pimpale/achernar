@@ -18,10 +18,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Ret");
   case tk_Defer:
     return com_str_lit_m("tk_Defer");
-  case tk_Let:
-    return com_str_lit_m("tk_Let");
-  case tk_In:
-    return com_str_lit_m("tk_In");
   case tk_Where:
     return com_str_lit_m("tk_Where");
   case tk_Mut:
@@ -44,10 +40,14 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Real");
   case tk_Int:
     return com_str_lit_m("tk_Int");
-  case tk_Plus:
-    return com_str_lit_m("tk_Plus");
-  case tk_Minus:
-    return com_str_lit_m("tk_Minus");
+  case tk_Pos:
+    return com_str_lit_m("tk_Pos");
+  case tk_Neg:
+    return com_str_lit_m("tk_Neg");
+  case tk_Add:
+    return com_str_lit_m("tk_Add");
+  case tk_Sub:
+    return com_str_lit_m("tk_Sub");
   case tk_Mul:
     return com_str_lit_m("tk_Mul");
   case tk_Div:

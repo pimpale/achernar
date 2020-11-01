@@ -160,7 +160,6 @@ typedef struct ast_Expr_s {
     } structLiteral;
     struct {
       ast_Expr *body;
-      ast_Label *label;
     } loop;
     struct {
       ast_Expr *root;

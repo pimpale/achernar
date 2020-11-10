@@ -71,6 +71,7 @@ typedef struct {
 } ast_CompoundElement;
 
 typedef enum {
+  ast_EUOK_None,
   ast_EUOK_Ref,
   ast_EUOK_Deref,
   ast_EUOK_Copy,
@@ -78,6 +79,7 @@ typedef enum {
 } ast_ExprUnaryOpKind;
 
 typedef enum {
+  ast_EBOK_None, 
   // Type coercion
   ast_EBOK_Constrain,
   // Function

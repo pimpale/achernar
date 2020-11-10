@@ -52,7 +52,6 @@ typedef struct {
 } ast_Label;
 
 typedef struct ast_Expr_s ast_Expr;
-typedef struct ast_Stmnt_s ast_Stmnt;
 
 typedef enum {
   ast_CEK_None,
@@ -75,7 +74,9 @@ typedef enum {
   ast_EUOK_Ref,
   ast_EUOK_Deref,
   ast_EUOK_Copy,
-  ast_EUOK_Mut,
+  ast_EBOK_Not,
+  ast_EUOK_Mut, // PATTERN ONLY
+  ast_EBOK_Nil,
 } ast_ExprUnaryOpKind;
 
 typedef enum {
@@ -92,6 +93,10 @@ typedef enum {
   ast_EBOK_Mul,
   ast_EBOK_Div,
   ast_EBOK_Rem,
+  // Booleans
+  ast_EBOK_And,
+  ast_EBOK_Or,
+  ast_EBOK_Xor,
   // Comparison
   ast_EBOK_CompEqual,
   ast_EBOK_CompNotEqual,
@@ -110,6 +115,10 @@ typedef enum {
   // Range
   ast_EBOK_Range,
   ast_EBOK_RangeInclusive,
+  // Assign
+  ast_EBOK_Assign,
+  // Sequence
+  ast_EBOK_Sequence,
 } ast_ExprBinaryOpKind;
 
 typedef enum {
@@ -118,6 +127,7 @@ typedef enum {
   ast_EK_Real,        // Literal for a real (floating point) number
   ast_EK_String,      // A string literal
   ast_EK_Loop,        // Loops until a scope is returned
+  ast_EK_Defer,       // Defer until label
   ast_EK_Struct,      // Constructs a new compound type
   ast_EK_BinaryOp,    // Binary operation
   ast_EK_UnaryOp,     // Unary operation
@@ -180,9 +190,12 @@ typedef struct ast_Expr_s {
     } match;
     struct {
       ast_Label *label;
-      ast_Stmnt *stmnts;
-      usize stmnts_len;
-    } block;
+      ast_Expr *stmnts;
+    } group;
+    struct {
+      ast_Label *label;
+      ast_Expr *val;
+    } defer;
     struct {
       ast_Identifier *binding;
     } binding;
@@ -193,38 +206,11 @@ typedef struct ast_Expr_s {
   };
 } ast_Expr;
 
-typedef enum {
-  ast_SK_None,
-  ast_SK_Assign,
-  ast_SK_Expr,
-  ast_SK_Defer,
-} ast_StmntKind;
-
-typedef struct ast_Stmnt_s {
-  ast_Common common;
-  ast_StmntKind kind;
-  union {
-    // Declarations
-    struct {
-      ast_Expr *pat;
-      ast_Expr *val;
-    } assign;
-    struct {
-      ast_Expr *expr;
-    } expr;
-    struct {
-      ast_Label *label;
-      ast_Expr *val;
-    } defer;
-  };
-} ast_Stmnt;
-
 com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strIdentifierKind(ast_IdentifierKind val);
 com_str ast_strLabelKind(ast_LabelKind val);
 com_str ast_strCompoundElementKind(ast_CompoundElementKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);
-com_str ast_strStmntKind(ast_StmntKind val);
 
 #endif

@@ -15,30 +15,33 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_Loop,   // loop
-  tk_Match,  // match
-  tk_Ret,    // ret
-  tk_Defer,  // defer
-  tk_At,     // at
-  tk_Mut,    // mut
-  tk_Has,    // has
-  tk_Where,  // where
-  tk_Dyn,    // dyn
-  tk_Impl,   // impl
-  tk_Do,     // mut
-  tk_End,    // mut
+  tk_Loop,  // loop
+  tk_Match, // match
+  tk_Ret,   // ret
+  tk_Defer, // defer
+  tk_At,    // at
+  tk_Mut,   // mut
+  tk_Has,   // has
+  tk_Where, // where
+  tk_Dyn,   // dyn
+  tk_Impl,  // impl
   // Literals and constants
-  tk_Inf,       // inf
-  tk_Nan,       // nan
-  tk_Real,      // 0.7
-  tk_String,    // "string"
-  tk_Int,       // 7
+  tk_Inf,    // inf
+  tk_Nan,    // nan
+  tk_Real,   // 0.7
+  tk_String, // "string"
+  tk_Int,    // 7
   // Math Operators
   tk_Add, // +
   tk_Sub, // -
   tk_Mul, // *
   tk_Div, // /
   tk_Rem, // %
+  // Boolean Operators
+  tk_And, // and
+  tk_Or,  // or
+  tk_Xor, // xor
+  tk_Not, // not
   // Set Operators
   tk_Union,         // ++
   tk_Difference,    // --
@@ -64,8 +67,9 @@ typedef enum {
   // Assignment
   tk_Assign, // =
   // Arrows
-  tk_Pipe,  // >>
-  tk_Arrow, // ->
+  tk_Apply,    // <<
+  tk_ApplyRev, // >>
+  tk_Arrow,    // ->
   // Other Miscellaneous Operator Things
   tk_Bind,         // $
   tk_Ignore,       // $_
@@ -76,8 +80,10 @@ typedef enum {
   tk_BracketRight, // ]
   tk_BraceLeft,    // {
   tk_BraceRight,   // }
-  tk_FieldAccess,  // .
   tk_Constrain,    // :
+  tk_ModuleAccess, // ::
+  tk_Pipe,         // .
+  tk_Sequence,     // ;
   // Label
   tk_Label, // 'label
   // Comments, and Attributes
@@ -85,7 +91,7 @@ typedef enum {
 } tk_Kind;
 
 typedef enum { tk_SLK_DoubleQuote, tk_SLK_Block } tk_StringLiteralKind;
-typedef enum { tk_IK_Literal, tk_IK_Strop} tk_IdentifierKind;
+typedef enum { tk_IK_Literal, tk_IK_Strop } tk_IdentifierKind;
 
 typedef struct Token_s {
   // The type of this token

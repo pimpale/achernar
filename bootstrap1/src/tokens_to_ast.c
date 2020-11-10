@@ -470,22 +470,43 @@ static void ast_certain_parseStructExpr(ast_Expr *ptr,
   return;
 }
 
-// paren, literals do block
-// LEFT IATIVE  (function application) match >> @ & . ... [] (postfixes)
-// RIGHT IATIVE neg pos not - + (prefixes)
-// LEFT IATIVE  .. ..=
-// LEFT IATIVE  :
-// LEFT IATIVE  * / %
-// LEFT IATIVE  + -
-// LEFT IATIVE  < <= > >= == !=
-// LEFT IATIVE  and or xor
-// LEFT IATIVE  ++ -- ^ !^
-// LEFT IATIVE  , |
-// RIGHT IATIVE ->
-// RIGHT IATIVE <<
+static void ast_certain_parseDeferExpr(ast_Expr *dsp,
+                                       DiagnosticLogger *diagnostics,
+                                       ast_Constructor *parser) {
+  dsp->kind = ast_EK_Defer;
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Defer, "expected tk_Defer");
 
-static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
-                          ast_Constructor *parser) {
+  // label
+  dsp->defer.label = parse_alloc_obj_m(parser, ast_Label);
+  ast_parseLabel(dsp->defer.label, diagnostics, parser);
+
+  // value
+  dsp->defer.val = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(dsp->defer.val, diagnostics, parser);
+
+  // span
+  dsp->common.span =
+      com_loc_span_m(t.span.start, dsp->defer.val->common.span.end);
+  return;
+}
+
+// paren, literals do block
+// LEFT  (function application) match >> @ & . ... [] (postfixes)
+// RIGHT neg pos not - + (prefixes)
+// LEFT  .. ..=
+// LEFT  :
+// LEFT  * / %
+// LEFT  + -
+// LEFT  < <= > >= == !=
+// LEFT  and or xor
+// LEFT  ++ -- ^ !^
+// LEFT  , |
+// RIGHT ->
+// RIGHT <<
+
+static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
+                              ast_Constructor *parser) {
 
   // value metadata;
   com_vec metadata = parse_getMetadata(parser, diagnostics);
@@ -528,10 +549,6 @@ static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   }
   case tk_Bind: {
     ast_certain_parseBindExpr(l, diagnostics, parser);
-    break;
-  }
-  case tk_Mut: {
-    ast_certain_parseMutExpr(l, diagnostics, parser);
     break;
   }
   case tk_Ignore: {
@@ -619,7 +636,7 @@ static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
   pptr->binaryOp.op = ast_EBOK_Pipe;
 
   ast_Expr *rhs = parse_alloc_obj_m(parser, ast_Expr);
-  parseTermExpr(rhs, diagnostics, parser);
+  ast_parseTermExpr(rhs, diagnostics, parser);
 
   pptr->binaryOp.left_operand = root;
   pptr->binaryOp.right_operand = rhs;
@@ -675,128 +692,6 @@ CLEANUP:
 
   mptr->common.span = com_loc_span_m(root->common.span.start, end);
   return;
-}
-
-static bool ast(tk_Kind tk, ast_ExprBinaryOpKind *val) {
-  switch (tk) {
-  case tk_Range: {
-    *val = ast_EBOK_Range;
-    return true;
-  }
-  case tk_RangeInclusive: {
-    *val = ast_EBOK_RangeInclusive;
-    return true;
-  }
-  default: {
-    return false;
-  }
-  }
-}
-
-static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
-                             ast_Constructor *parser) {
-
-  ast_Expr *root = l;
-  parseTermExpr(root, diagnostics, parser);
-
-  while (true) {
-    // represents the old operation
-    ast_Expr *v;
-
-    Token t = parse_peekPastMetadata(parser, diagnostics, 1);
-    switch (t.kind) {
-    case tk_Ref: {
-      // get metadata
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      // allocate space for operation
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      root->kind = ast_EK_UnaryOp;
-      root->unaryOp.op = ast_EUOK_Ref;
-      root->unaryOp.operand = v;
-      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      parse_next(parser, diagnostics);
-      break;
-    }
-    case tk_Deref: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      root->kind = ast_EK_UnaryOp;
-      root->unaryOp.op = ast_EUOK_Deref;
-      root->unaryOp.operand = v;
-      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      parse_next(parser, diagnostics);
-      break;
-    }
-    case tk_Copy: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      root->kind = ast_EK_UnaryOp;
-      root->unaryOp.op = ast_EUOK_Copy;
-      root->unaryOp.operand = v;
-      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      parse_next(parser, diagnostics);
-      break;
-    }
-    case tk_FieldAccess: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      ast_certain_postfix_parseFieldAccessExpr(root, diagnostics, parser, v);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      break;
-    }
-    case tk_In: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      ast_certain_postfix_parseInExpr(root, diagnostics, parser, v);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      break;
-    }
-    case tk_ParenLeft: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      ast_certain_postfix_parseCallExpr(root, diagnostics, parser, v);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      break;
-    }
-    case tk_Pipe: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      ast_certain_postfix_parsePipeExpr(root, diagnostics, parser, v);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      break;
-    }
-    case tk_Match: {
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      ast_certain_postfix_parseMatchExpr(root, diagnostics, parser, v);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      break;
-    }
-    default: {
-      // there are no more level 2 expressions
-      return;
-    }
-    }
-  }
 }
 
 #define DEFN_PARSE_R_UNARY(lower_fn, switch_fn, fn_name)                       \
@@ -878,41 +773,10 @@ static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     return;                                                                    \
   }
 
-static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
-                             ast_Constructor *parser) {
-  ast_Expr *root = l;
-  parseTermExpr(root, diagnostics, parser);
-
-  while (true) {
-    // represents the old operation
-    ast_Expr *v;
-
-    Token t = parse_peekPastMetadata(parser, diagnostics, 1);
-    switch (t.kind) {
-    case tk_Ref: {
-      // get metadata
-      com_vec metadata = parse_getMetadata(parser, diagnostics);
-      // allocate space for operation
-      v = parse_alloc_obj_m(parser, ast_Expr);
-      *v = *root;
-      root->kind = ast_EK_UnaryOp;
-      root->unaryOp.op = ast_EUOK_Ref;
-      root->unaryOp.operand = v;
-      root->common.span = com_loc_span_m(v->common.span.start, t.span.end);
-      root->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-      root->common.metadata = com_vec_release(&metadata);
-      parse_next(parser, diagnostics);
-      break;
-    }
-    }
-  }
-}
-
 // Because it's postfix, we must take a somewhat
 // unorthodox approach here We Parse the level
 // one expr and then use a while loop to process
 // the rest of the stuff
-
 #define DEFN_PARSE_L_UNARY(lower_fn, switch_fn, fn_name)                       \
   static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
                       ast_Constructor *parser) {                               \
@@ -1003,6 +867,25 @@ static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     return;                                                                    \
   }
 
+static ast_ExprUnaryOpKind ast_opDetPostfixExpr(tk_Kind tk) {
+  switch (tk) {
+  case tk_Copy: {
+    return ast_EUOK_Copy;
+  }
+  case tk_Ref: {
+    return ast_EUOK_Ref;
+  }
+  case tk_Deref: {
+    return ast_EUOK_Deref;
+  }
+  default: {
+    return ast_EUOK_None;
+  }
+  }
+}
+DEFN_PARSE_L_UNARY(ast_parseTermExpr, ast_opDetPostfixExpr,
+                   ast_parsePostfixExpr)
+
 static ast_ExprUnaryOpKind ast_opDetMutExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Mut: {
@@ -1013,7 +896,7 @@ static ast_ExprUnaryOpKind ast_opDetMutExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_UNARY(parseTermExpr, ast_opDetMutExpr, ast_parseMutExpr)
+DEFN_PARSE_R_UNARY(ast_parsePostfixExpr, ast_opDetMutExpr, ast_parseMutExpr)
 
 static ast_ExprBinaryOpKind ast_opDetRangeExpr(tk_Kind tk) {
   switch (tk) {
@@ -1059,209 +942,131 @@ static ast_ExprBinaryOpKind ast_opDetProductExpr(tk_Kind tk) {
   }
   }
 }
-
 DEFN_PARSE_L_BINARY(ast_parseConstrainExpr, ast_opDetProductExpr,
                     ast_parseProductExpr)
 
-static bool ast_opDetSumExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static ast_ExprBinaryOpKind ast_opDetSumExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Add: {
-    *val = ast_EBOK_Add;
-    return true;
+    return ast_EBOK_Add;
   }
   case tk_Sub: {
-    *val = ast_EBOK_Sub;
-    return true;
+    return ast_EBOK_Sub;
   }
   default: {
-    return false;
+    return ast_EBOK_None;
   }
   }
 }
 
 DEFN_PARSE_L_BINARY(ast_parseProductExpr, ast_opDetSumExpr, ast_parseSumExpr)
 
-static bool ast_opDetCompareExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static ast_ExprBinaryOpKind ast_opDetCompExpr(tk_Kind tk) {
   switch (tk) {
   case tk_CompLess: {
-    *val = ast_EBOK_CompLess;
-    return true;
+    return ast_EBOK_CompLess;
   }
   case tk_CompGreater: {
-    *val = ast_EBOK_CompGreater;
-    return true;
+    return ast_EBOK_CompGreater;
   }
   case tk_CompLessEqual: {
-    *val = ast_EBOK_CompLessEqual;
-    return true;
+    return ast_EBOK_CompLessEqual;
   }
   case tk_CompGreaterEqual: {
-    *val = ast_EBOK_CompGreaterEqual;
-    return true;
+    return ast_EBOK_CompGreaterEqual;
   }
   case tk_CompEqual: {
-    *val = ast_EBOK_CompEqual;
-    return true;
+    return ast_EBOK_CompEqual;
   }
   case tk_CompNotEqual: {
-    *val = ast_EBOK_CompNotEqual;
-    return true;
+    return ast_EBOK_CompNotEqual;
   }
   default: {
-    return false;
+    return ast_EBOK_None;
   }
   }
 }
+DEFN_PARSE_L_BINARY(ast_parseSumExpr, ast_opDetCompExpr, ast_parseCompExpr)
 
-DEFN_PARSE_L_BINARY(ast_parseSumExpr, ast_opDetCompareExpr,
-                    ast_parseCompareExpr)
-
-static bool ast_opDetBooleanExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static ast_ExprBinaryOpKind ast_opDetBoolExpr(tk_Kind tk) {
   switch (tk) {
   case tk_And: {
-    *val = ast_EBOK_And;
-    return true;
+    return ast_EBOK_And;
   }
   case tk_Or: {
-    *val = ast_EBOK_Or;
-    return true;
+    return ast_EBOK_Or;
   }
   case tk_Xor: {
-    *val = ast_EBOK_Xor;
-    return true;
+    return ast_EBOK_Xor;
   }
   default: {
-    return false;
+    return ast_EBOK_None;
   }
   }
 }
+DEFN_PARSE_L_BINARY(ast_parseSumExpr, ast_opDetBoolExpr, ast_parseBoolExpr)
 
-DEFN_PARSE_L_BINARY(ast_parseCompareExpr, ast_opDetBooleanExpr,
-                    ast_parseBooleanExpr)
-
-static bool ast_opDetSetExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static ast_ExprBinaryOpKind ast_opDetSetExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Union: {
-    *val = ast_EBOK_Union;
-    return true;
+    return ast_EBOK_Union;
   }
   case tk_Difference: {
-    *val = ast_EBOK_Difference;
-    return true;
+    return ast_EBOK_Difference;
   }
   case tk_Intersection: {
-    *val = ast_EBOK_Intersection;
-    return true;
+    return ast_EBOK_Intersection;
   }
   case tk_SymDifference: {
-    *val = ast_EBOK_SymDifference;
-    return true;
+    return ast_EBOK_SymDifference;
   }
   default: {
-    return false;
+    return ast_EBOK_None;
   }
   }
 }
+DEFN_PARSE_L_BINARY(ast_parseBoolExpr, ast_opDetSetExpr, ast_parseSetExpr)
 
-DEFN_PARSE_L_BINARY(ast_parseBooleanExpr, ast_opDetSetExpr, ast_parseSetExpr)
-
-static bool ast_opDetTypeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static ast_ExprBinaryOpKind ast_opDetTypeExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Sum: {
-    *val = ast_EBOK_Sum;
-    return true;
+    return ast_EBOK_Sum;
   }
   case tk_Product: {
-    *val = ast_EBOK_Product;
-    return true;
+    return ast_EBOK_Product;
   }
   default: {
-    return false;
+    return ast_EBOK_None;
   }
   }
 }
-
 DEFN_PARSE_L_BINARY(ast_parseSetExpr, ast_opDetTypeExpr, ast_parseTypeExpr)
 
-static bool ast_opDetFnExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static ast_ExprBinaryOpKind ast_opDetFnExpr(tk_Kind tk) {
+  switch (tk) {
+  case tk_Arrow: {
+    return ast_EBOK_Fn;
+  }
+  default: {
+    return ast_EBOK_None;
+  }
+  }
+}
+DEFN_PARSE_R_BINARY(ast_parseTypeExpr, ast_opDetFnExpr, ast_parseFnExpr)
+
+static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Assign: {
-    *val = ast_EBOK_Fn;
-    return true;
+    return ast_EBOK_Assign;
   }
   default: {
-    return false;
+    return ast_EBOK_None;
   }
   }
 }
+DEFN_PARSE_R_BINARY(ast_parseFnExpr, ast_opDetAssignExpr, ast_parseExpr)
 
-DEFN_PARSE_L_BINARY(ast_parseTypeExpr, ast_opDetFnExpr, ast_parseFnExpr)
 
-// shim method
-static void ast_parseExpr(ast_Expr *ptr, DiagnosticLogger *diagnostics,
-                          ast_Constructor *parser) {
-  ast_parseFnExpr(ptr, diagnostics, parser);
-}
-
-static void ast_certain_parseDeferStmnt(ast_Stmnt *dsp,
-                                        DiagnosticLogger *diagnostics,
-                                        ast_Constructor *parser) {
-  dsp->kind = ast_SK_Defer;
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Defer, "expected tk_Defer");
-
-  // label
-  dsp->defer.label = parse_alloc_obj_m(parser, ast_Label);
-  ast_parseLabel(dsp->defer.label, diagnostics, parser);
-
-  // value
-  dsp->defer.val = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(dsp->defer.val, diagnostics, parser);
-
-  // span
-  dsp->common.span =
-      com_loc_span_m(t.span.start, dsp->defer.val->common.span.end);
-  return;
-}
-
-void ast_parseStmnt(ast_Stmnt *sp, DiagnosticLogger *diagnostics,
-                    ast_Constructor *parser) {
-  com_vec metadata = parse_getMetadata(parser, diagnostics);
-
-  // peek next token
-  Token t = parse_peek(parser, diagnostics, 1);
-  switch (t.kind) {
-  case tk_Defer: {
-    ast_certain_parseDeferStmnt(sp, diagnostics, parser);
-    break;
-  }
-  default: {
-    ast_Expr *expr = parse_alloc_obj_m(parser, ast_Expr);
-    ast_parseExpr(expr, diagnostics, parser);
-
-    if (parse_peek(parser, diagnostics, 1).kind != tk_Assign) {
-      sp->kind = ast_SK_Expr;
-      sp->expr.expr = expr;
-      sp->common.span = sp->expr.expr->common.span;
-      break;
-    }
-
-    parse_drop(parser, diagnostics);
-
-    ast_Expr *val = parse_alloc_obj_m(parser, ast_Expr);
-    ast_parseExpr(val, diagnostics, parser);
-
-    sp->kind = ast_SK_Assign;
-    sp->assign.pat = expr;
-    sp->assign.val = val;
-    sp->common.span = com_loc_span_m(sp->assign.pat->common.span.start,
-                                     sp->assign.val->common.span.end);
-    break;
-  }
-  }
-  sp->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  sp->common.metadata = com_vec_release(&metadata);
-}
 
 bool ast_eof(ast_Constructor *parser, DiagnosticLogger *d) {
   return parse_peek(parser, d, 1).kind == tk_Eof;

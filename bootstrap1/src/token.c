@@ -1,6 +1,6 @@
 #include "token.h"
-#include "com_str.h"
 #include "com_assert.h"
+#include "com_str.h"
 
 com_str tk_strKind(tk_Kind val) {
   switch (val) {
@@ -40,10 +40,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Real");
   case tk_Int:
     return com_str_lit_m("tk_Int");
-  case tk_Pos:
-    return com_str_lit_m("tk_Pos");
-  case tk_Neg:
-    return com_str_lit_m("tk_Neg");
   case tk_Add:
     return com_str_lit_m("tk_Add");
   case tk_Sub:
@@ -70,14 +66,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Ref");
   case tk_Deref:
     return com_str_lit_m("tk_Deref");
-  case tk_And:
-    return com_str_lit_m("tk_And");
-  case tk_Or:
-    return com_str_lit_m("tk_Or");
-  case tk_Not:
-    return com_str_lit_m("tk_Not");
-  case tk_Xor:
-    return com_str_lit_m("tk_Xor");
   case tk_Range:
     return com_str_lit_m("tk_Range");
   case tk_RangeInclusive:
@@ -114,8 +102,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_BraceLeft");
   case tk_BraceRight:
     return com_str_lit_m("tk_BraceRight");
-  case tk_FieldAccess:
-    return com_str_lit_m("tk_FieldAccess");
+  case tk_ModuleAccess:
+    return com_str_lit_m("tk_ModuleAccess");
   case tk_Constrain:
     return com_str_lit_m("tk_Constrain");
   case tk_Label:
@@ -128,6 +116,18 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Splat");
   case tk_Copy:
     return com_str_lit_m("tk_Copy");
+  case tk_Apply:
+    return com_str_lit_m("tk_Apply");
+  case tk_ApplyRev:
+    return com_str_lit_m("tk_ApplyRev");
+  case tk_And:
+    return com_str_lit_m("tk_And");
+  case tk_Or:
+    return com_str_lit_m("tk_Or");
+  case tk_Xor:
+    return com_str_lit_m("tk_Xor");
+  case tk_Not:
+    return com_str_lit_m("tk_Not");
   }
 
   com_assert_unreachable_m("control flow reaches end of token");

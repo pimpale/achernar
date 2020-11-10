@@ -635,6 +635,14 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Impl;
   } else if (com_str_equal(str, com_str_lit_m("where"))) {
     token.kind = tk_Where;
+  } else if (com_str_equal(str, com_str_lit_m("and"))) {
+    token.kind = tk_And;
+  } else if (com_str_equal(str, com_str_lit_m("or"))) {
+    token.kind = tk_Or;
+  } else if (com_str_equal(str, com_str_lit_m("xor"))) {
+    token.kind = tk_Xor;
+  } else if (com_str_equal(str, com_str_lit_m("not"))) {
+    token.kind = tk_Not;
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;
@@ -772,7 +780,14 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case ':': {
-      RETURN_RESULT_TOKEN1(tk_Constrain)
+      switch (lex_peek(r, 2)) {
+      case ':': {
+        RETURN_RESULT_TOKEN2(tk_ModuleAccess)
+      }
+      default: {
+        RETURN_RESULT_TOKEN1(tk_Constrain)
+      }
+      }
     }
     case '&': {
       RETURN_RESULT_TOKEN1(tk_Ref)
@@ -820,6 +835,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       case '=': {
         RETURN_RESULT_TOKEN2(tk_CompLessEqual)
       }
+      case '<': {
+        RETURN_RESULT_TOKEN2(tk_Apply)
+      }
       default: {
         RETURN_RESULT_TOKEN1(tk_CompLess)
       }
@@ -831,7 +849,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         RETURN_RESULT_TOKEN2(tk_CompGreaterEqual)
       }
       case '>': {
-        RETURN_RESULT_TOKEN2(tk_Pipe)
+        RETURN_RESULT_TOKEN2(tk_ApplyRev)
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_CompGreater)
@@ -867,7 +885,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         }
       }
       default: {
-        RETURN_RESULT_TOKEN1(tk_FieldAccess)
+        RETURN_RESULT_TOKEN1(tk_Pipe)
       }
       }
     }

@@ -12,7 +12,7 @@ void com_mem_zero(void* ptr, const usize len);
 /// utility macro setting a pointer's object to zero
 /// REQUIRES: `ptr` is a valid pointer to a struct or a fixed size array
 /// GUARANTEES: all bytes of the struct located at `ptr` will be set to zero
-#define com_mem_zero_obj_m(ptr) com_mem_zero((ptr), sizeof(ptr))
+#define com_mem_zero_obj_m(ptr) com_mem_zero((ptr), sizeof(*ptr))
 
 /// utility macro setting n structs of a given size to zero
 /// REQUIRES: `ptr` is a valid pointer the beginning of an array of `n` elements of type `t`

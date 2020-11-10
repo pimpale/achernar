@@ -25,6 +25,8 @@ typedef enum {
   tk_Where,  // where
   tk_Dyn,    // dyn
   tk_Impl,   // impl
+  tk_Do,     // mut
+  tk_End,    // mut
   // Literals and constants
   tk_Inf,       // inf
   tk_Nan,       // nan
@@ -37,8 +39,6 @@ typedef enum {
   tk_Mul, // *
   tk_Div, // /
   tk_Rem, // %
-  tk_Neg, // neg
-  tk_Pos, // pos
   // Set Operators
   tk_Union,         // ++
   tk_Difference,    // --
@@ -51,11 +51,6 @@ typedef enum {
   tk_Ref,   // &
   tk_Deref, // @
   tk_Copy,  // ~
-  // Logical Operators
-  tk_And, // and
-  tk_Or,  // or
-  tk_Not, // not
-  tk_Xor, // xor
   // Range Operators
   tk_Range,          // ..
   tk_RangeInclusive, // ..=

@@ -621,24 +621,12 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Defer;
   } else if (com_str_equal(str, com_str_lit_m("mut"))) {
     token.kind = tk_Mut;
-  } else if (com_str_equal(str, com_str_lit_m("and"))) {
-    token.kind = tk_And;
-  } else if (com_str_equal(str, com_str_lit_m("or"))) {
-    token.kind = tk_Or;
-  } else if (com_str_equal(str, com_str_lit_m("xor"))) {
-    token.kind = tk_Xor;
-  } else if (com_str_equal(str, com_str_lit_m("not"))) {
-    token.kind = tk_Not;
   } else if (com_str_equal(str, com_str_lit_m("at"))) {
     token.kind = tk_At;
   } else if (com_str_equal(str, com_str_lit_m("inf"))) {
     token.kind = tk_Inf;
   } else if (com_str_equal(str, com_str_lit_m("nan"))) {
     token.kind = tk_Nan;
-  } else if (com_str_equal(str, com_str_lit_m("neg"))) {
-    token.kind = tk_Neg;
-  } else if (com_str_equal(str, com_str_lit_m("pos"))) {
-    token.kind = tk_Pos;
   } else if (com_str_equal(str, com_str_lit_m("has"))) {
     token.kind = tk_Has;
   } else if (com_str_equal(str, com_str_lit_m("dyn"))) {

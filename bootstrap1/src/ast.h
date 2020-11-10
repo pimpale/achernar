@@ -71,17 +71,13 @@ typedef struct {
 } ast_CompoundElement;
 
 typedef enum {
-  ast_EUOK_Not,
   ast_EUOK_Ref,
   ast_EUOK_Deref,
   ast_EUOK_Copy,
-  ast_EUOK_Neg,
-  ast_EUOK_Pos,
+  ast_EUOK_Mut,
 } ast_ExprUnaryOpKind;
 
 typedef enum {
-  // scoping & precedence
-  ast_EBOK_In,
   // Type coercion
   ast_EBOK_Constrain,
   // Function
@@ -94,10 +90,6 @@ typedef enum {
   ast_EBOK_Mul,
   ast_EBOK_Div,
   ast_EBOK_Rem,
-  // Booleans
-  ast_EBOK_And,
-  ast_EBOK_Or,
-  ast_EBOK_Xor,
   // Comparison
   ast_EBOK_CompEqual,
   ast_EBOK_CompNotEqual,
@@ -136,8 +128,6 @@ typedef enum {
   ast_EK_BindIgnore,  // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,        // (PATTERN ONLY) binds a single element to new variable
   ast_EK_AtBind,      // (PATTERN ONLY) matches previous
-  ast_EK_Mutate,      // (PATTERN ONLY) matches a single variable and mutates the variable
-  ast_EK_AtMutate,    // (PATTERN ONLY) matches previous and then mutates variable
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -191,13 +181,6 @@ typedef struct ast_Expr_s {
       ast_Stmnt *stmnts;
       usize stmnts_len;
     } block;
-    struct {
-      ast_Identifier *mutate;
-    } mutate;
-    struct {
-      ast_Expr *pat;
-      ast_Identifier *mutate;
-    } atMutate;
     struct {
       ast_Identifier *binding;
     } binding;

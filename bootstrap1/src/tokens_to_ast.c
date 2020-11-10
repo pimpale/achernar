@@ -309,15 +309,6 @@ static void ast_certain_parseLoopExpr(ast_Expr *lep,
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Loop, "expected tk_Loop");
   com_loc_LnCol start = t.span.start;
-  com_loc_Span loopspan = t.span;
-
-  t = parse_peek(parser, diagnostics, 1);
-  lep->loop.label = parse_alloc_obj_m(parser, ast_Label);
-  if (t.kind == tk_Label) {
-    ast_parseLabel(lep->loop.label, diagnostics, parser);
-  } else {
-    *lep->loop.label = (ast_Label){.span = loopspan, .kind = ast_LK_Omitted};
-  }
 
   lep->loop.body = parse_alloc_obj_m(parser, ast_Expr);
   ast_parseExpr(lep->loop.body, diagnostics, parser);
@@ -479,19 +470,19 @@ static void ast_certain_parseStructExpr(ast_Expr *ptr,
   return;
 }
 
-// braces, literals
-// (function application) match >> @ & . ... [] (postfixes)
-// neg pos not - + ...= ... (prefixes)
-// .. ..= (range)
-// : (constraints)
-// * / % (multiplication and division)
-// + - (addition and subtraction)
-// < <= > >= == != (comparators)
-// and or xor (logical operators)
-// ++ -- ^ !^ (set operators)
-// , | (type operators)
-// -> (Function definiton ) RIGHT ASSOCIATIVE
-// = (Assignment)
+// paren, literals do block
+// LEFT IATIVE  (function application) match >> @ & . ... [] (postfixes)
+// RIGHT IATIVE neg pos not - + (prefixes)
+// LEFT IATIVE  .. ..=
+// LEFT IATIVE  :
+// LEFT IATIVE  * / %
+// LEFT IATIVE  + -
+// LEFT IATIVE  < <= > >= == !=
+// LEFT IATIVE  and or xor
+// LEFT IATIVE  ++ -- ^ !^
+// LEFT IATIVE  , |
+// RIGHT IATIVE ->
+// RIGHT IATIVE <<
 
 static void parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                           ast_Constructor *parser) {
@@ -582,7 +573,6 @@ static void ast_certain_postfix_parseFieldAccessExpr(
                                      fave->fieldAccess.field->span.end);
 }
 
-
 static void ast_certain_postfix_parseCallExpr(ast_Expr *cptr,
                                               DiagnosticLogger *diagnostics,
                                               ast_Constructor *parser,
@@ -597,7 +587,7 @@ static void ast_certain_postfix_parseCallExpr(ast_Expr *cptr,
   cptr->kind = ast_EK_BinaryOp;
   cptr->binaryOp.op = ast_EBOK_Call;
 
-  ast_Expr *rhs  = parse_alloc_obj_m(parser, ast_Expr);
+  ast_Expr *rhs = parse_alloc_obj_m(parser, ast_Expr);
   ast_parseExpr(rhs, diagnostics, parser);
 
   cptr->binaryOp.left_operand = root;
@@ -628,7 +618,7 @@ static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
   pptr->kind = ast_EK_BinaryOp;
   pptr->binaryOp.op = ast_EBOK_Pipe;
 
-  ast_Expr *rhs  = parse_alloc_obj_m(parser, ast_Expr);
+  ast_Expr *rhs = parse_alloc_obj_m(parser, ast_Expr);
   parseTermExpr(rhs, diagnostics, parser);
 
   pptr->binaryOp.left_operand = root;
@@ -687,7 +677,7 @@ CLEANUP:
   return;
 }
 
-static bool ast (tk_Kind tk, ast_ExprBinaryOpKind *val) {
+static bool ast(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Range: {
     *val = ast_EBOK_Range;
@@ -813,50 +803,37 @@ static void parsePostfixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   }
 }
 
-static void ast_parsePrefixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
-                                ast_Constructor *parser) {
-  Token t = parse_peekPastMetadata(parser, diagnostics, 1);
-  switch (t.kind) {
-  case tk_Plus: {
-    l->unaryOp.op = ast_EUOK_Pos;
-    break;
+#define DEFN_PARSE_R_UNARY(lower_fn, switch_fn, fn_name)                  \
+  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
+                      ast_Constructor *parser) {                               \
+    Token t = parse_peekPastMetadata(parser, diagnostics, 1);                  \
+    bool success = switch_fn(t.kind, &expr->unaryOp.op);                       \
+    if (!success) {                                                            \
+      /* there is no level x expression */                                     \
+      lower_fn(expr, diagnostics, parser);                                     \
+      return;                                                                  \
+    }                                                                          \
+    /* this will only execute if the operator exists */                        \
+    expr->kind = ast_EK_UnaryOp;                                               \
+                                                                               \
+    /* first get metadata */                                                   \
+    com_vec metadata = parse_getMetadata(parser, diagnostics);                 \
+    expr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);        \
+    expr->common.metadata = com_vec_release(&metadata);                        \
+    /* consume operator */                                                     \
+    Token operator= parse_next(parser, diagnostics);                           \
+                                                                               \
+    /* now parse the rest of the expression (recursively calling self ) */     \
+    expr->unaryOp.operand = parse_alloc_obj_m(parser, ast_Expr);               \
+    fn_name(expr->unaryOp.operand, diagnostics, parser);                       \
+                                                                               \
+    /* set our span */                                                         \
+    expr->common.span =                                                        \
+        com_loc_span_m(operator.span.start,                                    \
+                       expr->unaryOp.operand->common.span.end);                \
+                                                                               \
+    return;                                                                    \
   }
-  case tk_Minus: {
-    l->unaryOp.op = ast_EUOK_Neg;
-    break;
-  }
-  case tk_Not: {
-    l->unaryOp.op = ast_EUOK_Not;
-    break;
-  }
-  default: {
-    // there is no level 3 expression
-    parsePostfixExpr(l, diagnostics, parser);
-    return;
-  }
-  }
-
-  // this will only execute if an L3 operator
-  // exists
-  l->kind = ast_EK_UnaryOp;
-
-  // first get metadata
-  com_vec metadata = parse_getMetadata(parser, diagnostics);
-  l->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  l->common.metadata = com_vec_release(&metadata);
-  // consume operator
-  parse_next(parser, diagnostics);
-
-  // Now parse the rest of the expression
-  l->unaryOp.operand = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parsePrefixExpr(l->unaryOp.operand, diagnostics, parser);
-
-  // finally calculate the misc stuff
-  l->common.span =
-      com_loc_span_m(t.span.start, l->unaryOp.operand->common.span.end);
-
-  // metadata
-}
 
 // type is the type of object that the generated function will parse
 // x is the index level of the function
@@ -864,7 +841,7 @@ static void ast_parsePrefixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
 // and right op_det_fn is the name of the function that determines the binary
 // operator this function should take a pointer to the type and return a bool if
 // successful
-#define FN_BINOP_PARSE_EXPR(lower_fn, switch_fn, fn_name)                      \
+#define DEFN_PARSE_R_BINARY(lower_fn, switch_fn, fn_name)                 \
   static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
                       ast_Constructor *parser) {                               \
     ast_Expr v;                                                                \
@@ -903,6 +880,96 @@ static void ast_parsePrefixExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     return;                                                                    \
   }
 
+#define DEFN_PARSE_L_UNARY(lower_fn, switch_fn, fn_name)                  \
+  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
+                      ast_Constructor *parser) {                               \
+    Token t = parse_peekPastMetadata(parser, diagnostics, 1);                  \
+    bool success = switch_fn(t.kind, &expr->unaryOp.op);                       \
+    if (!success) {                                                            \
+      /* there is no level x expression */                                     \
+      lower_fn(expr, diagnostics, parser);                                     \
+      return;                                                                  \
+    }                                                                          \
+    /* this will only execute if the operator exists */                        \
+    expr->kind = ast_EK_UnaryOp;                                               \
+                                                                               \
+    /* first get metadata */                                                   \
+    com_vec metadata = parse_getMetadata(parser, diagnostics);                 \
+    expr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);        \
+    expr->common.metadata = com_vec_release(&metadata);                        \
+    /* consume operator */                                                     \
+    Token operator= parse_next(parser, diagnostics);                           \
+                                                                               \
+    /* now parse the rest of the expression (recursively calling self ) */     \
+    expr->unaryOp.operand = parse_alloc_obj_m(parser, ast_Expr);               \
+    fn_name(expr->unaryOp.operand, diagnostics, parser);                       \
+                                                                               \
+    /* set our span */                                                         \
+    expr->common.span =                                                        \
+        com_loc_span_m(operator.span.start,                                    \
+                       expr->unaryOp.operand->common.span.end);                \
+                                                                               \
+    return;                                                                    \
+  }
+
+// type is the type of object that the generated function will parse
+// x is the index level of the function
+// lower_fn is the name of the function that will be called to evaluate the left
+// and right op_det_fn is the name of the function that determines the binary
+// operator this function should take a pointer to the type and return a bool if
+// successful
+#define DEFN_PARSE_L_BINARY(lower_fn, switch_fn, fn_name)                 \
+  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
+                      ast_Constructor *parser) {                               \
+    ast_Expr v;                                                                \
+    lower_fn(&v, diagnostics, parser);                                         \
+                                                                               \
+    Token t = parse_peekPastMetadata(parser, diagnostics, 1);                  \
+    bool success = switch_fn(t.kind, &expr->binaryOp.op);                      \
+    if (!success) {                                                            \
+      /* there is no level x expression */                                     \
+      *expr = v;                                                               \
+      return;                                                                  \
+    }                                                                          \
+    /* this will only execute if the operator exists */                        \
+    expr->kind = ast_EK_BinaryOp;                                              \
+                                                                               \
+    /* set the left side */                                                    \
+    expr->binaryOp.left_operand = parse_alloc_obj_m(parser, ast_Expr);         \
+    *expr->binaryOp.left_operand = v;                                          \
+                                                                               \
+    /* first get metadata */                                                   \
+    com_vec metadata = parse_getMetadata(parser, diagnostics);                 \
+    expr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);        \
+    expr->common.metadata = com_vec_release(&metadata);                        \
+    /* consume operator */                                                     \
+    parse_next(parser, diagnostics);                                           \
+                                                                               \
+    /* now parse the rest of the expression */                                 \
+    expr->binaryOp.right_operand = parse_alloc_obj_m(parser, ast_Expr);        \
+    fn_name(expr->binaryOp.right_operand, diagnostics, parser);                \
+                                                                               \
+    /* calculate misc stuff */                                                 \
+    expr->common.span =                                                        \
+        com_loc_span_m(expr->binaryOp.left_operand->common.span.start,         \
+                       expr->binaryOp.right_operand->common.span.end);         \
+                                                                               \
+    return;                                                                    \
+  }
+
+static bool ast_opDetMutExpr(tk_Kind tk, ast_ExprUnaryOpKind *val) {
+  switch (tk) {
+  case tk_Mut: {
+    *val = ast_EUOK_Mut;
+    break;
+  }
+  default: {
+    return false;
+  }
+  }
+}
+DEFN_PARSE_R_UNARY(lower_fn, ast_opDetMutExpr, ast_parseMutExpr)
+
 static bool ast_opDetRangeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
   case tk_Range: {
@@ -918,8 +985,8 @@ static bool ast_opDetRangeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
   }
 }
-
-FN_BINOP_PARSE_EXPR(ast_parsePrefixExpr, ast_opDetRangeExpr, ast_parseRangeExpr)
+DEFN_PARSE_L_BINARY(ast_parseMutExpr, ast_opDetRangeExpr,
+                         ast_parseRangeExpr)
 
 static bool ast_opDetConstrainExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -932,9 +999,8 @@ static bool ast_opDetConstrainExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
   }
 }
-
-FN_BINOP_PARSE_EXPR(ast_parseRangeExpr, ast_opDetConstrainExpr,
-                    ast_parseConstrainExpr)
+DEFN_PARSE_L_BINARY(ast_parseRangeExpr, ast_opDetConstrainExpr,
+                         ast_parseConstrainExpr)
 
 static bool ast_opDetProductExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -956,16 +1022,16 @@ static bool ast_opDetProductExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseConstrainExpr, ast_opDetProductExpr,
-                    ast_parseProductExpr)
+DEFN_PARSE_L_BINARY(ast_parseConstrainExpr, ast_opDetProductExpr,
+                         ast_parseProductExpr)
 
 static bool ast_opDetSumExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
-  case tk_Plus: {
+  case tk_Add: {
     *val = ast_EBOK_Add;
     return true;
   }
-  case tk_Minus: {
+  case tk_Sub: {
     *val = ast_EBOK_Sub;
     return true;
   }
@@ -975,7 +1041,8 @@ static bool ast_opDetSumExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseProductExpr, ast_opDetSumExpr, ast_parseSumExpr)
+DEFN_PARSE_L_BINARY(ast_parseProductExpr, ast_opDetSumExpr,
+                         ast_parseSumExpr)
 
 static bool ast_opDetCompareExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1009,8 +1076,8 @@ static bool ast_opDetCompareExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseSumExpr, ast_opDetCompareExpr,
-                    ast_parseCompareExpr)
+DEFN_PARSE_L_BINARY(ast_parseSumExpr, ast_opDetCompareExpr,
+                         ast_parseCompareExpr)
 
 static bool ast_opDetBooleanExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1032,8 +1099,8 @@ static bool ast_opDetBooleanExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseCompareExpr, ast_opDetBooleanExpr,
-                    ast_parseBooleanExpr)
+DEFN_PARSE_L_BINARY(ast_parseCompareExpr, ast_opDetBooleanExpr,
+                         ast_parseBooleanExpr)
 
 static bool ast_opDetSetExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1059,7 +1126,8 @@ static bool ast_opDetSetExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseBooleanExpr, ast_opDetSetExpr, ast_parseSetExpr)
+DEFN_PARSE_L_BINARY(ast_parseBooleanExpr, ast_opDetSetExpr,
+                         ast_parseSetExpr)
 
 static bool ast_opDetTypeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1077,7 +1145,7 @@ static bool ast_opDetTypeExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseSetExpr, ast_opDetTypeExpr, ast_parseTypeExpr)
+DEFN_PARSE_L_BINARY(ast_parseSetExpr, ast_opDetTypeExpr, ast_parseTypeExpr)
 
 static bool ast_opDetFnExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   switch (tk) {
@@ -1091,7 +1159,7 @@ static bool ast_opDetFnExpr(tk_Kind tk, ast_ExprBinaryOpKind *val) {
   }
 }
 
-FN_BINOP_PARSE_EXPR(ast_parseTypeExpr, ast_opDetFnExpr, ast_parseFnExpr)
+DEFN_PARSE_L_BINARY(ast_parseTypeExpr, ast_opDetFnExpr, ast_parseFnExpr)
 
 // shim method
 static void ast_parseExpr(ast_Expr *ptr, DiagnosticLogger *diagnostics,

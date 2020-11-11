@@ -152,9 +152,8 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
   return parse_peek(parser, diagnostics, n);
 }
 
-// Note that all errors resync at the statement level
-static void ast_parseExpr(ast_Expr *ptr, DiagnosticLogger *diagnostics,
-                          ast_Constructor *parser);
+static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
+                              ast_Constructor *parser);
 
 static void ast_parseIdentifier(ast_Identifier *ptr,
                                 DiagnosticLogger *diagnostics,
@@ -231,45 +230,36 @@ static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
                      .children_len = 0};
   }
 }
-static void ast_certain_parseBlockExpr(ast_Expr *bptr,
+static void ast_certain_parseGroupExpr(ast_Expr *bptr,
                                        DiagnosticLogger *diagnostics,
                                        ast_Constructor *parser) {
   com_mem_zero_obj_m(bptr);
-  bptr->kind = ast_EK_Block;
+  bptr->kind = ast_EK_Group;
 
-  // Parse leftbrace
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_BraceLeft, "expected tk_BraceLeft");
-  com_loc_Span lbracespan = t.span;
+  // Parse leftparen
+  Token lparen = parse_next(parser, diagnostics);
+  com_assert_m(lparen.kind == tk_ParenLeft, "expected tk_ParenLeft");
 
-  t = parse_peek(parser, diagnostics, 1);
-  // blocks may be labeled
-  bptr->block.label = parse_alloc_obj_m(parser, ast_Label);
-  if (t.kind == tk_Label) {
-    ast_parseLabel(bptr->block.label, diagnostics, parser);
+  // groups may be labeled
+  bptr->group.label = parse_alloc_obj_m(parser, ast_Label);
+  if (parse_peek(parser, diagnostics, 1).kind == tk_Label) {
+    ast_parseLabel(bptr->group.label, diagnostics, parser);
   } else {
-    *bptr->block.label =
-        (ast_Label){.span = lbracespan, .kind = ast_LK_Omitted};
+    *bptr->group.label =
+        (ast_Label){.span = lparen.span, .kind = ast_LK_Omitted};
   }
 
-  // Create list of statements
-  com_vec statements = parse_alloc_vec(parser);
+  bptr->group.expr = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(bptr->group.expr, diagnostics, parser);
 
-  com_loc_LnCol end;
+  Token rparen = parse_next(parser, diagnostics);
+  *dlogger_append(diagnostics) =
+      (Diagnostic){.span = rparen.span,
+                   .severity = DSK_Error,
+                   .message = com_str_lit_m("Expected label"),
+                   .children_len = 0};
 
-  PARSE_LIST(&statements,                  // members_vec_ptr
-             diagnostics,                  // dlogger_ptr
-             ast_parseStmnt,               // member_parse_function
-             ast_Stmnt,                    // member_kind
-             tk_BraceRight,                // delimiting_token_kind
-             "DK_BlockExpectedRightBrace", // missing_delimiter_error
-             end,                          // end_lncol
-             parser                        // parser
-  )
-
-  bptr->block.stmnts_len = com_vec_len_m(&statements, ast_Stmnt);
-  bptr->block.stmnts = com_vec_release(&statements);
-  bptr->common.span = com_loc_span_m(lbracespan.start, end);
+  bptr->common.span = com_loc_span_m(lparen.span.start, rparen.span.end);
   return;
 }
 
@@ -293,7 +283,7 @@ static void ast_certain_parseRetExpr(ast_Expr *rep,
 
   // value to return
   rep->ret.expr = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(rep->ret.expr, diagnostics, parser);
+  ast_parseTermExpr(rep->ret.expr, diagnostics, parser);
 
   // span
   end = rep->ret.expr->common.span.end;
@@ -311,7 +301,7 @@ static void ast_certain_parseLoopExpr(ast_Expr *lep,
   com_loc_LnCol start = t.span.start;
 
   lep->loop.body = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(lep->loop.body, diagnostics, parser);
+  ast_parseTermExpr(lep->loop.body, diagnostics, parser);
   lep->common.span = com_loc_span_m(start, lep->loop.body->common.span.end);
   return;
 }
@@ -361,7 +351,7 @@ static void ast_certain_parseAtLetExpr(ast_Expr *alpp,
 
   // now parse pattern
   alpp->atBinding.pat = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(alpp->atBinding.pat, diagnostics, parser);
+  ast_parseTermExpr(alpp->atBinding.pat, diagnostics, parser);
 
   // now ensure that we can find a let
   t = parse_next(parser, diagnostics);
@@ -532,11 +522,15 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     break;
   }
   case tk_BraceLeft: {
-    ast_certain_parseBlockExpr(l, diagnostics, parser);
+    ast_certain_parseGroupExpr(l, diagnostics, parser);
     break;
   }
   case tk_Ret: {
     ast_certain_parseRetExpr(l, diagnostics, parser);
+    break;
+  }
+  case tk_Defer: {
+    ast_certain_parseDeferExpr(l, diagnostics, parser);
     break;
   }
   case tk_Loop: {
@@ -574,20 +568,68 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   l->common.metadata = com_vec_release(&metadata);
 }
 
-static void ast_certain_postfix_parseFieldAccessExpr(
+static ast_ExprKind ast_opDetTerm(tk_Kind kind) {
+    switch(kind) {
+  case tk_Int: {
+    return ast_EK_Int;
+  }
+  case tk_Real: {
+    return ast_EK_Real;
+  }
+  case tk_BracketLeft: {
+    return ast_EK_Struct;
+  }
+  case tk_String: {
+    return ast_EK_String;
+  }
+  case tk_BraceLeft: {
+    return ast_EK_Group;
+  }
+  case tk_Ret: {
+    return ast_EK_Ret;
+  }
+  case tk_Defer: {
+    return ast_EK_Defer;
+  }
+  case tk_Loop: {
+    return ast_EK_Loop;
+  }
+  case tk_At: {
+    return ast_EK_AtBind;
+  }
+  case tk_Bind: {
+    return ast_EK_Bind;
+  }
+  case tk_Ignore: {
+    return ast_EK_BindIgnore;
+  }
+  case tk_Identifier: {
+    return ast_EK_Reference;
+  }
+  default: {
+    return ast_EK_None;
+  }
+    }
+}
+
+
+static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
+                              ast_Constructor *parser) {
+
+static void ast_certain_postfix_parseModuleAccessExpr(
     ast_Expr *fave, DiagnosticLogger *diagnostics, ast_Constructor *parser,
     ast_Expr *root) {
   com_mem_zero_obj_m(fave);
-  fave->kind = ast_EK_FieldAccess;
-  fave->fieldAccess.root = root;
+  fave->kind = ast_EK_ModuleAccess;
+  fave->moduleAccess.module = root;
 
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_FieldAccess, "expected tk_FieldAccess");
+  com_assert_m(t.kind == tk_ModuleAccess, "expected tk_ModuleAccess");
 
-  fave->fieldAccess.field = parse_alloc_obj_m(parser, ast_Identifier);
-  ast_parseIdentifier(fave->fieldAccess.field, diagnostics, parser);
+  fave->moduleAccess.field = parse_alloc_obj_m(parser, ast_Identifier);
+  ast_parseIdentifier(fave->moduleAccess.field, diagnostics, parser);
   fave->common.span = com_loc_span_m(root->common.span.start,
-                                     fave->fieldAccess.field->span.end);
+                                     fave->moduleAccess.field->span.end);
 }
 
 static void ast_certain_postfix_parseCallExpr(ast_Expr *cptr,
@@ -620,28 +662,6 @@ static void ast_certain_postfix_parseCallExpr(ast_Expr *cptr,
   }
 
   cptr->common.span = com_loc_span_m(root->common.span.start, t.span.end);
-}
-
-static void ast_certain_postfix_parsePipeExpr(ast_Expr *pptr,
-                                              DiagnosticLogger *diagnostics,
-                                              ast_Constructor *parser,
-                                              ast_Expr *root) {
-
-  com_assert_m(parse_peek(parser, diagnostics, 1).kind == tk_Pipe,
-               "expected tk_Pipe");
-  parse_drop(parser, diagnostics);
-
-  com_mem_zero_obj_m(pptr);
-  pptr->kind = ast_EK_BinaryOp;
-  pptr->binaryOp.op = ast_EBOK_Pipe;
-
-  ast_Expr *rhs = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseTermExpr(rhs, diagnostics, parser);
-
-  pptr->binaryOp.left_operand = root;
-  pptr->binaryOp.right_operand = rhs;
-  pptr->common.span =
-      com_loc_span_m(root->common.span.start, rhs->common.span.end);
 }
 
 static void ast_certain_postfix_parseMatchExpr(ast_Expr *mptr,
@@ -774,8 +794,8 @@ CLEANUP:
   }
 
 // Because it's postfix, we must take a somewhat
-// unorthodox approach here We Parse the level
-// one expr and then use a while loop to process
+// unorthodox approach here 
+// We Parse the level one expr and then use a while loop to process
 // the rest of the stuff
 #define DEFN_PARSE_L_UNARY(lower_fn, switch_fn, fn_name)                       \
   static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
@@ -1004,7 +1024,7 @@ static ast_ExprBinaryOpKind ast_opDetBoolExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseSumExpr, ast_opDetBoolExpr, ast_parseBoolExpr)
+DEFN_PARSE_L_BINARY(ast_parseCompExpr, ast_opDetBoolExpr, ast_parseBoolExpr)
 
 static ast_ExprBinaryOpKind ast_opDetSetExpr(tk_Kind tk) {
   switch (tk) {
@@ -1064,9 +1084,11 @@ static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_BINARY(ast_parseFnExpr, ast_opDetAssignExpr, ast_parseExpr)
+DEFN_PARSE_R_BINARY(ast_parseFnExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
 
-
+void ast_parseExpr(ast_Expr *expr, DiagnosticLogger* diagnostics, ast_Constructor *parser) {
+  ast_parseAssignExpr(expr, diagnostics, parser);
+}
 
 bool ast_eof(ast_Constructor *parser, DiagnosticLogger *d) {
   return parse_peek(parser, d, 1).kind == tk_Eof;

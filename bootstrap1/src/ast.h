@@ -74,13 +74,12 @@ typedef enum {
   ast_EUOK_Ref,
   ast_EUOK_Deref,
   ast_EUOK_Copy,
-  ast_EBOK_Not,
+  ast_EUOK_Not,
   ast_EUOK_Mut, // PATTERN ONLY
-  ast_EBOK_Nil,
 } ast_ExprUnaryOpKind;
 
 typedef enum {
-  ast_EBOK_None, 
+  ast_EBOK_None,
   // Type coercion
   ast_EBOK_Constrain,
   // Function
@@ -122,24 +121,24 @@ typedef enum {
 } ast_ExprBinaryOpKind;
 
 typedef enum {
-  ast_EK_None,        // An error when parsing
-  ast_EK_Int,         // Literal for an integer number
-  ast_EK_Real,        // Literal for a real (floating point) number
-  ast_EK_String,      // A string literal
-  ast_EK_Loop,        // Loops until a scope is returned
-  ast_EK_Defer,       // Defer until label
-  ast_EK_Struct,      // Constructs a new compound type
-  ast_EK_BinaryOp,    // Binary operation
-  ast_EK_UnaryOp,     // Unary operation
-  ast_EK_Ret,         // Returns from a scope with a value
-  ast_EK_Match,       // Matches an expression to the first matching pattern and
-                      // destructures it
-  ast_EK_Block,       // Groups together several statements, returning last val
-  ast_EK_FieldAccess, // Accessing the field of a record object
-  ast_EK_Reference,   // A reference to a previously defined variable
-  ast_EK_BindIgnore,  // (PATTERN ONLY) ignores a single element
-  ast_EK_Bind,        // (PATTERN ONLY) binds a single element to new variable
-  ast_EK_AtBind,      // (PATTERN ONLY) matches previous
+  ast_EK_None,     // An error when parsing
+  ast_EK_Int,      // Literal for an integer number
+  ast_EK_Real,     // Literal for a real (floating point) number
+  ast_EK_String,   // A string literal
+  ast_EK_Loop,     // Loops until a scope is returned
+  ast_EK_Defer,    // Defer until label
+  ast_EK_Struct,   // Constructs a new compound type
+  ast_EK_BinaryOp, // Binary operation
+  ast_EK_UnaryOp,  // Unary operation
+  ast_EK_Ret,      // Returns from a scope with a value
+  ast_EK_Match,    // Matches an expression to the first matching pattern and
+                   // destructures it
+  ast_EK_Group,    // Introduces new scope and label
+  ast_EK_ModuleAccess, // Accessing the module of a module object
+  ast_EK_Reference,    // A reference to a previously defined variable
+  ast_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
+  ast_EK_Bind,         // (PATTERN ONLY) binds a single element to new variable
+  ast_EK_AtBind,       // (PATTERN ONLY) matches previous
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -164,9 +163,9 @@ typedef struct ast_Expr_s {
       ast_Expr *body;
     } loop;
     struct {
-      ast_Expr *root;
+      ast_Expr *module;
       ast_Identifier *field;
-    } fieldAccess;
+    } moduleAccess;
     struct {
       ast_Identifier *reference;
     } reference;
@@ -190,7 +189,7 @@ typedef struct ast_Expr_s {
     } match;
     struct {
       ast_Label *label;
-      ast_Expr *stmnts;
+      ast_Expr *expr;
     } group;
     struct {
       ast_Label *label;

@@ -17,11 +17,11 @@ typedef enum {
   // Keywords
   tk_Loop,  // loop
   tk_Match, // match
+  tk_With,  // with
   tk_Ret,   // ret
   tk_Defer, // defer
   tk_At,    // at
   tk_Mut,   // mut
-  tk_Has,   // has
   tk_Where, // where
   tk_Dyn,   // dyn
   tk_Impl,  // impl
@@ -37,38 +37,42 @@ typedef enum {
   tk_Mul, // *
   tk_Div, // /
   tk_Rem, // %
+  tk_Pow, // ^
   // Boolean Operators
   tk_And, // and
   tk_Or,  // or
   tk_Xor, // xor
   tk_Not, // not
   // Set Operators
-  tk_Union,         // ++
-  tk_Difference,    // --
-  tk_Intersection,  // ^
-  tk_SymDifference, // !^
+  tk_Union,         // \/ union
+  tk_Intersection,  // /\ intersection
+  tk_Difference,    // -- difference
+  tk_In,            // in membership
   // Type operators
   tk_Product, // ,
   tk_Sum,     // |
   // Memory Operators
   tk_Ref,   // &
   tk_Deref, // @
-  tk_Copy,  // ~
+  tk_Copy,  // '
   // Range Operators
   tk_Range,          // ..
   tk_RangeInclusive, // ..=
   // Comparison and Equality
   tk_CompEqual,        // ==
-  tk_CompNotEqual,     // !=
+  tk_CompNotEqual,     // /=
   tk_CompLess,         // <
   tk_CompLessEqual,    // <=
   tk_CompGreater,      // >
   tk_CompGreaterEqual, // >=
   // Assignment
   tk_Assign, // =
+  // labels
+  tk_Label,    // 'x
   // Arrows
-  tk_Apply,    // <<
-  tk_ApplyRev, // >>
+  tk_Apply,    // <|
+  tk_ApplyRev, // |>
+  tk_Compose,  // >>
   tk_Arrow,    // ->
   // Other Miscellaneous Operator Things
   tk_Bind,         // $
@@ -84,8 +88,6 @@ typedef enum {
   tk_ModuleAccess, // ::
   tk_Pipe,         // .
   tk_Sequence,     // ;
-  // Label
-  tk_Label, // 'label
   // Comments, and Attributes
   tk_Metadata, // #attribute and #! comment
 } tk_Kind;
@@ -108,9 +110,6 @@ typedef struct Token_s {
       com_str data;
       tk_IdentifierKind kind;
     } identifierToken;
-    struct {
-      com_str data;
-    } macroToken;
     struct {
       com_str data;
     } labelToken;

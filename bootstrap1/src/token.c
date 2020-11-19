@@ -14,6 +14,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Loop");
   case tk_Match:
     return com_str_lit_m("tk_Match");
+  case tk_With:
+    return com_str_lit_m("tk_With");
   case tk_Ret:
     return com_str_lit_m("tk_Ret");
   case tk_Defer:
@@ -28,12 +30,14 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Dyn");
   case tk_Impl:
     return com_str_lit_m("tk_Impl");
-  case tk_Has:
-    return com_str_lit_m("tk_Has");
+  case tk_In:
+    return com_str_lit_m("tk_In");
   case tk_String:
     return com_str_lit_m("tk_String");
   case tk_Nan:
     return com_str_lit_m("tk_Nan");
+  case tk_Label:
+    return com_str_lit_m("tk_Label");
   case tk_Inf:
     return com_str_lit_m("tk_Inf");
   case tk_Real:
@@ -50,14 +54,18 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Div");
   case tk_Rem:
     return com_str_lit_m("tk_Rem");
-  case tk_Union:
-    return com_str_lit_m("tk_Union");
+  case tk_Pow:
+    return com_str_lit_m("tk_Pow");
   case tk_Difference:
     return com_str_lit_m("tk_Difference");
+  case tk_Sequence:
+    return com_str_lit_m("tk_Sequence");
+  case tk_Compose:
+    return com_str_lit_m("tk_Compose");
+  case tk_Union:
+    return com_str_lit_m("tk_Union");
   case tk_Intersection:
     return com_str_lit_m("tk_Intersection");
-  case tk_SymDifference:
-    return com_str_lit_m("tk_SymDifference");
   case tk_Product:
     return com_str_lit_m("tk_Product");
   case tk_Sum:
@@ -106,8 +114,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_ModuleAccess");
   case tk_Constrain:
     return com_str_lit_m("tk_Constrain");
-  case tk_Label:
-    return com_str_lit_m("tk_Label");
   case tk_Metadata:
     return com_str_lit_m("tk_Metadata");
   case tk_Bind:

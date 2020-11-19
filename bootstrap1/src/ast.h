@@ -37,7 +37,6 @@ typedef struct {
 
 typedef enum {
   ast_LK_None,
-  ast_LK_Omitted,
   ast_LK_Label,
 } ast_LabelKind;
 
@@ -86,12 +85,15 @@ typedef enum {
   ast_EBOK_Fn,
   ast_EBOK_Call,
   ast_EBOK_Pipe,
+  ast_EBOK_Apply,
+  ast_EBOK_RevApply,
   // Math
   ast_EBOK_Add,
   ast_EBOK_Sub,
   ast_EBOK_Mul,
   ast_EBOK_Div,
   ast_EBOK_Rem,
+  ast_EBOK_Pow,
   // Booleans
   ast_EBOK_And,
   ast_EBOK_Or,
@@ -105,9 +107,8 @@ typedef enum {
   ast_EBOK_CompGreaterEqual,
   // Set Operations
   ast_EBOK_Union,
-  ast_EBOK_Difference,
   ast_EBOK_Intersection,
-  ast_EBOK_SymDifference,
+  ast_EBOK_Difference,
   // Type Manipulation
   ast_EBOK_Product,
   ast_EBOK_Sum,
@@ -126,6 +127,7 @@ typedef enum {
   ast_EK_Real,     // Literal for a real (floating point) number
   ast_EK_String,   // A string literal
   ast_EK_Loop,     // Loops until a scope is returned
+  ast_EK_Label,    // Wraps a term in a label that can be deferred or returned from
   ast_EK_Defer,    // Defer until label
   ast_EK_Struct,   // Constructs a new compound type
   ast_EK_BinaryOp, // Binary operation
@@ -185,10 +187,8 @@ typedef struct ast_Expr_s {
     struct {
       ast_Expr *root;
       ast_Expr *cases;
-      usize cases_len;
     } match;
     struct {
-      ast_Label *label;
       ast_Expr *expr;
     } group;
     struct {

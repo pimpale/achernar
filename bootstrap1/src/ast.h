@@ -81,12 +81,16 @@ typedef enum {
   ast_EBOK_None,
   // Type coercion
   ast_EBOK_Constrain,
-  // Function
+  // Function definition
   ast_EBOK_Fn,
-  ast_EBOK_Call,
-  ast_EBOK_Pipe,
+  // Function call
   ast_EBOK_Apply,
   ast_EBOK_RevApply,
+  // Function composition
+  ast_EBOK_Compose,
+  // Function Piping
+  ast_EBOK_PipeForward,
+  ast_EBOK_PipeBackward,
   // Math
   ast_EBOK_Add,
   ast_EBOK_Sub,
@@ -109,6 +113,7 @@ typedef enum {
   ast_EBOK_Union,
   ast_EBOK_Intersection,
   ast_EBOK_Difference,
+  ast_EBOK_In,
   // Type Manipulation
   ast_EBOK_Product,
   ast_EBOK_Sum,
@@ -138,6 +143,7 @@ typedef enum {
   ast_EK_Group,    // Introduces new scope and label
   ast_EK_ModuleAccess, // Accessing the module of a module object
   ast_EK_Reference,    // A reference to a previously defined variable
+  ast_EK_WithCase,     // (MATCH ONLY) a match case
   ast_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,         // (PATTERN ONLY) binds a single element to new variable
   ast_EK_AtBind,       // (PATTERN ONLY) matches previous
@@ -165,6 +171,10 @@ typedef struct ast_Expr_s {
       ast_Expr *body;
     } loop;
     struct {
+      ast_Label *label;
+      ast_Expr *val;
+    } label;
+    struct {
       ast_Expr *module;
       ast_Identifier *field;
     } moduleAccess;
@@ -187,7 +197,11 @@ typedef struct ast_Expr_s {
     struct {
       ast_Expr *root;
       ast_Expr *cases;
+      usize cases_len;
     } match;
+    struct {
+      ast_Expr *body;
+    } with;
     struct {
       ast_Expr *expr;
     } group;

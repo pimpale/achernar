@@ -44,10 +44,10 @@ typedef enum {
   tk_Xor, // xor
   tk_Not, // not
   // Set Operators
-  tk_Union,         // \/ union
-  tk_Intersection,  // /\ intersection
-  tk_Difference,    // -- difference
-  tk_In,            // in membership
+  tk_Union,        // \/ union
+  tk_Intersection, // /\ intersection
+  tk_Difference,   // -- difference
+  tk_In,           // in membership
   // Type operators
   tk_Product, // ,
   tk_Sum,     // |
@@ -68,12 +68,12 @@ typedef enum {
   // Assignment
   tk_Assign, // =
   // labels
-  tk_Label,    // 'x
+  tk_Label, // 'x
   // Arrows
-  tk_Apply,    // <|
-  tk_ApplyRev, // |>
-  tk_Compose,  // >>
-  tk_Arrow,    // ->
+  tk_PipeForward,  // |>
+  tk_PipeBackward, // <|
+  tk_Compose,      // >>
+  tk_Arrow,        // ->
   // Other Miscellaneous Operator Things
   tk_Bind,         // $
   tk_Ignore,       // $_
@@ -86,7 +86,7 @@ typedef enum {
   tk_BraceRight,   // }
   tk_Constrain,    // :
   tk_ModuleAccess, // ::
-  tk_Pipe,         // .
+  tk_RevApply,     // .
   tk_Sequence,     // ;
   // Comments, and Attributes
   tk_Metadata, // #attribute and #! comment

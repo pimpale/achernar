@@ -839,6 +839,19 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     }                                                                          \
   }
 
+static ast_ExprBinaryOpKind ast_opDetModuleAccessExpr(tk_Kind tk) {
+  switch (tk) {
+  case tk_ModuleAccess: {
+    return ast_EBOK_ModuleAccess;
+  }
+  default: {
+    return ast_EBOK_None;
+  }
+  }
+}
+DEFN_PARSE_L_BINARY(ast_parseTermExpr, ast_opDetModuleAccessExpr,
+                   ast_parseModuleAccessExpr)
+
 static ast_ExprUnaryOpKind ast_opDetPostfixExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Copy: {
@@ -855,7 +868,7 @@ static ast_ExprUnaryOpKind ast_opDetPostfixExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_UNARY(ast_parseTermExpr, ast_opDetPostfixExpr,
+DEFN_PARSE_L_UNARY(ast_parseModuleAccessExpr, ast_opDetPostfixExpr,
                    ast_parsePostfixExpr)
 
 static ast_ExprUnaryOpKind ast_opDetPrefixExpr(tk_Kind tk) {

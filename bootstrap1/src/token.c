@@ -92,8 +92,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_CompGreaterEqual");
   case tk_Assign:
     return com_str_lit_m("tk_Assign");
-  case tk_Pipe:
-    return com_str_lit_m("tk_Pipe");
+  case tk_RevApply:
+    return com_str_lit_m("tk_RevApply");
   case tk_Arrow:
     return com_str_lit_m("tk_Arrow");
   case tk_Ignore:
@@ -122,10 +122,10 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Splat");
   case tk_Copy:
     return com_str_lit_m("tk_Copy");
-  case tk_Apply:
-    return com_str_lit_m("tk_Apply");
-  case tk_ApplyRev:
-    return com_str_lit_m("tk_ApplyRev");
+  case tk_PipeForward:
+    return com_str_lit_m("tk_PipeForward");
+  case tk_PipeBackward:
+    return com_str_lit_m("tk_PipeBackward");
   case tk_And:
     return com_str_lit_m("tk_And");
   case tk_Or:

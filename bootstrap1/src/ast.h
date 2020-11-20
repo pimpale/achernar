@@ -124,6 +124,8 @@ typedef enum {
   ast_EBOK_Assign,
   // Sequence
   ast_EBOK_Sequence,
+  // Module Access
+  ast_EBOK_ModuleAccess
 } ast_ExprBinaryOpKind;
 
 typedef enum {

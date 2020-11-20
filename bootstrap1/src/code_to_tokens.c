@@ -810,7 +810,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case '|': {
       switch (lex_peek(r, 2)) {
       case '>': {
-        RETURN_RESULT_TOKEN2(tk_ApplyRev)
+        RETURN_RESULT_TOKEN2(tk_PipeForward)
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_Sum)
@@ -846,7 +846,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         RETURN_RESULT_TOKEN2(tk_CompLessEqual)
       }
       case '|': {
-        RETURN_RESULT_TOKEN2(tk_Apply)
+        RETURN_RESULT_TOKEN2(tk_PipeBackward)
       }
       default: {
         RETURN_RESULT_TOKEN1(tk_CompLess)
@@ -912,7 +912,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
         }
       }
       default: {
-        RETURN_RESULT_TOKEN1(tk_Pipe)
+        RETURN_RESULT_TOKEN1(tk_RevApply)
       }
       }
     }

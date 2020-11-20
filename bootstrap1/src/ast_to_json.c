@@ -166,10 +166,6 @@ static com_json_Elem print_Label(ast_Label *label, com_allocator *a) {
     // nothing
     break;
   }
-  case ast_LK_Omitted: {
-    // nothing
-    break;
-  }
   }
   return print_objectify(&obj);
 }
@@ -306,9 +302,17 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     *push_prop_m(&obj) = mkprop_m("match_cases", print_arrayify(&cases));
     break;
   }
+  case ast_EK_WithCase: {
+    *push_prop_m(&obj) = mkprop_m("with_body", print_Expr(vep->with.body, a));
+    break;
+  }
   case ast_EK_Group: {
-    *push_prop_m(&obj) = mkprop_m("group_label", print_Label(vep->group.label, a));
     *push_prop_m(&obj) = mkprop_m("group_expr", print_Expr(vep->group.expr, a));
+    break;
+  }
+  case ast_EK_Label: {
+    *push_prop_m(&obj) = mkprop_m("label_val", print_Expr(vep->label.val, a));
+    *push_prop_m(&obj) = mkprop_m("label_label", print_Label(vep->label.label, a));
     break;
   }
   }

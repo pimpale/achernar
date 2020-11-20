@@ -205,7 +205,7 @@ typedef struct hir_Expr_s {
 
       hir_Expr *defers;
       usize defers_len;
-    } scope;
+    } label;
   };
 } hir_Expr;
 

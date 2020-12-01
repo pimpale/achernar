@@ -1,5 +1,5 @@
-## we're going to give the classic hello world in achernar
+# we're going to give the classic hello world in achernar
 
-sysinclude!("com/io")
+$* = _import("com::io");
 
-com/io/stdout::print("hello world")
+com::iostdout::print "hello world"

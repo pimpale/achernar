@@ -1,32 +1,17 @@
-## a test line comment
-val x := 20
+# line comment test
+$x = 1 + 1;
 
-$$ a test line attribute
-val y := 20
-
+#!attr nil;
 
 
-#singleWordComment 
-#continuesUntilASpace
-$its $the $same $with $attributes
-type foo :=  $union struct {
-  ## struct member comment
-  struct_member: #comment int
-}
+a #!copy ';
 
-# statement comment 2
-val #{multiline comment}# foo := nil
+a #!plus + b;
 
-#{
-    another multiline comment =====================
-}#
+a #!pow ^ b;
 
-${
+#!mutate mut b;
 
-Multiline attribute
+#!neat(a, b) nil;
 
-}$
-
-x #{L11}# = 800 #{L9}# + #{L10}# 10
-
-
+nil

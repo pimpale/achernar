@@ -1,11 +1,13 @@
-## This example demonstrates method chaining
-## Method chaining allows the familiar object oriented notation,
-## However, chaining doesn't make use of classes
-## chaining uses the -> postfix operator
-## On the right hand side of the arrow a function call is required
-## the left hand side of the argument is subsituted in as the first argument of the function on the right
+# This example demonstrates method chaining
+# Method chaining allows the familiar object oriented notation,
+# However, chaining doesn't make use of classes
+# chaining uses the -> postfix operator
+# On the right hand side of the arrow a function call is required
+# the left hand side of the argument is subsituted in as the first argument of the function on the right
 
+#!attribute
 somethings
-  ->filter(fn(x:int) bool => x > 10)
-  ->sort(fn(a:int b:int) int => a - b)
-  ->map(fn(x) => x->toString[int])
+  .filter(x:int -> x > 10)
+  .sort(a:int -> b:int #!func -> a - b)
+  #! this operation maps to a string
+  .map(x -> x.toString)

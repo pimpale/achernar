@@ -767,11 +767,12 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
       /* if the operation was sucessful, we make the previous expr the child   \
        * expr*/                                                                \
       ast_Expr *child = parse_alloc_obj_m(parser, ast_Expr);                   \
-      com_mem_swap(expr, child, sizeof(ast_Expr));                             \
+      *child = *expr;                                                          \
                                                                                \
       /* now we can mutate the expr */                                         \
       expr->kind = ast_EK_UnaryOp;                                             \
       expr->unaryOp.op = opKind;                                               \
+      expr->unaryOp.operand = child;                                           \
                                                                                \
       /* first get metadata */                                                 \
       com_vec metadata = parse_getMetadata(parser, diagnostics);               \
@@ -812,7 +813,7 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
       /* if the operation was sucessful, we make the previous expr the left    \
        * operand */                                                            \
       ast_Expr *left_operand = parse_alloc_obj_m(parser, ast_Expr);            \
-      com_mem_swap(expr, left_operand, sizeof(ast_Expr));                      \
+      *left_operand = *expr;                                                   \
                                                                                \
       /* now we can mutate the expr */                                         \
       expr->kind = ast_EK_BinaryOp;                                            \
@@ -850,26 +851,7 @@ static ast_ExprBinaryOpKind ast_opDetModuleAccessExpr(tk_Kind tk) {
   }
 }
 DEFN_PARSE_L_BINARY(ast_parseTermExpr, ast_opDetModuleAccessExpr,
-                   ast_parseModuleAccessExpr)
-
-static ast_ExprUnaryOpKind ast_opDetPostfixExpr(tk_Kind tk) {
-  switch (tk) {
-  case tk_Copy: {
-    return ast_EUOK_Copy;
-  }
-  case tk_Ref: {
-    return ast_EUOK_Ref;
-  }
-  case tk_Deref: {
-    return ast_EUOK_Deref;
-  }
-  default: {
-    return ast_EUOK_None;
-  }
-  }
-}
-DEFN_PARSE_L_UNARY(ast_parseModuleAccessExpr, ast_opDetPostfixExpr,
-                   ast_parsePostfixExpr)
+                    ast_parseModuleAccessExpr)
 
 static ast_ExprUnaryOpKind ast_opDetPrefixExpr(tk_Kind tk) {
   switch (tk) {
@@ -881,7 +863,7 @@ static ast_ExprUnaryOpKind ast_opDetPrefixExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_UNARY(ast_parsePostfixExpr, ast_opDetPrefixExpr,
+DEFN_PARSE_R_UNARY(ast_parseModuleAccessExpr, ast_opDetPrefixExpr,
                    ast_parsePrefixExpr)
 
 static void ast_parseApplyExpr(ast_Expr *aptr, DiagnosticLogger *diagnostics,
@@ -939,6 +921,25 @@ static void ast_parseApplyExpr(ast_Expr *aptr, DiagnosticLogger *diagnostics,
   }
 }
 
+static ast_ExprUnaryOpKind ast_opDetPostfixExpr(tk_Kind tk) {
+  switch (tk) {
+  case tk_Copy: {
+    return ast_EUOK_Copy;
+  }
+  case tk_Ref: {
+    return ast_EUOK_Ref;
+  }
+  case tk_Deref: {
+    return ast_EUOK_Deref;
+  }
+  default: {
+    return ast_EUOK_None;
+  }
+  }
+}
+DEFN_PARSE_L_UNARY(ast_parseApplyExpr, ast_opDetPostfixExpr,
+                   ast_parsePostfixExpr)
+
 static ast_ExprBinaryOpKind ast_opDetRevApplyExpr(tk_Kind tk) {
   switch (tk) {
   case tk_RevApply: {
@@ -949,7 +950,7 @@ static ast_ExprBinaryOpKind ast_opDetRevApplyExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseApplyExpr, ast_opDetRevApplyExpr,
+DEFN_PARSE_L_BINARY(ast_parsePostfixExpr, ast_opDetRevApplyExpr,
                     ast_parseRevApplyExpr)
 
 static ast_ExprBinaryOpKind ast_opDetRangeExpr(tk_Kind tk) {
@@ -1167,7 +1168,8 @@ static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_BINARY(ast_parsePipeForwardExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
+DEFN_PARSE_R_BINARY(ast_parsePipeForwardExpr, ast_opDetAssignExpr,
+                    ast_parseAssignExpr)
 
 void ast_parseExpr(ast_Expr *expr, DiagnosticLogger *diagnostics,
                    ast_Constructor *parser) {

@@ -1,5 +1,4 @@
 #include "com_mem.h"
-
 #include "com_assert.h"
 
 // in general these are naiive implementations not taking advantage of SIMD, etc

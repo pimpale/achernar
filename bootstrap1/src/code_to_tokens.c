@@ -61,25 +61,12 @@ static Token lexMetadata(com_reader *r,
   // Now we determine the type of comment as well as gather the comment data
   switch (lex_peek(r, 1)) {
   case '!': {
-    significant = false;
-    // it's a single line comment
-    // These are not nestable, and continue till the end of line.
-    // #! metadata
-    while (true) {
-      inband_reader_result c = lex_peek(r, 1);
-      if (c == '\n' || c == -1) {
-        break;
-      } else {
-        *com_vec_push_m(&data, u8) = (u8)c;
-        com_reader_drop_u8(r);
-      }
-    }
-    break;
-  }
-  default: {
     significant = true;
     // it's a single word attribute. continues until non alphanumeric or pathSep
-    // and a paren call after #attribute
+    // and a paren call after #!attribute
+ 
+    // drop exclamation mark
+    com_reader_drop_u8(r);
     while (true) {
       inband_reader_result c = lex_peek(r, 1);
       if (is_alphanumeric(c) || c == '/') {
@@ -112,6 +99,22 @@ static Token lexMetadata(com_reader *r,
         com_reader_drop_u8(r);
       } else {
         break;
+      }
+    }
+    break;
+  }
+  default: {
+    significant = false;
+    // it's a single line comment
+    // These are not nestable, and continue till the end of line.
+    // # metadata
+    while (true) {
+      inband_reader_result c = lex_peek(r, 1);
+      if (c == '\n' || c == -1) {
+        break;
+      } else {
+        *com_vec_push_m(&data, u8) = (u8)c;
+        com_reader_drop_u8(r);
       }
     }
     break;
@@ -556,7 +559,7 @@ static Token lexLabel(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
                                              com_allocator_NOLEAK}));
   while (true) {
     inband_reader_result c = lex_peek(r, 1);
-    if (!is_alphanumeric(c) ) {
+    if (!is_alphanumeric(c)) {
       com_reader_drop_u8(r);
       break;
     }
@@ -781,6 +784,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
       }
     }
+    case ';': {
+      RETURN_RESULT_TOKEN1(tk_Sequence)
+    }
     case ':': {
       switch (lex_peek(r, 2)) {
       case ':': {
@@ -933,6 +939,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     }
     case '}': {
       RETURN_RESULT_TOKEN1(tk_BraceRight)
+    }
+    case -1: {
+      RETURN_RESULT_TOKEN1(tk_Eof)
     }
     default: {
       RETURN_UNKNOWN_TOKEN1()

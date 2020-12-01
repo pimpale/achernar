@@ -6,6 +6,12 @@ com_str ast_strExprKind(ast_ExprKind val) {
   switch (val) {
   case ast_EK_None:
     return com_str_lit_m("ast_EK_None");
+  case ast_EK_Label:
+    return com_str_lit_m("ast_EK_Label");
+  case ast_EK_WithCase:
+    return com_str_lit_m("ast_EK_WithCase");
+  case ast_EK_ModuleAccess:
+    return com_str_lit_m("ast_EK_ModuleAccess");
   case ast_EK_Struct:
     return com_str_lit_m("ast_EK_Struct");
   case ast_EK_Defer:
@@ -26,10 +32,8 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Ret");
   case ast_EK_Match:
     return com_str_lit_m("ast_EK_Match");
-  case ast_EK_Block:
-    return com_str_lit_m("ast_EK_Block");
-  case ast_EK_FieldAccess:
-    return com_str_lit_m("ast_EK_FieldAccess");
+  case ast_EK_Group:
+    return com_str_lit_m("ast_EK_Group");
   case ast_EK_Reference:
     return com_str_lit_m("ast_EK_Reference");
   case ast_EK_BindIgnore:
@@ -39,6 +43,7 @@ com_str ast_strExprKind(ast_ExprKind val) {
   case ast_EK_AtBind:
     return com_str_lit_m("ast_EK_AtBind");
   }
+  com_assert_unreachable_m("unreachable");
 }
 
 com_str ast_strIdentifierKind(ast_IdentifierKind val) {
@@ -48,17 +53,17 @@ com_str ast_strIdentifierKind(ast_IdentifierKind val) {
   case ast_IK_Identifier:
     return com_str_lit_m("ast_IK_Identifier");
   }
+  com_assert_unreachable_m("unreachable");
 }
 
 com_str ast_strLabelKind(ast_LabelKind val) {
   switch (val) {
   case ast_LK_None:
     return com_str_lit_m("ast_LK_None");
-  case ast_LK_Omitted:
-    return com_str_lit_m("ast_LK_Omitted");
   case ast_LK_Label:
     return com_str_lit_m("ast_LK_Label");
   }
+  com_assert_unreachable_m("unreachable");
 }
 
 com_str ast_strCompoundElementKind(ast_CompoundElementKind val) {
@@ -68,6 +73,7 @@ com_str ast_strCompoundElementKind(ast_CompoundElementKind val) {
   case ast_CEK_Element:
     return com_str_lit_m("ast_CEK_Element");
   }
+  com_assert_unreachable_m("unreachable");
 }
 
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val) {
@@ -85,19 +91,32 @@ com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val) {
   case ast_EUOK_Copy:
     return com_str_lit_m("ast_EUOK_Copy");
   }
+  com_assert_unreachable_m("unreachable");
 }
 
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
 
   switch (val) {
+  case ast_EBOK_ModuleAccess:
+    return com_str_lit_m("ast_EBOK_ModuleAccess");
+  case ast_EBOK_In:
+    return com_str_lit_m("ast_EBOK_In");
+  case ast_EBOK_Pow:
+    return com_str_lit_m("ast_EBOK_Pow");
+  case ast_EBOK_PipeBackward:
+    return com_str_lit_m("ast_EBOK_PipeBackward");
+  case ast_EBOK_PipeForward:
+    return com_str_lit_m("ast_EBOK_PipeForward");
+  case ast_EBOK_Compose:
+    return com_str_lit_m("ast_EBOK_Compose");
   case ast_EBOK_Assign:
     return com_str_lit_m("ast_EBOK_Assign");
   case ast_EBOK_Sequence:
     return com_str_lit_m("ast_EBOK_Sequence");
-  case ast_EBOK_Call:
-    return com_str_lit_m("ast_EBOK_Call");
-  case ast_EBOK_Pipe:
-    return com_str_lit_m("ast_EBOK_Pipe");
+  case ast_EBOK_Apply:
+    return com_str_lit_m("ast_EBOK_Apply");
+  case ast_EBOK_RevApply:
+    return com_str_lit_m("ast_EBOK_RevApply");
   case ast_EBOK_None:
     return com_str_lit_m("ast_EBOK_None");
   case ast_EBOK_Constrain:
@@ -138,8 +157,6 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
     return com_str_lit_m("ast_EBOK_Difference");
   case ast_EBOK_Intersection:
     return com_str_lit_m("ast_EBOK_Intersection");
-  case ast_EBOK_SymDifference:
-    return com_str_lit_m("ast_EBOK_SymDifference");
   case ast_EBOK_Product:
     return com_str_lit_m("ast_EBOK_Product");
   case ast_EBOK_Sum:
@@ -149,4 +166,5 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
   case ast_EBOK_RangeInclusive:
     return com_str_lit_m("ast_EBOK_RangeInclusive");
   }
+  com_assert_unreachable_m("unreachable");
 }

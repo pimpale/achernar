@@ -89,7 +89,7 @@ typedef enum {
   tk_RevApply,     // .
   tk_Sequence,     // ;
   // Comments, and Attributes
-  tk_Metadata, // #attribute and #! comment
+  tk_Metadata, // #!attribute and # comment
 } tk_Kind;
 
 typedef enum { tk_SLK_DoubleQuote, tk_SLK_Block } tk_StringLiteralKind;

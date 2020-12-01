@@ -66,16 +66,6 @@ com_str ast_strLabelKind(ast_LabelKind val) {
   com_assert_unreachable_m("unreachable");
 }
 
-com_str ast_strCompoundElementKind(ast_CompoundElementKind val) {
-  switch (val) {
-  case ast_CEK_None:
-    return com_str_lit_m("ast_CEK_None");
-  case ast_CEK_Element:
-    return com_str_lit_m("ast_CEK_Element");
-  }
-  com_assert_unreachable_m("unreachable");
-}
-
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val) {
   switch (val) {
   case ast_EUOK_None:

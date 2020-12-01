@@ -53,22 +53,6 @@ typedef struct {
 typedef struct ast_Expr_s ast_Expr;
 
 typedef enum {
-  ast_CEK_None,
-  ast_CEK_Element,
-} ast_CompoundElementKind;
-
-typedef struct {
-  ast_Common common;
-  ast_CompoundElementKind kind;
-  union {
-    struct {
-      ast_Identifier *name;
-      ast_Expr *val;
-    } element;
-  };
-} ast_CompoundElement;
-
-typedef enum {
   ast_EUOK_None,
   ast_EUOK_Ref,
   ast_EUOK_Deref,
@@ -166,8 +150,7 @@ typedef struct ast_Expr_s {
       tk_StringLiteralKind kind;
     } stringLiteral;
     struct {
-      ast_CompoundElement *elements;
-      usize elements_len;
+      ast_Expr *expr;
     } structLiteral;
     struct {
       ast_Expr *body;
@@ -224,7 +207,6 @@ typedef struct ast_Expr_s {
 com_str ast_strExprKind(ast_ExprKind val);
 com_str ast_strIdentifierKind(ast_IdentifierKind val);
 com_str ast_strLabelKind(ast_LabelKind val);
-com_str ast_strCompoundElementKind(ast_CompoundElementKind val);
 com_str ast_strExprUnaryOpKind(ast_ExprUnaryOpKind val);
 com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val);
 

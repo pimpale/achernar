@@ -5,6 +5,10 @@
 #include "com_reader_buffered.h"
 #include "tokens_to_ast.h"
 
+
+#include "com_mem.h"
+#include "stdlib.h"
+
 int main() {
   com_allocator a = com_os_allocator();
 
@@ -17,8 +21,7 @@ int main() {
   // Print
   com_writer w = com_os_iostream_out();
 
-  com_allocator a2 = com_os_allocator();
-  print_stream(&ast, &a2, &w);
+  print_stream(&ast, &a, &w);
 
   // Clean up
   ast_destroy(&ast);

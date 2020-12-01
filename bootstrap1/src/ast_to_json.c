@@ -170,33 +170,6 @@ static com_json_Elem print_Label(ast_Label *label, com_allocator *a) {
   return print_objectify(&obj);
 }
 
-static com_json_Elem print_CompoundElement(ast_CompoundElement *cep,
-                                           com_allocator *a) {
-  if (cep == NULL) {
-    return com_json_null_m;
-  }
-  com_vec obj = print_vec_create_m(a);
-  *push_prop_m(&obj) =
-      mkprop_m("kind", com_json_str_m(com_str_lit_m("compound_element")));
-  print_appendCommon(cep->common, &obj, a);
-  *push_prop_m(&obj) =
-      mkprop_m("compound_element_expr_kind",
-               com_json_str_m(ast_strCompoundElementKind(cep->kind)));
-  switch (cep->kind) {
-  case ast_CEK_None: {
-    // nop
-    break;
-  }
-  case ast_CEK_Element: {
-    *push_prop_m(&obj) =
-        mkprop_m("name", print_Identifier(cep->element.name, a));
-    *push_prop_m(&obj) = mkprop_m("val", print_Expr(cep->element.val, a));
-    break;
-  }
-  }
-  return print_objectify(&obj);
-}
-
 static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   if (vep == NULL) {
     return com_json_null_m;
@@ -239,12 +212,8 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     break;
   }
   case ast_EK_Struct: {
-    com_vec elements = print_vec_create_m(a);
-    for (usize i = 0; i < vep->structLiteral.elements_len; i++) {
-      *com_vec_push_m(&elements, com_json_Elem) =
-          print_CompoundElement(&vep->structLiteral.elements[i], a);
-    }
-    *push_prop_m(&obj) = mkprop_m("struct_elements", print_arrayify(&elements));
+    *push_prop_m(&obj) =
+        mkprop_m("struct_expr", print_Expr(vep->structLiteral.expr, a));
     break;
   }
   case ast_EK_Loop: {
@@ -312,7 +281,8 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   }
   case ast_EK_Label: {
     *push_prop_m(&obj) = mkprop_m("label_val", print_Expr(vep->label.val, a));
-    *push_prop_m(&obj) = mkprop_m("label_label", print_Label(vep->label.label, a));
+    *push_prop_m(&obj) =
+        mkprop_m("label_label", print_Label(vep->label.label, a));
     break;
   }
   }

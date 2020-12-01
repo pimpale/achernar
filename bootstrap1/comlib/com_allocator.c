@@ -15,7 +15,7 @@ com_allocator_Handle com_allocator_alloc(const com_allocator *a, com_allocator_H
   // if we ask for flags other than what is provided than provided then fail
   com_assert_m((data.flags | a->_supported_flags) == a->_supported_flags, "used unsupported flag");
   // if failed to ask for a default flag then fail
-  com_assert_m((data.flags & a->_default_flags) == a->_default_flags, "failed to ask for a default flag");
+  com_assert_m((data.flags & a->_default_flags) == a->_default_flags, "failed to ask for a required flag");
 
   return a->_allocator_fn(a, data);
 }
@@ -43,6 +43,6 @@ void* com_allocator_handle_get(com_allocator_Handle handle) {
 }
 
 void com_allocator_destroy(com_allocator *a) {
-  a->_destroy_allocator_fn(a->_backing);
+  a->_destroy_allocator_fn(a);
 }
 

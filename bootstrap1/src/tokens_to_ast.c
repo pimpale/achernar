@@ -372,81 +372,29 @@ static void ast_certain_parseBindIgnoreExpr(ast_Expr *wpp,
   wpp->common.span = t.span;
 }
 
-// Identifier `:` Type
-static void ast_parseCompoundElement(ast_CompoundElement *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
-  com_mem_zero_obj_m(ptr);
-  ptr->kind = ast_CEK_Element;
+static void ast_certain_parseStructExpr(ast_Expr *bptr,
+                                       DiagnosticLogger *diagnostics,
+                                       ast_Constructor *parser) {
+  com_mem_zero_obj_m(bptr);
+  bptr->kind = ast_EK_Struct;
 
-  // accept metadata
-  com_vec metadata = parse_getMetadata(parser, diagnostics);
+  // Parse leftbrace
+  Token lbrace = parse_next(parser, diagnostics);
+  com_assert_m(lbrace.kind == tk_BraceLeft, "expected tk_BraceLeft");
 
-  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  ptr->common.metadata = com_vec_release(&metadata);
+  bptr->structLiteral.expr = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(bptr->structLiteral.expr, diagnostics, parser);
 
-  // Get pattern
-  ptr->element.name = parse_alloc_obj_m(parser, ast_Identifier);
-  ast_parseIdentifier(ptr->element.name, diagnostics, parser);
-
-  com_loc_LnCol start = ptr->element.name->span.start;
-  com_loc_LnCol end = ptr->element.name->span.end;
-
-  // Expect colon
-  Token t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Constrain) {
-    *dlogger_append(diagnostics) = (Diagnostic){
-        .span = t.span,
-        .severity = DSK_Error,
-        .message = com_str_lit_m(
-            "compound type element expected colon after identifier"),
-        .children_len = 0};
-    goto CLEANUP;
+  Token rbrace = parse_next(parser, diagnostics);
+  if (rbrace.kind != tk_BraceRight) {
+    *dlogger_append(diagnostics) =
+        (Diagnostic){.span = rbrace.span,
+                     .severity = DSK_Error,
+                     .message = com_str_lit_m("Expected right brace"),
+                     .children_len = 0};
   }
 
-  // Get Value
-  ptr->element.val = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(ptr->element.val, diagnostics, parser);
-  end = ptr->element.val->common.span.end;
-
-CLEANUP:
-  ptr->common.span = com_loc_span_m(start, end);
-  return;
-}
-
-static void ast_certain_parseStructExpr(ast_Expr *ptr,
-                                        DiagnosticLogger *diagnostics,
-                                        ast_Constructor *parser) {
-  com_mem_zero_obj_m(ptr);
-  ptr->kind = ast_EK_Struct;
-
-  // guarantee token exists
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_BraceLeft, "expected tk_BraceLeft");
-  com_loc_LnCol start = t.span.start;
-
-  // now we must parse the block containing the
-  // cases
-  com_vec elements = parse_alloc_vec(parser);
-
-  com_loc_LnCol end;
-
-  PARSE_LIST(
-      &elements,                // members_vec_ptr
-      diagnostics,              // dlogger_ptr
-      ast_parseCompoundElement, // member_parse_function
-      ast_CompoundElement,      // member_kind
-      tk_BraceRight,            // delimiting_token_kind
-      "expected a closing right bracket for struct type def ", // missing_delimiter_error
-      end,                                                     // end_lncol
-      parser                                                   // parser
-  )
-
-  // Get interior elements
-  ptr->structLiteral.elements_len =
-      com_vec_len_m(&elements, ast_CompoundElement);
-  ptr->structLiteral.elements = com_vec_release(&elements);
-  ptr->common.span = com_loc_span_m(start, end);
+  bptr->common.span = com_loc_span_m(lbrace.span.start, rbrace.span.end);
   return;
 }
 

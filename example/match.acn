@@ -1,41 +1,40 @@
-## achernar uses pattern matching rather than if's and ternaries
-## match is more flexible
+# TODO
 
-## match is a postfix operator
+# achernar uses ontern matching rather than if's and ternaries
+# match is more flexible
 
-## this expression matches on 1
-val x := 1 match {
-  ## this pattern will match if the expression above evaluates to 1 (it does)
-  pat ==1 => "it's one"
-  ## otherwise it would run this one
-  ## note the use of the _ dummy variable. This variable matches any value and ignores it
-  pat _ => "not one"
+# this expression matches on 1
+$x = match 1 {
+  # this on term will match if the expression above evaluates to 1 (it does)
+  on ==1 => "it's one"
+  # otherwise it would run this one
+  # note the use of the _ dummy variable. This variable matches any value and ignores it
+  on _ => "not one"
 }
 
-## matches have to be exhaustive
-## means that every possible value of the input value has to be matched
-val y := 100 match {
-  pat  < 10 => "matches if it's less than 10
-  pat  < 40 => "matches if it's less than 40
-  pat  < 50 => "matches if it's less than 50
-  pat  < 70 => "matches if it's less than 70
-  pat  < 80 => "matches if it's less than 80
-  pat  < 100 => "matches if it's less than 100
-  pat  < 120 => "matches if it's less than 120
-  pat  >= 120 => "matches if more than 120"
+# matches have to be exhaustive
+# means that every possible value of the input value has to be matched
+$y = 100 match {
+  on  < 10 => "matches if it's less than 10
+  on  < 40 => "matches if it's less than 40
+  on  < 50 => "matches if it's less than 50
+  on  < 70 => "matches if it's less than 70
+  on  < 80 => "matches if it's less than 80
+  on  < 100 => "matches if it's less than 100
+  on  < 120 => "matches if it's less than 120
+  on  >= 120 => "matches if more than 120"
 }
 
-## not only can you match on inequalities, you can also match on types
+# not only can you match on inequalities, you can also match on types
 
-val y:File|nil := maybeOpenFile()
+$y:File|nil = maybeOpenFile()
 
-y match {
-  ## when put a colon in front of the pattern, you ignore the value of the expression, but force it to be of the type
-  pat :nil => com/io::print("we didn't open the file :( ")
-  ## you can bind to variable `y` and enforce that `y` has type File
-  pat y:File => {
-                   ## note a block is a valid expression in a match
-                   com/io::print("we managed to open the file!")
-                }
+match y {
+  # when put a colon in front of the ontern, you ignore the value of the expression, but force it to be of the type
+  on :nil => com/io::print("we didn't open the file :( ")
+  # you can bind to variable `y` and enforce that `y` has type File
+  on y:File => {
+    # note a block is a valid expression in a match
+    com/io::print("we managed to open the file!")
+  }
 }
-

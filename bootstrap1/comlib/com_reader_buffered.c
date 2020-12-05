@@ -118,6 +118,7 @@ com_reader com_reader_buffered(com_reader *r, com_allocator *a) {
                                     .flags = com_allocator_defaults(a)}));
 
   *b = (BufferBacking){
+      .loc = com_loc_lncol_m(com_loc_ln_m(1), com_loc_col_m(1)),
       .reader = r,
       .queue = com_queue_create(com_vec_create(com_allocator_alloc(
           a, (com_allocator_HandleData){.len = 10,

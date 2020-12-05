@@ -8,8 +8,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_None");
   case ast_EK_Label:
     return com_str_lit_m("ast_EK_Label");
-  case ast_EK_WithCase:
-    return com_str_lit_m("ast_EK_WithCase");
   case ast_EK_ModuleAccess:
     return com_str_lit_m("ast_EK_ModuleAccess");
   case ast_EK_Struct:
@@ -89,6 +87,8 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
   switch (val) {
   case ast_EBOK_ModuleAccess:
     return com_str_lit_m("ast_EBOK_ModuleAccess");
+  case ast_EBOK_With:
+    return com_str_lit_m("ast_EBOK_With");
   case ast_EBOK_In:
     return com_str_lit_m("ast_EBOK_In");
   case ast_EBOK_Pow:

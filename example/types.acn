@@ -1,8 +1,27 @@
 # Creating types
 
-# You declare types the same way you would declare a function.
+# Any group of variables declared in curly braces forms an object
 
-type foo := struct {
-   nice:int 
+$obj = {
+  $x = 3;
+  $y = 4
+};
+
+# you can access variables within the object using ::
+print obj::x;
+
+# to create a new type you need to apply the intrinsic function struct on an object of type
+
+$point = _struct {
+  $x = int;
+  $y = int
+};
+
+# you can create an enum in the same manner
+
+$point = _enum {
+  $x = int;
+  $y = int
 }
+
 

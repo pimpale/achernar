@@ -109,7 +109,9 @@ typedef enum {
   // Sequence
   ast_EBOK_Sequence,
   // Module Access
-  ast_EBOK_ModuleAccess
+  ast_EBOK_ModuleAccess,
+  // Used internally by match
+  ast_EBOK_With,
 } ast_ExprBinaryOpKind;
 
 typedef enum {
@@ -129,7 +131,6 @@ typedef enum {
   ast_EK_Group,    // Introduces new scope and label
   ast_EK_ModuleAccess, // Accessing the module of a module object
   ast_EK_Reference,    // A reference to a previously defined variable
-  ast_EK_WithCase,     // (MATCH ONLY) a match case
   ast_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,         // (PATTERN ONLY) binds a single element to new variable
   ast_EK_AtBind,       // (PATTERN ONLY) matches previous
@@ -182,11 +183,7 @@ typedef struct ast_Expr_s {
     struct {
       ast_Expr *root;
       ast_Expr *cases;
-      usize cases_len;
     } match;
-    struct {
-      ast_Expr *body;
-    } with;
     struct {
       ast_Expr *expr;
     } group;

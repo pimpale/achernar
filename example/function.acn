@@ -1,6 +1,6 @@
-let add = fn(a b:int):int => a + b
+$add = $a -> $b -> a + b;
 
-let main = fn():int => {
-  add(10, 12)
-  std::format("yeet %c/n"  '\n')
-}
+$main = nil -> (
+  add 10 12;
+  std::format "yeet %c/n"
+)

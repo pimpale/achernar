@@ -263,16 +263,8 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
   }
   case ast_EK_Match: {
     *push_prop_m(&obj) = mkprop_m("match_root", print_Expr(vep->match.root, a));
-    com_vec cases = print_vec_create_m(a);
-    for (usize i = 0; i < vep->match.cases_len; i++) {
-      *com_vec_push_m(&cases, com_json_Elem) =
-          print_Expr(&vep->match.cases[i], a);
-    }
-    *push_prop_m(&obj) = mkprop_m("match_cases", print_arrayify(&cases));
-    break;
-  }
-  case ast_EK_WithCase: {
-    *push_prop_m(&obj) = mkprop_m("with_body", print_Expr(vep->with.body, a));
+    *push_prop_m(&obj) =
+        mkprop_m("match_cases", print_Expr(vep->match.cases, a));
     break;
   }
   case ast_EK_Group: {

@@ -270,6 +270,16 @@ static void ast_parseIdentifier(ast_Identifier *ptr,
   }
 }
 
+static void ast_certain_parseNilExpr(ast_Expr *ptr,
+                                     DiagnosticLogger *diagnostics,
+                                     ast_Constructor *parser) {
+  Token t = parse_next(parser, diagnostics);
+  com_assert_m(t.kind == tk_Nil, "expected a tk_Nil");
+  ptr->kind = ast_EK_Nil;
+  ptr->common.span = t.span;
+  return;
+}
+
 static void ast_certain_parseIntExpr(ast_Expr *ptr,
                                      DiagnosticLogger *diagnostics,
                                      ast_Constructor *parser) {
@@ -568,6 +578,10 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   // Decide which expression it is
   switch (t.kind) {
   // Literals
+  case tk_Nil: {
+    ast_certain_parseNilExpr(l, diagnostics, parser);
+    break;
+  }
   case tk_Int: {
     ast_certain_parseIntExpr(l, diagnostics, parser);
     break;

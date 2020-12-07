@@ -29,4 +29,12 @@ Diagnostic *dlogger_append(DiagnosticLogger *ptr) {
   return com_vec_push_m(&ptr->_diagnostics, Diagnostic);
 }
 
+void *dlogger_alloc(DiagnosticLogger *ptr, usize n) {
+  return com_allocator_handle_get(com_allocator_alloc(
+      ptr->_a, (com_allocator_HandleData){
+                   .len = n,
+                   .flags = com_allocator_defaults(ptr->_a) |
+                            com_allocator_NOLEAK | com_allocator_REALLOCABLE}));
+}
+
 com_vec dlogger_release(DiagnosticLogger *ptr) { return ptr->_diagnostics; }

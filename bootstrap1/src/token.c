@@ -12,18 +12,24 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Identifier");
   case tk_Loop:
     return com_str_lit_m("tk_Loop");
-  case tk_Match:
-    return com_str_lit_m("tk_Match");
-  case tk_With:
-    return com_str_lit_m("tk_With");
+  case tk_Self:
+    return com_str_lit_m("tk_Self");
+  case tk_Append:
+    return com_str_lit_m("tk_Append");
+  case tk_If:
+    return com_str_lit_m("tk_If");
+  case tk_Nil:
+    return com_str_lit_m("tk_Nil");
+  case tk_Forall:
+    return com_str_lit_m("tk_Forall");
+  case tk_Case:
+    return com_str_lit_m("tk_Case");
   case tk_Ret:
     return com_str_lit_m("tk_Ret");
   case tk_Defer:
     return com_str_lit_m("tk_Defer");
   case tk_Where:
     return com_str_lit_m("tk_Where");
-  case tk_Mut:
-    return com_str_lit_m("tk_Mut");
   case tk_At:
     return com_str_lit_m("tk_At");
   case tk_Dyn:
@@ -70,10 +76,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Product");
   case tk_Sum:
     return com_str_lit_m("tk_Sum");
-  case tk_Ref:
-    return com_str_lit_m("tk_Ref");
-  case tk_Deref:
-    return com_str_lit_m("tk_Deref");
   case tk_Range:
     return com_str_lit_m("tk_Range");
   case tk_RangeInclusive:
@@ -120,8 +122,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Bind");
   case tk_Splat:
     return com_str_lit_m("tk_Splat");
-  case tk_Copy:
-    return com_str_lit_m("tk_Copy");
   case tk_PipeForward:
     return com_str_lit_m("tk_PipeForward");
   case tk_PipeBackward:
@@ -132,8 +132,6 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Or");
   case tk_Xor:
     return com_str_lit_m("tk_Xor");
-  case tk_Not:
-    return com_str_lit_m("tk_Not");
   }
 
   com_assert_unreachable_m("control flow reaches end of token");

@@ -180,13 +180,13 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
       mkprop_m("kind", com_json_str_m(ast_strExprKind(vep->kind)));
   switch (vep->kind) {
   case ast_EK_None:
+  case ast_EK_Nil:
   case ast_EK_BindIgnore: {
     // nop
     break;
   }
   case ast_EK_Bind: {
-    *push_prop_m(&obj) =
-        mkprop_m("binding", print_Identifier(vep->binding.binding, a));
+    *push_prop_m(&obj) = mkprop_m("bind", print_Identifier(vep->bind.bind, a));
     break;
   }
   case ast_EK_AtBind: {
@@ -232,14 +232,6 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
         mkprop_m("reference", print_Identifier(vep->reference.reference, a));
     break;
   }
-  case ast_EK_UnaryOp: {
-    *push_prop_m(&obj) =
-        mkprop_m("unary_operation",
-                 com_json_str_m(ast_strExprUnaryOpKind(vep->unaryOp.op)));
-    *push_prop_m(&obj) =
-        mkprop_m("unary_operand", print_Expr(vep->unaryOp.operand, a));
-    break;
-  }
   case ast_EK_BinaryOp: {
     *push_prop_m(&obj) =
         mkprop_m("binary_operation",
@@ -261,10 +253,8 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     *push_prop_m(&obj) = mkprop_m("defer_val", print_Expr(vep->defer.val, a));
     break;
   }
-  case ast_EK_Match: {
-    *push_prop_m(&obj) = mkprop_m("match_root", print_Expr(vep->match.root, a));
-    *push_prop_m(&obj) =
-        mkprop_m("match_cases", print_Expr(vep->match.cases, a));
+  case ast_EK_If: {
+    *push_prop_m(&obj) = mkprop_m("if_val", print_Expr(vep->ifs.ifs, a));
     break;
   }
   case ast_EK_Group: {

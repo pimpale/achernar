@@ -15,22 +15,23 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_Loop,  // loop
-  tk_Match, // match
-  tk_With,  // with
-  tk_Ret,   // ret
-  tk_Defer, // defer
-  tk_At,    // at
-  tk_Mut,   // mut
-  tk_Where, // where
-  tk_Dyn,   // dyn
-  tk_Impl,  // impl
+  tk_Loop,   // loop
+  tk_If,     // if
+  tk_Ret,    // ret
+  tk_Defer,  // defer
+  tk_At,     // at
+  tk_Where,  // where
+  tk_Dyn,    // dyn
+  tk_Impl,   // impl
+  tk_Forall, // forall
+  tk_Self,   // this
   // Literals and constants
   tk_Inf,    // inf
   tk_Nan,    // nan
   tk_Real,   // 0.7
   tk_String, // "string"
   tk_Int,    // 7
+  tk_Nil,    // ()
   // Math Operators
   tk_Add, // +
   tk_Sub, // -
@@ -42,19 +43,15 @@ typedef enum {
   tk_And, // and
   tk_Or,  // or
   tk_Xor, // xor
-  tk_Not, // not
   // Set Operators
   tk_Union,        // \/ union
   tk_Intersection, // /\ intersection
+  tk_Append,       // ++ append
   tk_Difference,   // -- difference
   tk_In,           // in membership
   // Type operators
   tk_Product, // ,
   tk_Sum,     // |
-  // Memory Operators
-  tk_Ref,   // &
-  tk_Deref, // @
-  tk_Copy,  // '
   // Range Operators
   tk_Range,          // ..
   tk_RangeInclusive, // ..=
@@ -74,6 +71,8 @@ typedef enum {
   tk_PipeBackward, // <|
   tk_Compose,      // >>
   tk_Arrow,        // ->
+  // Cases
+  tk_Case, // ||
   // Other Miscellaneous Operator Things
   tk_Bind,         // $
   tk_Ignore,       // $_

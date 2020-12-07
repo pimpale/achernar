@@ -14,20 +14,20 @@ $x = match 1 {
 
 # matches have to be exhaustive
 # means that every possible value of the input value has to be matched
-$y = 100 match {
-  on  < 10 => "matches if it's less than 10
-  on  < 40 => "matches if it's less than 40
-  on  < 50 => "matches if it's less than 50
-  on  < 70 => "matches if it's less than 70
-  on  < 80 => "matches if it's less than 80
-  on  < 100 => "matches if it's less than 100
-  on  < 120 => "matches if it's less than 120
-  on  >= 120 => "matches if more than 120"
+$y = match 100 {
+  < 10 => "matches if it's less than 10;
+  < 40 => "matches if it's less than 40;
+  < 50 => "matches if it's less than 50;
+  < 70 => "matches if it's less than 70;
+  < 80 => "matches if it's less than 80;
+  < 100 => "matches if it's less than 100;
+  < 120 => "matches if it's less than 120;
+  >= 120 => "matches if more than 120"
 }
 
 # not only can you match on inequalities, you can also match on types
 
-$y:File|nil = maybeOpenFile()
+$y:File|nil = maybeOpenFile();
 
 match y {
   # when put a colon in front of the ontern, you ignore the value of the expression, but force it to be of the type

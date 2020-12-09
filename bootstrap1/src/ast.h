@@ -58,6 +58,8 @@ typedef enum {
   ast_EBOK_Constrain,
   // Function definition
   ast_EBOK_Fn,
+  // Assign
+  ast_EBOK_CaseOption,
   // Function call
   ast_EBOK_Apply,
   ast_EBOK_RevApply,
@@ -115,7 +117,7 @@ typedef enum {
   ast_EK_Struct,   // Constructs a new compound type
   ast_EK_BinaryOp, // Binary operation
   ast_EK_Ret,      // Returns from a scope with a value
-  ast_EK_If,       // Matches an expression to the first matching pattern and
+  ast_EK_CaseOf,   // Matches an expression to the first matching pattern and
                    // destructures it
   ast_EK_Group,    // Introduces new scope and label
   ast_EK_ModuleAccess, // Accessing the module of a module object
@@ -166,8 +168,9 @@ typedef struct ast_Expr_s {
       ast_Label *label;
     } ret;
     struct {
-      ast_Expr *ifs;
-    } ifs;
+      ast_Expr *expr;
+      ast_Expr *cases;
+    } caseof;
     struct {
       ast_Expr *expr;
     } group;

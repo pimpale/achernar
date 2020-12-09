@@ -592,14 +592,9 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     com_reader_ReadU8Result ret = com_reader_peek_u8(r, 1);
     if (ret.valid) {
       u8 c = ret.value;
-      if (com_format_is_alphanumeric(c) || c == '_') {
+      if (com_format_is_alphanumeric(c) || c == '_' || c == '@') {
         *com_vec_push_m(&data, u8) = c;
         com_reader_drop_u8(r);
-      } else if (c == '!') {
-        // Is intrinsic
-        *com_vec_push_m(&data, u8) = c;
-        com_reader_drop_u8(r);
-        break;
       } else {
         // we encountered a nonword char
         break;
@@ -619,8 +614,10 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
 
   if (com_str_equal(str, com_str_lit_m("loop"))) {
     token.kind = tk_Loop;
-  } else if (com_str_equal(str, com_str_lit_m("if"))) {
-    token.kind = tk_If;
+  } else if (com_str_equal(str, com_str_lit_m("of"))) {
+    token.kind = tk_Of;
+  } else if (com_str_equal(str, com_str_lit_m("case"))) {
+    token.kind = tk_Case;
   } else if (com_str_equal(str, com_str_lit_m("ret"))) {
     token.kind = tk_Ret;
   } else if (com_str_equal(str, com_str_lit_m("self"))) {
@@ -718,7 +715,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
 
   com_loc_LnCol start = com_reader_position(r);
 
-  if (is_alpha(c) || c == '_') {
+  if (is_alpha(c) || c == '_' || c == '@') {
     return lexWord(r, diagnostics, a);
   } else if (is_digit(c)) {
     return lexNumberLiteral(r, diagnostics, a);
@@ -804,9 +801,6 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
     case '&': {
       RETURN_IDET_TOKEN(1, "&")
     }
-    case '@': {
-      RETURN_IDET_TOKEN(1, "@")
-    }
     case '\'': {
       if (is_alpha(lex_peek(r, 2))) {
         return lexLabel(r, diagnostics, a);
@@ -821,6 +815,9 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       switch (lex_peek(r, 2)) {
       case '>': {
         RETURN_RESULT_TOKEN(2, tk_PipeForward)
+      }
+      case '|': {
+        RETURN_RESULT_TOKEN(2, tk_CaseOption)
       }
       default: {
         RETURN_RESULT_TOKEN(1, tk_Sum)

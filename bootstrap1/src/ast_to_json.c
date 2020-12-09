@@ -253,8 +253,9 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     *push_prop_m(&obj) = mkprop_m("defer_val", print_Expr(vep->defer.val, a));
     break;
   }
-  case ast_EK_If: {
-    *push_prop_m(&obj) = mkprop_m("if_val", print_Expr(vep->ifs.ifs, a));
+  case ast_EK_CaseOf: {
+    *push_prop_m(&obj) = mkprop_m("caseof_expr", print_Expr(vep->caseof.expr, a));
+    *push_prop_m(&obj) = mkprop_m("caseof_cases", print_Expr(vep->caseof.cases, a));
     break;
   }
   case ast_EK_Group: {

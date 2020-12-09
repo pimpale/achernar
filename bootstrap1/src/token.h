@@ -16,9 +16,10 @@ typedef enum {
   tk_Identifier,
   // Keywords
   tk_Loop,   // loop
-  tk_If,     // if
+  tk_Of,     // of
   tk_Ret,    // ret
   tk_Defer,  // defer
+  tk_Case,   // case
   tk_At,     // at
   tk_Where,  // where
   tk_Dyn,    // dyn
@@ -71,8 +72,8 @@ typedef enum {
   tk_PipeBackward, // <|
   tk_Compose,      // >>
   tk_Arrow,        // ->
-  // Cases
-  tk_Case, // ||
+  // CaseOptions
+  tk_CaseOption, // ||
   // Other Miscellaneous Operator Things
   tk_Bind,         // $
   tk_Ignore,       // $_

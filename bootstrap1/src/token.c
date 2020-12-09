@@ -16,8 +16,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Self");
   case tk_Append:
     return com_str_lit_m("tk_Append");
-  case tk_If:
-    return com_str_lit_m("tk_If");
+  case tk_Of:
+    return com_str_lit_m("tk_Of");
   case tk_Nil:
     return com_str_lit_m("tk_Nil");
   case tk_Forall:

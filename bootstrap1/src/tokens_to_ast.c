@@ -54,7 +54,7 @@ static Token parse_rawNext(ast_Constructor *parser,
   return tk_next(parser->_reader, diagnostics, parser->_a);
 }
 
-// If the peeked token stack is not empty:
+// Of the peeked token stack is not empty:
 //    Ret the first element of the top of the token
 //    Pop the first element of the next_metadata_stack
 //    For each element in the next metadata stack, push it to the top of the
@@ -227,6 +227,11 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
 // smallest unit
 static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                               ast_Constructor *parser);
+
+// everything that can be seperated by a semicolon 
+void ast_parseSequenceable(ast_Expr *expr, DiagnosticLogger *diagnostics,
+                   ast_Constructor *parser);
+
 
 static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
                            ast_Constructor *parser) {
@@ -443,7 +448,7 @@ static void ast_certain_parseAtLetExpr(ast_Expr *alpp,
   return;
 }
 
-// _
+// $_
 static void ast_certain_parseBindIgnoreExpr(ast_Expr *wpp,
                                             DiagnosticLogger *diagnostics,
                                             ast_Constructor *parser) {
@@ -501,42 +506,48 @@ static void ast_certain_parseDeferExpr(ast_Expr *dsp,
   return;
 }
 
-static void ast_certain_parseIfExpr(ast_Expr *mptr,
+static ast_ExprBinaryOpKind ast_opDetCaseOptionExpr(tk_Kind tk) {
+  switch (tk) {
+  case tk_CaseOption: {
+    return ast_EBOK_CaseOption;
+  }
+  default: {
+    return ast_EBOK_None;
+  }
+  }
+}
+DEFN_PARSE_L_BINARY(ast_parseSequenceable,ast_opDetCaseOptionExpr,
+                    ast_parseCaseOptionExpr)
+
+
+static void ast_certain_parseCaseExpr(ast_Expr *mptr,
                                        DiagnosticLogger *diagnostics,
                                        ast_Constructor *parser) {
   // guarantee token exists
   Token mt = parse_next(parser, diagnostics);
-  com_assert_m(mt.kind == tk_If, "expected tk_If");
+  com_assert_m(mt.kind == tk_Case, "expected tk_Case");
 
   com_mem_zero_obj_m(mptr);
-  mptr->kind = ast_EK_If;
+  mptr->kind = ast_EK_CaseOf;
 
-  ast_Expr *cases;
+  mptr->caseof.expr = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseExpr(mptr->caseof.expr, diagnostics, parser);
 
-  // Expect beginning brace
-  Token lbrace = parse_next(parser, diagnostics);
-  if (lbrace.kind != tk_BraceLeft) {
+  // Expect of
+  Token oftk = parse_next(parser, diagnostics);
+  if (oftk.kind != tk_BraceLeft) {
     *dlogger_append(diagnostics) =
-        (Diagnostic){.span = lbrace.span,
+        (Diagnostic){.span = oftk.span,
                      .severity = DSK_Information,
-                     .message = com_str_lit_m("If expected left brace"),
+                     .message = com_str_lit_m("Case Of expected of"),
                      .children_len = 0};
   }
 
-  cases = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(cases, diagnostics, parser);
+  // parse CaseOptions
+  mptr->caseof.cases = parse_alloc_obj_m(parser, ast_Expr);
+  ast_parseCaseOptionExpr(mptr->caseof.cases, diagnostics, parser);
 
-  Token rbrace = parse_next(parser, diagnostics);
-  if (rbrace.kind != tk_BraceRight) {
-    *dlogger_append(diagnostics) =
-        (Diagnostic){.span = rbrace.span,
-                     .severity = DSK_Error,
-                     .message = com_str_lit_m("If expected right brace"),
-                     .children_len = 0};
-  }
-
-  mptr->ifs.ifs= cases;
-  mptr->common.span = com_loc_span_m(mt.span.start, cases->common.span.end);
+  mptr->common.span = com_loc_span_m(mt.span.start, mptr->caseof.cases->common.span.end);
   return;
 }
 
@@ -614,8 +625,8 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     ast_certain_parseLoopExpr(l, diagnostics, parser);
     break;
   }
-  case tk_If: {
-    ast_certain_parseIfExpr(l, diagnostics, parser);
+  case tk_Case: {
+    ast_certain_parseCaseExpr(l, diagnostics, parser);
     break;
   }
   case tk_Label: {
@@ -711,7 +722,7 @@ static void ast_parseApplyExpr(ast_Expr *aptr, DiagnosticLogger *diagnostics,
     case tk_Ignore:
     case tk_Identifier:
     case tk_Label:
-    case tk_If:
+    case tk_Case:
       break;
     default:
       return;
@@ -958,6 +969,11 @@ static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
 }
 DEFN_PARSE_R_BINARY(ast_parseFnExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
 
+void ast_parseSequenceable(ast_Expr *expr, DiagnosticLogger *diagnostics,
+                   ast_Constructor *parser) {
+  ast_parseAssignExpr(expr, diagnostics, parser);
+}
+
 static ast_ExprBinaryOpKind ast_opDetSequenceExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Sequence: {
@@ -968,7 +984,7 @@ static ast_ExprBinaryOpKind ast_opDetSequenceExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_BINARY(ast_parseAssignExpr, ast_opDetSequenceExpr,
+DEFN_PARSE_L_BINARY(ast_parseAssignExpr, ast_opDetSequenceExpr,
                     ast_parseSequenceExpr)
 
 void ast_parseExpr(ast_Expr *expr, DiagnosticLogger *diagnostics,

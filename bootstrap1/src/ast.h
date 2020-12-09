@@ -58,7 +58,7 @@ typedef enum {
   ast_EBOK_Constrain,
   // Function definition
   ast_EBOK_Fn,
-  // Assign
+  // CaseOption
   ast_EBOK_CaseOption,
   // Function call
   ast_EBOK_Apply,
@@ -124,7 +124,7 @@ typedef enum {
   ast_EK_Reference,    // A reference to a previously defined variable
   ast_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,         // (PATTERN ONLY) matches a single element to new variable
-  ast_EK_AtBind,       // (PATTERN ONLY) matches previous
+  ast_EK_At,           // (PATTERN ONLY) matches expression and assigns to another 
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -186,8 +186,8 @@ typedef struct ast_Expr_s {
     } mutate;
     struct {
       ast_Expr *pat;
-      ast_Identifier *binding;
-    } atBinding;
+      ast_Expr *assignable;
+    } at;
   };
 } ast_Expr;
 

@@ -86,15 +86,13 @@ All functions are defined through the syntax shown above. This is because functi
 
 #### Fizzbuzz 
 ```
-_sysembed` com_io `
-_sysembed` com_alloc `
-_sysembed` com_format `
+$* = @import "com";
 
-val allocator := com::alloc::system();
+$allocator = com::alloc::system();
 
-val i := 0
+$i = 1;
 # we name this loop " 'x ". The tick ahead of the x means that it is a label for the loop. It introduces a new scope 'x
-loop 'x {
+'x loop {
     # here we utilize tuples (aka product types) to unite i % 5 and i % 3 into one value that we match on
     # the "," operator unites two values into a tuple
     i % 3, i % 5  match {
@@ -115,7 +113,7 @@ loop 'x {
     ->com_io_printf()
     
   # increment  counter
-  i += 1
+  mut i += 1
   # this match statement decides whether to terminate the loop
   i match {
     # we return "nil" from the scope 'x

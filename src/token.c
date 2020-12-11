@@ -72,8 +72,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Union");
   case tk_Intersection:
     return com_str_lit_m("tk_Intersection");
-  case tk_Product:
-    return com_str_lit_m("tk_Product");
+  case tk_Cons:
+    return com_str_lit_m("tk_Cons");
   case tk_Sum:
     return com_str_lit_m("tk_Sum");
   case tk_Range:

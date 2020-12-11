@@ -91,12 +91,12 @@ typedef enum {
 } hir_IntrinsicKind;
 
 typedef enum {
-  hir_EK_None,   // An error when parsing
-  hir_EK_Nil,    // Literal for nil
-  hir_EK_Int,    // Literal for an integer number
-  hir_EK_Real,   // Literal for a real (floating point) number
-  hir_EK_String, // A string literal
-  hir_EK_Loop,   // Loops until a scope is returned
+  hir_EK_None,  // An error when parsing
+  hir_EK_Nil,   // Literal for nil
+  hir_EK_Int,   // Literal for an integer number
+  hir_EK_Real,  // Literal for a real (floating point) number
+  hir_EK_Loop,  // Loops until a scope is returned
+  hir_EK_Apply, // applies a function
   hir_EK_Label, // Wraps a term in a label that can be deferred or returned from
   hir_EK_Defer, // Defer until label
   hir_EK_Struct, // Constructs a new compound type
@@ -106,9 +106,9 @@ typedef enum {
   hir_EK_ModuleAccess, // Accessing the module of a module object
   hir_EK_Reference,    // A reference to a previously defined variable
   hir_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
-  hir_EK_Bind,   // (PATTERN ONLY) matches a single element to new variable
-  hir_EK_At,     // matches expression and assigns to another 
-  hir_EK_Constrain,     // matches expression and assigns to another 
+  hir_EK_Bind,      // (PATTERN ONLY) matches a single element to new variable
+  hir_EK_At,        // matches expression and assigns to another
+  hir_EK_Constrain, // matches expression and assigns to another
 } hir_ExprKind;
 
 typedef struct hir_Expr_s {
@@ -122,15 +122,15 @@ typedef struct hir_Expr_s {
       com_bigdecimal value;
     } realLiteral;
     struct {
-      com_str value;
-      tk_StringLiteralKind kind;
-    } stringLiteral;
-    struct {
       hir_Expr *expr;
     } structLiteral;
     struct {
       hir_Expr *body;
     } loop;
+    struct {
+      hir_Expr *fn;
+      hir_Expr *param;
+    } apply;
     struct {
       hir_Expr *module;
       com_str field;
@@ -139,7 +139,7 @@ typedef struct hir_Expr_s {
       hir_IntrinsicKind kind;
     } intrinsic;
     struct {
-      com_str *reference;
+      com_str reference;
     } reference;
     struct {
       com_str label;

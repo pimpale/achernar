@@ -162,6 +162,7 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
     parse_next(parser, diagnostics);                                           \
                                                                                \
     /* now parse the rest of the expression */                                 \
+    /* TODO: recursion can cause stack overflow */                             \
     expr->binaryOp.right_operand = parse_alloc_obj_m(parser, ast_Expr);        \
     fn_name(expr->binaryOp.right_operand, diagnostics, parser);                \
                                                                                \
@@ -228,10 +229,9 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
 static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                               ast_Constructor *parser);
 
-// everything that can be seperated by a semicolon 
+// everything that can be seperated by a semicolon
 void ast_parseSequenceable(ast_Expr *expr, DiagnosticLogger *diagnostics,
-                   ast_Constructor *parser);
-
+                           ast_Constructor *parser);
 
 static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
                            ast_Constructor *parser) {
@@ -414,40 +414,6 @@ static void ast_certain_parseBindExpr(ast_Expr *vbp,
   return;
 }
 
-// 'at' pattern 'dollar' binding
-static void ast_certain_parseAtLetExpr(ast_Expr *alpp,
-                                       DiagnosticLogger *diagnostics,
-                                       ast_Constructor *parser) {
-  com_mem_zero_obj_m(alpp);
-  alpp->kind = ast_EK_AtBind;
-
-  // ensure token is tk at
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_At, "expected tk_At");
-  com_loc_LnCol start = t.span.start;
-
-  // now parse pattern
-  alpp->atBinding.pat = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseTermExpr(alpp->atBinding.pat, diagnostics, parser);
-
-  // now ensure that we can find a let
-  t = parse_next(parser, diagnostics);
-  if (t.kind != tk_Bind) {
-    *dlogger_append(diagnostics) = (Diagnostic){
-        .span = t.span,
-        .severity = DSK_Error,
-        .message = com_str_lit_m("Expected bind token after pattern"),
-        .children_len = 0};
-  }
-
-  // now parse binding
-  ast_Identifier *binding = parse_alloc_obj_m(parser, ast_Identifier);
-  ast_parseIdentifier(binding, diagnostics, parser);
-  alpp->atBinding.binding = binding;
-  alpp->common.span = com_loc_span_m(start, alpp->atBinding.binding->span.end);
-  return;
-}
-
 // $_
 static void ast_certain_parseBindIgnoreExpr(ast_Expr *wpp,
                                             DiagnosticLogger *diagnostics,
@@ -516,13 +482,12 @@ static ast_ExprBinaryOpKind ast_opDetCaseOptionExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseSequenceable,ast_opDetCaseOptionExpr,
+DEFN_PARSE_L_BINARY(ast_parseSequenceable, ast_opDetCaseOptionExpr,
                     ast_parseCaseOptionExpr)
 
-
 static void ast_certain_parseCaseExpr(ast_Expr *mptr,
-                                       DiagnosticLogger *diagnostics,
-                                       ast_Constructor *parser) {
+                                      DiagnosticLogger *diagnostics,
+                                      ast_Constructor *parser) {
   // guarantee token exists
   Token mt = parse_next(parser, diagnostics);
   com_assert_m(mt.kind == tk_Case, "expected tk_Case");
@@ -547,7 +512,8 @@ static void ast_certain_parseCaseExpr(ast_Expr *mptr,
   mptr->caseof.cases = parse_alloc_obj_m(parser, ast_Expr);
   ast_parseCaseOptionExpr(mptr->caseof.cases, diagnostics, parser);
 
-  mptr->common.span = com_loc_span_m(mt.span.start, mptr->caseof.cases->common.span.end);
+  mptr->common.span =
+      com_loc_span_m(mt.span.start, mptr->caseof.cases->common.span.end);
   return;
 }
 
@@ -631,10 +597,6 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   }
   case tk_Label: {
     ast_certain_parseLabelExpr(l, diagnostics, parser);
-    break;
-  }
-  case tk_At: {
-    ast_certain_parseAtLetExpr(l, diagnostics, parser);
     break;
   }
   case tk_Bind: {
@@ -768,6 +730,20 @@ static ast_ExprBinaryOpKind ast_opDetRangeExpr(tk_Kind tk) {
 }
 DEFN_PARSE_L_BINARY(ast_parseApplyExpr, ast_opDetRangeExpr, ast_parseRangeExpr)
 
+
+static ast_ExprBinaryOpKind ast_opDetAtExpr(tk_Kind tk) {
+  switch (tk) {
+  case tk_At: {
+    return ast_EBOK_At;
+  }
+  default: {
+    return ast_EBOK_None;
+  }
+  }
+}
+DEFN_PARSE_L_BINARY(ast_parseRangeExpr, ast_opDetAtExpr,
+                    ast_parseAtExpr)
+
 static ast_ExprBinaryOpKind ast_opDetConstrainExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Constrain: {
@@ -778,7 +754,7 @@ static ast_ExprBinaryOpKind ast_opDetConstrainExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseRangeExpr, ast_opDetConstrainExpr,
+DEFN_PARSE_L_BINARY(ast_parseAtExpr, ast_opDetConstrainExpr,
                     ast_parseConstrainExpr)
 
 static ast_ExprBinaryOpKind ast_opDetPowExpr(tk_Kind tk) {
@@ -812,7 +788,7 @@ static ast_ExprBinaryOpKind ast_opDetProductExpr(tk_Kind tk) {
 DEFN_PARSE_L_BINARY(ast_parsePowExpr, ast_opDetProductExpr,
                     ast_parseProductExpr)
 
-static ast_ExprBinaryOpKind ast_opDetSumExpr(tk_Kind tk) {
+static ast_ExprBinaryOpKind ast_opDetArithExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Add: {
     return ast_EBOK_Add;
@@ -826,7 +802,8 @@ static ast_ExprBinaryOpKind ast_opDetSumExpr(tk_Kind tk) {
   }
 }
 
-DEFN_PARSE_L_BINARY(ast_parseProductExpr, ast_opDetSumExpr, ast_parseSumExpr)
+DEFN_PARSE_L_BINARY(ast_parseProductExpr, ast_opDetArithExpr,
+                    ast_parseArithExpr)
 
 static ast_ExprBinaryOpKind ast_opDetCompExpr(tk_Kind tk) {
   switch (tk) {
@@ -853,7 +830,7 @@ static ast_ExprBinaryOpKind ast_opDetCompExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseSumExpr, ast_opDetCompExpr, ast_parseCompExpr)
+DEFN_PARSE_L_BINARY(ast_parseArithExpr, ast_opDetCompExpr, ast_parseCompExpr)
 
 static ast_ExprBinaryOpKind ast_opDetBoolExpr(tk_Kind tk) {
   switch (tk) {
@@ -904,20 +881,29 @@ static ast_ExprBinaryOpKind ast_opDetComposeExpr(tk_Kind tk) {
 DEFN_PARSE_L_BINARY(ast_parseSetExpr, ast_opDetComposeExpr,
                     ast_parseComposeExpr)
 
-static ast_ExprBinaryOpKind ast_opDetTypeExpr(tk_Kind tk) {
+static ast_ExprBinaryOpKind ast_opDetConsExpr(tk_Kind tk) {
   switch (tk) {
-  case tk_Sum: {
-    return ast_EBOK_Sum;
-  }
-  case tk_Product: {
-    return ast_EBOK_Product;
+  case tk_Cons: {
+    return ast_EBOK_Cons;
   }
   default: {
     return ast_EBOK_None;
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseComposeExpr, ast_opDetTypeExpr, ast_parseTypeExpr)
+DEFN_PARSE_R_BINARY(ast_parseComposeExpr, ast_opDetConsExpr, ast_parseConsExpr)
+
+static ast_ExprBinaryOpKind ast_opDetSumExpr(tk_Kind tk) {
+  switch (tk) {
+  case tk_Sum: {
+    return ast_EBOK_Sum;
+  }
+  default: {
+    return ast_EBOK_None;
+  }
+  }
+}
+DEFN_PARSE_L_BINARY(ast_parseConsExpr, ast_opDetSumExpr, ast_parseSumExpr)
 
 static ast_ExprBinaryOpKind ast_opDetPipeBackwardExpr(tk_Kind tk) {
   switch (tk) {
@@ -929,7 +915,7 @@ static ast_ExprBinaryOpKind ast_opDetPipeBackwardExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseTypeExpr, ast_opDetPipeBackwardExpr,
+DEFN_PARSE_L_BINARY(ast_parseSumExpr, ast_opDetPipeBackwardExpr,
                     ast_parsePipeBackwardExpr)
 
 static ast_ExprBinaryOpKind ast_opDetPipeForwardExpr(tk_Kind tk) {
@@ -970,7 +956,7 @@ static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
 DEFN_PARSE_R_BINARY(ast_parseFnExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
 
 void ast_parseSequenceable(ast_Expr *expr, DiagnosticLogger *diagnostics,
-                   ast_Constructor *parser) {
+                           ast_Constructor *parser) {
   ast_parseAssignExpr(expr, diagnostics, parser);
 }
 

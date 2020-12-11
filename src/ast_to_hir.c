@@ -3,23 +3,21 @@
 #include "com_allocator.h"
 #include "com_assert.h"
 #include "com_imath.h"
-#include "com_vec.h"
 #include "com_mem.h"
+#include "com_vec.h"
 #include "com_writer.h"
 
 #include "hir.h"
 
 // utility method to allocate some noleak memory from the parser
-static void *hir_alloc(com_allocator* a, usize len) {
+static void *hir_alloc(com_allocator *a, usize len) {
   return com_allocator_handle_get((com_allocator_alloc(
-      a,
-      (com_allocator_HandleData){.len = len,
-                                 .flags = com_allocator_defaults(a) |
-                                          com_allocator_NOLEAK})));
+      a, (com_allocator_HandleData){.len = len,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_NOLEAK})));
 }
 
-#define hir_alloc_obj_m(a, type)                                        \
-  (type *)hir_alloc((a), sizeof(type))
+#define hir_alloc_obj_m(a, type) (type *)hir_alloc((a), sizeof(type))
 
 // utility macro  to create a vector
 #define hir_alloc_vec_m(a)                                                     \
@@ -28,6 +26,37 @@ static void *hir_alloc(com_allocator* a, usize len) {
                                     .flags = com_allocator_defaults(a) |       \
                                              com_allocator_NOLEAK |            \
                                              com_allocator_REALLOCABLE}))
+
+hir_Expr *hir_referenceExpr(ast_Expr *from, com_allocator *a, com_str ref) {
+  hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+  obj->from = from;
+  obj->kind = hir_EK_Reference;
+  obj->reference.reference = ref;
+  return obj;
+}
+
+hir_Expr *hir_intLiteralExpr(ast_Expr *from, com_allocator *a, i64 lit) {
+  hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+  obj->from = from;
+  obj->kind = hir_EK_Int;
+  obj->intLiteral.value = com_bigint_create(com_allocator_alloc(
+      a, (com_allocator_HandleData){.len = 8,
+                                    .flags = com_allocator_defaults(a) |
+                                             com_allocator_NOLEAK |
+                                             com_allocator_REALLOCABLE}));
+  com_bigint_set_i64(&obj->intLiteral.value, lit);
+  return obj;
+}
+
+hir_Expr *hir_applyExpr(ast_Expr *from, com_allocator *a, hir_Expr *fn,
+                        hir_Expr *param) {
+  hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+  obj->from = from;
+  obj->kind = hir_EK_Apply;
+  obj->apply.fn = fn;
+  obj->apply.param = param;
+  return obj;
+}
 
 hir_Expr *hir_translateExpr(ast_Expr *vep, DiagnosticLogger *diagnostics,
                             com_allocator *a) {
@@ -38,42 +67,67 @@ hir_Expr *hir_translateExpr(ast_Expr *vep, DiagnosticLogger *diagnostics,
 
   switch (vep->kind) {
   case ast_EK_None: {
-      obj->kind = hir_EK_None;
-      break;
+    obj->kind = hir_EK_None;
+    break;
   }
   case ast_EK_Nil: {
-      obj->kind = hir_EK_Nil;
-      break;
+    obj->kind = hir_EK_Nil;
+    break;
   }
   case ast_EK_BindIgnore: {
-      obj->kind = hir_EK_BindIgnore;
-      break;
+    obj->kind = hir_EK_BindIgnore;
+    break;
   }
   case ast_EK_Int: {
-      obj->kind = hir_EK_Int;
-      obj->intLiteral.value = vep->intLiteral.value;
-      break;
+    obj->kind = hir_EK_Int;
+    obj->intLiteral.value = vep->intLiteral.value;
+    break;
   }
   case ast_EK_Real: {
-      obj->kind = hir_EK_Real;
-      obj->realLiteral.value = vep->realLiteral.value;
-      break;
+    obj->kind = hir_EK_Real;
+    obj->realLiteral.value = vep->realLiteral.value;
+    break;
   }
   case ast_EK_String: {
-      break;
+
+    // construct recursive data structure containing all functions
+    // Apply "," with each character
+    // while loop tho
+
+    hir_Expr *active = obj;
+
+    for (usize i = 0; i < vep->stringLiteral.value.len - 1; i++) {
+      u8 c = vep->stringLiteral.value.data[i];
+      hir_Expr *next = hir_alloc_obj_m(a, hir_Expr);
+      // clang-format off
+      active = hir_applyExpr(vep, a,
+          hir_applyExpr(vep, a,
+              hir_referenceExpr(vep, a, com_str_lit_m(",")),
+              hir_intLiteralExpr(vep, a, c)
+          ),
+          next
+      );
+      // clang-format on
+      active = next;
+    }
+    // the last element in the call chain is just the string value
+    active = hir_intLiteralExpr(
+        vep, a,
+        vep->stringLiteral.value.data[vep->stringLiteral.value.len - 1]);
+    break;
   }
   case ast_EK_Bind: {
-      switch(vep->bind.bind->kind) {
-          case ast_IK_Identifier: {
-       obj->kind = hir_EK_BindIgnore;
-       obj->bind.bind = vep->bind.bind->id.name;
-       break;
-      }
-      case ast_IK_None: {
-         obj->kind = hir_EK_None;
-         break;
-      }
-      }
+    switch (vep->bind.bind->kind) {
+    case ast_IK_Identifier: {
+      obj->kind = hir_EK_BindIgnore;
+      obj->bind.bind = vep->bind.bind->id.name;
+      break;
+    }
+    case ast_IK_None: {
+      obj->kind = hir_EK_None;
+      break;
+    }
+    }
     break;
   }
   case ast_EK_: {

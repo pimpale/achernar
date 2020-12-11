@@ -51,7 +51,7 @@ typedef enum {
   tk_Difference,   // -- difference
   tk_In,           // in membership
   // Type operators
-  tk_Product, // ,
+  tk_Cons, // ,
   tk_Sum,     // |
   // Range Operators
   tk_Range,          // ..

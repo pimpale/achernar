@@ -92,7 +92,7 @@ typedef enum {
   ast_EBOK_Difference,
   ast_EBOK_In,
   // Type Manipulation
-  ast_EBOK_Product,
+  ast_EBOK_Cons,
   ast_EBOK_Sum,
   // Range
   ast_EBOK_Range,

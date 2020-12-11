@@ -825,7 +825,7 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       }
     }
     case ',': {
-      RETURN_RESULT_TOKEN(1, tk_Product)
+      RETURN_RESULT_TOKEN(1, tk_Cons)
     }
     case '!': {
       switch (lex_peek(r, 2)) {

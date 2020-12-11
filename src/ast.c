@@ -127,8 +127,8 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
     return com_str_lit_m("ast_EBOK_Difference");
   case ast_EBOK_Intersection:
     return com_str_lit_m("ast_EBOK_Intersection");
-  case ast_EBOK_Product:
-    return com_str_lit_m("ast_EBOK_Product");
+  case ast_EBOK_Cons:
+    return com_str_lit_m("ast_EBOK_Cons");
   case ast_EBOK_Sum:
     return com_str_lit_m("ast_EBOK_Sum");
   case ast_EBOK_Range:

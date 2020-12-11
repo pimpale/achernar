@@ -36,10 +36,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Reference");
   case ast_EK_BindIgnore:
     return com_str_lit_m("ast_EK_BindIgnore");
-  case ast_EK_Bind:
-    return com_str_lit_m("ast_EK_Bind");
-  case ast_EK_AtBind:
-    return com_str_lit_m("ast_EK_AtBind");
   }
   com_assert_unreachable_m("unreachable");
 }
@@ -69,6 +65,8 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
   switch (val) {
   case ast_EBOK_ModuleAccess:
     return com_str_lit_m("ast_EBOK_ModuleAccess");
+  case ast_EBOK_At:
+    return com_str_lit_m("ast_EBOK_At");
   case ast_EBOK_In:
     return com_str_lit_m("ast_EBOK_In");
   case ast_EBOK_CaseOption:

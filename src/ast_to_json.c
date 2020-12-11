@@ -113,8 +113,6 @@ static com_json_Elem print_Metadata(ast_Metadata metadata, com_allocator *a) {
 // add shared data to the vector
 static void print_appendCommon(ast_Common node, com_vec *props,
                                com_allocator *a) {
-  // TODO
-  return;
   *push_prop_m(props) = mkprop_m("span", print_Span(node.span, a));
   com_vec metadata = print_vec_create_m(a);
   for (usize i = 0; i < node.metadata_len; i++) {
@@ -189,11 +187,10 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     *push_prop_m(&obj) = mkprop_m("bind", print_Identifier(vep->bind.bind, a));
     break;
   }
-  case ast_EK_AtBind: {
+  case ast_EK_At: {
+    *push_prop_m(&obj) = mkprop_m("at_pat", print_Expr(vep->at.pat, a));
     *push_prop_m(&obj) =
-        mkprop_m("at_binding_pat", print_Identifier(vep->atBinding.binding, a));
-    *push_prop_m(&obj) =
-        mkprop_m("at_binding_id", print_Expr(vep->atBinding.pat, a));
+        mkprop_m("at_assignable", print_Expr(vep->at.assignable, a));
     break;
   }
   case ast_EK_Int: {
@@ -254,8 +251,10 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     break;
   }
   case ast_EK_CaseOf: {
-    *push_prop_m(&obj) = mkprop_m("caseof_expr", print_Expr(vep->caseof.expr, a));
-    *push_prop_m(&obj) = mkprop_m("caseof_cases", print_Expr(vep->caseof.cases, a));
+    *push_prop_m(&obj) =
+        mkprop_m("caseof_expr", print_Expr(vep->caseof.expr, a));
+    *push_prop_m(&obj) =
+        mkprop_m("caseof_cases", print_Expr(vep->caseof.cases, a));
     break;
   }
   case ast_EK_Group: {

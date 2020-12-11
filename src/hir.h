@@ -1,27 +1,14 @@
-#ifndef AST_H
-#define AST_H
+#ifndef HIR_H
+#define HIR_H
 
+#include "ast.h"
 #include "com_bigdecimal.h"
 #include "com_bigint.h"
 #include "com_define.h"
 #include "com_loc.h"
 #include "com_str.h"
-#include "token.h"
-
-typedef struct {
-  com_loc_Span span;
-  bool significant;
-  com_str data;
-} hir_Metadata;
-
-typedef struct {
-  com_loc_Span span;
-  hir_Metadata *metadata;
-  usize metadata_len;
-} hir_Common;
 
 typedef struct hir_Expr_s hir_Expr;
-typedef struct hir_Pat_s hir_Pat;
 
 typedef enum {
   // Filesystem Abstractions
@@ -93,35 +80,40 @@ typedef enum {
   hir_IK_GetMemAddr,
   hir_IK_DerefMemAddr,
 
+  // Assign value to place
+  hir_IK_Assign,
+
+  // Create Function
+  hir_IK_Defun,
+
   // Returns a place! from a memory address
   hir_IK_MutateMemAddr,
 } hir_IntrinsicKind;
 
 typedef enum {
-  hir_EK_None,     // An error when parsing
-  hir_EK_Nil,      // Literal for nil
-  hir_EK_Int,      // Literal for an integer number
-  hir_EK_Real,     // Literal for a real (floating point) number
-  hir_EK_String,   // A string literal
-  hir_EK_Loop,     // Loops until a scope is returned
-  hir_EK_Label,    // Wraps a term in a label that can be deferred or returned from
-  hir_EK_Defer,    // Defer until label
-  hir_EK_Struct,   // Constructs a new compound type
-  hir_EK_Ret,      // Returns from a scope with a value
-  hir_EK_CaseOf,   // Matches an expression to the first matching pattern and
-                   // destructures it
-  hir_EK_Group,    // Introduces new scope and label
+  hir_EK_None,   // An error when parsing
+  hir_EK_Nil,    // Literal for nil
+  hir_EK_Int,    // Literal for an integer number
+  hir_EK_Real,   // Literal for a real (floating point) number
+  hir_EK_String, // A string literal
+  hir_EK_Loop,   // Loops until a scope is returned
+  hir_EK_Label, // Wraps a term in a label that can be deferred or returned from
+  hir_EK_Defer, // Defer until label
+  hir_EK_Struct, // Constructs a new compound type
+  hir_EK_Ret,    // Returns from a scope with a value
+  hir_EK_CaseOf, // Matches an expression to the first matching pattern and
+                 // destructures it
   hir_EK_ModuleAccess, // Accessing the module of a module object
   hir_EK_Reference,    // A reference to a previously defined variable
   hir_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
-  hir_EK_Bind,         // (PATTERN ONLY) matches a single element to new variable
-  hir_EK_AtBind,       // (PATTERN ONLY) matches previous
-  hir_EK_Mutate,       // (PATTERN ONLY) matches a single element to new variable
+  hir_EK_Bind,   // (PATTERN ONLY) matches a single element to new variable
+  hir_EK_At,     // matches expression and assigns to another 
+  hir_EK_Constrain,     // matches expression and assigns to another 
 } hir_ExprKind;
 
 typedef struct hir_Expr_s {
-  hir_Common common;
   hir_ExprKind kind;
+  ast_Expr *from;
   union {
     struct {
       com_bigint value;
@@ -141,14 +133,17 @@ typedef struct hir_Expr_s {
     } loop;
     struct {
       hir_Expr *module;
-      com_str *field;
+      com_str field;
     } moduleAccess;
+    struct {
+      hir_IntrinsicKind kind;
+    } intrinsic;
     struct {
       com_str *reference;
     } reference;
     struct {
+      com_str label;
       hir_Expr *expr;
-      com_str *label;
     } ret;
     struct {
       hir_Expr *expr;
@@ -156,24 +151,21 @@ typedef struct hir_Expr_s {
       usize cases_len;
     } caseof;
     struct {
-      com_str *label;
+      com_str label;
       hir_Expr *expr;
-    } group;
-    struct {
-      com_str *label;
-      hir_Expr *val;
     } defer;
     struct {
-      com_str *mutate;
+      com_str mutate;
     } mutate;
     struct {
+      com_str bind;
+    } bind;
+    struct {
       hir_Expr *pat;
-      com_str *binding;
-    } atBinding;
+      hir_Expr *binding;
+    } at;
   };
 } hir_Expr;
-
-
 
 com_str hir_strExprKind(hir_ExprKind val);
 

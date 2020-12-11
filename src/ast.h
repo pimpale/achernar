@@ -101,6 +101,8 @@ typedef enum {
   ast_EBOK_Assign,
   // Sequence
   ast_EBOK_Sequence,
+  // Pattern rename
+  ast_EBOK_At,
   // Module Access
   ast_EBOK_ModuleAccess,
 } ast_ExprBinaryOpKind;
@@ -124,7 +126,6 @@ typedef enum {
   ast_EK_Reference,    // A reference to a previously defined variable
   ast_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,         // (PATTERN ONLY) matches a single element to new variable
-  ast_EK_At,           // (PATTERN ONLY) matches expression and assigns to another 
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {
@@ -184,10 +185,6 @@ typedef struct ast_Expr_s {
     struct {
       ast_Identifier *mutate;
     } mutate;
-    struct {
-      ast_Expr *pat;
-      ast_Expr *assignable;
-    } at;
   };
 } ast_Expr;
 

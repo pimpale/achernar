@@ -128,6 +128,10 @@ typedef struct hir_Expr_s {
       hir_Expr *body;
     } loop;
     struct {
+      hir_Expr *expr;
+      usize expr_len;
+    } label;
+    struct {
       hir_Expr *fn;
       hir_Expr *param;
     } apply;
@@ -142,18 +146,14 @@ typedef struct hir_Expr_s {
       com_str reference;
     } reference;
     struct {
-      com_str label;
       hir_Expr *expr;
+      hir_Expr *scope;
     } ret;
     struct {
       hir_Expr *expr;
       hir_Expr *cases;
       usize cases_len;
     } caseof;
-    struct {
-      com_str label;
-      hir_Expr *expr;
-    } defer;
     struct {
       com_str mutate;
     } mutate;

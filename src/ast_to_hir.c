@@ -130,30 +130,19 @@ hir_Expr *hir_translateExpr(ast_Expr *vep, DiagnosticLogger *diagnostics,
     }
     break;
   }
-  case ast_EK_: {
-    *push_prop_m(&obj) = mkprop_m("at_pat", hir_translateExpr(vep->at.pat, a));
-    *push_prop_m(&obj) =
-        mkprop_m("at_assignable", hir_translateExpr(vep->at.assignable, a));
+  case ast_EK_Loop: {
+    obj->kind = hir_EK_Loop;
+    obj->loop.body = hir_translateExpr(vep->loop.body, diagnostics, a);
     break;
   }
-  case ast_EK_Int: {
-    *push_prop_m(&obj) =
-        mkprop_m("int", hir_translatebigint(vep->intLiteral.value, a));
-    break;
-  }
-  case ast_EK_Real: {
-    *push_prop_m(&obj) =
-        mkprop_m("real", hir_translatebigdecimal(vep->realLiteral.value, a));
-    break;
-  }
-  case ast_EK_String: {
-    *push_prop_m(&obj) =
-        mkprop_m("string", com_json_str_m(vep->stringLiteral.value));
+  case ast_EK_Label: {
+    obj->kind = hir_EK_Label;
+    obj->label.val  = hir_translateExpr(vep->label.body, diagnostics, a);
     break;
   }
   case ast_EK_Struct: {
-    *push_prop_m(&obj) =
-        mkprop_m("struct_expr", hir_translateExpr(vep->structLiteral.expr, a));
+    obj->kind = hir_EK_Struct;
+    obj->structLiteral.expr = hir_translateExpr(vep->structLiteral.expr, diagnostics, a);
     break;
   }
   case ast_EK_Loop: {

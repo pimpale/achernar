@@ -618,7 +618,7 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
 
     Diagnostic *hint = dlogger_alloc(diagnostics, sizeof(Diagnostic));
     *hint = (Diagnostic){.span = t.span,
-                         .severity = DSK_Error,
+                         .severity = DSK_Hint,
                          .message = tk_strKind(t.kind),
                          .children_len = 0};
 

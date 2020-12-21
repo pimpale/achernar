@@ -16,6 +16,8 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Struct");
   case ast_EK_Defer:
     return com_str_lit_m("ast_EK_Defer");
+  case ast_EK_Bind:
+    return com_str_lit_m("ast_EK_Bind");
   case ast_EK_Int:
     return com_str_lit_m("ast_EK_Int");
   case ast_EK_Real:

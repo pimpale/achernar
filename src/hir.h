@@ -129,7 +129,8 @@ typedef struct hir_Expr_s {
     } loop;
     struct {
       hir_Expr *expr;
-      usize expr_len;
+      hir_Expr *defer;
+      usize defer_len;
     } label;
     struct {
       hir_Expr *fn;

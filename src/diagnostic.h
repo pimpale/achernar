@@ -31,7 +31,7 @@ typedef struct {
 DiagnosticLogger dlogger_create(com_allocator *a);
 
 Diagnostic* dlogger_append(DiagnosticLogger* ptr);
-void* dlogger_alloc(DiagnosticLogger* ptr, usize n);
+com_allocator_Handle dlogger_alloc(DiagnosticLogger* ptr, usize n);
 
 com_vec dlogger_release(DiagnosticLogger* ptr);
 

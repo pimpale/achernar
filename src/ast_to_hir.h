@@ -6,7 +6,7 @@
 #include "diagnostic.h"
 #include "hir.h"
 
-hir_Expr* hir_translateExpr(ast_Expr* vep, DiagnosticLogger* diagnostics, com_allocator *a);
+hir_Expr* hir_constructExpr(ast_Expr* vep, DiagnosticLogger* diagnostics, com_allocator *a);
 
 #endif // AST_TO_HIR_H
 

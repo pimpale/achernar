@@ -187,12 +187,6 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     *push_prop_m(&obj) = mkprop_m("bind", print_Identifier(vep->bind.bind, a));
     break;
   }
-  case ast_EK_At: {
-    *push_prop_m(&obj) = mkprop_m("at_pat", print_Expr(vep->at.pat, a));
-    *push_prop_m(&obj) =
-        mkprop_m("at_assignable", print_Expr(vep->at.assignable, a));
-    break;
-  }
   case ast_EK_Int: {
     *push_prop_m(&obj) =
         mkprop_m("int", print_bigint(vep->intLiteral.value, a));

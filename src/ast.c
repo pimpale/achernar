@@ -10,8 +10,6 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Nil");
   case ast_EK_Label:
     return com_str_lit_m("ast_EK_Label");
-  case ast_EK_ModuleAccess:
-    return com_str_lit_m("ast_EK_ModuleAccess");
   case ast_EK_Struct:
     return com_str_lit_m("ast_EK_Struct");
   case ast_EK_Defer:

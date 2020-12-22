@@ -616,7 +616,8 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     l->common.span = t.span;
     parse_next(parser, diagnostics);
 
-    Diagnostic *hint = dlogger_alloc(diagnostics, sizeof(Diagnostic));
+    Diagnostic *hint = com_allocator_handle_get(
+        dlogger_alloc(diagnostics, sizeof(Diagnostic)));
     *hint = (Diagnostic){.span = t.span,
                          .severity = DSK_Hint,
                          .message = tk_strKind(t.kind),
@@ -730,7 +731,6 @@ static ast_ExprBinaryOpKind ast_opDetRangeExpr(tk_Kind tk) {
 }
 DEFN_PARSE_L_BINARY(ast_parseApplyExpr, ast_opDetRangeExpr, ast_parseRangeExpr)
 
-
 static ast_ExprBinaryOpKind ast_opDetAtExpr(tk_Kind tk) {
   switch (tk) {
   case tk_At: {
@@ -741,8 +741,7 @@ static ast_ExprBinaryOpKind ast_opDetAtExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_L_BINARY(ast_parseRangeExpr, ast_opDetAtExpr,
-                    ast_parseAtExpr)
+DEFN_PARSE_L_BINARY(ast_parseRangeExpr, ast_opDetAtExpr, ast_parseAtExpr)
 
 static ast_ExprBinaryOpKind ast_opDetConstrainExpr(tk_Kind tk) {
   switch (tk) {

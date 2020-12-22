@@ -122,7 +122,6 @@ typedef enum {
   ast_EK_CaseOf,   // Matches an expression to the first matching pattern and
                    // destructures it
   ast_EK_Group,    // Introduces new scope and label
-  ast_EK_ModuleAccess, // Accessing the module of a module object
   ast_EK_Reference,    // A reference to a previously defined variable
   ast_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,         // (PATTERN ONLY) matches a single element to new variable
@@ -152,10 +151,6 @@ typedef struct ast_Expr_s {
       ast_Label *label;
       ast_Expr *val;
     } label;
-    struct {
-      ast_Expr *module;
-      ast_Identifier *field;
-    } moduleAccess;
     struct {
       ast_Identifier *reference;
     } reference;

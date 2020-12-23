@@ -3,11 +3,11 @@
 #include "com_assert.h"
 
 
-com_allocator_Flags com_allocator_defaults(const com_allocator * a) {
+com_allocator_Flag com_allocator_defaults(const com_allocator * a) {
   return a->_supported_flags;
 }
 
-com_allocator_Flags com_allocator_supports(const com_allocator * a) {
+com_allocator_Flag com_allocator_supports(const com_allocator * a) {
   return a->_supported_flags;
 }
 

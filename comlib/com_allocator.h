@@ -17,8 +17,6 @@ typedef enum {
   com_allocator_ZERO,
 } com_allocator_Flag;
 
-typedef u32 com_allocator_Flags;
-
 // forward declare com_allocator
 typedef struct com_allocator_s com_allocator;
 
@@ -32,14 +30,14 @@ typedef struct {
 // data associated with a handle
 typedef struct {
   usize len;
-  com_allocator_Flags flags;
+  com_allocator_Flag flags;
 } com_allocator_HandleData;
 
 typedef struct com_allocator_s {
   bool _valid;
 
-  com_allocator_Flags _default_flags;
-  com_allocator_Flags _supported_flags;
+  com_allocator_Flag _default_flags;
+  com_allocator_Flag _supported_flags;
 
   // Opaque pointer to reallocator backend
   void* _backing;
@@ -62,12 +60,12 @@ typedef struct com_allocator_s {
 ///  flags that are enabled by default for an allocator (cannot be disabled)
 /// REQUIRES: `a` is a valid pointer to a com_allocator
 /// GUARANTEES: returns flags supported by default by `a`
-com_allocator_Flags com_allocator_defaults(const com_allocator * a);
+com_allocator_Flag com_allocator_defaults(const com_allocator * a);
 
 ///  flags that are valid for `a` (may be enabled)
 /// REQUIRES: `a` is a valid pointer to a com_allocator
 /// GUARANTEES: returns flags supported by default by `a`
-com_allocator_Flags com_allocator_supports(const com_allocator * a);
+com_allocator_Flag com_allocator_supports(const com_allocator * a);
 
 ///  allocate memory
 /// REQUIRES: `a` is a valid pointer to a com_allocator

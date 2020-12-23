@@ -32,68 +32,93 @@ typedef struct {
   com_str label;
   // Queue<hir_Expr>
   com_queue defers;
+  hir_Expr *scope;
 } LabelStackElement;
 
 typedef struct {
   // Vector<LabelStackElement>
-  com_vec elements;
+  com_vec _elements;
 } LabelStack;
 
-static LabelStack createLabelStack(com_allocator *a) {
-  return (LabelStack){.elements = hir_alloc_vec_m(a)};
+static LabelStack LabelStack_create(com_allocator *a) {
+  return (LabelStack){._elements = hir_alloc_vec_m(a)};
 }
 
-static void destroyLabelStack(LabelStack *ls) {
-  com_vec_destroy(&ls->elements);
+static void LabelStack_destroy(LabelStack *ls) {
+  com_vec_destroy(&ls->_elements);
 }
 
-static void pushLabel(LabelStack *ls, com_str str, com_allocator *a) {
-  *com_vec_push_m(&ls->elements, LabelStackElement) = (LabelStackElement){
-      .label = str, .defers = com_queue_create(hir_alloc_vec_m(a))};
-}
+// returns true if success, false if fail
+static bool LabelStack_pushLabel(LabelStack *ls, hir_Expr *scope,
+                                 const ast_Label *label, com_allocator *a) {
 
-static void pushDefer(LabelStack *ls, DiagnosticLogger *dl, ast_Label *label,
-                      hir_Expr todefer) {
-  for (usize i_plus_one = com_vec_len_m(&ls->elements, LabelStackElement);
-       i_plus_one >= 1; i_plus_one--) {
-    usize i = i_plus_one - 1;
-    // get label at index
-    LabelStackElement *lse = com_vec_get_m(&ls->elements, i, LabelStackElement);
-    if (com_str_equal(lse->label, label->label.label)) {
-      // enqueue deferred expr
-      *com_queue_push_m(&lse->defers, hir_Expr) = todefer;
-      return;
-    }
+  switch (label->kind) {
+  case ast_LK_None: {
+    // we don't give an error because one should already have been given
+    return false;
   }
-  // if we get over here it means that the provided label didn't have a match
-  // we can now throw an error
-  com_str origname = label->label.label;
+  case ast_LK_Label:
 
-  Diagnostic *hint =
-      com_allocator_handle_get(dlogger_alloc(dl, sizeof(Diagnostic)));
-  *hint = (Diagnostic){.span = label->span,
-                       .severity = DSK_Hint,
-                       .message = com_str_demut(com_strcopy(
-                           origname, dlogger_alloc(dl, origname.len))),
-                       .children_len = 0};
+    *com_vec_push_m(&ls->_elements, LabelStackElement) =
+        (LabelStackElement){.scope = scope,
+                            .label = label->label.label,
+                            .defers = com_queue_create(hir_alloc_vec_m(a))};
+    return true;
+  }
+}
 
-  *dlogger_append(dl) = (Diagnostic){
-      .span = label->span,
-      .severity = DSK_Error,
-      .message = com_str_lit_m("could not find label name in scope"),
-      .children = hint,
-      .children_len = 1};
+// returns NULL for not found
+// will give errors for the label
+static LabelStackElement *LabelStack_getLabel(LabelStack *ls, ast_Label *label,
+
+                                              DiagnosticLogger *dl) {
+  switch (label->kind) {
+  case ast_LK_None: {
+    return NULL;
+  }
+  case ast_LK_Label: {
+
+    for (usize i_plus_one = com_vec_len_m(&ls->_elements, LabelStackElement);
+         i_plus_one >= 1; i_plus_one--) {
+      usize i = i_plus_one - 1;
+      // get label at index
+      LabelStackElement *lse =
+          com_vec_get_m(&ls->_elements, i, LabelStackElement);
+      if (com_str_equal(lse->label, label->label.label)) {
+        return lse;
+      }
+    }
+
+    // if we get over here it means that the provided label didn't have a match
+    Diagnostic *hint = dlogger_append(dl, false);
+    *hint = (Diagnostic){.span = label->span,
+                         .severity = DSK_Hint,
+                         .message = com_str_demut(com_strcopy_noleak(
+                             label->label.label, dlogger_alloc(dl))),
+                         .children_len = 0};
+
+    *dlogger_append(dl, true) = (Diagnostic){
+        .span = label->span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("could not find label name in scope"),
+        .children = hint,
+        .children_len = 1};
+
+    return NULL;
+  }
+  }
 }
 
 // returns a com_vec of hir_Exprs
-static com_vec popLabel(LabelStack *ls) {
+static com_vec LabelStack_popLabel(LabelStack *ls) {
   LabelStackElement top;
-  com_vec_pop_m(&ls->elements, &top, LabelStackElement);
+  com_vec_pop_m(&ls->_elements, &top, LabelStackElement);
   return com_queue_release(&top.defers);
 }
 
-static hir_Expr *hir_referenceExpr(ast_Expr *from, attr_UNUSED LabelStack *ls,
-                                   com_allocator *a, com_str ref) {
+static hir_Expr *hir_referenceExpr(const ast_Expr *from,
+                                   attr_UNUSED LabelStack *ls, com_allocator *a,
+                                   com_str ref) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
   obj->from = from;
   obj->kind = hir_EK_Reference;
@@ -101,7 +126,8 @@ static hir_Expr *hir_referenceExpr(ast_Expr *from, attr_UNUSED LabelStack *ls,
   return obj;
 }
 
-static hir_Expr *hir_intLiteralExpr(ast_Expr *from, attr_UNUSED LabelStack *ls,
+static hir_Expr *hir_intLiteralExpr(const ast_Expr *from,
+                                    attr_UNUSED LabelStack *ls,
                                     com_allocator *a, i64 lit) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
   obj->from = from;
@@ -115,7 +141,7 @@ static hir_Expr *hir_intLiteralExpr(ast_Expr *from, attr_UNUSED LabelStack *ls,
   return obj;
 }
 
-static hir_Expr *hir_applyExpr(ast_Expr *from, attr_UNUSED LabelStack *ls,
+static hir_Expr *hir_applyExpr(const ast_Expr *from, attr_UNUSED LabelStack *ls,
                                com_allocator *a, hir_Expr *fn,
                                hir_Expr *param) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
@@ -126,38 +152,56 @@ static hir_Expr *hir_applyExpr(ast_Expr *from, attr_UNUSED LabelStack *ls,
   return obj;
 }
 
-static hir_Expr *hir_translateExpr(ast_Expr *vep, LabelStack *ls,
+// returns an instantiated
+static hir_Expr *hir_simpleExpr(const ast_Expr *from,
+                                attr_UNUSED LabelStack *ls, com_allocator *a,
+                                hir_ExprKind ek) {
+  hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+  obj->from = from;
+  obj->kind = ek;
+  return obj;
+}
+
+static hir_Expr *hir_noneExpr(const ast_Expr *from, LabelStack *ls,
+                              com_allocator *a) {
+  return hir_simpleExpr(from, ls, a, hir_EK_None);
+}
+
+static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
                                    DiagnosticLogger *diagnostics,
                                    com_allocator *a) {
   com_assert_m(vep != NULL, "expr is null");
 
-  hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
-  obj->from = vep;
-
   switch (vep->kind) {
   case ast_EK_None: {
-    obj->kind = hir_EK_None;
-    break;
+    return hir_noneExpr(vep, ls, a);
   }
   case ast_EK_Nil: {
-    obj->kind = hir_EK_Nil;
-    break;
+    return hir_simpleExpr(vep, ls, a, hir_EK_Nil);
   }
   case ast_EK_BindIgnore: {
-    obj->kind = hir_EK_BindIgnore;
-    break;
+    return hir_simpleExpr(vep, ls, a, hir_EK_BindIgnore);
   }
   case ast_EK_Int: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
     obj->kind = hir_EK_Int;
     obj->intLiteral.value = vep->intLiteral.value;
-    break;
+    return obj;
   }
   case ast_EK_Real: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
     obj->kind = hir_EK_Real;
     obj->realLiteral.value = vep->realLiteral.value;
-    break;
+    return obj;
+  }
+  case ast_EK_Group: {
+    return hir_translateExpr(vep, ls, diagnostics, a);
   }
   case ast_EK_String: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
 
     // construct recursive data structure containing all functions
     // Apply "," with each character
@@ -183,12 +227,14 @@ static hir_Expr *hir_translateExpr(ast_Expr *vep, LabelStack *ls,
     active = hir_intLiteralExpr(
         vep, ls, a,
         vep->stringLiteral.value.data[vep->stringLiteral.value.len - 1]);
-    break;
+    return obj;
   }
   case ast_EK_Bind: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
     switch (vep->bind.bind->kind) {
     case ast_IK_Identifier: {
-      obj->kind = hir_EK_BindIgnore;
+      obj->kind = hir_EK_Bind;
       obj->bind.bind = vep->bind.bind->id.name;
       break;
     }
@@ -197,17 +243,21 @@ static hir_Expr *hir_translateExpr(ast_Expr *vep, LabelStack *ls,
       break;
     }
     }
-    break;
+    return obj;
   }
   case ast_EK_Loop: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
     obj->kind = hir_EK_Loop;
     obj->loop.body = hir_translateExpr(vep->loop.body, ls, diagnostics, a);
-    break;
+    return obj;
   }
   case ast_EK_Label: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
     obj->kind = hir_EK_Label;
     // push new label element
-    pushLabel(ls, vep->label.label->label.label, a);
+    bool didPushLabel = LabelStack_pushLabel(ls, obj, vep->label.label, a);
 
     // if expr is group, then we evaluate the group's body
     // TODO is this the best way to handle this?
@@ -218,37 +268,72 @@ static hir_Expr *hir_translateExpr(ast_Expr *vep, LabelStack *ls,
       obj->label.expr = hir_translateExpr(vep->label.val, ls, diagnostics, a);
     }
 
-    // pop label element off
-    // this gives us the defers in the correct order
-    com_vec defers = popLabel(ls);
-    // note record these
-    obj->label.defer_len = com_vec_len_m(&defers, hir_Expr);
-    obj->label.defer = com_vec_release(&defers);
+    // only pop off label if we managed to push one
+    if (didPushLabel) {
+      // pop label element off
+      // this gives us the defers in the correct order
+      com_vec defers = LabelStack_popLabel(ls);
+      // note record these
+      obj->label.defer_len = com_vec_len_m(&defers, hir_Expr);
+      obj->label.defer = com_vec_release(&defers);
+    } else {
+      obj->label.defer_len = 0;
+    }
+    return obj;
+  }
+  case ast_EK_Ret: {
+    LabelStackElement *lse =
+        LabelStack_getLabel(ls, vep->ret.label, diagnostics);
+    if (lse != NULL) {
+      hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+      obj->from = vep;
+      obj->kind = hir_EK_Ret;
+      obj->ret.scope = lse->scope;
+      obj->ret.expr = hir_translateExpr(vep, ls, diagnostics, a);
+      return obj;
+    } else {
+      // means that we didn't manage to find the label
+      return hir_noneExpr(vep, ls, a);
+    }
+  }
+  case ast_EK_Defer: {
+
+    LabelStackElement *lse =
+        LabelStack_getLabel(ls, vep->ret.label, diagnostics);
+    *com_queue_push_m(&lse->defers, hir_Expr) = todefer;
+
+    *push_prop_m(&obj) =
+        mkprop_m("defer_label", hir_translateLabel(vep->defer.label, a));
+    *push_prop_m(&obj) =
+        mkprop_m("defer_val", hir_translateExpr(vep->defer.val, a));
     break;
   }
   case ast_EK_Struct: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
     obj->kind = hir_EK_Struct;
     obj->structLiteral.expr =
         hir_translateExpr(vep->structLiteral.expr, ls, diagnostics, a);
     break;
   }
-  case ast_EK_Loop: {
-    obj->loop.body = hir_translateExpr(vep->loop.body, ls, diagnostics, a);
-    break;
-  }
-  case ast_EK_ModuleAccess: {
-    *push_prop_m(&obj) =
-        mkprop_m("module_root", hir_translateExpr(vep->moduleAccess.module, a));
-    *push_prop_m(&obj) = mkprop_m(
-        "module_name", hir_translateIdentifier(vep->moduleAccess.field, a));
-    break;
-  }
   case ast_EK_Reference: {
-    *push_prop_m(&obj) = mkprop_m(
-        "reference", hir_translateIdentifier(vep->reference.reference, a));
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
+    switch (vep->reference.reference->kind) {
+    case ast_IK_None: {
+      obj->kind = hir_EK_None;
+      break;
+    }
+    case ast_IK_Identifier: {
+      obj->kind = hir_EK_Reference;
+      obj->reference.reference = vep->reference.reference->id.name;
+    }
+    }
     break;
   }
   case ast_EK_BinaryOp: {
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
     *push_prop_m(&obj) =
         mkprop_m("binary_operation",
                  com_json_str_m(ast_strExprBinaryOpKind(vep->binaryOp.op)));
@@ -260,20 +345,6 @@ static hir_Expr *hir_translateExpr(ast_Expr *vep, LabelStack *ls,
                  hir_translateExpr(vep->binaryOp.right_operand, a));
     break;
   }
-  case ast_EK_Ret: {
-    *push_prop_m(&obj) =
-        mkprop_m("ret_label", hir_translateLabel(vep->ret.label, a));
-    *push_prop_m(&obj) =
-        mkprop_m("ret_value", hir_translateExpr(vep->ret.expr, a));
-    break;
-  }
-  case ast_EK_Defer: {
-    *push_prop_m(&obj) =
-        mkprop_m("defer_label", hir_translateLabel(vep->defer.label, a));
-    *push_prop_m(&obj) =
-        mkprop_m("defer_val", hir_translateExpr(vep->defer.val, a));
-    break;
-  }
   case ast_EK_CaseOf: {
     *push_prop_m(&obj) =
         mkprop_m("caseof_expr", hir_translateExpr(vep->caseof.expr, a));
@@ -281,24 +352,14 @@ static hir_Expr *hir_translateExpr(ast_Expr *vep, LabelStack *ls,
         mkprop_m("caseof_cases", hir_translateExpr(vep->caseof.cases, a));
     break;
   }
-  case ast_EK_Group: {
-    *push_prop_m(&obj) =
-        mkprop_m("group_expr", hir_translateExpr(vep->group.expr, a));
-    break;
-  }
-  case ast_EK_Label: {
-    *push_prop_m(&obj) =
-        mkprop_m("label_val", hir_translateExpr(vep->label.val, a));
-    *push_prop_m(&obj) =
-        mkprop_m("label_label", hir_translateLabel(vep->label.label, a));
-    break;
-  }
   }
   return hir_translateobjectify(&obj);
 }
 
-hir_Expr *hir_constructExpr(ast_Expr *vep, DiagnosticLogger *diagnostics,
+hir_Expr *hir_constructExpr(const ast_Expr *vep, DiagnosticLogger *diagnostics,
                             com_allocator *a) {
-  LabelStack ls = (LabelStack) {}
-  hir_Expr *val = hir_translateExpr(vep->label.val, ls, diagnostics, a);
+  LabelStack ls = LabelStack_create(a);
+  hir_Expr *val = hir_translateExpr(vep->label.val, &ls, diagnostics, a);
+  LabelStack_destroy(&ls);
+  return val;
 }

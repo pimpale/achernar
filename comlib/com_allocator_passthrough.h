@@ -9,7 +9,7 @@
 
 typedef struct  {
   bool _input_used;
-  com_allocator_Flags _input_flags;
+  com_allocator_Flag _input_flags;
   void* _input_ptr;
   usize _original_input_len;
   usize _input_len;

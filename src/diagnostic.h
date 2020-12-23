@@ -24,15 +24,28 @@ typedef struct Diagnostic_s {
 } Diagnostic;
 
 typedef struct {
+    bool visible;
+    Diagnostic diagnostic;
+} DiagnosticEntry;
+
+typedef struct {
     com_allocator *_a;
+    // Vector diagnostics<DiagnosticEntry>
     com_vec _diagnostics;
 } DiagnosticLogger;
 
 DiagnosticLogger dlogger_create(com_allocator *a);
 
-Diagnostic* dlogger_append(DiagnosticLogger* ptr);
-com_allocator_Handle dlogger_alloc(DiagnosticLogger* ptr, usize n);
+Diagnostic* dlogger_append(DiagnosticLogger* ptr, bool visible);
 
-com_vec dlogger_release(DiagnosticLogger* ptr);
+// returns a reference to the diagnostic logger's allocator 
+// should be used to allocate material with the lifetime of DiagnosticLogger
+com_allocator* dlogger_alloc(DiagnosticLogger* ptr);
+
+// returns a const reference to the diagnostics vector
+const com_vec* dlogger_diagnostics(DiagnosticLogger* ptr);
+
+// destroys the dlogger, and frees all emmory associated with it
+void dlogger_destroy(DiagnosticLogger* dlogger);
 
 #endif

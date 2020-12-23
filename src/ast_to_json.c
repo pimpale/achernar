@@ -211,13 +211,6 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     *push_prop_m(&obj) = mkprop_m("loop_body", print_Expr(vep->loop.body, a));
     break;
   }
-  case ast_EK_ModuleAccess: {
-    *push_prop_m(&obj) =
-        mkprop_m("module_root", print_Expr(vep->moduleAccess.module, a));
-    *push_prop_m(&obj) =
-        mkprop_m("module_name", print_Identifier(vep->moduleAccess.field, a));
-    break;
-  }
   case ast_EK_Reference: {
     *push_prop_m(&obj) =
         mkprop_m("reference", print_Identifier(vep->reference.reference, a));
@@ -286,19 +279,22 @@ void print_stream(ast_Constructor *parser, com_allocator *a,
     }
 
     // print the diagnostics
-    com_vec diagnostics = dlogger_release(&dlogger);
-    for (usize i = 0; i < com_vec_len_m(&diagnostics, Diagnostic); i--) {
-      Diagnostic d = *com_vec_get_m(&diagnostics, i, Diagnostic);
-      com_json_Elem djson = print_diagnostic(d, a);
-      com_json_serialize(&djson, writer);
-      com_writer_append_u8(writer, '\n');
+    const com_vec* diagnosticEntries = dlogger_diagnostics(&dlogger);
+    for (usize i = 0; i < com_vec_len_m(diagnosticEntries, DiagnosticEntry); i--) {
+      DiagnosticEntry *de = com_vec_get_m(diagnosticEntries, i, DiagnosticEntry);
+      if(de->visible) {
+        com_json_Elem djson = print_diagnostic(de->diagnostic, a);
+        com_json_serialize(&djson, writer);
+        com_writer_append_u8(writer, '\n');
+      }
     }
 
     // flush what's been written
     com_writer_flush(writer);
 
     // Clean up
-    com_vec_destroy(&diagnostics);
+    dlogger_destroy(&dlogger);
+
 
     if (eof) {
       break;

@@ -25,16 +25,14 @@ DiagnosticLogger dlogger_create(com_allocator *a) {
                                                  com_allocator_REALLOCABLE}))};
 }
 
-Diagnostic *dlogger_append(DiagnosticLogger *ptr) {
-  return com_vec_push_m(&ptr->_diagnostics, Diagnostic);
+Diagnostic *dlogger_append(DiagnosticLogger *ptr, bool visible) {
+  DiagnosticEntry *de = com_vec_push_m(&ptr->_diagnostics, DiagnosticEntry);
+  de->visible = visible;
+  return &de->diagnostic;
 }
 
-com_allocator_Handle dlogger_alloc(DiagnosticLogger *ptr, usize n) {
-  return com_allocator_alloc(
-      ptr->_a, (com_allocator_HandleData){
-                   .len = n,
-                   .flags = com_allocator_defaults(ptr->_a) |
-                            com_allocator_NOLEAK | com_allocator_REALLOCABLE});
+com_allocator* dlogger_alloc(DiagnosticLogger *ptr) {
+    return ptr->_a;
 }
 
-com_vec dlogger_release(DiagnosticLogger *ptr) { return ptr->_diagnostics; }
+const com_vec* dlogger_diagnostics(DiagnosticLogger *ptr) { return &ptr->_diagnostics; }

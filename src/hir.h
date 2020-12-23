@@ -113,7 +113,7 @@ typedef enum {
 
 typedef struct hir_Expr_s {
   hir_ExprKind kind;
-  ast_Expr *from;
+  const ast_Expr *from;
   union {
     struct {
       com_bigint value;

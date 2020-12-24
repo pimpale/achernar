@@ -30,7 +30,7 @@ static void *hir_alloc(com_allocator *a, usize len) {
 
 typedef struct {
   com_str label;
-  // Queue<hir_Expr>
+  // Queue<*hir_Expr>
   com_queue defers;
   hir_Expr *scope;
 } LabelStackElement;
@@ -176,8 +176,17 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
   case ast_EK_None: {
     return hir_noneExpr(vep, ls, a);
   }
-  case ast_EK_Nil: {
-    return hir_simpleExpr(vep, ls, a, hir_EK_Nil);
+  case ast_EK_Void: {
+    return hir_simpleExpr(vep, ls, a, hir_EK_Void);
+  }
+  case ast_EK_VoidType: {
+    return hir_simpleExpr(vep, ls, a, hir_EK_VoidType);
+  }
+  case ast_EK_NeverType: {
+    return hir_simpleExpr(vep, ls, a, hir_EK_NeverType);
+  }
+  case ast_EK_BindSplat: {
+    return hir_simpleExpr(vep, ls, a, hir_EK_BindSplat);
   }
   case ast_EK_BindIgnore: {
     return hir_simpleExpr(vep, ls, a, hir_EK_BindIgnore);
@@ -197,7 +206,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     return obj;
   }
   case ast_EK_Group: {
-    return hir_translateExpr(vep, ls, diagnostics, a);
+    return hir_translateExpr(vep->group.expr, ls, diagnostics, a);
   }
   case ast_EK_String: {
     hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
@@ -274,7 +283,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       // this gives us the defers in the correct order
       com_vec defers = LabelStack_popLabel(ls);
       // note record these
-      obj->label.defer_len = com_vec_len_m(&defers, hir_Expr);
+      obj->label.defer_len = com_vec_len_m(&defers, hir_Expr *);
       obj->label.defer = com_vec_release(&defers);
     } else {
       obj->label.defer_len = 0;
@@ -297,21 +306,21 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     }
   }
   case ast_EK_Defer: {
-
     LabelStackElement *lse =
         LabelStack_getLabel(ls, vep->ret.label, diagnostics);
-    *com_queue_push_m(&lse->defers, hir_Expr) = todefer;
-
-    *push_prop_m(&obj) =
-        mkprop_m("defer_label", hir_translateLabel(vep->defer.label, a));
-    *push_prop_m(&obj) =
-        mkprop_m("defer_val", hir_translateExpr(vep->defer.val, a));
-    break;
+    if (lse != NULL) {
+      *com_queue_push_m(&lse->defers, hir_Expr *) =
+          hir_translateExpr(vep->defer.val, ls, diagnostics, a);
+      // now return void
+      return hir_simpleExpr(vep, ls, a, hir_EK_Void);
+    } else {
+      return hir_noneExpr(vep, ls, a);
+    }
   }
   case ast_EK_Struct: {
     hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
     obj->from = vep;
-    obj->kind = hir_EK_Struct;
+    obj->kind = hir_EK_StructLiteral;
     obj->structLiteral.expr =
         hir_translateExpr(vep->structLiteral.expr, ls, diagnostics, a);
     break;
@@ -329,11 +338,124 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       obj->reference.reference = vep->reference.reference->id.name;
     }
     }
-    break;
+    return obj;
   }
-  case ast_EK_BinaryOp: {
+  case ast_EK_CaseOf: {
     hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
     obj->from = vep;
+    obj->kind = hir_EK_CaseOf;
+    obj->caseof.expr = hir_translateExpr(vep->caseof.expr, ls, diagnostics, a);
+
+    // we will store all cases in here
+    // cases :: Vector(hir_Expr.&)
+    com_vec cases = hir_alloc_vec_m(a);
+
+    // do depth first on this binary op tree 
+    // optstack  :: Stack(ast_Expr.&)
+    com_vec optstack = hir_alloc_vec_m(a);
+    *com_vec_push_m(&optstack, const ast_Expr*) = vep;
+    // while the stack isn't empty
+    while (com_vec_len_m(&optstack, const ast_Expr*) != 0) {
+      // pop the first one off the stack 
+      const ast_Expr* current;
+      com_vec_pop_m(&optstack, &current, const ast_Expr*);
+
+      if (current->kind == ast_EK_BinaryOp &&
+          current->binaryOp.op == ast_EBOK_Fn) {
+        // create a case option
+        hir_Expr *co = hir_alloc_obj_m(a, hir_Expr);
+        co->kind = hir_EK_CaseOption;
+        co->from = current;
+        co->caseoption.pattern =
+            hir_translateExpr(vep->binaryOp.left_operand, ls, diagnostics, a);
+        co->caseoption.result =
+            hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
+
+        // push the option to the vec
+        *com_vec_push_m(&cases, hir_Expr *) = co;
+      } else if (current->kind == ast_EK_BinaryOp &&
+                 current->binaryOp.op == ast_EBOK_CaseOption) {
+        // push both the left and right operands to the stack
+        *com_vec_push_m(&optstack, const ast_Expr*) = current->binaryOp.left_operand;
+        *com_vec_push_m(&optstack, const ast_Expr*) = current->binaryOp.right_operand;
+      } else {
+        // is neither
+        *dlogger_append(diagnostics, true) =
+            (Diagnostic){.span = current->common.span,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m("expected a case option"),
+                         .children_len = 0};
+      }
+    }
+    // now destroy the optstack
+    com_vec_destroy(&optstack) ;
+
+    // release cases
+    obj->caseof.cases_len = com_vec_len_m(&cases, hir_Expr*);
+    obj->caseof.cases = com_vec_release(&cases);
+
+    return obj;
+  }
+  case ast_EK_BinaryOp: {
+    // we branch here on the differnet operators
+    switch(vep->binaryOp.op) {
+      // none
+      case ast_EBOK_None: {
+          return com_alloc_
+  // Type coercion
+  ast_EBOK_Constrain,
+  // Function definition
+  ast_EBOK_Fn,
+  // CaseOption
+  ast_EBOK_CaseOption,
+  // Function call
+  ast_EBOK_Apply,
+  ast_EBOK_RevApply,
+  // Function composition
+  ast_EBOK_Compose,
+  // Function Piping
+  ast_EBOK_PipeForward,
+  ast_EBOK_PipeBackward,
+  // Math
+  ast_EBOK_Add,
+  ast_EBOK_Sub,
+  ast_EBOK_Mul,
+  ast_EBOK_Div,
+  ast_EBOK_Rem,
+  ast_EBOK_Pow,
+  // Booleans
+  ast_EBOK_And,
+  ast_EBOK_Or,
+  ast_EBOK_Xor,
+  // Comparison
+  ast_EBOK_CompEqual,
+  ast_EBOK_CompNotEqual,
+  ast_EBOK_CompLess,
+  ast_EBOK_CompLessEqual,
+  ast_EBOK_CompGreater,
+  ast_EBOK_CompGreaterEqual,
+  // Set Operations
+  ast_EBOK_Union,
+  ast_EBOK_Intersection,
+  ast_EBOK_Difference,
+  ast_EBOK_In,
+  // Type Manipulation
+  ast_EBOK_Cons,
+  ast_EBOK_Sum,
+  // Range
+  ast_EBOK_Range,
+  ast_EBOK_RangeInclusive,
+  // Assign
+  ast_EBOK_Assign,
+  // Sequence
+  ast_EBOK_Sequence,
+  // Pattern rename
+  ast_EBOK_At,
+  // Module Access
+  ast_EBOK_ModuleAccess,
+
+    }
+
     *push_prop_m(&obj) =
         mkprop_m("binary_operation",
                  com_json_str_m(ast_strExprBinaryOpKind(vep->binaryOp.op)));
@@ -345,15 +467,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
                  hir_translateExpr(vep->binaryOp.right_operand, a));
     break;
   }
-  case ast_EK_CaseOf: {
-    *push_prop_m(&obj) =
-        mkprop_m("caseof_expr", hir_translateExpr(vep->caseof.expr, a));
-    *push_prop_m(&obj) =
-        mkprop_m("caseof_cases", hir_translateExpr(vep->caseof.cases, a));
-    break;
   }
-  }
-  return hir_translateobjectify(&obj);
 }
 
 hir_Expr *hir_constructExpr(const ast_Expr *vep, DiagnosticLogger *diagnostics,

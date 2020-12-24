@@ -18,12 +18,18 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Append");
   case tk_Of:
     return com_str_lit_m("tk_Of");
-  case tk_Nil:
-    return com_str_lit_m("tk_Nil");
+  case tk_Void:
+    return com_str_lit_m("tk_Void");
+  case tk_VoidType:
+    return com_str_lit_m("tk_VoidType");
+  case tk_NeverType:
+    return com_str_lit_m("tk_NeverType");
   case tk_Forall:
     return com_str_lit_m("tk_Forall");
   case tk_Case:
     return com_str_lit_m("tk_Case");
+  case tk_CaseOption:
+    return com_str_lit_m("tk_CaseOption");
   case tk_Ret:
     return com_str_lit_m("tk_Ret");
   case tk_Defer:

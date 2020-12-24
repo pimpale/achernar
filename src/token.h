@@ -27,12 +27,14 @@ typedef enum {
   tk_Forall, // forall
   tk_Self,   // this
   // Literals and constants
-  tk_Inf,    // inf
-  tk_Nan,    // nan
-  tk_Real,   // 0.7
-  tk_String, // "string"
-  tk_Int,    // 7
-  tk_Nil,    // ()
+  tk_Inf,       // inf
+  tk_Nan,       // nan
+  tk_Real,      // 0.7
+  tk_String,    // "string"
+  tk_Int,       // 7
+  tk_Void,      // ()
+  tk_VoidType,  // void
+  tk_NeverType, // never
   // Math Operators
   tk_Add, // +
   tk_Sub, // -
@@ -52,7 +54,7 @@ typedef enum {
   tk_In,           // in membership
   // Type operators
   tk_Cons, // ,
-  tk_Sum,     // |
+  tk_Sum,  // |
   // Range Operators
   tk_Range,          // ..
   tk_RangeInclusive, // ..=

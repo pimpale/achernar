@@ -243,7 +243,7 @@ static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
     ptr->label.label = t.labelToken.data;
   } else {
     ptr->kind = ast_LK_None;
-    *dlogger_append(diagnostics) =
+    *dlogger_append(diagnostics, true) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m("Expected label"),
@@ -264,7 +264,7 @@ static void ast_parseIdentifier(ast_Identifier *ptr,
     break;
   }
   default: {
-    *dlogger_append(diagnostics) = (Diagnostic){
+    *dlogger_append(diagnostics, true) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
         .message = com_str_lit_m("identifier expected an identifier"),
@@ -275,12 +275,12 @@ static void ast_parseIdentifier(ast_Identifier *ptr,
   }
 }
 
-static void ast_certain_parseNilExpr(ast_Expr *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
+static void ast_parseSimpleExpr(ast_Expr *ptr,
+                                        DiagnosticLogger *diagnostics,
+                                        ast_Constructor *parser,
+                                        ast_ExprKind kind) {
   Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Nil, "expected a tk_Nil");
-  ptr->kind = ast_EK_Nil;
+  ptr->kind = kind;
   ptr->common.span = t.span;
   return;
 }
@@ -334,7 +334,7 @@ static void ast_certain_parseGroupExpr(ast_Expr *bptr,
 
   Token rparen = parse_next(parser, diagnostics);
   if (rparen.kind != tk_ParenRight) {
-    *dlogger_append(diagnostics) =
+    *dlogger_append(diagnostics, true) =
         (Diagnostic){.span = rparen.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m("Expected right paren"),
@@ -414,17 +414,6 @@ static void ast_certain_parseBindExpr(ast_Expr *vbp,
   return;
 }
 
-// $_
-static void ast_certain_parseBindIgnoreExpr(ast_Expr *wpp,
-                                            DiagnosticLogger *diagnostics,
-                                            ast_Constructor *parser) {
-  com_mem_zero_obj_m(wpp);
-  wpp->kind = ast_EK_BindIgnore;
-  Token t = parse_next(parser, diagnostics);
-  com_assert_m(t.kind == tk_Ignore, "expected tk_Ignore");
-  wpp->common.span = t.span;
-}
-
 static void ast_certain_parseStructExpr(ast_Expr *bptr,
                                         DiagnosticLogger *diagnostics,
                                         ast_Constructor *parser) {
@@ -440,7 +429,7 @@ static void ast_certain_parseStructExpr(ast_Expr *bptr,
 
   Token rbrace = parse_next(parser, diagnostics);
   if (rbrace.kind != tk_BraceRight) {
-    *dlogger_append(diagnostics) =
+    *dlogger_append(diagnostics, true) =
         (Diagnostic){.span = rbrace.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m("Expected right brace"),
@@ -501,7 +490,7 @@ static void ast_certain_parseCaseExpr(ast_Expr *mptr,
   // Expect of
   Token oftk = parse_next(parser, diagnostics);
   if (oftk.kind != tk_BraceLeft) {
-    *dlogger_append(diagnostics) =
+    *dlogger_append(diagnostics, true) =
         (Diagnostic){.span = oftk.span,
                      .severity = DSK_Information,
                      .message = com_str_lit_m("Case Of expected of"),
@@ -555,8 +544,24 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
   // Decide which expression it is
   switch (t.kind) {
   // Literals
-  case tk_Nil: {
-    ast_certain_parseNilExpr(l, diagnostics, parser);
+  case tk_Void: {
+    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_Void);
+    break;
+  }
+  case tk_VoidType: {
+    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_VoidType);
+    break;
+  }
+  case tk_NeverType: {
+    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_NeverType);
+    break;
+  }
+  case tk_Ignore: {
+    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_BindIgnore);
+    break;
+  }
+  case tk_Splat: {
+    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_BindSplat);
     break;
   }
   case tk_Int: {
@@ -603,10 +608,6 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     ast_certain_parseBindExpr(l, diagnostics, parser);
     break;
   }
-  case tk_Ignore: {
-    ast_certain_parseBindIgnoreExpr(l, diagnostics, parser);
-    break;
-  }
   case tk_Identifier: {
     ast_certain_parseIdentifierExpr(l, diagnostics, parser);
     break;
@@ -616,14 +617,13 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
     l->common.span = t.span;
     parse_next(parser, diagnostics);
 
-    Diagnostic *hint = com_allocator_handle_get(
-        dlogger_alloc(diagnostics, sizeof(Diagnostic)));
+    Diagnostic *hint = dlogger_append(diagnostics, false);
     *hint = (Diagnostic){.span = t.span,
                          .severity = DSK_Hint,
                          .message = tk_strKind(t.kind),
                          .children_len = 0};
 
-    *dlogger_append(diagnostics) =
+    *dlogger_append(diagnostics, true) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m("DK_UnexpectedToken"),
@@ -677,12 +677,15 @@ static void ast_parseApplyExpr(ast_Expr *aptr, DiagnosticLogger *diagnostics,
     case tk_String:
     case tk_ParenLeft:
     case tk_Ret:
-    case tk_Nil:
+    case tk_Void:
+    case tk_VoidType:
+    case tk_NeverType:
     case tk_Defer:
     case tk_Loop:
     case tk_At:
     case tk_Bind:
     case tk_Ignore:
+    case tk_Splat:
     case tk_Identifier:
     case tk_Label:
     case tk_Case:

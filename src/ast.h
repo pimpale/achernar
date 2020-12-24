@@ -109,7 +109,9 @@ typedef enum {
 
 typedef enum {
   ast_EK_None,     // An error when parsing
-  ast_EK_Nil,      // Literal for nil
+  ast_EK_Void,      // Literal for void
+  ast_EK_VoidType,  // Literal for void type
+  ast_EK_NeverType,  // Literal for void type
   ast_EK_Int,      // Literal for an integer number
   ast_EK_Real,     // Literal for a real (floating point) number
   ast_EK_String,   // A string literal
@@ -125,6 +127,7 @@ typedef enum {
   ast_EK_Reference,    // A reference to a previously defined variable
   ast_EK_BindIgnore,   // (PATTERN ONLY) ignores a single element
   ast_EK_Bind,         // (PATTERN ONLY) matches a single element to new variable
+  ast_EK_BindSplat,    // (PATTERN ONLY) Automagically deconstructs and binds a struct
 } ast_ExprKind;
 
 typedef struct ast_Expr_s {

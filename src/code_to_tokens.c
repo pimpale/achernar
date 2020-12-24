@@ -172,7 +172,7 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       // deallocate resources
       com_writer_destroy(&writer);
       // give error
-      *dlogger_append(diagnostics) =
+      *dlogger_append(diagnostics, true) =
           (Diagnostic){.span = ret.span,
                        .severity = DSK_Error,
                        .message = com_str_lit_m(
@@ -185,7 +185,7 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       };
     }
     case com_scan_CheckedStrInvalidControlChar: {
-      *dlogger_append(diagnostics) = (Diagnostic){
+      *dlogger_append(diagnostics, true) = (Diagnostic){
           .span = ret.span,
           .severity = DSK_Error,
           .message = com_str_lit_m("invalid control char after backslash"),
@@ -193,7 +193,7 @@ static Token lexStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       break;
     }
     case com_scan_CheckedStrInvalidUnicodeSpecifier: {
-      *dlogger_append(diagnostics) =
+      *dlogger_append(diagnostics, true) =
           (Diagnostic){.span = ret.span,
                        .severity = DSK_Error,
                        .message = com_str_lit_m("invalid unicode point"),
@@ -237,7 +237,7 @@ static Token lexBlockStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
       }
       case com_scan_CheckedStrReadFailed: {
         // give error
-        *dlogger_append(diagnostics) =
+        *dlogger_append(diagnostics, true) =
             (Diagnostic){.span = ret.span,
                          .severity = DSK_Error,
                          .message = com_str_lit_m(
@@ -246,7 +246,7 @@ static Token lexBlockStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
         goto END;
       }
       case com_scan_CheckedStrInvalidControlChar: {
-        *dlogger_append(diagnostics) = (Diagnostic){
+        *dlogger_append(diagnostics, true) = (Diagnostic){
             .span = ret.span,
             .severity = DSK_Error,
             .message = com_str_lit_m("invalid control char after backslash"),
@@ -254,7 +254,7 @@ static Token lexBlockStringLiteral(com_reader *r, DiagnosticLogger *diagnostics,
         break;
       }
       case com_scan_CheckedStrInvalidUnicodeSpecifier: {
-        *dlogger_append(diagnostics) =
+        *dlogger_append(diagnostics, true) =
             (Diagnostic){.span = ret.span,
                          .severity = DSK_Error,
                          .message = com_str_lit_m("invalid unicode point"),
@@ -311,7 +311,7 @@ static com_biguint parseNumBaseComponent(com_reader *r,
     u8 digit_val = com_format_from_hex(ret.value);
 
     if (digit_val >= radix) {
-      *dlogger_append(diagnostics) = (Diagnostic){
+      *dlogger_append(diagnostics, true) = (Diagnostic){
           .span = sp,
           .severity = DSK_Error,
           .message = com_str_lit_m("num literal char value exceeds radix"),
@@ -385,7 +385,7 @@ static com_bigdecimal parseNumFractionalComponent(com_reader *r,
 
     // if radix_val < digit_val
     if (com_bigdecimal_cmp(&digit_val, &radix_val) == com_math_LESS) {
-      *dlogger_append(diagnostics) = (Diagnostic){
+      *dlogger_append(diagnostics, true) = (Diagnostic){
           .span = sp,
           .severity = DSK_Error,
           .message = com_str_lit_m("num literal char value exceeds radix"),
@@ -471,7 +471,7 @@ static Token lexNumberLiteral(com_reader *r, DiagnosticLogger *diagnostics,
           com_reader_drop_u8(r);
           com_reader_drop_u8(r);
 
-          *dlogger_append(diagnostics) = (Diagnostic){
+          *dlogger_append(diagnostics, true) = (Diagnostic){
               .span = com_loc_span_m(start, com_reader_position(r)),
               .severity = DSK_Error,
               .message = com_str_lit_m("num literal unrecognized radix code"),
@@ -642,6 +642,10 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Where;
   } else if (com_str_equal(str, com_str_lit_m("and"))) {
     token.kind = tk_And;
+  } else if (com_str_equal(str, com_str_lit_m("never"))) {
+    token.kind = tk_NeverType;
+  } else if (com_str_equal(str, com_str_lit_m("void"))) {
+    token.kind = tk_VoidType;
   } else if (com_str_equal(str, com_str_lit_m("or"))) {
     token.kind = tk_Or;
   } else if (com_str_equal(str, com_str_lit_m("xor"))) {
@@ -691,7 +695,7 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
 
 #define RETURN_UNKNOWN_TOKEN(n)                                                \
   {                                                                            \
-    *dlogger_append(diagnostics) =                                             \
+    *dlogger_append(diagnostics, true) =                                       \
         (Diagnostic){.span = com_reader_peek_span_u8(r),                       \
                      .severity = DSK_Error,                                    \
                      .message = com_str_lit_m("lexer unrecognized character"), \
@@ -933,7 +937,14 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       RETURN_RESULT_TOKEN(1, tk_ParenLeft)
     }
     case ')': {
-      RETURN_RESULT_TOKEN(1, tk_ParenRight)
+      switch (lex_peek(r, 2)) {
+      case ')': {
+        RETURN_RESULT_TOKEN(2, tk_Void)
+      }
+      default: {
+        RETURN_RESULT_TOKEN(1, tk_ParenRight)
+      }
+      }
     }
     case '{': {
       RETURN_RESULT_TOKEN(1, tk_BraceLeft)

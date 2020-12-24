@@ -178,7 +178,10 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
       mkprop_m("kind", com_json_str_m(ast_strExprKind(vep->kind)));
   switch (vep->kind) {
   case ast_EK_None:
-  case ast_EK_Nil:
+  case ast_EK_Void:
+  case ast_EK_VoidType:
+  case ast_EK_NeverType:
+  case ast_EK_BindSplat:
   case ast_EK_BindIgnore: {
     // nop
     break;

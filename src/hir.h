@@ -42,6 +42,7 @@ typedef enum {
   hir_EK_StructFn, // creates a struct from an ad hoc compound object
   hir_EK_EnumFn,   // creates a disjoint union from an ad hoc compound object
   hir_EK_NewFn,    // Creates a function constructing the compound type provided
+  hir_EK_ConsFn,  // creates a tuple
 
   // Math with integers
   hir_EK_IntAddFn,
@@ -112,7 +113,7 @@ typedef enum {
   hir_EK_DerefMemAddrFn, // Ref($x) -> PlaceType(x)
 
   // Assign value to place
-  hir_EK_AssignFn, // Pattern($x) -> x -> void
+  hir_EK_Assign, // Pattern($x) -> x -> void
 
   // Returns a place from a memory address
   hir_EK_MutateMemAddrFn, 
@@ -176,6 +177,10 @@ typedef struct hir_Expr_s {
       hir_Expr *pattern;
       hir_Expr *value;
     } defun;
+    struct {
+      hir_Expr *pattern;
+      hir_Expr *value;
+    } assign;
     struct {
       com_str mutate;
     } mutate;

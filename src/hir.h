@@ -190,6 +190,8 @@ typedef struct hir_Expr_s {
     struct {
       hir_Expr **expr;
       usize expr_len;
+
+      hir_Expr *finalval;
     } sequence;
   };
 } hir_Expr;

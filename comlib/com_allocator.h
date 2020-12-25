@@ -14,8 +14,11 @@ typedef enum {
   /// (the max value necessary for floats. If disabled, then alignment is undefined)
   com_allocator_ALIGNED_16 = 1<<2,
   // zeros memory before providing it
-  com_allocator_ZERO,
-} com_allocator_Flag;
+  com_allocator_ZERO = 1 << 3,
+  com_allocator_MAX_ENUM = 1<<30,
+} com_allocator_FlagKind;
+
+typedef u32 com_allocator_Flag;
 
 // forward declare com_allocator
 typedef struct com_allocator_s com_allocator;

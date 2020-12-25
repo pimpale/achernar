@@ -347,7 +347,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     obj->kind = hir_EK_StructLiteral;
     obj->structLiteral.expr =
         hir_translateExpr(vep->structLiteral.expr, ls, diagnostics, a);
-    break;
+    return obj;
   }
   case ast_EK_Reference: {
     hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
@@ -589,7 +589,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     }
     // Module Access
     case ast_EBOK_ModuleAccess: {
-
+      // ensure that the right operand is an identifier
       if (vep->binaryOp.right_operand->kind != ast_EK_Reference) {
         *dlogger_append(diagnostics, true) =
             (Diagnostic){.span = vep->binaryOp.right_operand->common.span,
@@ -598,8 +598,10 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
                          .children_len = 0};
         return hir_noneExpr(vep, ls, a);
       }
+
       switch (vep->binaryOp.right_operand->reference.reference->kind) {
       case ast_IK_None: {
+        // ensure that identifier is valid
         *dlogger_append(diagnostics, true) = (Diagnostic){
             .span = vep->binaryOp.right_operand->reference.reference->span,
             .severity = DSK_Error,

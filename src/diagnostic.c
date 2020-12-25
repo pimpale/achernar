@@ -36,3 +36,7 @@ com_allocator* dlogger_alloc(DiagnosticLogger *ptr) {
 }
 
 const com_vec* dlogger_diagnostics(DiagnosticLogger *ptr) { return &ptr->_diagnostics; }
+
+void dlogger_destroy(DiagnosticLogger* dlogger)  {
+  com_vec_destroy(&dlogger->_diagnostics);
+}

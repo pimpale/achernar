@@ -100,7 +100,7 @@ typedef enum {
   hir_EK_SignedBitVecRorFn,
 
   // Create Function
-  hir_EK_DefunFn,
+  hir_EK_Defun, 
 
   // Handle memory address + ownership
   hir_EK_PlaceType, // this is the type of a valid place that may be assigned to or take reference of
@@ -112,7 +112,7 @@ typedef enum {
   hir_EK_DerefMemAddrFn, // Ref($x) -> PlaceType(x)
 
   // Assign value to place
-  hir_EK_AssignFn, // Pattern($x) -> x -> nil
+  hir_EK_AssignFn, // Pattern($x) -> x -> void
 
   // Returns a place from a memory address
   hir_EK_MutateMemAddrFn, 
@@ -164,6 +164,18 @@ typedef struct hir_Expr_s {
       hir_Expr **cases;
       usize cases_len;
     } caseof;
+    struct {
+      hir_Expr *value;
+      hir_Expr *type;
+    } constrain;
+    struct {
+      hir_Expr *tomatch;
+      hir_Expr *target;
+    } at;
+    struct {
+      hir_Expr *pattern;
+      hir_Expr *value;
+    } defun;
     struct {
       com_str mutate;
     } mutate;

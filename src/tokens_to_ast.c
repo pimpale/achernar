@@ -933,17 +933,17 @@ static ast_ExprBinaryOpKind ast_opDetPipeForwardExpr(tk_Kind tk) {
 DEFN_PARSE_R_BINARY(ast_parsePipeBackwardExpr, ast_opDetPipeForwardExpr,
                     ast_parsePipeForwardExpr)
 
-static ast_ExprBinaryOpKind ast_opDetFnExpr(tk_Kind tk) {
+static ast_ExprBinaryOpKind ast_opDetDefunExpr(tk_Kind tk) {
   switch (tk) {
   case tk_Arrow: {
-    return ast_EBOK_Fn;
+    return ast_EBOK_Defun;
   }
   default: {
     return ast_EBOK_None;
   }
   }
 }
-DEFN_PARSE_R_BINARY(ast_parsePipeForwardExpr, ast_opDetFnExpr, ast_parseFnExpr)
+DEFN_PARSE_R_BINARY(ast_parsePipeForwardExpr, ast_opDetDefunExpr, ast_parseDefunExpr)
 
 static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
   switch (tk) {
@@ -955,7 +955,7 @@ static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_BINARY(ast_parseFnExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
+DEFN_PARSE_R_BINARY(ast_parseDefunExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
 
 void ast_parseSequenceable(ast_Expr *expr, DiagnosticLogger *diagnostics,
                            ast_Constructor *parser) {

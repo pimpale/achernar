@@ -385,7 +385,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       com_vec_pop_m(&optstack, &current, const ast_Expr *);
 
       if (current->kind == ast_EK_BinaryOp &&
-          current->binaryOp.op == ast_EBOK_Fn) {
+          current->binaryOp.op == ast_EBOK_Defun) {
         // create a case option
         hir_Expr *co = hir_alloc_obj_m(a, hir_Expr);
         co->kind = hir_EK_CaseOption;
@@ -441,7 +441,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       return obj;
     }
     // Function definition
-    case ast_EBOK_Fn: {
+    case ast_EBOK_Defun: {
       hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
       obj->from = vep;
       obj->kind = hir_EK_Defun;

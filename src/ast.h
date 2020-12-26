@@ -57,7 +57,7 @@ typedef enum {
   // Type coercion
   ast_EBOK_Constrain,
   // Function definition
-  ast_EBOK_Fn,
+  ast_EBOK_Defun,
   // CaseOption
   ast_EBOK_CaseOption,
   // Function call

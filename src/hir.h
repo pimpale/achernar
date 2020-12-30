@@ -8,24 +8,20 @@
 #include "com_loc.h"
 #include "com_str.h"
 
-typedef struct hir_Expr_s hir_Expr;
 
 typedef enum {
   hir_EK_None,  // An error when parsing
   hir_EK_Loop,  // Loops until a scope is returned
+  hir_EK_Group, // A scope for variables
   hir_EK_Apply, // applies a function
   hir_EK_Label, // Wraps a term in a label that can be deferred or returned from
   hir_EK_StructLiteral, // Constructs a new compound type
   hir_EK_Ret,           // Returns from a scope with a value
   hir_EK_ModuleAccess,  // Accessing the module of a module object
   hir_EK_Reference,     // A reference to a previously defined variable
-  hir_EK_CaseOf,     // Switches on a pattern
-  hir_EK_CaseOption,     // Switches on a pattern
-  hir_EK_BindIgnore,    // (PATTERN ONLY) ignores a single element
-  hir_EK_BindSplat,     // (PATTERN ONLY) automagically deconstructs a struct
-  hir_EK_Bind,      // (PATTERN ONLY) matches a single element to new variable
-  hir_EK_At,        // matches expression and assigns to another
-  hir_EK_Constrain, // matches expression and assigns to another
+  hir_EK_CaseOf,        // Switches on a pattern
+  hir_EK_CaseOption,    // Switches on a pattern
+  hir_EK_Constrain,     // matches expression and assigns to another
 
   // Literals for values
   hir_EK_Void,      // Literal for void
@@ -42,7 +38,7 @@ typedef enum {
   hir_EK_StructFn, // creates a struct from an ad hoc compound object
   hir_EK_EnumFn,   // creates a disjoint union from an ad hoc compound object
   hir_EK_NewFn,    // Creates a function constructing the compound type provided
-  hir_EK_ConsFn,  // creates a tuple
+  hir_EK_ConsFn,   // creates a tuple
 
   // Math with integers
   hir_EK_IntAddFn,
@@ -101,25 +97,88 @@ typedef enum {
   hir_EK_SignedBitVecRorFn,
 
   // Create Function
-  hir_EK_Defun, 
+  hir_EK_Defun,
 
   // Handle memory address + ownership
-  hir_EK_PlaceType, // this is the type of a valid place that may be assigned to or take reference of
-  hir_EK_PatternType, // PlaceType | StructPattern | IntPatternType | RealPatternType | Splat | TODO
-
+  hir_EK_PlaceType, // this is the type of a valid place that may be assigned to
+                    // or take reference of
+  hir_EK_PatternType, // PlaceType | StructPattern | IntPatternType |
+                      // RealPatternType | Splat | TODO
 
   // Handle memory addresses
-  hir_EK_GetMemAddrFn, // PlaceType($x) -> Ref(x)
+  hir_EK_GetMemAddrFn,   // PlaceType($x) -> Ref(x)
   hir_EK_DerefMemAddrFn, // Ref($x) -> PlaceType(x)
 
   // Assign value to place
   hir_EK_Assign, // Pattern($x) -> x -> void
 
   // Returns a place from a memory address
-  hir_EK_MutateMemAddrFn, 
+  hir_EK_MutateMemAddrFn,
 } hir_ExprKind;
 
-// reserved for stuff that isn't just a reference to
+typedef enum {
+  hir_PK_None,       // An error when parsing
+  hir_PK_Bind,       // Irrefutably matches a single element to new variable
+  hir_PK_BindIgnore, // Irrefutably matches, and ignores result
+  hir_PK_BindSplat,  // automagically deconstructs a struct
+  hir_PK_At,         // If the second pattern matches, binds the whole result to the 
+  hir_PK_Constrain,  // constrains the type of a pattern expression by a type value
+  hir_PK_Apply,      // Apply like a pattern (means that any of the arguments can use pattern syntax)
+  hir_PK_Expr,       // Refutable pattern of a value
+  hir_PK_And,        // Evaluates the second pattern iff the first pattern matches, matches if both are true
+  hir_PK_Or,         // Evaluates the second pattern iff the first pattern doesn't match, matches if at least one is true
+  hir_PK_Xor,        // Evaluates both patterns, matches if the number of matching patterns is 1
+  hir_PK_Struct,     // Destructures a struct object
+} hir_PatKind;
+
+typedef struct hir_Expr_s hir_Expr;
+typedef struct hir_Pat_s hir_Pat;
+
+typedef struct hir_Pat_s {
+  hir_PatKind kind;
+  const ast_Expr *from;
+  union {
+    struct {
+      com_str bind;
+    } bind;
+    struct {
+      hir_Pat *tomatch;
+      hir_Pat *target;
+    } at;
+    struct {
+      hir_Pat *value;
+      hir_Expr *type;
+    } constrain;
+    struct {
+      hir_Pat *fn;
+      hir_Pat *param;
+    } apply;
+    struct {
+      hir_Expr *expr;
+    } expr;
+    struct {
+      hir_Pat *fst;
+      hir_Expr *snd;
+    } orPat;
+    struct {
+      hir_Pat *fst;
+      hir_Expr *snd;
+    } andPat;
+    struct {
+      hir_Pat *fst;
+      hir_Expr *snd;
+    } xorPat;
+    struct {
+      hir_Pat *field;
+      hir_Pat *pattern;
+    } structEntry;
+    struct {
+      hir_Pat** entries;
+      usize entries_len;
+    };
+  };
+} hir_Pat;
+
 typedef struct hir_Expr_s {
   hir_ExprKind kind;
   const ast_Expr *from;
@@ -134,7 +193,10 @@ typedef struct hir_Expr_s {
       hir_Expr *expr;
     } structLiteral;
     struct {
-      hir_Expr *body;
+      hir_Expr *expr;
+    } group;
+    struct {
+      hir_Expr *expr;
     } loop;
     struct {
       hir_Expr *expr;
@@ -157,7 +219,7 @@ typedef struct hir_Expr_s {
       hir_Expr *scope;
     } ret;
     struct {
-      hir_Expr *pattern;
+      hir_Pat *pattern;
       hir_Expr *result;
     } caseoption;
     struct {
@@ -166,27 +228,28 @@ typedef struct hir_Expr_s {
       usize cases_len;
     } caseof;
     struct {
-      hir_Expr *value;
-      hir_Expr *type;
-    } constrain;
+      hir_Expr *fst;
+      hir_Expr *snd;
+    } orExpr;
     struct {
-      hir_Expr *tomatch;
-      hir_Expr *target;
-    } at;
+      hir_Expr *fst;
+      hir_Expr *snd;
+    } andExpr;
     struct {
-      hir_Expr *pattern;
+      hir_Expr *fst;
+      hir_Expr *snd;
+    } xorExpr;
+    struct {
+      hir_Pat *pattern;
       hir_Expr *value;
     } defun;
+    struct {
+      hir_Pat *pattern;
+    } pat;
     struct {
       hir_Expr *pattern;
       hir_Expr *value;
     } assign;
-    struct {
-      com_str mutate;
-    } mutate;
-    struct {
-      com_str bind;
-    } bind;
     struct {
       hir_Expr **expr;
       usize expr_len;

@@ -17,6 +17,7 @@ typedef enum {
   // Keywords
   tk_Loop,   // loop
   tk_Of,     // of
+  tk_Pat,    // pat
   tk_Ret,    // ret
   tk_Defer,  // defer
   tk_Case,   // case
@@ -24,7 +25,6 @@ typedef enum {
   tk_Where,  // where
   tk_Dyn,    // dyn
   tk_Impl,   // impl
-  tk_Forall, // forall
   tk_Self,   // this
   // Literals and constants
   tk_Inf,       // inf

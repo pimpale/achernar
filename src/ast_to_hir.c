@@ -121,8 +121,12 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
                                    DiagnosticLogger *diagnostics,
                                    com_allocator *a);
 
-static hir_Expr *hir_referenceExpr(const ast_Expr *from,
-                                   attr_UNUSED LabelStack *ls, com_allocator *a,
+// Forward Declare
+static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
+                                 DiagnosticLogger *diagnostics,
+                                 com_allocator *a);
+
+static hir_Expr *hir_referenceExpr(const ast_Expr *from, com_allocator *a,
                                    com_str ref) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
   obj->from = from;
@@ -131,9 +135,8 @@ static hir_Expr *hir_referenceExpr(const ast_Expr *from,
   return obj;
 }
 
-static hir_Expr *hir_intLiteralExpr(const ast_Expr *from,
-                                    attr_UNUSED LabelStack *ls,
-                                    com_allocator *a, i64 lit) {
+static hir_Expr *hir_intLiteralExpr(const ast_Expr *from, com_allocator *a,
+                                    i64 lit) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
   obj->from = from;
   obj->kind = hir_EK_Int;
@@ -146,9 +149,8 @@ static hir_Expr *hir_intLiteralExpr(const ast_Expr *from,
   return obj;
 }
 
-static hir_Expr *hir_applyExpr(const ast_Expr *from, attr_UNUSED LabelStack *ls,
-                               com_allocator *a, hir_Expr *fn,
-                               hir_Expr *param) {
+static hir_Expr *hir_applyExpr(const ast_Expr *from, com_allocator *a,
+                               hir_Expr *fn, hir_Expr *param) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
   obj->from = from;
   obj->kind = hir_EK_Apply;
@@ -158,36 +160,35 @@ static hir_Expr *hir_applyExpr(const ast_Expr *from, attr_UNUSED LabelStack *ls,
 }
 
 // apply a function twice
-static hir_Expr *hir_applyTwoExpr(const ast_Expr *from, LabelStack *ls,
-                                  com_allocator *a, hir_Expr *fn,
-                                  hir_Expr *param1, hir_Expr *param2) {
-  return hir_applyExpr(from, ls, a, hir_applyExpr(from, ls, a, fn, param1),
-                       param2);
+static hir_Expr *hir_applyTwoExpr(const ast_Expr *from, com_allocator *a,
+                                  hir_Expr *fn, hir_Expr *param1,
+                                  hir_Expr *param2) {
+  return hir_applyExpr(from, a, hir_applyExpr(from, a, fn, param1), param2);
 }
 
 // Translates a binary operation into a function application, left to right
-static hir_Expr *hir_applyBinOp(const ast_Expr *from, LabelStack *ls,
-                                DiagnosticLogger *diagnostics, com_allocator *a,
-                                hir_Expr *fn) {
+static hir_Expr *hir_translateBinOpExpr(const ast_Expr *from, LabelStack *ls,
+                                    DiagnosticLogger *diagnostics,
+                                    com_allocator *a, hir_Expr *fn) {
   com_assert_m(from->kind == ast_EK_BinaryOp,
                "provided ast_expr is not a bin op");
   return hir_applyTwoExpr(
-      from, ls, a, fn,
+      from, a, fn,
       hir_translateExpr(from->binaryOp.left_operand, ls, diagnostics, a),
       hir_translateExpr(from->binaryOp.right_operand, ls, diagnostics, a));
 }
 
 // Translates a binary operation into a function application
-static hir_Expr *hir_referenceBinOp(const ast_Expr *from, LabelStack *ls,
-                                    DiagnosticLogger *diagnostics,
-                                    com_allocator *a, com_str fname) {
-  return hir_applyBinOp(from, ls, diagnostics, a,
-                        hir_referenceExpr(from, ls, a, fname));
+static hir_Expr *hir_translateReferenceBinOpExpr(const ast_Expr *from, LabelStack *ls,
+                                        DiagnosticLogger *diagnostics,
+                                        com_allocator *a, com_str fname) {
+  return hir_translateBinOpExpr(from, ls, diagnostics, a,
+                            hir_referenceExpr(from, a, fname));
 }
 
 // returns an instantiated
 static hir_Expr *hir_simpleExpr(const ast_Expr *from,
-                                attr_UNUSED LabelStack *ls, com_allocator *a,
+                                com_allocator *a,
                                 hir_ExprKind ek) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
   obj->from = from;
@@ -195,34 +196,27 @@ static hir_Expr *hir_simpleExpr(const ast_Expr *from,
   return obj;
 }
 
-static hir_Expr *hir_noneExpr(const ast_Expr *from, LabelStack *ls,
-                              com_allocator *a) {
-  return hir_simpleExpr(from, ls, a, hir_EK_None);
+static hir_Expr *hir_noneExpr(const ast_Expr *from, com_allocator *a) {
+  return hir_simpleExpr(from, a, hir_EK_None);
 }
 
 static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
                                    DiagnosticLogger *diagnostics,
                                    com_allocator *a) {
-  com_assert_m(vep != NULL, "expr is null");
+  com_assert_m(vep != NULL, "source is null");
 
   switch (vep->kind) {
   case ast_EK_None: {
-    return hir_noneExpr(vep, ls, a);
+    return hir_noneExpr(vep, a);
   }
   case ast_EK_Void: {
-    return hir_simpleExpr(vep, ls, a, hir_EK_Void);
+    return hir_simpleExpr(vep, a, hir_EK_Void);
   }
   case ast_EK_VoidType: {
-    return hir_simpleExpr(vep, ls, a, hir_EK_VoidType);
+    return hir_simpleExpr(vep, a, hir_EK_VoidType);
   }
   case ast_EK_NeverType: {
-    return hir_simpleExpr(vep, ls, a, hir_EK_NeverType);
-  }
-  case ast_EK_BindSplat: {
-    return hir_simpleExpr(vep, ls, a, hir_EK_BindSplat);
-  }
-  case ast_EK_BindIgnore: {
-    return hir_simpleExpr(vep, ls, a, hir_EK_BindIgnore);
+    return hir_simpleExpr(vep, a, hir_EK_NeverType);
   }
   case ast_EK_Int: {
     hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
@@ -239,14 +233,18 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     return obj;
   }
   case ast_EK_Group: {
-    return hir_translateExpr(vep->group.expr, ls, diagnostics, a);
+    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
+    obj->from = vep;
+    obj->kind = hir_EK_Group;
+    obj->group.expr = hir_translateExpr(vep->group.expr, ls, diagnostics, a);
+    return obj;
   }
   case ast_EK_String: {
     // construct recursive data structure containing all functions
     // Apply "," with each character
 
     // the final element of the list is void
-    hir_Expr *tail = hir_simpleExpr(vep, ls, a, hir_EK_Void);
+    hir_Expr *tail = hir_simpleExpr(vep, a, hir_EK_Void);
     for (usize i_plus_one = vep->stringLiteral.value.len; i_plus_one > 0;
          i_plus_one--) {
       usize i = i_plus_one - 1;
@@ -254,35 +252,19 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
 
       // tail = str[i] : tail
       // clang-format off
-      tail = hir_applyTwoExpr(vep, ls, a, 
-          hir_referenceExpr(vep, ls, a, com_str_lit_m(",")),
-          hir_intLiteralExpr(vep, ls, a, vep->stringLiteral.value.data[i]),
+      tail = hir_applyTwoExpr(vep, a, 
+          hir_referenceExpr(vep, a, com_str_lit_m(",")),
+          hir_intLiteralExpr(vep, a, vep->stringLiteral.value.data[i]),
           tail);
       // clang-format on
     }
     return tail;
   }
-  case ast_EK_Bind: {
-    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
-    obj->from = vep;
-    switch (vep->bind.bind->kind) {
-    case ast_IK_Identifier: {
-      obj->kind = hir_EK_Bind;
-      obj->bind.bind = vep->bind.bind->id.name;
-      break;
-    }
-    case ast_IK_None: {
-      obj->kind = hir_EK_None;
-      break;
-    }
-    }
-    return obj;
-  }
   case ast_EK_Loop: {
     hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
     obj->from = vep;
     obj->kind = hir_EK_Loop;
-    obj->loop.body = hir_translateExpr(vep->loop.body, ls, diagnostics, a);
+    obj->loop.expr = hir_translateExpr(vep->loop.body, ls, diagnostics, a);
     return obj;
   }
   case ast_EK_Label: {
@@ -326,7 +308,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       return obj;
     } else {
       // means that we didn't manage to find the label
-      return hir_noneExpr(vep, ls, a);
+      return hir_noneExpr(vep, a);
     }
   }
   case ast_EK_Defer: {
@@ -336,9 +318,9 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       *com_queue_push_m(&lse->defers, hir_Expr *) =
           hir_translateExpr(vep->defer.val, ls, diagnostics, a);
       // now return void
-      return hir_simpleExpr(vep, ls, a, hir_EK_Void);
+      return hir_simpleExpr(vep,a, hir_EK_Void);
     } else {
-      return hir_noneExpr(vep, ls, a);
+      return hir_noneExpr(vep, a);
     }
   }
   case ast_EK_Struct: {
@@ -391,7 +373,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
         co->kind = hir_EK_CaseOption;
         co->from = current;
         co->caseoption.pattern =
-            hir_translateExpr(vep->binaryOp.left_operand, ls, diagnostics, a);
+            hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a);
         co->caseoption.result =
             hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
 
@@ -427,7 +409,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     switch (vep->binaryOp.op) {
     // none
     case ast_EBOK_None: {
-      return hir_noneExpr(vep, ls, a);
+      return hir_noneExpr(vep, a);
     }
     // Type coercion
     case ast_EBOK_Constrain: {
@@ -446,7 +428,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       obj->from = vep;
       obj->kind = hir_EK_Defun;
       obj->defun.pattern =
-          hir_translateExpr(vep->binaryOp.left_operand, ls, diagnostics, a);
+          hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a);
       obj->defun.value =
           hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
       return obj;
@@ -459,105 +441,131 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
           .message = com_str_lit_m(
               "case option operator is only valid in a case context"),
           .children_len = 0};
-      return hir_noneExpr(vep, ls, a);
+      return hir_noneExpr(vep, a);
     }
     // Function call
     case ast_EBOK_Apply: {
       return hir_applyExpr(
-          vep, ls, a,
+          vep, a,
           hir_translateExpr(vep->binaryOp.left_operand, ls, diagnostics, a),
           hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a));
     }
     // Reverse application (Userspace)
     case ast_EBOK_RevApply: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("."));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("."));
     }
       // Function composition (Userspace)
     case ast_EBOK_Compose: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m(">>"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m(">>"));
     }
     // Function Piping
     case ast_EBOK_PipeForward: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("|>"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("|>"));
     }
     case ast_EBOK_PipeBackward: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("<|"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("<|"));
     }
     // Math
     case ast_EBOK_Add: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("+"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("+"));
     }
     case ast_EBOK_Sub: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("-"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("-"));
     }
     case ast_EBOK_Mul: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("*"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("*"));
     }
     case ast_EBOK_Div: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("/"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("/"));
     }
     case ast_EBOK_Rem: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("%"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("%"));
     }
     case ast_EBOK_Pow: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("^"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("^"));
     }
     // Booleans
     case ast_EBOK_And: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("and"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("and"));
     }
     case ast_EBOK_Or: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("or"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("or"));
     }
     case ast_EBOK_Xor: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("xor"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("xor"));
     }
     // Comparison
     case ast_EBOK_CompEqual: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("=="));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("=="));
     }
     case ast_EBOK_CompNotEqual: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("/="));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("/="));
     }
     case ast_EBOK_CompLess: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("<"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("<"));
     }
     case ast_EBOK_CompLessEqual: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("<="));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("<="));
     }
     case ast_EBOK_CompGreater: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m(">"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m(">"));
     }
     case ast_EBOK_CompGreaterEqual: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m(">="));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m(">="));
     }
     // Set Operations
     case ast_EBOK_Union: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("/\\"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("/\\"));
     }
     case ast_EBOK_Intersection: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("\\/"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("\\/"));
     }
     case ast_EBOK_Difference: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("--"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("--"));
     }
     case ast_EBOK_In: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("in"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("in"));
     }
     // Type Manipulation
     case ast_EBOK_Cons: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m(","));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m(","));
     }
     case ast_EBOK_Sum: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("|"));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("|"));
     }
-
       // Range
     case ast_EBOK_Range: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m(".."));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m(".."));
     }
     case ast_EBOK_RangeInclusive: {
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("..="));
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("..="));
     }
     // Assign
     case ast_EBOK_Assign: {
@@ -573,19 +581,8 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     // Sequence
     case ast_EBOK_Sequence: {
       // TODO
-      return hir_referenceBinOp(vep, ls, diagnostics, a, com_str_lit_m("in"));
-    }
-    // Pattern rename
-    case ast_EBOK_At: {
-      hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
-      obj->from = vep;
-      obj->kind = hir_EK_At;
-      // $a at 2
-      obj->at.target =
-          hir_translateExpr(vep->binaryOp.left_operand, ls, diagnostics, a);
-      obj->at.tomatch =
-          hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
-      return obj;
+      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+                                    com_str_lit_m("in"));
     }
     // Module Access
     case ast_EBOK_ModuleAccess: {
@@ -596,7 +593,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
                          .severity = DSK_Error,
                          .message = com_str_lit_m("expected an identifier"),
                          .children_len = 0};
-        return hir_noneExpr(vep, ls, a);
+        return hir_noneExpr(vep, a);
       }
 
       switch (vep->binaryOp.right_operand->reference.reference->kind) {
@@ -607,7 +604,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
             .severity = DSK_Error,
             .message = com_str_lit_m("identifier must be valid"),
             .children_len = 0};
-        return hir_noneExpr(vep, ls, a);
+        return hir_noneExpr(vep, a);
       }
       case ast_IK_Identifier: {
         hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
@@ -625,6 +622,98 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
   }
 }
 
+static hir_Pat *hir_applyPat(const ast_Expr *from, com_allocator *a,
+                             hir_Pat *fn, hir_Pat *param) {
+  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+  obj->from = from;
+  obj->kind = hir_PK_Apply;
+  obj->apply.fn = fn;
+  obj->apply.param = param;
+  return obj;
+}
+
+// Translates a binary operation into a function application, left to right
+static hir_Pat *hir_applyBinOpPat(const ast_Expr *from, LabelStack *ls,
+                                  DiagnosticLogger *diagnostics,
+                                  com_allocator *a, hir_Pat *fn) {
+  com_assert_m(from->kind == ast_EK_BinaryOp,
+               "provided ast_expr is not a bin op");
+
+  return hir_applyPat(
+      from, a,
+      hir_applyPat(
+          from, a, fn,
+          hir_translatePat(from->binaryOp.left_operand, ls, diagnostics, a)),
+      hir_translatePat(from->binaryOp.right_operand, ls, diagnostics, a));
+}
+
+// creates a pat out of a expr
+static hir_Pat *hir_exprPat(const ast_Expr *from, com_allocator *a,
+                            hir_Expr *expr) {
+
+  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+  obj->from = from;
+  obj->kind = hir_PK_Expr;
+  obj->expr.expr = expr;
+  return obj;
+}
+
+// Translates a binary operation into a function application
+static hir_Pat *hir_referenceBinOpPat(const ast_Expr *from, LabelStack *ls,
+                                      DiagnosticLogger *diagnostics,
+                                      com_allocator *a, com_str fname) {
+  return hir_applyBinOpPat(
+      from, ls, diagnostics, a,
+      hir_exprPat(from, a, hir_referenceExpr(from, a, fname)));
+}
+
+// returns an instantiated
+static hir_Pat *hir_simplePat(const ast_Expr *from, com_allocator *a, hir_PatKind ek) {
+  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+  obj->from = from;
+  obj->kind = ek;
+  return obj;
+}
+
+static hir_Pat *hir_nonePat(const ast_Expr *from, com_allocator *a) {
+  return hir_simplePat(from, a, hir_PK_None);
+}
+
+static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
+                                 DiagnosticLogger *diagnostics,
+                                 com_allocator *a) {
+
+  com_assert_m(vep != NULL, "source is null");
+  switch (vep->kind) {
+  case ast_EK_None: {
+    return hir_nonePat(vep, a);
+  }
+  case ast_EK_Bind: {
+    hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+    obj->from = vep;
+    switch (vep->bind.bind->kind) {
+    case ast_IK_Identifier: {
+      obj->kind = hir_PK_Bind;
+      obj->bind.bind = vep->bind.bind->id.name;
+      break;
+    }
+    case ast_IK_None: {
+      obj->kind = hir_PK_None;
+      break;
+    }
+    }
+    return obj;
+  }
+  case ast_EK_BindSplat: {
+    return hir_simplePat(vep, a, hir_PK_BindSplat);
+  }
+  case ast_EK_BindIgnore: {
+    return hir_simplePat(vep, a, hir_PK_BindIgnore);
+  }
+  default: {
+  }
+  }
+}
 hir_Expr *hir_constructExpr(const ast_Expr *vep, DiagnosticLogger *diagnostics,
                             com_allocator *a) {
   LabelStack ls = LabelStack_create(a);

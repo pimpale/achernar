@@ -616,6 +616,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Loop;
   } else if (com_str_equal(str, com_str_lit_m("of"))) {
     token.kind = tk_Of;
+  } else if (com_str_equal(str, com_str_lit_m("pat"))) {
+    token.kind = tk_Pat;
   } else if (com_str_equal(str, com_str_lit_m("case"))) {
     token.kind = tk_Case;
   } else if (com_str_equal(str, com_str_lit_m("ret"))) {
@@ -624,8 +626,6 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Self;
   } else if (com_str_equal(str, com_str_lit_m("defer"))) {
     token.kind = tk_Defer;
-  } else if (com_str_equal(str, com_str_lit_m("forall"))) {
-    token.kind = tk_Forall;
   } else if (com_str_equal(str, com_str_lit_m("at"))) {
     token.kind = tk_At;
   } else if (com_str_equal(str, com_str_lit_m("inf"))) {

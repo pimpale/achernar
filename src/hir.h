@@ -142,8 +142,8 @@ typedef struct hir_Pat_s {
       com_str bind;
     } bind;
     struct {
-      hir_Pat *tomatch;
-      hir_Pat *target;
+      hir_Pat *left;
+      hir_Pat *right;
     } at;
     struct {
       hir_Pat *value;

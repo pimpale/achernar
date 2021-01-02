@@ -641,7 +641,7 @@ static hir_Pat *hir_applyPat(const ast_Expr *from, com_allocator *a,
 }
 
 // Translates a binary operation into a function application, left to right
-static hir_Pat *hir_applyBinOpPat(const ast_Expr *from, LabelStack *ls,
+static hir_Pat *hir_translateApplyBinOpPat(const ast_Expr *from, LabelStack *ls,
                                   DiagnosticLogger *diagnostics,
                                   com_allocator *a, hir_Pat *fn) {
   com_assert_m(from->kind == ast_EK_BinaryOp,
@@ -667,10 +667,10 @@ static hir_Pat *hir_exprPat(const ast_Expr *from, com_allocator *a,
 }
 
 // Translates a binary operation into a function application
-static hir_Pat *hir_referenceBinOpPat(const ast_Expr *from, LabelStack *ls,
+static hir_Pat *hir_translateReferenceBinOpPat(const ast_Expr *from, LabelStack *ls,
                                       DiagnosticLogger *diagnostics,
                                       com_allocator *a, com_str fname) {
-  return hir_applyBinOpPat(
+  return hir_translateApplyBinOpPat(
       from, ls, diagnostics, a,
       hir_exprPat(from, a, hir_referenceExpr(from, a, fname)));
 }
@@ -726,6 +726,17 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
     case ast_EBOK_None: {
       return hir_nonePat(vep, a);
     }
+    // At expr
+    case ast_EBOK_At: {
+      hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+      obj->from = vep;
+      obj->kind = hir_PK_At;
+      obj->at.left =
+          hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a);
+      obj->at.right=
+          hir_translatePat(vep->binaryOp.right_operand, ls, diagnostics, a);
+      return obj;
+    }
     // Type coercion
     case ast_EBOK_Constrain: {
       hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
@@ -743,9 +754,9 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
           .span = vep->common.span,
           .severity = DSK_Error,
           .message = com_str_lit_m(
-              "case option operator is only valid in a case context"),
+              "defun not permitted in pattern, use val keyword to embed a value"),
           .children_len = 0};
-      return obj;
+      return hir_nonePat(vep, a);
     }
     // CaseOption
     case ast_EBOK_CaseOption: {
@@ -759,126 +770,126 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
     }
     // Function call
     case ast_EBOK_Apply: {
-      return hir_applyExpr(
+      return hir_applyPat(
           vep, a,
-          hir_translateExpr(vep->binaryOp.left_operand, ls, diagnostics, a),
-          hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a));
+          hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a),
+          hir_translatePat(vep->binaryOp.right_operand, ls, diagnostics, a));
     }
     // Reverse application (Userspace)
     case ast_EBOK_RevApply: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("."));
     }
       // Function composition (Userspace)
     case ast_EBOK_Compose: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m(">>"));
     }
     // Function Piping
     case ast_EBOK_PipeForward: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("|>"));
     }
     case ast_EBOK_PipeBackward: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("<|"));
     }
     // Math
     case ast_EBOK_Add: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("+"));
     }
     case ast_EBOK_Sub: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("-"));
     }
     case ast_EBOK_Mul: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("*"));
     }
     case ast_EBOK_Div: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("/"));
     }
     case ast_EBOK_Rem: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("%"));
     }
     case ast_EBOK_Pow: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("^"));
     }
     // Booleans
     case ast_EBOK_And: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("and"));
     }
     case ast_EBOK_Or: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("or"));
     }
     case ast_EBOK_Xor: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("xor"));
     }
     // Comparison
     case ast_EBOK_CompEqual: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("=="));
     }
     case ast_EBOK_CompNotEqual: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("/="));
     }
     case ast_EBOK_CompLess: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("<"));
     }
     case ast_EBOK_CompLessEqual: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("<="));
     }
     case ast_EBOK_CompGreater: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m(">"));
     }
     case ast_EBOK_CompGreaterEqual: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m(">="));
     }
     // Set Operations
     case ast_EBOK_Union: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("/\\"));
     }
     case ast_EBOK_Intersection: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("\\/"));
     }
     case ast_EBOK_Difference: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("--"));
     }
     case ast_EBOK_In: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("in"));
     }
     // Type Manipulation
     case ast_EBOK_Cons: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m(","));
     }
     case ast_EBOK_Sum: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("|"));
     }
       // Range
     case ast_EBOK_Range: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m(".."));
     }
     case ast_EBOK_RangeInclusive: {
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("..="));
     }
     // Assign
@@ -895,7 +906,7 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
     // Sequence
     case ast_EBOK_Sequence: {
       // TODO
-      return hir_translateReferenceBinOpExpr(vep, ls, diagnostics, a,
+      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                              com_str_lit_m("in"));
     }
     // Module Access

@@ -19,7 +19,7 @@ typedef struct {
 ast_Constructor ast_create(com_reader *r, com_allocator* a);
 
 // parse statement with errors
-void ast_parseExpr(ast_Expr *expr, DiagnosticLogger* diagnostics, ast_Constructor *parser);
+ast_Expr* ast_parseExpr(DiagnosticLogger* diagnostics, ast_Constructor *parser);
 
 // test eof 
 bool ast_eof(ast_Constructor *parser, DiagnosticLogger*d);

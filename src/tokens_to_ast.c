@@ -134,25 +134,22 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
 // operator this function should take a pointer to the type and return a bool if
 // successful
 #define DEFN_PARSE_R_BINARY(lower_fn, switch_fn, fn_name)                      \
-  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
-                      ast_Constructor *parser) {                               \
-    ast_Expr v;                                                                \
-    lower_fn(&v, diagnostics, parser);                                         \
-                                                                               \
+  static ast_Expr *fn_name(DiagnosticLogger *diagnostics,                      \
+                           ast_Constructor *parser) {                          \
+    ast_Expr *v = lower_fn(diagnostics, parser);                               \
     Token t = parse_peekPastMetadata(parser, diagnostics, 1);                  \
     ast_ExprBinaryOpKind opKind = switch_fn(t.kind);                           \
     if (opKind == ast_EBOK_None) {                                             \
       /* there is no level x expression */                                     \
-      *expr = v;                                                               \
-      return;                                                                  \
+      return v;                                                                \
     }                                                                          \
     /* this will only execute if the operator exists */                        \
+    ast_Expr *expr = parse_alloc_obj_m(parser, ast_Expr);                      \
     expr->kind = ast_EK_BinaryOp;                                              \
     expr->binaryOp.op = opKind;                                                \
                                                                                \
     /* set the left side */                                                    \
-    expr->binaryOp.left_operand = parse_alloc_obj_m(parser, ast_Expr);         \
-    *expr->binaryOp.left_operand = v;                                          \
+    expr->binaryOp.left_operand = v;                                           \
                                                                                \
     /* first get metadata */                                                   \
     com_vec metadata = parse_getMetadata(parser, diagnostics);                 \
@@ -163,15 +160,14 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
                                                                                \
     /* now parse the rest of the expression */                                 \
     /* TODO: recursion can cause stack overflow */                             \
-    expr->binaryOp.right_operand = parse_alloc_obj_m(parser, ast_Expr);        \
-    fn_name(expr->binaryOp.right_operand, diagnostics, parser);                \
+    expr->binaryOp.right_operand = fn_name(diagnostics, parser);               \
                                                                                \
     /* calculate misc stuff */                                                 \
     expr->common.span =                                                        \
         com_loc_span_m(expr->binaryOp.left_operand->common.span.start,         \
                        expr->binaryOp.right_operand->common.span.end);         \
                                                                                \
-    return;                                                                    \
+    return expr;                                                               \
   }
 
 // type is the type of object that the generated function will parse
@@ -181,10 +177,10 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
 // operator this function should take a pointer to the type and return a bool if
 // successful
 #define DEFN_PARSE_L_BINARY(lower_fn, switch_fn, fn_name)                      \
-  static void fn_name(ast_Expr *expr, DiagnosticLogger *diagnostics,           \
-                      ast_Constructor *parser) {                               \
+  static ast_Expr *fn_name(DiagnosticLogger *diagnostics,                      \
+                           ast_Constructor *parser) {                          \
     /* parse lower expr */                                                     \
-    lower_fn(expr, diagnostics, parser);                                       \
+    ast_Expr *expr = lower_fn(diagnostics, parser);                            \
                                                                                \
     while (true) {                                                             \
       /* get next token */                                                     \
@@ -192,13 +188,14 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
       /* if token is invalid we can just return the current expr */            \
       ast_ExprBinaryOpKind opKind = switch_fn(t.kind);                         \
       if (opKind == ast_EBOK_None) {                                           \
-        return;                                                                \
+        return expr;                                                           \
       }                                                                        \
                                                                                \
-      /* if the operation was sucessful, we make the previous expr the left    \
-       * operand */                                                            \
-      ast_Expr *left_operand = parse_alloc_obj_m(parser, ast_Expr);            \
-      *left_operand = *expr;                                                   \
+      /* this will only execute if the operator exists */                      \
+      /* save the old expr in left operand */                                  \
+      ast_Expr *left_operand = expr;                                           \
+                                                                               \
+      expr = parse_alloc_obj_m(parser, ast_Expr);                              \
                                                                                \
       /* now we can mutate the expr */                                         \
       expr->kind = ast_EK_BinaryOp;                                            \
@@ -214,9 +211,8 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
       parse_drop(parser, diagnostics);                                         \
                                                                                \
       /* now parse the rest of the expression */                               \
-      expr->binaryOp.right_operand = parse_alloc_obj_m(parser, ast_Expr);      \
       /* Note that we parse with the lower expression to prevent recursion */  \
-      lower_fn(expr->binaryOp.right_operand, diagnostics, parser);             \
+      expr->binaryOp.right_operand = lower_fn(diagnostics, parser);            \
                                                                                \
       /* set our span */                                                       \
       expr->common.span =                                                      \
@@ -226,16 +222,16 @@ static Token parse_peekPastMetadata(ast_Constructor *parser,
   }
 
 // smallest unit
-static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
-                              ast_Constructor *parser);
+static ast_Expr *ast_parseTermExpr(DiagnosticLogger *diagnostics,
+                                   ast_Constructor *parser);
 
 // everything that can be seperated by a semicolon
-void ast_parseSequenceable(ast_Expr *expr, DiagnosticLogger *diagnostics,
-                           ast_Constructor *parser);
+static ast_Expr *ast_parseSequenceable(DiagnosticLogger *diagnostics,
+                                       ast_Constructor *parser);
 
-static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
-                           ast_Constructor *parser) {
-  com_mem_zero_obj_m(ptr);
+static ast_Label *ast_parseLabel(DiagnosticLogger *diagnostics,
+                                 ast_Constructor *parser) {
+  ast_Label *ptr = parse_alloc_obj_m(parser, ast_Label);
   Token t = parse_next(parser, diagnostics);
   ptr->span = t.span;
   if (t.kind == tk_Label) {
@@ -249,88 +245,96 @@ static void ast_parseLabel(ast_Label *ptr, DiagnosticLogger *diagnostics,
                      .message = com_str_lit_m("Expected label"),
                      .children_len = 0};
   }
+  return ptr;
 }
 
-static void ast_parseIdentifier(ast_Identifier *ptr,
-                                DiagnosticLogger *diagnostics,
-                                ast_Constructor *parser) {
-  com_mem_zero_obj_m(ptr);
+static ast_Identifier *ast_parseIdentifier(DiagnosticLogger *diagnostics,
+                                           ast_Constructor *parser) {
+  ast_Identifier *ptr = parse_alloc_obj_m(parser, ast_Identifier);
   Token t = parse_next(parser, diagnostics);
   ptr->span = t.span;
-  switch (t.kind) {
-  case tk_Identifier: {
+  if (t.kind == tk_Identifier) {
     ptr->kind = ast_IK_Identifier;
     ptr->id.name = t.identifierToken.data;
-    break;
-  }
-  default: {
+  } else {
+    ptr->kind = ast_IK_None;
     *dlogger_append(diagnostics, true) = (Diagnostic){
         .span = t.span,
         .severity = DSK_Error,
         .message = com_str_lit_m("identifier expected an identifier"),
         .children_len = 0};
-    ptr->kind = ast_IK_None;
-    break;
   }
-  }
+  return ptr;
 }
 
-static void ast_parseSimpleExpr(ast_Expr *ptr,
-                                        DiagnosticLogger *diagnostics,
-                                        ast_Constructor *parser,
-                                        ast_ExprKind kind) {
+static ast_Expr *ast_parseSimpleExpr(DiagnosticLogger *diagnostics,
+                                     ast_Constructor *parser,
+                                     ast_ExprKind kind) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
   ptr->kind = kind;
   ptr->common.span = t.span;
-  return;
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseIntExpr(ast_Expr *ptr,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
+static ast_Expr *ast_certain_parseIntExpr(DiagnosticLogger *diagnostics,
+                                          ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Int, "expected a tk_Int");
+
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
   ptr->kind = ast_EK_Int;
   ptr->intLiteral.value = t.intToken.data;
   ptr->common.span = t.span;
-  return;
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseRealExpr(ast_Expr *ptr,
-                                      DiagnosticLogger *diagnostics,
-                                      ast_Constructor *parser) {
+static ast_Expr *ast_certain_parseRealExpr(DiagnosticLogger *diagnostics,
+                                           ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Real, "expected tk_Real");
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
   ptr->kind = ast_EK_Real;
   ptr->realLiteral.value = t.realToken.data;
   ptr->common.span = t.span;
-  return;
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseStringExpr(ast_Expr *sptr,
-                                        DiagnosticLogger *diagnostics,
-                                        ast_Constructor *parser) {
+static ast_Expr *ast_certain_parseStringExpr(DiagnosticLogger *diagnostics,
+                                             ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_String, "expected a tk_String");
-  sptr->kind = ast_EK_String;
-  sptr->stringLiteral.value = t.stringToken.data;
-  sptr->stringLiteral.kind = t.stringToken.kind;
-  sptr->common.span = t.span;
-  return;
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_String;
+  ptr->stringLiteral.value = t.stringToken.data;
+  ptr->stringLiteral.kind = t.stringToken.kind;
+  ptr->common.span = t.span;
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseGroupExpr(ast_Expr *bptr,
-                                       DiagnosticLogger *diagnostics,
-                                       ast_Constructor *parser) {
-  com_mem_zero_obj_m(bptr);
-  bptr->kind = ast_EK_Group;
+static ast_Expr *ast_certain_parseGroupExpr(DiagnosticLogger *diagnostics,
+                                            ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Group;
 
   // Parse leftparen
   Token lparen = parse_next(parser, diagnostics);
   com_assert_m(lparen.kind == tk_ParenLeft, "expected tk_ParenLeft");
 
-  bptr->group.expr = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(bptr->group.expr, diagnostics, parser);
+  ptr->group.expr = ast_parseExpr(diagnostics, parser);
 
   Token rparen = parse_next(parser, diagnostics);
   if (rparen.kind != tk_ParenRight) {
@@ -341,92 +345,98 @@ static void ast_certain_parseGroupExpr(ast_Expr *bptr,
                      .children_len = 0};
   }
 
-  bptr->common.span = com_loc_span_m(lparen.span.start, rparen.span.end);
-  return;
+  ptr->common.span = com_loc_span_m(lparen.span.start, rparen.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseRetExpr(ast_Expr *rep,
-                                     DiagnosticLogger *diagnostics,
-                                     ast_Constructor *parser) {
-  com_mem_zero_obj_m(rep);
-  rep->kind = ast_EK_Ret;
-
+static ast_Expr *ast_certain_parseRetExpr(DiagnosticLogger *diagnostics,
+                                          ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Ret, "expected tk_Ret");
+
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Ret;
 
   com_loc_LnCol start = t.span.start;
 
   // return's scope
-  rep->ret.label = parse_alloc_obj_m(parser, ast_Label);
-  ast_parseLabel(rep->ret.label, diagnostics, parser);
+  ptr->ret.label = ast_parseLabel(diagnostics, parser);
 
   // value to return
-  rep->ret.expr = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseTermExpr(rep->ret.expr, diagnostics, parser);
+  ptr->ret.expr = ast_parseTermExpr(diagnostics, parser);
 
-  // span
-  rep->common.span = com_loc_span_m(start, rep->ret.expr->common.span.end);
-  return;
+  // common
+  ptr->common.span = com_loc_span_m(start, ptr->ret.expr->common.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseLoopExpr(ast_Expr *lep,
-                                      DiagnosticLogger *diagnostics,
-                                      ast_Constructor *parser) {
-  lep->kind = ast_EK_Loop;
-
+static ast_Expr *ast_certain_parseLoopExpr(DiagnosticLogger *diagnostics,
+                                           ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Loop, "expected tk_Loop");
   com_loc_LnCol start = t.span.start;
 
-  lep->loop.body = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseTermExpr(lep->loop.body, diagnostics, parser);
-  lep->common.span = com_loc_span_m(start, lep->loop.body->common.span.end);
-  return;
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Loop;
+  ptr->loop.body = ast_parseTermExpr(diagnostics, parser);
+  // common
+  ptr->common.span = com_loc_span_m(start, ptr->loop.body->common.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseIdentifierExpr(ast_Expr *rptr,
-                                            DiagnosticLogger *diagnostics,
-                                            ast_Constructor *parser) {
-  com_mem_zero_obj_m(rptr);
-  rptr->kind = ast_EK_Reference;
-  rptr->reference.reference = parse_alloc_obj_m(parser, ast_Identifier);
-  ast_parseIdentifier(rptr->reference.reference, diagnostics, parser);
-  rptr->common.span = rptr->reference.reference->span;
-  return;
+static ast_Expr *ast_certain_parseIdentifierExpr(DiagnosticLogger *diagnostics,
+                                                 ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
+
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Reference;
+  ptr->reference.reference = ast_parseIdentifier(diagnostics, parser);
+  // common
+  ptr->common.span = ptr->reference.reference->span;
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
 // '$' binding
-static void ast_certain_parseBindExpr(ast_Expr *vbp,
-                                      DiagnosticLogger *diagnostics,
-                                      ast_Constructor *parser) {
-  com_mem_zero_obj_m(vbp);
-  vbp->kind = ast_EK_Bind;
+static ast_Expr *ast_certain_parseBindExpr(DiagnosticLogger *diagnostics,
+                                           ast_Constructor *parser) {
 
-  // ensure token is tk bind
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Bind, "expected tk_Bind");
 
-  // now parse bind
-  ast_Identifier *bind = parse_alloc_obj_m(parser, ast_Identifier);
-  ast_parseIdentifier(bind, diagnostics, parser);
-  vbp->bind.bind = bind;
-  vbp->common.span = com_loc_span_m(t.span.start, vbp->bind.bind->span.end);
-  return;
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Bind;
+  ptr->bind.bind = ast_parseIdentifier(diagnostics, parser);
+
+  // common
+  ptr->common.span = com_loc_span_m(t.span.start, ptr->bind.bind->span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseStructExpr(ast_Expr *bptr,
-                                        DiagnosticLogger *diagnostics,
-                                        ast_Constructor *parser) {
-  com_mem_zero_obj_m(bptr);
-  bptr->kind = ast_EK_Struct;
-
+static ast_Expr *ast_certain_parseStructExpr(DiagnosticLogger *diagnostics,
+                                             ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   // Parse leftbrace
   Token lbrace = parse_next(parser, diagnostics);
   com_assert_m(lbrace.kind == tk_BraceLeft, "expected tk_BraceLeft");
 
-  bptr->structLiteral.expr = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(bptr->structLiteral.expr, diagnostics, parser);
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Struct;
+  ptr->structLiteral.expr = ast_parseExpr(diagnostics, parser);
 
+  // expect rbrace
   Token rbrace = parse_next(parser, diagnostics);
   if (rbrace.kind != tk_BraceRight) {
     *dlogger_append(diagnostics, true) =
@@ -436,29 +446,33 @@ static void ast_certain_parseStructExpr(ast_Expr *bptr,
                      .children_len = 0};
   }
 
-  bptr->common.span = com_loc_span_m(lbrace.span.start, rbrace.span.end);
-  return;
+  ptr->common.span = com_loc_span_m(lbrace.span.start, rbrace.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseDeferExpr(ast_Expr *dsp,
-                                       DiagnosticLogger *diagnostics,
-                                       ast_Constructor *parser) {
-  dsp->kind = ast_EK_Defer;
+static ast_Expr *ast_certain_parseDeferExpr(DiagnosticLogger *diagnostics,
+                                            ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   Token t = parse_next(parser, diagnostics);
   com_assert_m(t.kind == tk_Defer, "expected tk_Defer");
 
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Defer;
+
   // label
-  dsp->defer.label = parse_alloc_obj_m(parser, ast_Label);
-  ast_parseLabel(dsp->defer.label, diagnostics, parser);
+  ptr->defer.label = ast_parseLabel(diagnostics, parser);
 
   // value
-  dsp->defer.val = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(dsp->defer.val, diagnostics, parser);
+  ptr->defer.val = ast_parseExpr(diagnostics, parser);
 
   // span
-  dsp->common.span =
-      com_loc_span_m(t.span.start, dsp->defer.val->common.span.end);
-  return;
+  ptr->common.span =
+      com_loc_span_m(t.span.start, ptr->defer.val->common.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
 static ast_ExprBinaryOpKind ast_opDetCaseOptionExpr(tk_Kind tk) {
@@ -474,22 +488,21 @@ static ast_ExprBinaryOpKind ast_opDetCaseOptionExpr(tk_Kind tk) {
 DEFN_PARSE_L_BINARY(ast_parseSequenceable, ast_opDetCaseOptionExpr,
                     ast_parseCaseOptionExpr)
 
-static void ast_certain_parseCaseExpr(ast_Expr *mptr,
-                                      DiagnosticLogger *diagnostics,
-                                      ast_Constructor *parser) {
+static ast_Expr *ast_certain_parseCaseExpr(DiagnosticLogger *diagnostics,
+                                           ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
   // guarantee token exists
   Token mt = parse_next(parser, diagnostics);
   com_assert_m(mt.kind == tk_Case, "expected tk_Case");
 
-  com_mem_zero_obj_m(mptr);
-  mptr->kind = ast_EK_CaseOf;
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_CaseOf;
 
-  mptr->caseof.expr = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseExpr(mptr->caseof.expr, diagnostics, parser);
+  ptr->caseof.expr = ast_parseExpr(diagnostics, parser);
 
   // Expect of
   Token oftk = parse_next(parser, diagnostics);
-  if (oftk.kind != tk_BraceLeft) {
+  if (oftk.kind != tk_Of) {
     *dlogger_append(diagnostics, true) =
         (Diagnostic){.span = oftk.span,
                      .severity = DSK_Information,
@@ -498,27 +511,70 @@ static void ast_certain_parseCaseExpr(ast_Expr *mptr,
   }
 
   // parse CaseOptions
-  mptr->caseof.cases = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseCaseOptionExpr(mptr->caseof.cases, diagnostics, parser);
+  ptr->caseof.cases = ast_parseCaseOptionExpr(diagnostics, parser);
 
-  mptr->common.span =
-      com_loc_span_m(mt.span.start, mptr->caseof.cases->common.span.end);
-  return;
+  ptr->common.span =
+      com_loc_span_m(mt.span.start, ptr->caseof.cases->common.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 
-static void ast_certain_parseLabelExpr(ast_Expr *lptr,
-                                       DiagnosticLogger *diagnostics,
-                                       ast_Constructor *parser) {
-  lptr->kind = ast_EK_Label;
-  lptr->label.label = parse_alloc_obj_m(parser, ast_Label);
-  ast_parseLabel(lptr->label.label, diagnostics, parser);
+static ast_Expr *ast_certain_parseIfExpr(DiagnosticLogger *diagnostics,
+                                         ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
+  // guarantee token exists
+  Token mt = parse_next(parser, diagnostics);
+  com_assert_m(mt.kind == tk_If, "expected tk_If");
 
-  lptr->label.val = parse_alloc_obj_m(parser, ast_Expr);
-  ast_parseTermExpr(lptr->label.val, diagnostics, parser);
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_IfThen;
+  ptr->ifthen.expr = ast_parseExpr(diagnostics, parser);
 
-  lptr->common.span = com_loc_span_m(lptr->label.label->span.start,
-                                     lptr->label.val->common.span.end);
-  return;
+  // Expect then
+  Token thentk = parse_next(parser, diagnostics);
+  if (thentk.kind != tk_Then) {
+    *dlogger_append(diagnostics, true) = (Diagnostic){
+        .span = thentk.span,
+        .severity = DSK_Information,
+        .message = com_str_lit_m("If expected then after expression"),
+        .children_len = 0};
+  }
+
+  // parse Then
+  ptr->caseof.cases = ast_parseExpr(diagnostics, parser);
+
+  // expect Else
+  Token elsetk = parse_next(parser, diagnostics);
+  if (elsetk.kind != tk_Else) {
+    *dlogger_append(diagnostics, true) = (Diagnostic){
+        .span = elsetk.span,
+        .severity = DSK_Information,
+        .message = com_str_lit_m("If expected else after then expression"),
+        .children_len = 0};
+  }
+
+  ptr->common.span =
+      com_loc_span_m(mt.span.start, ptr->caseof.cases->common.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
+}
+
+static ast_Expr *ast_certain_parseLabelExpr(DiagnosticLogger *diagnostics,
+                                            ast_Constructor *parser) {
+  com_vec metadata = parse_getMetadata(parser, diagnostics);
+
+  ast_Expr *ptr = parse_alloc_obj_m(parser, ast_Expr);
+  ptr->kind = ast_EK_Label;
+  ptr->label.label = ast_parseLabel(diagnostics, parser);
+  ptr->label.val = ast_parseTermExpr(diagnostics, parser);
+
+  ptr->common.span = com_loc_span_m(ptr->label.label->span.start,
+                                    ptr->label.val->common.span.end);
+  ptr->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+  ptr->common.metadata = com_vec_release(&metadata);
+  return ptr;
 }
 // paren, literals do block
 // LEFT  (function application) match >> @ & . ... [] (postfixes)
@@ -534,87 +590,75 @@ static void ast_certain_parseLabelExpr(ast_Expr *lptr,
 // RIGHT ->
 // RIGHT <<
 
-static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
-                              ast_Constructor *parser) {
+static ast_Expr *ast_parseTermExpr(DiagnosticLogger *diagnostics,
+                                   ast_Constructor *parser) {
 
-  // value metadata;
-  com_vec metadata = parse_getMetadata(parser, diagnostics);
-
-  Token t = parse_peek(parser, diagnostics, 1);
+  Token t = parse_peekPastMetadata(parser, diagnostics, 1);
   // Decide which expression it is
   switch (t.kind) {
   // Literals
   case tk_Void: {
-    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_Void);
-    break;
+    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_Void);
   }
   case tk_VoidType: {
-    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_VoidType);
-    break;
+    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_VoidType);
   }
   case tk_NeverType: {
-    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_NeverType);
-    break;
+    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_NeverType);
   }
   case tk_Ignore: {
-    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_BindIgnore);
-    break;
+    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_BindIgnore);
   }
   case tk_Splat: {
-    ast_parseSimpleExpr(l, diagnostics, parser, ast_EK_BindSplat);
-    break;
+    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_BindSplat);
   }
   case tk_Int: {
-    ast_certain_parseIntExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseIntExpr(diagnostics, parser);
   }
   case tk_Real: {
-    ast_certain_parseRealExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseRealExpr(diagnostics, parser);
   }
   case tk_BraceLeft: {
-    ast_certain_parseStructExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseStructExpr(diagnostics, parser);
   }
   case tk_String: {
-    ast_certain_parseStringExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseStringExpr(diagnostics, parser);
   }
   case tk_ParenLeft: {
-    ast_certain_parseGroupExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseGroupExpr(diagnostics, parser);
   }
   case tk_Ret: {
-    ast_certain_parseRetExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseRetExpr(diagnostics, parser);
   }
   case tk_Defer: {
-    ast_certain_parseDeferExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseDeferExpr(diagnostics, parser);
   }
   case tk_Loop: {
-    ast_certain_parseLoopExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseLoopExpr(diagnostics, parser);
+  }
+  case tk_If: {
+    return ast_certain_parseIfExpr(diagnostics, parser);
   }
   case tk_Case: {
-    ast_certain_parseCaseExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseCaseExpr(diagnostics, parser);
   }
   case tk_Label: {
-    ast_certain_parseLabelExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseLabelExpr(diagnostics, parser);
   }
   case tk_Bind: {
-    ast_certain_parseBindExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseBindExpr(diagnostics, parser);
   }
   case tk_Identifier: {
-    ast_certain_parseIdentifierExpr(l, diagnostics, parser);
-    break;
+    return ast_certain_parseIdentifierExpr(diagnostics, parser);
   }
   default: {
+    // value metadata;
+    com_vec metadata = parse_getMetadata(parser, diagnostics);
+    ast_Expr *l = parse_alloc_obj_m(parser, ast_Expr);
     l->kind = ast_EK_None;
     l->common.span = t.span;
+    l->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
+    l->common.metadata = com_vec_release(&metadata);
     parse_next(parser, diagnostics);
 
     Diagnostic *hint = dlogger_append(diagnostics, false);
@@ -622,17 +666,15 @@ static void ast_parseTermExpr(ast_Expr *l, DiagnosticLogger *diagnostics,
                          .severity = DSK_Hint,
                          .message = tk_strKind(t.kind),
                          .children_len = 0};
-
     *dlogger_append(diagnostics, true) =
         (Diagnostic){.span = t.span,
                      .severity = DSK_Error,
                      .message = com_str_lit_m("DK_UnexpectedToken"),
                      .children = hint,
                      .children_len = 1};
+    return l;
   }
   }
-  l->common.metadata_len = com_vec_len_m(&metadata, ast_Metadata);
-  l->common.metadata = com_vec_release(&metadata);
 }
 
 static ast_ExprBinaryOpKind ast_opDetModuleAccess(tk_Kind tk) {
@@ -661,16 +703,17 @@ static ast_ExprBinaryOpKind ast_opDetRevApplyExpr(tk_Kind tk) {
 DEFN_PARSE_L_BINARY(ast_parseModuleAccessExpr, ast_opDetRevApplyExpr,
                     ast_parseRevApplyExpr)
 
-static void ast_parseApplyExpr(ast_Expr *aptr, DiagnosticLogger *diagnostics,
-                               ast_Constructor *parser) {
+static ast_Expr *ast_parseApplyExpr(DiagnosticLogger *diagnostics,
+                                    ast_Constructor *parser) {
   /* parse lower expr */
-  ast_parseRevApplyExpr(aptr, diagnostics, parser);
+  ast_Expr *aptr = ast_parseRevApplyExpr(diagnostics, parser);
 
   while (true) {
     /* get next token */
     Token t = parse_peekPastMetadata(parser, diagnostics, 1);
     /* if token is invalid we can just return the current expr */
     switch (t.kind) {
+    case tk_If:
     case tk_Int:
     case tk_Real:
     case tk_BraceLeft:
@@ -682,7 +725,6 @@ static void ast_parseApplyExpr(ast_Expr *aptr, DiagnosticLogger *diagnostics,
     case tk_NeverType:
     case tk_Defer:
     case tk_Loop:
-    case tk_At:
     case tk_Bind:
     case tk_Ignore:
     case tk_Splat:
@@ -691,31 +733,25 @@ static void ast_parseApplyExpr(ast_Expr *aptr, DiagnosticLogger *diagnostics,
     case tk_Case:
       break;
     default:
-      return;
+      return aptr;
     }
+    // the following will only execute if there is a valid operation
 
-    /* if the operation was sucessful, we make the previous expr the left
-     * operand */
-    ast_Expr *left_operand = parse_alloc_obj_m(parser, ast_Expr);
-    com_mem_swap(aptr, left_operand, sizeof(ast_Expr));
+    ast_Expr *left_operand = aptr;
 
-    /* now we can mutate the expr */
+    aptr = parse_alloc_obj_m(parser, ast_Expr);
     aptr->kind = ast_EK_BinaryOp;
     aptr->binaryOp.op = ast_EBOK_Apply;
     aptr->binaryOp.left_operand = left_operand;
-
-    // no metadata
-    aptr->common.metadata_len = 0;
-
-    /* now parse the rest of the expression */
-    aptr->binaryOp.right_operand = parse_alloc_obj_m(parser, ast_Expr);
     /* Note that we parse with the lower expression to prevent recursion */
-    ast_parseRevApplyExpr(aptr->binaryOp.right_operand, diagnostics, parser);
+    aptr->binaryOp.right_operand = ast_parseRevApplyExpr(diagnostics, parser);
 
     /* set our span */
     aptr->common.span =
         com_loc_span_m(left_operand->common.span.start,
                        aptr->binaryOp.right_operand->common.span.end);
+    // no metadata
+    aptr->common.metadata_len = 0;
   }
 }
 
@@ -842,9 +878,6 @@ static ast_ExprBinaryOpKind ast_opDetBoolExpr(tk_Kind tk) {
   case tk_Or: {
     return ast_EBOK_Or;
   }
-  case tk_Xor: {
-    return ast_EBOK_Xor;
-  }
   default: {
     return ast_EBOK_None;
   }
@@ -943,7 +976,8 @@ static ast_ExprBinaryOpKind ast_opDetDefunExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_BINARY(ast_parsePipeForwardExpr, ast_opDetDefunExpr, ast_parseDefunExpr)
+DEFN_PARSE_R_BINARY(ast_parsePipeForwardExpr, ast_opDetDefunExpr,
+                    ast_parseDefunExpr)
 
 static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
   switch (tk) {
@@ -955,11 +989,12 @@ static ast_ExprBinaryOpKind ast_opDetAssignExpr(tk_Kind tk) {
   }
   }
 }
-DEFN_PARSE_R_BINARY(ast_parseDefunExpr, ast_opDetAssignExpr, ast_parseAssignExpr)
+DEFN_PARSE_R_BINARY(ast_parseDefunExpr, ast_opDetAssignExpr,
+                    ast_parseAssignExpr)
 
-void ast_parseSequenceable(ast_Expr *expr, DiagnosticLogger *diagnostics,
-                           ast_Constructor *parser) {
-  ast_parseAssignExpr(expr, diagnostics, parser);
+ast_Expr *ast_parseSequenceable(DiagnosticLogger *diagnostics,
+                                ast_Constructor *parser) {
+  return ast_parseAssignExpr(diagnostics, parser);
 }
 
 static ast_ExprBinaryOpKind ast_opDetSequenceExpr(tk_Kind tk) {
@@ -975,9 +1010,9 @@ static ast_ExprBinaryOpKind ast_opDetSequenceExpr(tk_Kind tk) {
 DEFN_PARSE_L_BINARY(ast_parseAssignExpr, ast_opDetSequenceExpr,
                     ast_parseSequenceExpr)
 
-void ast_parseExpr(ast_Expr *expr, DiagnosticLogger *diagnostics,
-                   ast_Constructor *parser) {
-  ast_parseSequenceExpr(expr, diagnostics, parser);
+ast_Expr *ast_parseExpr(DiagnosticLogger *diagnostics,
+                        ast_Constructor *parser) {
+  return ast_parseSequenceExpr(diagnostics, parser);
 }
 
 bool ast_eof(ast_Constructor *parser, DiagnosticLogger *d) {

@@ -136,8 +136,12 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_And");
   case tk_Or:
     return com_str_lit_m("tk_Or");
-  case tk_Xor:
-    return com_str_lit_m("tk_Xor");
+  case tk_If:
+    return com_str_lit_m("tk_If");
+  case tk_Then:
+    return com_str_lit_m("tk_Then");
+  case tk_Else:
+    return com_str_lit_m("tk_Else");
   }
 
   com_assert_unreachable_m("control flow reaches end of token");

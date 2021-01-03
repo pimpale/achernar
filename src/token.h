@@ -15,6 +15,9 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
+  tk_If,     // if
+  tk_Then,   // then
+  tk_Else,   // else
   tk_Loop,   // loop
   tk_Of,     // of
   tk_Pat,    // pat
@@ -45,7 +48,6 @@ typedef enum {
   // Boolean Operators
   tk_And, // and
   tk_Or,  // or
-  tk_Xor, // xor
   // Set Operators
   tk_Union,        // \/ union
   tk_Intersection, // /\ intersection

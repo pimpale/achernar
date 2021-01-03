@@ -648,8 +648,12 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_VoidType;
   } else if (com_str_equal(str, com_str_lit_m("or"))) {
     token.kind = tk_Or;
-  } else if (com_str_equal(str, com_str_lit_m("xor"))) {
-    token.kind = tk_Xor;
+  } else if (com_str_equal(str, com_str_lit_m("if"))) {
+    token.kind = tk_If;
+  } else if (com_str_equal(str, com_str_lit_m("then"))) {
+    token.kind = tk_Then;
+  } else if (com_str_equal(str, com_str_lit_m("else"))) {
+    token.kind = tk_Else;
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;

@@ -78,7 +78,6 @@ typedef enum {
   // Booleans
   ast_EBOK_And,
   ast_EBOK_Or,
-  ast_EBOK_Xor,
   // Comparison
   ast_EBOK_CompEqual,
   ast_EBOK_CompNotEqual,
@@ -121,6 +120,7 @@ typedef enum {
   ast_EK_Struct,   // Constructs a new compound type
   ast_EK_BinaryOp, // Binary operation
   ast_EK_Ret,      // Returns from a scope with a value
+  ast_EK_IfThen,       // if then else expression
   ast_EK_CaseOf,   // Matches an expression to the first matching pattern and
                    // destructures it
   ast_EK_Group,    // Introduces new scope and label
@@ -170,6 +170,11 @@ typedef struct ast_Expr_s {
       ast_Expr *expr;
       ast_Expr *cases;
     } caseof;
+    struct {
+      ast_Expr *expr;
+      ast_Expr *then_expr;
+      ast_Expr *else_expr;
+    } ifthen;
     struct {
       ast_Expr *expr;
     } group;

@@ -1,5 +1,4 @@
 # we're going to give the classic hello world in achernar
-
 $* = _import("com::io");
 
 com::iostdout::print "hello world"

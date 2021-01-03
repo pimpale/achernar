@@ -1,27 +1,27 @@
 $Stmnt = struct {
   $value = enum {
     $fnDecl = struct {
-      $name = char&, usize;
-      $params = Binding&, usize;
-      $kind = TypeExpr&;
-      $body = ValueExpr&
+      $name = char.&, usize;
+      $params = Binding.&, usize;
+      $kind = TypeExpr.&;
+      $body = ValueExpr.&
     };
     $varDecl = struct {
-      $binding = Binding&;
-      $value = ValueExpr&
+      $binding = Binding.&;
+      $value = ValueExpr.&
     };
     $assignStmnt = struct {
-      $lvalue = ValueExpr&;
-      $rvalue = ValueExpr&
+      $lvalue = ValueExpr.&;
+      $rvalue = ValueExpr.&
     };
     $aliasStmnt = struct {
-      $name = char&, usize;
-      $kind = Type&
+      $name = char.&, usize;
+      $kind = Type.&
     };
     $exprStmnt = struct {
-      $value = ValueExpr&
+      $value = ValueExpr.&
     }
   };
   $span = Span;
-  $diagnostics = Diagnostic&, usize
+  $diagnostics = Diagnostic.&, usize
 }

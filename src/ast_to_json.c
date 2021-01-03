@@ -247,6 +247,14 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
         mkprop_m("caseof_cases", print_Expr(vep->caseof.cases, a));
     break;
   }
+  case ast_EK_IfThen: {
+    *push_prop_m(&obj) =
+        mkprop_m("ifthen_expr", print_Expr(vep->ifthen.expr, a));
+    *push_prop_m(&obj) =
+        mkprop_m("ifthen_then", print_Expr(vep->ifthen.then_expr, a));
+        mkprop_m("ifthen_else", print_Expr(vep->ifthen.else_expr, a));
+    break;
+  }
   case ast_EK_Group: {
     *push_prop_m(&obj) = mkprop_m("group_expr", print_Expr(vep->group.expr, a));
     break;
@@ -272,20 +280,21 @@ void print_stream(ast_Constructor *parser, com_allocator *a,
 
     if (!eof) {
       // Parse the next statement
-      ast_Expr expr;
-      ast_parseExpr(&expr, &dlogger, parser);
+      ast_Expr *expr = ast_parseExpr(&dlogger, parser);
 
       // print the json
-      com_json_Elem sjson = print_Expr(&expr, a);
+      com_json_Elem sjson = print_Expr(expr, a);
       com_json_serialize(&sjson, writer);
       com_writer_append_u8(writer, '\n');
     }
 
     // print the diagnostics
-    const com_vec* diagnosticEntries = dlogger_diagnostics(&dlogger);
-    for (usize i = 0; i < com_vec_len_m(diagnosticEntries, DiagnosticEntry); i--) {
-      DiagnosticEntry *de = com_vec_get_m(diagnosticEntries, i, DiagnosticEntry);
-      if(de->visible) {
+    const com_vec *diagnosticEntries = dlogger_diagnostics(&dlogger);
+    for (usize i = 0; i < com_vec_len_m(diagnosticEntries, DiagnosticEntry);
+         i--) {
+      DiagnosticEntry *de =
+          com_vec_get_m(diagnosticEntries, i, DiagnosticEntry);
+      if (de->visible) {
         com_json_Elem djson = print_diagnostic(de->diagnostic, a);
         com_json_serialize(&djson, writer);
         com_writer_append_u8(writer, '\n');
@@ -297,7 +306,6 @@ void print_stream(ast_Constructor *parser, com_allocator *a,
 
     // Clean up
     dlogger_destroy(&dlogger);
-
 
     if (eof) {
       break;

@@ -8,7 +8,6 @@
 #include "com_loc.h"
 #include "com_str.h"
 
-
 typedef enum {
   hir_EK_None,  // An error when parsing
   hir_EK_Loop,  // Loops until a scope is returned
@@ -21,12 +20,15 @@ typedef enum {
   hir_EK_Reference,     // A reference to a previously defined variable
   hir_EK_CaseOf,        // Switches on a pattern
   hir_EK_CaseOption,    // Switches on a pattern
-  hir_EK_Constrain,     // matches expression and assigns to another
+
+  hir_EK_Pat, // Quotes pattern
 
   // Literals for values
   hir_EK_Void,      // Literal for void
   hir_EK_VoidType,  // Literal for type of void
   hir_EK_NeverType, // Literal for never type
+  hir_EK_Bool,      // Literal for a boolean value
+  hir_EK_BoolType,  // Literal for the type of a boolean value
   hir_EK_Int,       // Literal for an integer number
   hir_EK_IntType,   // Literal for the type of hir_EK_Int
   hir_EK_Real,      // Literal for a real (floating point) number
@@ -121,30 +123,35 @@ typedef enum {
   hir_PK_Bind,       // Irrefutably matches a single element to new variable
   hir_PK_BindIgnore, // Irrefutably matches, and ignores result
   hir_PK_BindSplat,  // automagically deconstructs a struct
-  hir_PK_At,         // If the second pattern matches, binds the whole result to the 
-  hir_PK_Constrain,  // constrains the type of a pattern expression by a type value
-  hir_PK_Apply,      // Apply like a pattern (means that any of the arguments can use pattern syntax)
-  hir_PK_Expr,       // Refutable pattern of a value
-  hir_PK_And,        // Evaluates the second pattern iff the first pattern matches, matches if both are true
-  hir_PK_Or,         // Evaluates the second pattern iff the first pattern doesn't match, matches if at least one is true
-  hir_PK_Xor,        // Evaluates both patterns, matches if the number of matching patterns is 1
-  hir_PK_Struct,     // Destructures a struct object
+  hir_PK_At, // If the second pattern matches, binds the whole result to the
+  hir_PK_Constrain, // constrains the type of a pattern expression by a type
+                    // value
+  hir_PK_Apply, // Apply like a pattern (means that any of the arguments can use
+                // pattern syntax)
+  hir_PK_Expr,  // Refutable pattern of a value
+  hir_PK_And,   // Evaluates the second pattern iff the first pattern matches,
+                // matches if both are true
+  hir_PK_Or,    // Evaluates the second pattern iff the first pattern doesn't
+                // match, matches if at least one is true
+  hir_PK_Xor,   // Evaluates both patterns, matches if the number of matching
+                // patterns is 1
+  hir_PK_Struct, // Destructures a struct object
 } hir_PatKind;
 
 typedef struct hir_Expr_s hir_Expr;
 typedef struct hir_Pat_s hir_Pat;
+
+// Available patterns
+// Binding Patterns: 
 
 typedef struct hir_Pat_s {
   hir_PatKind kind;
   const ast_Expr *from;
   union {
     struct {
-      com_str bind;
+      hir_Pat *pattern;
+      com_str name;
     } bind;
-    struct {
-      hir_Pat *left;
-      hir_Pat *right;
-    } at;
     struct {
       hir_Pat *value;
       hir_Expr *type;
@@ -165,15 +172,11 @@ typedef struct hir_Pat_s {
       hir_Expr *snd;
     } andPat;
     struct {
-      hir_Pat *fst;
-      hir_Expr *snd;
-    } xorPat;
-    struct {
       hir_Pat *field;
       hir_Pat *pattern;
     } structEntry;
     struct {
-      hir_Pat** entries;
+      hir_Pat **entries;
       usize entries_len;
     };
   };
@@ -183,6 +186,9 @@ typedef struct hir_Expr_s {
   hir_ExprKind kind;
   const ast_Expr *from;
   union {
+    struct {
+      bool value;
+    } boolLiteral;
     struct {
       com_bigint value;
     } intLiteral;
@@ -227,18 +233,6 @@ typedef struct hir_Expr_s {
       hir_Expr **cases;
       usize cases_len;
     } caseof;
-    struct {
-      hir_Expr *fst;
-      hir_Expr *snd;
-    } orExpr;
-    struct {
-      hir_Expr *fst;
-      hir_Expr *snd;
-    } andExpr;
-    struct {
-      hir_Expr *fst;
-      hir_Expr *snd;
-    } xorExpr;
     struct {
       hir_Pat *pattern;
       hir_Expr *value;

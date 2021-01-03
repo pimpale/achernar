@@ -8,6 +8,14 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Eof");
   case tk_None:
     return com_str_lit_m("tk_None");
+  case tk_True:
+    return com_str_lit_m("tk_True");
+  case tk_False:
+    return com_str_lit_m("tk_False");
+  case tk_Bool:
+    return com_str_lit_m("tk_Bool");
+  case tk_Val:
+    return com_str_lit_m("tk_Val");
   case tk_Identifier:
     return com_str_lit_m("tk_Identifier");
   case tk_Loop:
@@ -36,8 +44,8 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Defer");
   case tk_Where:
     return com_str_lit_m("tk_Where");
-  case tk_At:
-    return com_str_lit_m("tk_At");
+  case tk_As:
+    return com_str_lit_m("tk_As");
   case tk_Dyn:
     return com_str_lit_m("tk_Dyn");
   case tk_Impl:

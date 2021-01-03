@@ -101,7 +101,7 @@ typedef enum {
   // Sequence
   ast_EBOK_Sequence,
   // Pattern rename
-  ast_EBOK_At,
+  ast_EBOK_As,
   // Module Access
   ast_EBOK_ModuleAccess,
 } ast_ExprBinaryOpKind;
@@ -110,11 +110,14 @@ typedef enum {
   ast_EK_None,     // An error when parsing
   ast_EK_Void,      // Literal for void
   ast_EK_VoidType,  // Literal for void type
-  ast_EK_NeverType,  // Literal for void type
+  ast_EK_NeverType, // Literal for never type
   ast_EK_Int,      // Literal for an integer number
+  ast_EK_Bool,     // Literal for a boolean
   ast_EK_Real,     // Literal for a real (floating point) number
   ast_EK_String,   // A string literal
   ast_EK_Loop,     // Loops until a scope is returned
+  ast_EK_Val,      // embed a computed value in a pattern
+  ast_EK_Pat,      // quote a pattern
   ast_EK_Label,    // Wraps a term in a label that can be deferred or returned from
   ast_EK_Defer,    // Defer until label
   ast_EK_Struct,   // Constructs a new compound type
@@ -138,6 +141,9 @@ typedef struct ast_Expr_s {
       com_bigint value;
     } intLiteral;
     struct {
+      bool value;
+    } boolLiteral;
+    struct {
       com_bigdecimal value;
     } realLiteral;
     struct {
@@ -150,6 +156,12 @@ typedef struct ast_Expr_s {
     struct {
       ast_Expr *body;
     } loop;
+    struct {
+      ast_Expr *val;
+    } val;
+    struct {
+      ast_Expr *pat;
+    } pat;
     struct {
       ast_Label *label;
       ast_Expr *val;

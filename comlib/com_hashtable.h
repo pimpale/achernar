@@ -10,10 +10,9 @@
 #include "com_str.h"
 
 typedef struct {
-	bool valid;
-	void* value;
+  bool valid;
+  void *value;
 } com_hashtable_Result;
-
 
 // the key, a cache of its hash and a handle for the memory allocated for it
 typedef struct {
@@ -22,7 +21,7 @@ typedef struct {
 } com_hashtable_Key;
 
 typedef struct {
-	com_hashtable_Key _key;
+  com_hashtable_Key _key;
   // pointer to the value
   void *_value;
 
@@ -31,10 +30,11 @@ typedef struct {
 } com_hashtable_KeyValuePair;
 
 // the color is used when resizing the table in place
-// it ensures that we don't waste time checking if elements are in the right place
+// it ensures that we don't waste time checking if elements are in the right
+// place
 typedef enum {
-com_hashtable_RED,
-com_hashtable_BLUE,
+  com_hashtable_RED,
+  com_hashtable_BLUE,
 } com_hashtable_ResizeColor;
 
 typedef struct {
@@ -51,31 +51,31 @@ typedef struct {
   // the seed for this particular table hasher
   u64 _seed;
 
-	// memory allocation for `_buckets`
-	com_allocator_Handle _buckets_handle;
+  // memory allocation for `_buckets`
+  com_allocator_Handle _buckets_handle;
 
   // where the key value pairs are stored
-  com_hashtable_Bucket* _buckets;
+  com_hashtable_Bucket *_buckets;
   // how many buckets are avaliable in `_buckets`
   usize _buckets_capacity;
   // how many buckets are currently initialized
   usize _buckets_used;
 
-	// the number of buckets used above which we must expand
-	usize _buckets_expand_threshold;
+  // the number of buckets used above which we must expand
+  usize _buckets_expand_threshold;
 
-	// the number of buckets used below which we must shrink
-	usize _buckets_shrink_threshold;
+  // the number of buckets used below which we must shrink
+  usize _buckets_shrink_threshold;
 
-	// current resizing color (will swap everytime the buckets are resized)
-	com_hashtable_ResizeColor _resize_color;
+  // current resizing color (will swap everytime the buckets are resized)
+  com_hashtable_ResizeColor _resize_color;
 
-	// if we're allowed to expand or shrink the hashmap
-	bool _fixed;
+  // if we're allowed to expand or shrink the hashmap
+  bool _fixed;
 } com_hashtable;
 
 typedef struct {
-	// if the hashtable is allowed to expand
+  // if the hashtable is allowed to expand
   bool fixed_size;
 
   // hasher function to use
@@ -91,9 +91,9 @@ typedef struct {
 } com_hashtable_Settings;
 
 #define com_hashtable_DEFAULT_SETTINGS                                         \
-  ((com_hashtable_Settings){.fixed_size=false,                                 \
+  ((com_hashtable_Settings){.fixed_size = false,                               \
                             .hasher = com_hash_sip,                            \
-                            .randomly_generate_seed=true,                    \
+                            .randomly_generate_seed = true,                    \
                             .seed = 1})
 
 // Creates a hashtable using memory allocated from `a` with default capacity
@@ -106,7 +106,7 @@ com_hashtable com_hashtable_create(com_allocator_Handle handle);
 /// REQUIRES: `settings` is a valid com_hashtable_settings
 /// GUARANTEES: returns a valid com_hashtable adhering to the settings provided
 com_hashtable com_hashtable_createSettings(com_allocator_Handle handle,
-                                       com_hashtable_Settings settings);
+                                           com_hashtable_Settings settings);
 
 // frees all memory associated with this hashtable
 /// REQUIRES: `table` is a pointer to a valid com_hashtable
@@ -121,10 +121,12 @@ void com_hashtable_destroy(com_hashtable *table);
 /// REQUIRES: `value` is a pointer (does not have to be valid)
 /// GUARANTEES: if a KV pair with `key` doesn't exist, a KV pair will be
 /// created, and the value of `key` will be copied GUARANTEES: if not, the value
-/// of `key` will not by copied 
-/// GUARANTEES: if a KV pair with `key` doesn't exist, a new entry in the hash table will be created 
-/// GUARANTEES: if not, the KV pair with key `key` will have its value erased
-void com_hashtable_set(com_hashtable *hashtable, const com_str key, void *value);
+/// of `key` will not by copied
+/// GUARANTEES: if a KV pair with `key` doesn't exist, a new entry in the hash
+/// table will be created GUARANTEES: if not, the KV pair with key `key` will
+/// have its value erased
+void com_hashtable_set(com_hashtable *hashtable, const com_str key,
+                       void *value);
 
 // out of the KV Pair with key `key`, returns a the value if it exists
 /// REQUIRES: `table` is a valid pointer to a com_hashtable
@@ -133,7 +135,8 @@ void com_hashtable_set(com_hashtable *hashtable, const com_str key, void *value)
 /// REQUIRES: `value` is a valid pointer to `valuelen` bytes of memory
 /// GUARANTEES: returns the pointer stored in the KV pair or a .valid=false
 /// GUARANTEES: this pointer is valid until the next operation on `table`
-com_hashtable_Result com_hashtable_get(const com_hashtable *table, const com_str key);
+com_hashtable_Result com_hashtable_get(const com_hashtable *table,
+                                       const com_str key);
 
 // deletes the KV pair with key `key` from `table`
 /// REQUIRES: `table` is a valid pointer to a com_hashtable.
@@ -143,6 +146,7 @@ com_hashtable_Result com_hashtable_get(const com_hashtable *table, const com_str
 /// GUARANTEES: memory for the key and the value will be deallocated
 /// GUARANTEES: there are no KV pairs with key `key`
 /// GUARANTEES: returns the pointer stored in the KV pair or a .valid=false
-com_hashtable_Result com_hashtable_remove(com_hashtable *table, const com_str key);
+com_hashtable_Result com_hashtable_remove(com_hashtable *table,
+                                          const com_str key);
 
 #endif

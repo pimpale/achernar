@@ -20,6 +20,8 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_Defer");
   case ast_EK_Bind:
     return com_str_lit_m("ast_EK_Bind");
+  case ast_EK_Bool:
+    return com_str_lit_m("ast_EK_Bool");
   case ast_EK_Int:
     return com_str_lit_m("ast_EK_Int");
   case ast_EK_Real:
@@ -32,6 +34,8 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_BinaryOp");
   case ast_EK_Ret:
     return com_str_lit_m("ast_EK_Ret");
+  case ast_EK_IfThen:
+    return com_str_lit_m("ast_EK_IfThen");
   case ast_EK_CaseOf:
     return com_str_lit_m("ast_EK_CaseOf");
   case ast_EK_Group:
@@ -42,6 +46,10 @@ com_str ast_strExprKind(ast_ExprKind val) {
     return com_str_lit_m("ast_EK_BindIgnore");
   case ast_EK_BindSplat:
     return com_str_lit_m("ast_EK_BindSplat");
+  case ast_EK_Val:
+    return com_str_lit_m("ast_EK_Val");
+  case ast_EK_Pat:
+    return com_str_lit_m("ast_EK_Pat");
   }
   com_assert_unreachable_m("unreachable");
 }
@@ -71,8 +79,8 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
   switch (val) {
   case ast_EBOK_ModuleAccess:
     return com_str_lit_m("ast_EBOK_ModuleAccess");
-  case ast_EBOK_At:
-    return com_str_lit_m("ast_EBOK_At");
+  case ast_EBOK_As:
+    return com_str_lit_m("ast_EBOK_As");
   case ast_EBOK_In:
     return com_str_lit_m("ast_EBOK_In");
   case ast_EBOK_CaseOption:
@@ -97,8 +105,8 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
     return com_str_lit_m("ast_EBOK_None");
   case ast_EBOK_Constrain:
     return com_str_lit_m("ast_EBOK_Constrain");
-  case ast_EBOK_Fn:
-    return com_str_lit_m("ast_EBOK_Fn");
+  case ast_EBOK_Defun:
+    return com_str_lit_m("ast_EBOK_Defun");
   case ast_EBOK_Add:
     return com_str_lit_m("ast_EBOK_Add");
   case ast_EBOK_Sub:
@@ -113,8 +121,6 @@ com_str ast_strExprBinaryOpKind(ast_ExprBinaryOpKind val) {
     return com_str_lit_m("ast_EBOK_And");
   case ast_EBOK_Or:
     return com_str_lit_m("ast_EBOK_Or");
-  case ast_EBOK_Xor:
-    return com_str_lit_m("ast_EBOK_Xor");
   case ast_EBOK_CompEqual:
     return com_str_lit_m("ast_EBOK_CompEqual");
   case ast_EBOK_CompNotEqual:

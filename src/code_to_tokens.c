@@ -616,6 +616,14 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Loop;
   } else if (com_str_equal(str, com_str_lit_m("of"))) {
     token.kind = tk_Of;
+  } else if (com_str_equal(str, com_str_lit_m("true"))) {
+    token.kind = tk_True;
+  } else if (com_str_equal(str, com_str_lit_m("false"))) {
+    token.kind = tk_False;
+  } else if (com_str_equal(str, com_str_lit_m("bool"))) {
+    token.kind = tk_Bool;
+  } else if (com_str_equal(str, com_str_lit_m("val"))) {
+    token.kind = tk_Val;
   } else if (com_str_equal(str, com_str_lit_m("pat"))) {
     token.kind = tk_Pat;
   } else if (com_str_equal(str, com_str_lit_m("case"))) {
@@ -626,8 +634,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Self;
   } else if (com_str_equal(str, com_str_lit_m("defer"))) {
     token.kind = tk_Defer;
-  } else if (com_str_equal(str, com_str_lit_m("at"))) {
-    token.kind = tk_At;
+  } else if (com_str_equal(str, com_str_lit_m("as"))) {
+    token.kind = tk_As;
   } else if (com_str_equal(str, com_str_lit_m("inf"))) {
     token.kind = tk_Inf;
   } else if (com_str_equal(str, com_str_lit_m("nan"))) {

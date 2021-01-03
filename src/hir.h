@@ -123,9 +123,8 @@ typedef enum {
   hir_PK_Bind,       // Irrefutably matches a single element to new variable
   hir_PK_BindIgnore, // Irrefutably matches, and ignores result
   hir_PK_BindSplat,  // automagically deconstructs a struct
-  hir_PK_At, // If the second pattern matches, binds the whole result to the
-  hir_PK_Constrain, // constrains the type of a pattern expression by a type
-                    // value
+  hir_PK_Constrain,  // constrains the type of a pattern expression by a type
+                     // value
   hir_PK_Apply, // Apply like a pattern (means that any of the arguments can use
                 // pattern syntax)
   hir_PK_Expr,  // Refutable pattern of a value
@@ -133,16 +132,14 @@ typedef enum {
                 // matches if both are true
   hir_PK_Or,    // Evaluates the second pattern iff the first pattern doesn't
                 // match, matches if at least one is true
-  hir_PK_Xor,   // Evaluates both patterns, matches if the number of matching
-                // patterns is 1
-  hir_PK_Struct, // Destructures a struct object
+  hir_PK_StructEntry, // Destructures a field of a struct object
 } hir_PatKind;
 
 typedef struct hir_Expr_s hir_Expr;
 typedef struct hir_Pat_s hir_Pat;
 
 // Available patterns
-// Binding Patterns: 
+// Binding Patterns:
 
 typedef struct hir_Pat_s {
   hir_PatKind kind;
@@ -175,10 +172,6 @@ typedef struct hir_Pat_s {
       hir_Pat *field;
       hir_Pat *pattern;
     } structEntry;
-    struct {
-      hir_Pat **entries;
-      usize entries_len;
-    };
   };
 } hir_Pat;
 

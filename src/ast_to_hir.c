@@ -126,66 +126,6 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
                                  DiagnosticLogger *diagnostics,
                                  com_allocator *a);
 
-static hir_Pat *hir_applyPat(const ast_Expr *from, com_allocator *a,
-                             hir_Pat *fn, hir_Pat *param) {
-  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
-  obj->from = from;
-  obj->kind = hir_PK_Apply;
-  obj->apply.fn = fn;
-  obj->apply.param = param;
-  return obj;
-}
-
-// Translates a binary operation into a function application, left to right
-static hir_Pat *hir_translateApplyBinOpPat(const ast_Expr *from, LabelStack *ls,
-                                           DiagnosticLogger *diagnostics,
-                                           com_allocator *a, hir_Pat *fn) {
-  com_assert_m(from->kind == ast_EK_BinaryOp,
-               "provided ast_expr is not a bin op");
-
-  return hir_applyPat(
-      from, a,
-      hir_applyPat(
-          from, a, fn,
-          hir_translatePat(from->binaryOp.left_operand, ls, diagnostics, a)),
-      hir_translatePat(from->binaryOp.right_operand, ls, diagnostics, a));
-}
-
-// creates a pat out of a expr
-static hir_Pat *hir_exprPat(const ast_Expr *from, com_allocator *a,
-                            hir_Expr *expr) {
-
-  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
-  obj->from = from;
-  obj->kind = hir_PK_Expr;
-  obj->expr.expr = expr;
-  return obj;
-}
-
-// Translates a binary operation into a function application
-static hir_Pat *hir_translateReferenceBinOpPat(const ast_Expr *from,
-                                               LabelStack *ls,
-                                               DiagnosticLogger *diagnostics,
-                                               com_allocator *a,
-                                               com_str fname) {
-  return hir_translateApplyBinOpPat(
-      from, ls, diagnostics, a,
-      hir_exprPat(from, a, hir_referenceExpr(from, a, fname)));
-}
-
-// returns an instantiated
-static hir_Pat *hir_simplePat(const ast_Expr *from, com_allocator *a,
-                              hir_PatKind ek) {
-  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
-  obj->from = from;
-  obj->kind = ek;
-  return obj;
-}
-
-static hir_Pat *hir_nonePat(const ast_Expr *from, com_allocator *a) {
-  return hir_simplePat(from, a, hir_PK_None);
-}
-
 static hir_Expr *hir_referenceExpr(const ast_Expr *from, com_allocator *a,
                                    com_str ref) {
   hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
@@ -268,6 +208,10 @@ static hir_Expr *hir_caseOptionExpr(const ast_Expr *from, com_allocator *a,
   co->caseoption.result = result;
   return co;
 }
+
+// Forward declaration
+static hir_Pat *hir_exprPat(const ast_Expr *from, com_allocator *a,
+                            hir_Expr *expr);
 
 // returns an instantiated
 static hir_Expr *hir_simpleExpr(const ast_Expr *from, com_allocator *a,
@@ -490,6 +434,8 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
         hir_exprPat(vep->ifthen.else_expr, a,
                     hir_createBoolLiteralExpr(vep->ifthen.else_expr, a, false)),
         hir_translateExpr(vep->ifthen.else_expr, ls, diagnostics, a));
+
+    return obj;
   }
   case ast_EK_CaseOf: {
     hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
@@ -552,11 +498,11 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     case ast_EBOK_None: {
       return hir_noneExpr(vep, a);
     }
-    case ast_EBOK_At: {
+    case ast_EBOK_As: {
       *dlogger_append(diagnostics, true) = (Diagnostic){
           .span = vep->common.span,
           .severity = DSK_Error,
-          .message = com_str_lit_m("at operator is only valid in a pattern"),
+          .message = com_str_lit_m("as operator is only valid in a pattern"),
           .children_len = 0};
       return hir_noneExpr(vep, a);
     }
@@ -798,37 +744,73 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
   }
   }
 }
+
+static hir_Pat *hir_applyPat(const ast_Expr *from, com_allocator *a,
+                             hir_Pat *fn, hir_Pat *param) {
+  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+  obj->from = from;
+  obj->kind = hir_PK_Apply;
+  obj->apply.fn = fn;
+  obj->apply.param = param;
+  return obj;
+}
+
+// Translates a binary operation into a function application, left to right
+static hir_Pat *hir_translateApplyBinOpPat(const ast_Expr *from, LabelStack *ls,
+                                           DiagnosticLogger *diagnostics,
+                                           com_allocator *a, hir_Pat *fn) {
+  com_assert_m(from->kind == ast_EK_BinaryOp,
+               "provided ast_expr is not a bin op");
+
+  return hir_applyPat(
+      from, a,
+      hir_applyPat(
+          from, a, fn,
+          hir_translatePat(from->binaryOp.left_operand, ls, diagnostics, a)),
+      hir_translatePat(from->binaryOp.right_operand, ls, diagnostics, a));
+}
+
+// creates a pat out of a expr
+static hir_Pat *hir_exprPat(const ast_Expr *from, com_allocator *a,
+                            hir_Expr *expr) {
+
+  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+  obj->from = from;
+  obj->kind = hir_PK_Expr;
+  obj->expr.expr = expr;
+  return obj;
+}
+
+// Translates a binary operation into a function application
+static hir_Pat *hir_translateReferenceBinOpPat(const ast_Expr *from,
+                                               LabelStack *ls,
+                                               DiagnosticLogger *diagnostics,
+                                               com_allocator *a,
+                                               com_str fname) {
+  return hir_translateApplyBinOpPat(
+      from, ls, diagnostics, a,
+      hir_exprPat(from, a, hir_referenceExpr(from, a, fname)));
+}
+
+// returns an instantiated
+static hir_Pat *hir_simplePat(const ast_Expr *from, com_allocator *a,
+                              hir_PatKind ek) {
+  hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+  obj->from = from;
+  obj->kind = ek;
+  return obj;
+}
+
+static hir_Pat *hir_nonePat(const ast_Expr *from, com_allocator *a) {
+  return hir_simplePat(from, a, hir_PK_None);
+}
+
 static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
                                  DiagnosticLogger *diagnostics,
                                  com_allocator *a) {
 
   com_assert_m(vep != NULL, "source is null");
   switch (vep->kind) {
-  case ast_EK_None: {
-    return hir_nonePat(vep, a);
-  }
-  case ast_EK_Bind: {
-    hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
-    obj->from = vep;
-    switch (vep->bind.bind->kind) {
-    case ast_IK_Identifier: {
-      obj->kind = hir_PK_Bind;
-      obj->bind.bind = vep->bind.bind->id.name;
-      break;
-    }
-    case ast_IK_None: {
-      obj->kind = hir_PK_None;
-      break;
-    }
-    }
-    return obj;
-  }
-  case ast_EK_BindSplat: {
-    return hir_simplePat(vep, a, hir_PK_BindSplat);
-  }
-  case ast_EK_BindIgnore: {
-    return hir_simplePat(vep, a, hir_PK_BindIgnore);
-  }
   case ast_EK_BinaryOp: {
     // we branch here on the differnet operators
     switch (vep->binaryOp.op) {
@@ -836,15 +818,33 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
     case ast_EBOK_None: {
       return hir_nonePat(vep, a);
     }
+    // Function call
+    case ast_EBOK_Apply: {
+      return hir_applyPat(
+          vep, a,
+          hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a),
+          hir_translatePat(vep->binaryOp.right_operand, ls, diagnostics, a));
+    }
     // At expr
-    case ast_EBOK_At: {
+    case ast_EBOK_As: {
+      // ensure rhs is a valid binding
+      // ensure the binding is valid
+      if (vep->binaryOp.right_operand->kind != ast_EK_Bind ||
+          vep->binaryOp.right_operand->bind.bind->kind != ast_IK_Identifier) {
+        *dlogger_append(diagnostics, true) =
+            (Diagnostic){.span = vep->common.span,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m(
+                             "Right hand side of as must be a valid binding"),
+                         .children_len = 0};
+        return hir_nonePat(vep, a);
+      }
       hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
       obj->from = vep;
-      obj->kind = hir_PK_At;
-      obj->at.left =
+      obj->kind = hir_PK_Bind;
+      obj->bind.pattern =
           hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a);
-      obj->at.right =
-          hir_translatePat(vep->binaryOp.right_operand, ls, diagnostics, a);
+      obj->bind.name = vep->binaryOp.right_operand->bind.bind->id.name;
       return obj;
     }
     // Type coercion
@@ -858,32 +858,29 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
           hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
       return obj;
     }
-    // Function definition
-    case ast_EBOK_Defun: {
-      *dlogger_append(diagnostics, true) = (Diagnostic){
-          .span = vep->common.span,
-          .severity = DSK_Error,
-          .message = com_str_lit_m("defun not permitted in pattern, use val "
-                                   "keyword to embed a value"),
-          .children_len = 0};
-      return hir_nonePat(vep, a);
+    case ast_EBOK_ModuleAccess: {
+      return hir_exprPat(vep, a, hir_translateExpr(vep, ls, diagnostics, a));
     }
-    // CaseOption
-    case ast_EBOK_CaseOption: {
-      *dlogger_append(diagnostics, true) = (Diagnostic){
-          .span = vep->common.span,
-          .severity = DSK_Error,
-          .message = com_str_lit_m(
-              "case option operator is only valid in a case context"),
-          .children_len = 0};
-      return hir_nonePat(vep, a);
+    // Booleans
+    case ast_EBOK_And: {
+      hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+      obj->from = vep;
+      obj->kind = hir_PK_And;
+      obj->andPat.fst =
+          hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a);
+      obj->andPat.snd =
+          hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
+      return obj;
     }
-    // Function call
-    case ast_EBOK_Apply: {
-      return hir_applyPat(
-          vep, a,
-          hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a),
-          hir_translatePat(vep->binaryOp.right_operand, ls, diagnostics, a));
+    case ast_EBOK_Or: {
+      hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+      obj->from = vep;
+      obj->kind = hir_PK_Or;
+      obj->orPat.fst =
+          hir_translatePat(vep->binaryOp.left_operand, ls, diagnostics, a);
+      obj->orPat.snd =
+          hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
+      return obj;
     }
     // Reverse application (Userspace)
     case ast_EBOK_RevApply: {
@@ -928,15 +925,6 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
     case ast_EBOK_Pow: {
       return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                             com_str_lit_m("^"));
-    }
-    // Booleans
-    case ast_EBOK_And: {
-      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
-                                            com_str_lit_m("and"));
-    }
-    case ast_EBOK_Or: {
-      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
-                                            com_str_lit_m("or"));
     }
     // Comparison
     case ast_EBOK_CompEqual: {
@@ -998,53 +986,145 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
       return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
                                             com_str_lit_m("..="));
     }
+    // Function definition
+    case ast_EBOK_Defun:
+    // CaseOption
+    case ast_EBOK_CaseOption:
     // Assign
-    case ast_EBOK_Assign: {
-      hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
-      obj->from = vep;
-      obj->kind = hir_EK_Assign;
-      obj->assign.pattern =
-          hir_translateExpr(vep->binaryOp.left_operand, ls, diagnostics, a);
-      obj->assign.value =
-          hir_translateExpr(vep->binaryOp.right_operand, ls, diagnostics, a);
-      return obj;
-    }
+    case ast_EBOK_Assign:
     // Sequence
     case ast_EBOK_Sequence: {
-      // TODO
-      return hir_translateReferenceBinOpPat(vep, ls, diagnostics, a,
-                                            com_str_lit_m("in"));
+      *dlogger_append(diagnostics, true) = (Diagnostic){
+          .span = vep->common.span,
+          .severity = DSK_Error,
+          .message = com_str_lit_m("operator not permitted in pattern"),
+          .children_len = 0};
+      return hir_nonePat(vep, a);
     }
-    // Module Access
-    case ast_EBOK_ModuleAccess: {
+    }
+  }
+  case ast_EK_None: {
+    return hir_nonePat(vep, a);
+  }
+  case ast_EK_Bind: {
+    switch (vep->bind.bind->kind) {
+    case ast_IK_Identifier: {
+      hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+      obj->from = vep;
+      obj->kind = hir_PK_Bind;
+      obj->bind.pattern = hir_simplePat(vep, a, hir_PK_BindIgnore);
+      obj->bind.name = vep->bind.bind->id.name;
+      return obj;
+    }
+    case ast_IK_None: {
+      return hir_nonePat(vep, a);
+    }
+    }
+  }
+  case ast_EK_BindSplat: {
+    return hir_simplePat(vep, a, hir_PK_BindSplat);
+  }
+  case ast_EK_BindIgnore: {
+    return hir_simplePat(vep, a, hir_PK_BindIgnore);
+  }
+  case ast_EK_Group: {
+    return hir_translatePat(vep->group.expr, ls, diagnostics, a);
+  }
+  case ast_EK_Val: {
+    return hir_exprPat(vep, a,
+                       hir_translateExpr(vep->val.val, ls, diagnostics, a));
+  }
+  // struct
+  case ast_EK_Struct: {
+    // construct recursive data structure where each field in the struct is a
+    // condition Apply `and` with each field mentioned
+
+    // this operation loses knowledge about the grouping of the sequences
+    // this whole operation takes advantage of the fact that the grouping doesn't matter in this case
+    // since sequences are always evaluated from left to right
+    // (or does it matter?) TODO figure this out
+
+    // the final element of the `and` expression is always true
+    hir_Pat *tail =
+        hir_exprPat(vep, a, hir_createBoolLiteralExpr(vep, a, true));
+
+    // do depth first on the sequenceable tree
+    // sequences :: Stack(ast_Expr.&)
+    com_vec sequences = hir_alloc_vec_m(a);
+    *com_vec_push_m(&sequences, const ast_Expr *) = vep;
+
+    while (com_vec_len_m(&sequences, const ast_Expr *) != 0) {
+      const ast_Expr *current;
+      com_vec_pop_m(&sequences, &current, const ast_Expr *);
+
+      // if it is a sequence, then we push both children on the stack
+      if (current->kind == ast_EK_BinaryOp &&
+          current->binaryOp.op == ast_EBOK_Sequence) {
+        // push both the left and right operands to the stack
+        *com_vec_push_m(&sequences, const ast_Expr *) =
+            current->binaryOp.left_operand;
+        *com_vec_push_m(&sequences, const ast_Expr *) =
+            current->binaryOp.right_operand;
+      } else if (current->kind == ast_EK_BinaryOp &&
+                 current->binaryOp.op == ast_EBOK_Assign) {
+        // if it is an assign, we need push it to structEntries
+        hir_Pat *obj = hir_alloc_obj_m(a, hir_Pat);
+        obj->from = current;
+        obj->kind = hir_PK_StructEntry;
+        obj->structEntry.field = hir_translatePat(
+            current->binaryOp.left_operand, ls, diagnostics, a);
+        obj->structEntry.pattern = hir_translatePat(
+            current->binaryOp.right_operand, ls, diagnostics, a);
+
+        // tail = tail and obj
+
+        hir_Pat* oldtail = tail;
+        tail = hir_alloc_obj_m(a, hir_Pat);
+        tail->from = current;
+        tail->kind = hir_PK_And;
+        tail->andPat.fst = oldtail;
+        tail->structEntry.pattern = obj;
+      } else {
+        *dlogger_append(diagnostics, true) =
+            (Diagnostic){.span = current->common.span,
+                         .severity = DSK_Error,
+                         .message = com_str_lit_m("only assigns are permitted in a struct pattern"),
+                         .children_len = 0};
+      }
     }
 
-      switch (vep->binaryOp.right_operand->reference.reference->kind) {
-      case ast_IK_None: {
-        // ensure that identifier is valid
-        *dlogger_append(diagnostics, true) = (Diagnostic){
-            .span = vep->binaryOp.right_operand->reference.reference->span,
-            .severity = DSK_Error,
-            .message = com_str_lit_m("identifier must be valid"),
-            .children_len = 0};
-        return hir_noneExpr(vep, a);
-      }
-      case ast_IK_Identifier: {
-        hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
-        obj->from = vep;
-        obj->kind = hir_EK_ModuleAccess;
-        obj->moduleAccess.module = hir_translateExpr(vep, ls, diagnostics, a);
-        obj->moduleAccess.field =
-            vep->binaryOp.right_operand->reference.reference->id.name;
-        return obj;
-      }
-      }
-    }
-    }
+    com_vec_destroy(&sequences);
+    return tail;
+  }
+  // these are automatically promoted to an expr
+  case ast_EK_Int:
+  case ast_EK_Real:
+  case ast_EK_Bool:
+  case ast_EK_String:
+  case ast_EK_Reference:
+  case ast_EK_Void:
+  case ast_EK_VoidType:
+  case ast_EK_NeverType: {
+    return hir_exprPat(vep, a, hir_translateExpr(vep, ls, diagnostics, a));
+  }
+  // any other expression is illegal
+  case ast_EK_Label:
+  case ast_EK_Loop:
+  case ast_EK_Defer:
+  case ast_EK_Ret:
+  case ast_EK_IfThen:
+  case ast_EK_CaseOf:
+  case ast_EK_Pat: {
+    *dlogger_append(diagnostics, true) = (Diagnostic){
+        .span = vep->common.span,
+        .severity = DSK_Error,
+        .message = com_str_lit_m("expression not permitted in pattern"),
+        .children_len = 0};
+    return hir_nonePat(vep, a);
   }
   }
 }
-}
+
 hir_Expr *hir_constructExpr(const ast_Expr *vep, DiagnosticLogger *diagnostics,
                             com_allocator *a) {
   LabelStack ls = LabelStack_create(a);

@@ -190,6 +190,11 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
     *push_prop_m(&obj) = mkprop_m("bind", print_Identifier(vep->bind.bind, a));
     break;
   }
+  case ast_EK_Bool: {
+    *push_prop_m(&obj) =
+        mkprop_m("bool", com_json_bool_m(vep->boolLiteral.value));
+    break;
+  }
   case ast_EK_Int: {
     *push_prop_m(&obj) =
         mkprop_m("int", print_bigint(vep->intLiteral.value, a));
@@ -252,11 +257,20 @@ static com_json_Elem print_Expr(ast_Expr *vep, com_allocator *a) {
         mkprop_m("ifthen_expr", print_Expr(vep->ifthen.expr, a));
     *push_prop_m(&obj) =
         mkprop_m("ifthen_then", print_Expr(vep->ifthen.then_expr, a));
+    *push_prop_m(&obj) =
         mkprop_m("ifthen_else", print_Expr(vep->ifthen.else_expr, a));
     break;
   }
   case ast_EK_Group: {
     *push_prop_m(&obj) = mkprop_m("group_expr", print_Expr(vep->group.expr, a));
+    break;
+  }
+  case ast_EK_Val: {
+    *push_prop_m(&obj) = mkprop_m("val_expr", print_Expr(vep->val.val, a));
+    break;
+  }
+  case ast_EK_Pat: {
+    *push_prop_m(&obj) = mkprop_m("pat_expr", print_Expr(vep->pat.pat, a));
     break;
   }
   case ast_EK_Label: {

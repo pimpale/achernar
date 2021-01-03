@@ -57,7 +57,7 @@ static bool LabelStack_pushLabel(LabelStack *ls, hir_Expr *scope,
     // we don't give an error because one should already have been given
     return false;
   }
-  case ast_LK_Label:
+  case ast_LK_Label: {
 
     *com_vec_push_m(&ls->_elements, LabelStackElement) =
         (LabelStackElement){.scope = scope,
@@ -65,6 +65,8 @@ static bool LabelStack_pushLabel(LabelStack *ls, hir_Expr *scope,
                             .defers = com_queue_create(hir_alloc_vec_m(a))};
     return true;
   }
+  }
+  com_assert_unreachable_m("label kind is invalid") ;
 }
 
 // returns NULL for not found
@@ -107,6 +109,7 @@ static LabelStackElement *LabelStack_getLabel(LabelStack *ls, ast_Label *label,
     return NULL;
   }
   }
+  com_assert_unreachable_m("label kind is invalid") ;
 }
 
 // returns a com_vec of hir_Exprs

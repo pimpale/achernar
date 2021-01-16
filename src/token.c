@@ -150,6 +150,12 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Then");
   case tk_Else:
     return com_str_lit_m("tk_Else");
+  case tk_Async:
+    return com_str_lit_m("tk_Async");
+  case tk_Await:
+    return com_str_lit_m("tk_Await");
+  case tk_Import:
+    return com_str_lit_m("tk_Import");
   }
 
   com_assert_unreachable_m("control flow reaches end of token");

@@ -662,6 +662,12 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_Then;
   } else if (com_str_equal(str, com_str_lit_m("else"))) {
     token.kind = tk_Else;
+  } else if (com_str_equal(str, com_str_lit_m("async"))) {
+    token.kind = tk_Async;
+  } else if (com_str_equal(str, com_str_lit_m("await"))) {
+    token.kind = tk_Await;
+  } else if (com_str_equal(str, com_str_lit_m("import"))) {
+    token.kind = tk_Import;
   } else {
     // It is an identifier, and we need to keep the string
     token.kind = tk_Identifier;

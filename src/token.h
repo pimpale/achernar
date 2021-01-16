@@ -15,21 +15,24 @@ typedef enum {
   // function, type, or variable
   tk_Identifier,
   // Keywords
-  tk_If,    // if
-  tk_Then,  // then
-  tk_Else,  // else
-  tk_Loop,  // loop
-  tk_Of,    // of
-  tk_Ret,   // ret
-  tk_Defer, // defer
-  tk_Case,  // case
-  tk_As,    // as
-  tk_Where, // where
-  tk_Dyn,   // dyn
-  tk_Impl,  // impl
-  tk_Self,  // this
-  tk_Val,   // val
-  tk_Pat,   // pat
+  tk_If,     // if
+  tk_Then,   // then
+  tk_Else,   // else
+  tk_Loop,   // loop
+  tk_Of,     // of
+  tk_Ret,    // ret
+  tk_Defer,  // defer
+  tk_Case,   // case
+  tk_As,     // as
+  tk_Where,  // where
+  tk_Dyn,    // dyn
+  tk_Impl,   // impl
+  tk_Self,   // this
+  tk_Val,    // val
+  tk_Pat,    // pat
+  tk_Async,  // async
+  tk_Await,  // await
+  tk_Import, // import
   // Literals and constants
   tk_Inf,       // inf
   tk_Nan,       // nan

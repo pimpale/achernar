@@ -10,6 +10,7 @@
 
 typedef enum {
   hir_EK_None,  // An error when parsing
+
   hir_EK_Loop,  // Loops until a scope is returned
   hir_EK_Group, // A scope for variables
   hir_EK_Apply, // applies a function
@@ -34,8 +35,6 @@ typedef enum {
   hir_EK_Real,      // Literal for a real (floating point) number
   hir_EK_RealType,  // Literal for the type of hir_EK_Real
 
-  // Filesystem Abstractions
-  hir_EK_ImportFn, // Evaluates a source file, yielding an object
   // Type stuff
   hir_EK_StructFn, // creates a struct from an ad hoc compound object
   hir_EK_EnumFn,   // creates a disjoint union from an ad hoc compound object
@@ -97,6 +96,8 @@ typedef enum {
   hir_EK_SignedBitVecShlOverflowFn,
   hir_EK_SignedBitVecRolFn,
   hir_EK_SignedBitVecRorFn,
+
+  // Math with floats
 
   // Create Function
   hir_EK_Defun,

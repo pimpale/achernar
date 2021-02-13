@@ -3,16 +3,13 @@
 #include "com_bigint.h"
 #include "com_define.h"
 #include "com_hashtable.h"
+
 // Notes:
 // This stage is responsible for converting the HIR into a typed MIR
 // the output should be a typed MIR
 // To accomplish this, we first need to partially evaluate the HIR using
 // abstract interpretation Defintions Every variable has a set of potential
 // values and potential types Every variable has a set of
-
-
-
-
 
 // This part of evaluation fully evaluates a Procedure type
 
@@ -72,16 +69,15 @@ typedef struct eval_Val_s {
         eval_Val* outType;
       } functionTypeVal;
       struct {
-        // HashTable<com_str, eval_Val>
-        com_hashtable params;
-
         eval_Val* bind;
-        eval_Val* outType;
-        eval_Val* state;
+        hir_Expr* body;
       } functionVal;
     };
   } val;
 } eval_Val;
 
 // This function evals a hir section completely using the context given
-static void fully_eval() {}
+void fully_eval(hir_Expr* expr, com_allocator* a) {
+
+  return;
+}

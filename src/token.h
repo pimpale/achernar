@@ -42,8 +42,8 @@ typedef enum {
   tk_Real,      // 0.7
   tk_String,    // "string"
   tk_Int,       // 7
-  tk_Void,      // ()
-  tk_VoidType,  // void
+  tk_Nil,       // ()
+  tk_NilType,   // nil
   tk_NeverType, // never
   // Math Operators
   tk_Add, // +

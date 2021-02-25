@@ -79,7 +79,6 @@ static LabelStackElement *LabelStack_getLabel(LabelStack *ls, ast_Label *label,
     return NULL;
   }
   case ast_LK_Label: {
-
     for (usize i_plus_one = com_vec_len_m(&ls->_elements, LabelStackElement);
          i_plus_one >= 1; i_plus_one--) {
       usize i = i_plus_one - 1;
@@ -345,8 +344,8 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     // push new label element
     bool didPushLabel = LabelStack_pushLabel(ls, obj, vep->label.label, a);
 
+    // IMPORTANT!
     // if expr is group, then we evaluate the group's body
-    // TODO is this the best way to handle this?
     if (vep->label.val->kind == ast_EK_Group) {
       obj->label.expr =
           hir_translateExpr(vep->label.val->group.expr, ls, diagnostics, a);

@@ -108,9 +108,9 @@ typedef enum {
 
 typedef enum {
   ast_EK_None,     // An error when parsing
-  ast_EK_Void,      // Literal for void
-  ast_EK_VoidType,  // Literal for void type
-  ast_EK_NeverType, // Literal for never type
+  ast_EK_Nil,      // Literal for void
+  ast_EK_NilType,  // Literal for void type
+  ast_EK_NeverType,// Literal for never type
   ast_EK_Int,      // Literal for an integer number
   ast_EK_Bool,     // Literal for a boolean
   ast_EK_Real,     // Literal for a real (floating point) number

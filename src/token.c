@@ -28,10 +28,10 @@ com_str tk_strKind(tk_Kind val) {
     return com_str_lit_m("tk_Of");
   case tk_Pat:
     return com_str_lit_m("tk_Pat");
-  case tk_Void:
-    return com_str_lit_m("tk_Void");
-  case tk_VoidType:
-    return com_str_lit_m("tk_VoidType");
+  case tk_Nil:
+    return com_str_lit_m("tk_Nil");
+  case tk_NilType:
+    return com_str_lit_m("tk_NilType");
   case tk_NeverType:
     return com_str_lit_m("tk_NeverType");
   case tk_Case:

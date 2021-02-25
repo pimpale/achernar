@@ -652,8 +652,8 @@ static Token lexWord(com_reader *r, attr_UNUSED DiagnosticLogger *diagnostics,
     token.kind = tk_And;
   } else if (com_str_equal(str, com_str_lit_m("never"))) {
     token.kind = tk_NeverType;
-  } else if (com_str_equal(str, com_str_lit_m("void"))) {
-    token.kind = tk_VoidType;
+  } else if (com_str_equal(str, com_str_lit_m("nil"))) {
+    token.kind = tk_NilType;
   } else if (com_str_equal(str, com_str_lit_m("or"))) {
     token.kind = tk_Or;
   } else if (com_str_equal(str, com_str_lit_m("if"))) {
@@ -952,17 +952,17 @@ Token tk_next(com_reader *r, DiagnosticLogger *diagnostics, com_allocator *a) {
       RETURN_RESULT_TOKEN(1, tk_BracketRight)
     }
     case '(': {
-      RETURN_RESULT_TOKEN(1, tk_ParenLeft)
-    }
-    case ')': {
       switch (lex_peek(r, 2)) {
       case ')': {
-        RETURN_RESULT_TOKEN(2, tk_Void)
+        RETURN_RESULT_TOKEN(2, tk_Nil)
       }
       default: {
-        RETURN_RESULT_TOKEN(1, tk_ParenRight)
+        RETURN_RESULT_TOKEN(1, tk_ParenLeft)
       }
       }
+    }
+    case ')': {
+      RETURN_RESULT_TOKEN(1, tk_ParenRight)
     }
     case '{': {
       RETURN_RESULT_TOKEN(1, tk_BraceLeft)

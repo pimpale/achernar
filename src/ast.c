@@ -6,10 +6,10 @@ com_str ast_strExprKind(ast_ExprKind val) {
   switch (val) {
   case ast_EK_None:
     return com_str_lit_m("ast_EK_None");
-  case ast_EK_Void:
-    return com_str_lit_m("ast_EK_Void");
-  case ast_EK_VoidType:
-    return com_str_lit_m("ast_EK_VoidType");
+  case ast_EK_Nil:
+    return com_str_lit_m("ast_EK_Nil");
+  case ast_EK_NilType:
+    return com_str_lit_m("ast_EK_NilType");
   case ast_EK_NeverType:
     return com_str_lit_m("ast_EK_NeverType");
   case ast_EK_Label:

@@ -650,11 +650,11 @@ static ast_Expr *ast_parseTermExpr(DiagnosticLogger *diagnostics,
   // Decide which expression it is
   switch (t.kind) {
   // Literals
-  case tk_Void: {
-    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_Void);
+  case tk_Nil: {
+    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_Nil);
   }
-  case tk_VoidType: {
-    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_VoidType);
+  case tk_NilType: {
+    return ast_parseSimpleExpr(diagnostics, parser, ast_EK_NilType);
   }
   case tk_NeverType: {
     return ast_parseSimpleExpr(diagnostics, parser, ast_EK_NeverType);
@@ -783,8 +783,8 @@ static ast_Expr *ast_parseApplyExpr(DiagnosticLogger *diagnostics,
     case tk_String:
     case tk_ParenLeft:
     case tk_Ret:
-    case tk_Void:
-    case tk_VoidType:
+    case tk_Nil:
+    case tk_NilType:
     case tk_NeverType:
     case tk_Defer:
     case tk_Loop:

@@ -111,8 +111,13 @@ static inline u64 SIP64(const u8 *in, const usize inlen, u64 seed0, u64 seed1) {
 }
 
 u64 com_hash_fnv1a(u64 seed, const com_str data) {
-  u64 hash = seed;
-
+  u64 hash = 0xcbf29ce484222325;
+  // hash seed
+  for(usize i = 0; i < sizeof(seed); i++) {
+    hash ^= (seed >> (i*8)) & 0xFF;
+    hash *= 0x100000001b3;
+  }
+  // now hash data
   for (usize i = 0; i < data.len; i++) {
     hash ^= data.data[i];
     hash *= 0x100000001b3;

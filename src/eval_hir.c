@@ -18,13 +18,12 @@ typedef struct eval_Val_s eval_Val;
 typedef struct eval_Val_s {
   enum eval_ValKind_e {
     eval_VK_Type,
-    eval_VK_AnyType,
-    eval_VK_NilType,
     eval_VK_Nil,
-    eval_VK_StructType,
+    eval_VK_NilType,
     eval_VK_StructLiteral,
-    eval_VK_BoolType,
+    eval_VK_StructType,
     eval_VK_Bool,
+    eval_VK_BoolType,
     eval_VK_Uint8,
     eval_VK_Uint16,
     eval_VK_Uint32,
@@ -34,14 +33,14 @@ typedef struct eval_Val_s {
     eval_VK_Int32,
     eval_VK_Int64,
     eval_VK_BitVecType,
-    eval_VK_FloatType,
     eval_VK_Float32,
     eval_VK_Float64,
-    eval_VK_NeverType,
+    eval_VK_FloatType,
     eval_VK_Never,
-    eval_VK_FnTypeType,
-    eval_VK_FnType,
+    eval_VK_NeverType,
     eval_VK_Fn,
+    eval_VK_FnType,
+    eval_VK_FnTypeType,
   } kind;
   union {
     bool boolVal;
@@ -56,7 +55,7 @@ typedef struct eval_Val_s {
     u64 unsignedBitVec64Val;
     i64 signedBitVec64Val;
     f32 float32Val;
-    u64 float64Val;
+    f64 float64Val;
     struct {
       bool hasSign;
       // INVARIANT: bits is 8 | 16 | 32 | 64
@@ -94,48 +93,73 @@ typedef struct eval_Val_s {
   };
 } eval_Val;
 
+/* Internal functions for getType */
+
 static eval_Val eval_simpleVal(enum eval_ValKind_e vk) {
   return (eval_Val){.kind = vk};
 }
 
-static eval_Val getType(eval_Val val) {
+static eval_Val eval_floatVal(u8 bits) {
+  return (eval_Val){.kind = eval_VK_FloatType, .floatType = {.bits = bits}};
+}
+
+static eval_Val eval_floatType(u8 bits) {
+  return (eval_Val){.kind = eval_VK_FloatType, .floatType = {.bits = bits}};
+}
+
+static eval_Val eval_BitVecType(u8 bits, bool hasSign) {
+  return (eval_Val){.kind = eval_VK_FloatType,
+                    .bitVecType = {.bits = bits, .hasSign = hasSign}};
+}
+
+static eval_Val getType(eval_Val val, com_allocator *a) {
   switch (val.kind) {
   case eval_VK_Type:
-  case eval_VK_AnyType:
   case eval_VK_BoolType:
   case eval_VK_BitVecType:
+  case eval_VK_FloatType:
   case eval_VK_FnTypeType:
   case eval_VK_NeverType:
-  case eval_VK_NilType: {
+  case eval_VK_StructType:
+  case eval_VK_NilType:
     return eval_simpleVal(eval_VK_Type);
-  }
-  case eval_VK_FnType: {
-      return eval_simpleVal(eval_VK_FnType);
-  }
+  case eval_VK_Bool:
+    return eval_simpleVal(eval_VK_BoolType);
+  case eval_VK_FnType:
+    return eval_simpleVal(eval_VK_FnType);
   case eval_VK_Uint8:
+    return eval_BitVecType(8, false);
   case eval_VK_Uint16:
+    return eval_BitVecType(16, false);
   case eval_VK_Uint32:
+    return eval_BitVecType(32, false);
   case eval_VK_Uint64:
+    return eval_BitVecType(64, false);
   case eval_VK_Int8:
+    return eval_BitVecType(8, true);
   case eval_VK_Int16:
+    return eval_BitVecType(16, true);
   case eval_VK_Int32:
-  case eval_VK_Int64: {
-      // TODO put bits and sign in
-      return eval_simpleVal(eval_VK_BitVecType);
-  }
+    return eval_BitVecType(32, true);
+  case eval_VK_Int64:
+    return eval_BitVecType(64, true);
   case eval_VK_Float32:
-  case eval_VK_Float64: {
-      // TODO put bits in
-      return eval_simpleVal(eval_VK_FloatType);
-  }
-  case eval_VK_Never: {
-      return eval_simpleVal(eval_VK_NeverType);
-  }
-  case eval_VK_Nil: {
-      return eval_simpleVal(eval_VK_NilType);
-  }
+    return eval_floatType(32);
+  case eval_VK_Float64:
+    return eval_floatType(64);
+  case eval_VK_Never:
+    return eval_simpleVal(eval_VK_NeverType);
+  case eval_VK_Nil:
+    return eval_simpleVal(eval_VK_NilType);
   case eval_VK_StructLiteral: {
-      // TODO put struct fields in
+    // TODO put struct fields in
+    com_hashtable_create(com_allocator_alloc(
+        a, (com_allocator_HandleData){.len = 30,
+                                      .flags = com_allocator_defaults(a) |
+                                               com_allocator_NOLEAK |
+                                               com_allocator_REALLOCABLE}));
+    // oof...
+    for(int i = 0; i < val.structLiteral.fields)
       return eval_simpleVal(eval_VK_NilType);
   }
   }

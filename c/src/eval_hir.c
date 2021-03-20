@@ -158,7 +158,6 @@ static eval_Val getType(eval_Val val, com_allocator *a) {
                                       .flags = com_allocator_defaults(a) |
                                                com_allocator_NOLEAK |
                                                com_allocator_REALLOCABLE}));
-    // oof...
     for(int i = 0; i < val.structLiteral.fields)
       return eval_simpleVal(eval_VK_NilType);
   }

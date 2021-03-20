@@ -1104,8 +1104,8 @@ static hir_Pat *hir_translatePat(const ast_Expr *vep, LabelStack *ls,
   case ast_EK_Bool:
   case ast_EK_String:
   case ast_EK_Reference:
-  case ast_EK_Void:
-  case ast_EK_VoidType:
+  case ast_EK_Nil:
+  case ast_EK_NilType:
   case ast_EK_NeverType: {
     return hir_exprPat(vep, a, hir_translateExpr(vep, ls, diagnostics, a));
   }

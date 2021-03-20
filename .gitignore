@@ -3,3 +3,4 @@ obj/
 vgcore.*
 .gdb_history
 compile_commands.json
+target/

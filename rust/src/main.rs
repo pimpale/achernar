@@ -1,11 +1,10 @@
 mod dlogger;
 mod diagnostic;
-mod span;
 mod ast;
 mod hir;
 mod token;
 mod tokenize;
-mod reader;
+mod codereader;
 
 fn main() {
     println!("Hello, world!");

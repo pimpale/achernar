@@ -1,15 +1,15 @@
-use super::diagnostic::Diagnostic;
+use super::dlogger::DiagnosticLogger;
 use super::token::Token;
-use std::sync::mpsc::Sender;
+use lsp_types::Diagnostic;
 
-struct Tokenizer {
+pub struct Tokenizer {
   pub stream: Box<dyn Iterator<Item = char>>,
-  pub dlogger: Sender<Diagnostic>,
+  pub dlogger: DiagnosticLogger,
 }
 
 pub fn tokenize(
   stream: impl IntoIterator<Item = char> + 'static,
-  dlogger: Sender<Diagnostic>,
+  dlogger: DiagnosticLogger,
 ) -> impl Iterator<Item = Token> {
   Tokenizer {
     stream: Box::new(stream.into_iter()),
@@ -21,20 +21,20 @@ impl Iterator for Tokenizer {
   type Item = Token;
 
   fn next(&mut self) -> Option<Token> {
-     let c = self.stream.as_mut()
-       .skip_while(|c| !c.is_whitespace())
-       .next();
+    let c = self
+      .stream
+      .as_mut()
+      .skip_while(|c| !c.is_whitespace())
+      .next();
 
-     // handle EOF
-     if let None = c {
-         return None
-     }
+    // handle EOF
+    if let None = c {
+      return None;
+    }
 
-     match c.unwrap() {
-         _ => Token {
-
-         }
-
-     }
+    match c.unwrap() {
+      ch => {
+          self.dlogger.logUnrecognizedCharacter(ch)},
+    }
   }
 }

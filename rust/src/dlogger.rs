@@ -26,22 +26,22 @@ pub struct DiagnosticLogger {
 }
 impl DiagnosticLogger {
 
-  fn logUnexpectedEOFInString() {
+  pub fn logUnexpectedEOFInString() {
   }
 
-  fn logInvalidControlChar(c:u8) {
+  pub fn logInvalidControlChar(c:u8) {
   }
 
-  fn logInvalidUnicodeCodePoint() {
+  pub fn logInvalidUnicodeCodePoint() {
   }
 
-  fn logDigitExceedsRadix (radix:u8, digit: u8) {
+  pub fn logDigitExceedsRadix (radix:u8, digit: u8) {
   }
 
-  fn unrecognizedRadixCode(code:u8) {
+  pub fn logUnrecognizedRadixCode(code:u8) {
   }
 
-  fn unrecognizedCharacter(character:u8) {
+  pub fn logUnrecognizedCharacter(character:u8) {
   }
 
   fn log(&mut self, d:Diagnostic) {

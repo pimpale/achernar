@@ -1,5 +1,4 @@
 mod dlogger;
-mod diagnostic;
 mod ast;
 mod hir;
 mod token;

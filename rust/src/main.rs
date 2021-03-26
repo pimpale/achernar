@@ -1,3 +1,4 @@
+#![feature(or_patterns)]
 mod dlogger;
 mod ast;
 mod hir;

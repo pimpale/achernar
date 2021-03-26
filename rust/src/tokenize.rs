@@ -25,7 +25,59 @@ pub fn tokenize<IntoSource: IntoIterator<Item = u8>>(
 }
 
 impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
-  fn lex_word(&mut self) -> Token {}
+
+  // requires that there is at least one valid token
+  fn lex_word(&mut self) -> Token {
+    // we grab the initial token as our first range
+    let (_, initial_range) = *self.source.peek().unwrap();
+    // we then try folding each next element
+    let (identifier, range) =
+      self
+        .source
+        .try_fold((vec![], initial_range), |acc, elem| match elem {
+          (c @ (b'a'..=b'z' | b'A'..=b'Z' | b'_'), r) => {
+              acc.0.push(c);
+              Some((acc.0, union_of(acc.1, r)))
+          },
+          _ => None,
+        }).unwrap();
+
+    let tk = match identifier.as_slice() {
+        b"loop" => TokenKind::Loop,
+        b"of" => TokenKind::Of,
+        b"true" => TokenKind::Bool(true),
+        b"false" => TokenKind::Bool(false),
+        b"bool" => TokenKind::BoolType,
+        b"val" => TokenKind::Val,
+        b"pat" => TokenKind::Pat,
+        b"case" => TokenKind::Case,
+        b"ret" => TokenKind::Ret,
+        b"ret" => TokenKind::Ret,
+        b"this" => TokenKind::This,
+        b"defer" => TokenKind::Defer,
+        b"as" => TokenKind::As,
+        b"inf" => TokenKind::Inf,
+        b"nan" => TokenKind::Nan,
+        b"in" => TokenKind::In,
+        b"dyn" => TokenKind::Dyn,
+        b"nan" => TokenKind::Nan,
+        b"where" => TokenKind::Where,
+        b"and" => TokenKind::And,
+        b"or" => TokenKind::Or,
+        b"nil" => TokenKind::NilType,
+        b"never" => TokenKind::NeverType,
+        b"if" => TokenKind::If,
+        b"then" => TokenKind::Then,
+        b"else" => TokenKind::Else,
+        b"async" => TokenKind::Async,
+        b"await" => TokenKind::Await,
+        b"import" => TokenKind::Import,
+        _ => TokenKind::Identifier(identifier),
+    };
+
+    Token::new(tk, range)
+  }
+
   fn lex_number(&mut self) -> Token {}
   fn lex_strop(&mut self) -> Token {}
   fn lex_metadata(&mut self) -> Token {}
@@ -119,7 +171,7 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
           Some((b'.', r2)) => Token::new(TokenKind::Range, union_of(*r1, *r2)),
           Some((b'=', r2)) => Token::new(TokenKind::RangeInclusive, union_of(*r1, *r2)),
           _ => Token::new(TokenKind::RevApply, *r1),
-        }
+        },
         b'*' => Token::new(TokenKind::Mul, *r1),
         b'%' => Token::new(TokenKind::Rem, *r1),
         b'(' => Token::new(TokenKind::ParenLeft, *r1),

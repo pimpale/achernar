@@ -7,7 +7,7 @@ pub enum TokenKind {
   // if it's tk none you can't assume anything
   None,
   // function, type, or variable
-  Identifier(String),
+  Identifier(Vec<u8>),
   // Keywords
   If,     // if
   Then,   // then
@@ -30,11 +30,10 @@ pub enum TokenKind {
   // Literals and constants
   Inf,                                   // inf
   Nan,                                   // nan
-  True,                                  // true
-  False,                                 // false
-  Bool(bool),                            // bool
-  Real,                                  // 0.7
-  String { value: String, block: bool }, // "string"
+  Bool(bool),                            // true, false
+  BoolType,                              // bool
+  RealType,                              // 0.7
+  String { value: Vec<u8>, block: bool }, // "string"
   Int(BigInt),                           // 7
   NilType,                               // nil
   NeverType,                             // never
@@ -73,7 +72,7 @@ pub enum TokenKind {
   Ref,
   Deref,
   // labels
-  Label(String), // 'x
+  Label(Vec<u8>), // 'x
   // Arrows
   PipeForward,  // |>
   PipeBackward, // <|
@@ -92,7 +91,7 @@ pub enum TokenKind {
   BraceLeft,    // {
   BraceRight,   // }
   Constrain,    // :
-  FieldAccess, // ::
+  FieldAccess,  // ::
   RevApply,     // .
   Sequence,     // ;
   // Comments, and Attributes

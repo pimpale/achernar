@@ -1,7 +1,7 @@
-use super::span::Span;
+use lsp_types::Range;
 use num_bigint::BigInt;
 
-pub enum TokenData {
+pub enum TokenKind {
   // These are not tokens, and do not contain token data
   Eof,
   // if it's tk none you can't assume anything
@@ -32,11 +32,10 @@ pub enum TokenData {
   Nan,                                   // nan
   True,                                  // true
   False,                                 // false
-  Bool(bool),                                  // bool
+  Bool(bool),                            // bool
   Real,                                  // 0.7
   String { value: String, block: bool }, // "string"
   Int(BigInt),                           // 7
-  Nil,                                   // ()
   NilType,                               // nil
   NeverType,                             // never
   // Math Operators
@@ -70,6 +69,9 @@ pub enum TokenData {
   CompGreaterEqual, // >=
   // Assignment
   Assign, // =
+  // Reference
+  Ref,
+  Deref,
   // labels
   Label(String), // 'x
   // Arrows
@@ -90,7 +92,7 @@ pub enum TokenData {
   BraceLeft,    // {
   BraceRight,   // }
   Constrain,    // :
-  ModuleAccess, // ::
+  FieldAccess, // ::
   RevApply,     // .
   Sequence,     // ;
   // Comments, and Attributes
@@ -98,6 +100,12 @@ pub enum TokenData {
 }
 
 pub struct Token {
-  span: Span,
-  data: TokenData,
+  kind: TokenKind,
+  range: Range,
+}
+
+impl Token {
+  pub fn new(kind: TokenKind, range: Range) -> Self {
+    Token { kind, range }
+  }
 }

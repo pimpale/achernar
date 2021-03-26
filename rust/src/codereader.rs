@@ -1,67 +1,46 @@
 use lsp_types::Position;
 use lsp_types::Range;
-use std::collections::VecDeque;
-use std::io::Read;
+use std::cmp::max;
+use std::cmp::min;
 
-pub struct CodeReader<Reader: Read> {
+pub struct CodeReader<Source: Iterator<Item = u8>> {
   position: Position,
-  data: Reader,
-  peekQueue: VecDeque<(u8, Position)>,
+  data: Source,
 }
 
-impl<Reader: Read> CodeReader<Reader> {
-  pub fn new(r: Reader) -> Self {
+impl<Source: Iterator<Item = u8>> Iterator for CodeReader<Source> {
+  type Item = (u8, Range);
+
+  // returns a tuple of a u8 char and the range of that char
+  fn next(&mut self) -> Option<Self::Item> {
+    self.data.next().map(|byte| {
+      let old_pos = self.position;
+
+      // change line position
+      if byte == '\n' as u8 {
+        self.position.line += 1;
+        self.position.character = 0;
+      } else {
+        self.position.character += 1;
+      }
+
+      (byte, Range::new(old_pos, self.position))
+    })
+  }
+}
+
+impl<Source: Iterator<Item = u8>> CodeReader<Source> {
+  pub fn new(r: Source) -> Self {
     CodeReader {
-      position: Position {
-        line: 0,
-        character: 0,
-      },
+      position: Position::new(0, 0),
       data: r,
-      peekQueue: VecDeque::new(),
     }
   }
+}
 
-  pub fn dropc(&mut self) {
-    self.getc();
-  }
-
-  pub fn getc(&mut self) -> Option<u8> {
-    if let Some((c, _)) = self.peekQueue.pop_front() {
-      return Some(c)
-    }
-    else {
-      // the peek queue is empty
-      self
-        .data
-        .bytes()
-        .next()
-        .and_then(|result| result.ok())
-        .map(|byte| {
-          // handle managing the line position
-          if byte == '\n' as u8 {
-            self.position.line += 1;
-            self.position.character = 0;
-          } else {
-            self.position.character += 1;
-          }
-          byte
-        })
-    }
-  }
-
-  pub fn position(&self) -> Position {
-    if let Some((_, pos)) = self.peekQueue.get(0) {
-        *pos
-    } else {
-        self.position
-    }
-  }
-
-  pub fn peekpos(&mut self, n: u32) -> Option<Position> {
-
-  }
-
-  pub fn peekc(&mut self, n: u32) -> Option<u8> {
-
+pub fn union_of(a: Range, b: Range) -> Range {
+  Range {
+    start: min(a.start, b.start),
+    end: max(a.end, b.end),
   }
 }

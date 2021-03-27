@@ -43,7 +43,7 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn logInvalidControlChar(&mut self, range: Range, c: u8) {
+  pub fn logUnrecognizedEscapeCode(&mut self, range: Range, c: u8) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -78,7 +78,10 @@ impl DiagnosticLogger {
       code: Some(NumberOrString::Number(4)),
       code_description: None,
       source: Some(COMPILER_NAME.to_owned()),
-      message: format!("digit ({:X}) is greater than or equal to the radix ({})", digit, radix),
+      message: format!(
+        "digit ({}) is greater than or equal to the radix ({})",
+        digit, radix
+      ),
       related_information: None,
       tags: None,
       data: None,
@@ -107,6 +110,23 @@ impl DiagnosticLogger {
       code_description: None,
       source: Some(COMPILER_NAME.to_owned()),
       message: format!("unrecognized character: `{:?}`", character as char),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn logIncompleteUnicodeOrByteEscape(&mut self, range: Range, expected_len: u32) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(7)),
+      code_description: None,
+      source: Some(COMPILER_NAME.to_owned()),
+      message: format!(
+        "unicode or byte escape sequence requires {} hex characters immediately following",
+        expected_len
+      ),
       related_information: None,
       tags: None,
       data: None,

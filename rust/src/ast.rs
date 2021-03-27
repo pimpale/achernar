@@ -1,33 +1,38 @@
-use super::span::Span;
-use num_bigint::BigInt;
-use serde_json;
+use lsp_types::Range;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 pub enum IdentifierData {
   None,
-  Identifier { name: String },
+  Identifier(String),
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Identifier {
-  span: Span,
+  range: Range,
   data: IdentifierData,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Metadata {
-  span: Span,
+  range: Range,
   significant: bool,
   data: String,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum LabelData {
   None,
-  Label { label: String },
+  Label(String),
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Label {
-  span: Span,
+  range: Range,
   data: LabelData,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum BinaryOpKind {
   None,
   // Type coercion
@@ -51,7 +56,11 @@ pub enum BinaryOpKind {
   Div,
   Rem,
   Pow,
+  // Memory Referencing
+  Ref,
+  Deref,
   // Booleans
+  Not,
   And,
   Or,
   // Comparison
@@ -82,6 +91,7 @@ pub enum BinaryOpKind {
   ModuleAccess,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum ExprData {
   // An error when parsing
   None,
@@ -93,7 +103,8 @@ pub enum ExprData {
   NeverType,
   // Literal for an integer number
   Int {
-    value: BigInt,
+    positive: bool,
+    values: Vec<u32>,
   },
   // Literal for a boolean
   Bool {
@@ -101,7 +112,9 @@ pub enum ExprData {
   },
   // Literal for a real (floating point) number
   Real {
-    value: BigInt,
+    positive: bool,
+    numerator: Vec<u32>,
+    denominator: Vec<u32>,
   },
   // A string literal
   String {
@@ -173,8 +186,9 @@ pub enum ExprData {
   },
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Expr {
-  span: Span,
+  range: Range,
   metadata: Vec<Metadata>,
   data: ExprData,
 }

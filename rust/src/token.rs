@@ -1,6 +1,8 @@
 use lsp_types::Range;
 use num_bigint::BigInt;
+use num_rational::BigRational;
 
+#[derive(Debug, Clone)]
 pub enum TokenKind {
   // These are not tokens, and do not contain token data
   Eof,
@@ -28,15 +30,17 @@ pub enum TokenKind {
   Await,  // await
   Import, // import
   // Literals and constants
-  Inf,                                   // inf
-  Nan,                                   // nan
-  Bool(bool),                            // true, false
-  BoolType,                              // bool
-  RealType,                              // 0.7
+  Inf,                                    // inf
+  Nan,                                    // nan
+  Bool(bool),                             // true, false
   String { value: Vec<u8>, block: bool }, // "string"
-  Int(BigInt),                           // 7
-  NilType,                               // nil
-  NeverType,                             // never
+  Int(BigInt),                            // 7
+  Real(BigRational),                      // 0.7
+  NilType,                                // nil
+  NeverType,                              // never
+  BoolType,                               // bool
+  IntType,                                // int
+  RealType,                               // real
   // Math Operators
   Add, // +
   Sub, // -
@@ -95,9 +99,10 @@ pub enum TokenKind {
   RevApply,     // .
   Sequence,     // ;
   // Comments, and Attributes
-  Metadata, // #!attribute and # comment
+  Metadata { value: Vec<u8>, significant: bool }, // #!attribute and # comment
 }
 
+#[derive(Debug, Clone)]
 pub struct Token {
   kind: TokenKind,
   range: Range,

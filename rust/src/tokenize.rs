@@ -43,18 +43,18 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
     let mut word = vec![];
     let mut range = None;
-    for (c, r) in self.source {
-      if let b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' = c {
-        word.push(c);
-        // handle range
-        if let Some(or) = range {
-          range = Some(union_of(r, or));
-        } else {
-          range = Some(r);
-        }
+    while let Some((
+        c @ (b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'),
+        r
+    )) = self.source.peek() {
+      word.push(*c);
+      // handle range
+      if let Some(or) = range {
+        range = Some(union_of(*r, or));
       } else {
-        break;
+        range = Some(*r);
       }
+      self.source.next();
     }
 
     (word, range.unwrap())
@@ -118,10 +118,10 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let mut range = self.source.peek().unwrap().1;
 
     let mut len = 0u32;
-    let n = BigUint::zero();
+    let mut n = BigUint::zero();
 
-    while let Some((c, r)) = self.source.peek() {
-      let digit = match c {
+    while let Some((c, r)) = self.source.peek().cloned() {
+      let mut digit = match c {
         b'_' => {
           self.source.next();
           continue;
@@ -146,12 +146,12 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
       // handle error
       if digit >= radix {
-        self.dlogger.logDigitExceedsRadix(*r, digit, radix);
+        self.dlogger.log_digit_exceeds_radix(r, radix, digit);
         digit = 0;
       }
 
       n = n * radix + digit;
-      range = union_of(range, *r);
+      range = union_of(range, r);
 
       if Some(len) == max_len {
         break;
@@ -174,13 +174,13 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let sign;
 
     match self.source.peek() {
-      Some((b'-', r)) => {
+      Some((b'-', _)) => {
         // drop this char
         self.source.next();
         // set negative
         sign = Sign::Minus;
       }
-      Some((b'+', r)) => {
+      Some((b'+', _)) => {
         // drop this char
         self.source.next();
         sign = Sign::Plus;
@@ -194,7 +194,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let radix;
 
     if let Some((b'0', _)) = self.source.peek() {
-      match self.source.peek_nth(2) {
+      match self.source.peek_nth(1) {
         Some((b'b', _)) => {
           radix = 2;
           // drop 2
@@ -221,11 +221,11 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
         }
         Some((c @ (b'a'..=b'z' | b'A'..=b'Z'), r)) => {
           radix = 10;
+          // log error
+          self.dlogger.log_unrecognized_radix_code(*r, *c);
           // drop 2
           self.source.next();
           self.source.next();
-          // log error
-          self.dlogger.logUnrecognizedRadixCode(*r, *c);
         }
         _ => {
           // by default radix is 10, and we don't drop
@@ -250,8 +250,11 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     // the whole number part of the number, signed
     let whole_n = BigInt::from_biguint(sign, whole_raw);
 
+    let token;
+
     if !fractional {
-      return Token::new(TokenKind::Int(whole_n), union_of(first_range, whole_range));
+      // return
+      token = Token::new(TokenKind::Int(whole_n), union_of(first_range, whole_range));
     } else {
       let (fractional_raw, fractional_range, fractional_len) =
         self.internal_lex_base_number(radix, None);
@@ -263,11 +266,13 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
         BigInt::new(Sign::Plus, vec![radix as u32]).pow(fractional_len),
       );
 
-      return Token::new(
+      token = Token::new(
         TokenKind::Real(fractional_n + whole_n),
         union_of(first_range, fractional_range),
       );
     }
+
+    token
   }
 
   fn internal_lex_terminated_string(&mut self, terminator: u8) -> (Vec<u8>, Range) {
@@ -306,11 +311,10 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
             c @ b'\n' => string.push(c),
             c @ b'\t' => string.push(c),
             c @ b'\0' => string.push(c),
-            c @ b'\\' => string.push(c),
-            c @ b'x' => state = State::Byte,
-            c @ b'u' => state = State::Utf8(4),
-            c @ b'U' => state = State::Utf8(8),
-            c => self.dlogger.logUnrecognizedEscapeCode(*r, c),
+            b'x' => state = State::Byte,
+            b'u' => state = State::Utf8(4),
+            b'U' => state = State::Utf8(8),
+            c => self.dlogger.log_unrecognized_escape_code(*r, c),
           }
           self.source.next();
         }
@@ -319,7 +323,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
           let (val, range, len) = self.internal_lex_base_number(16, Some(2));
 
           if len != 2 {
-            self.dlogger.logIncompleteUnicodeOrByteEscape(range, 2);
+            self.dlogger.log_incomplete_unicode_or_byte_escape(range, 2);
           }
 
           // push byte directly
@@ -334,14 +338,14 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
           //handle mismatch of characters
           if len != u {
-            self.dlogger.logIncompleteUnicodeOrByteEscape(range, u);
+            self.dlogger.log_incomplete_unicode_or_byte_escape(range, u);
           }
 
           // convert to char
           if let Some(c) = from_u32(val.to_u32_digits()[0]) {
             string.extend_from_slice(c.encode_utf8(&mut [0; 4]).as_bytes());
           } else {
-            self.dlogger.logInvalidUnicodeCodePoint(range);
+            self.dlogger.log_invalid_unicode_code_point(range);
           }
 
           // set state back to text
@@ -388,7 +392,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     loop {
       // drop the hash
       self.source.next();
-      let (line_string, line_range) = self.internal_lex_terminated_string(b'\n');
+      let (mut line_string, line_range) = self.internal_lex_terminated_string(b'\n');
       range = union_of(range, line_range);
       string.append(&mut line_string);
 
@@ -423,7 +427,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     loop {
       // drop the hash
       self.source.next();
-      let (line_string, line_range) = self.internal_lex_terminated_string(b'\n');
+      let (mut line_string, line_range) = self.internal_lex_terminated_string(b'\n');
       range = union_of(range, line_range);
       string.append(&mut line_string);
 
@@ -446,106 +450,115 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       range,
     )
   }
+
+  fn lex_simple_token(&mut self, tk:TokenKind, n:u32) -> Token {
+    assert!(n > 0);
+
+    self.source.try_fold(self.source.peek().unwrap().1, |)
+  }
+
 }
+
 
 impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
   type Item = Token;
+
 
   fn next(&mut self) -> Option<Token> {
     self.skip_whitespace();
 
     // here, c1 represents the next char that would be pulled,
     // c2 represents the char after that, etc
-    match self.source.peek() {
-      Some((c1, r1)) => Some(match *c1 {
+    match self.source.peek().cloned(){
+      Some((c1, r1)) => Some(match c1 {
         // here we match different characters
         b'a'..=b'z' | b'A'..=b'Z' => self.lex_identifier_or_keyword(),
         b'0'..=b'9' => self.lex_number(),
         b'`' => self.lex_strop(),
         b'#' => self.lex_metadata(),
         b'\'' => self.lex_label(),
-        b'"' => match self.source.peek_nth(2) {
+        b'"' => match self.source.peek_nth(1).cloned() {
           Some((b'"', _)) => self.lex_block_string(),
           _ => self.lex_string(),
         },
-        b'+' => match self.source.peek_nth(2) {
-          Some((b'+', r2)) => Token::new(TokenKind::Append, union_of(*r1, *r2)),
+        b'+' => match self.source.peek_nth(1).cloned() {
+          Some((b'+', r2)) => Token::new(TokenKind::Append, union_of(r1, r2)),
           Some((b'0'..=b'9', _)) => self.lex_number(),
-          _ => Token::new(TokenKind::Add, *r1),
+          _ => Token::new(TokenKind::Add, r1),
         },
-        b'-' => match self.source.peek_nth(2) {
-          Some((b'>', r2)) => Token::new(TokenKind::Arrow, union_of(*r1, *r2)),
-          Some((b'-', r2)) => Token::new(TokenKind::Difference, union_of(*r1, *r2)),
+        b'-' => match self.source.peek_nth(1).cloned() {
+          Some((b'>', r2)) => Token::new(TokenKind::Arrow, union_of(r1, r2)),
+          Some((b'-', r2)) => Token::new(TokenKind::Difference, union_of(r1, r2)),
           Some((b'0'..=b'9', _)) => self.lex_number(),
-          _ => Token::new(TokenKind::Sub, *r1),
+          _ => Token::new(TokenKind::Sub, r1),
         },
-        b'$' => match self.source.peek_nth(2) {
-          Some((b'_', r2)) => Token::new(TokenKind::Ignore, union_of(*r1, *r2)),
-          Some((b'-', r2)) => Token::new(TokenKind::Splat, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::Bind, *r1),
+        b'$' => match self.source.peek_nth(1).cloned() {
+          Some((b'_', r2)) => Token::new(TokenKind::Ignore, union_of(r1, r2)),
+          Some((b'*', r2)) => Token::new(TokenKind::Splat, union_of(r1, r2)),
+          _ => Token::new(TokenKind::Bind, r1),
         },
-        b';' => Token::new(TokenKind::Sequence, *r1),
-        b':' => match self.source.peek_nth(2) {
-          Some((b':', r2)) => Token::new(TokenKind::FieldAccess, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::Constrain, *r1),
+        b';' => Token::new(TokenKind::Sequence, r1),
+        b':' => match self.source.peek_nth(1).cloned() {
+          Some((b':', r2)) => Token::new(TokenKind::FieldAccess, union_of(r1, r2)),
+          _ => Token::new(TokenKind::Constrain, r1),
         },
-        b'&' => Token::new(TokenKind::Ref, *r1),
-        b'@' => Token::new(TokenKind::Deref, *r1),
-        b'^' => Token::new(TokenKind::Pow, *r1),
-        b'|' => match self.source.peek_nth(2) {
-          Some((b'>', r2)) => Token::new(TokenKind::PipeForward, union_of(*r1, *r2)),
-          Some((b'|', r2)) => Token::new(TokenKind::CaseOption, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::Sum, *r1),
+        b'&' => Token::new(TokenKind::Ref, r1),
+        b'@' => Token::new(TokenKind::Deref, r1),
+        b'^' => Token::new(TokenKind::Pow, r1),
+        b'|' => match self.source.peek_nth(1).cloned() {
+          Some((b'>', r2)) => Token::new(TokenKind::PipeForward, union_of(r1, r2)),
+          Some((b'|', r2)) => Token::new(TokenKind::CaseOption, union_of(r1, r2)),
+          _ => Token::new(TokenKind::Sum, r1),
         },
-        b',' => Token::new(TokenKind::Cons, *r1),
-        b'!' => match self.source.peek_nth(2) {
-          Some((b'=', r2)) => Token::new(TokenKind::CompNotEqual, union_of(*r1, *r2)),
+        b',' => Token::new(TokenKind::Cons, r1),
+        b'!' => match self.source.peek_nth(1).cloned() {
+          Some((b'=', r2)) => Token::new(TokenKind::CompNotEqual, union_of(r1, r2)),
           _ => {
-            self.dlogger.logUnrecognizedCharacter(*r1, *c1);
-            Token::new(TokenKind::None, *r1)
+            self.dlogger.log_unrecognized_character(r1, c1);
+            Token::new(TokenKind::None, r1)
           }
         },
-        b'=' => match self.source.peek_nth(2) {
-          Some((b'=', r2)) => Token::new(TokenKind::CompEqual, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::Assign, *r1),
+        b'=' => match self.source.peek_nth(1).cloned() {
+          Some((b'=', r2)) => Token::new(TokenKind::CompEqual, union_of(r1, r2)),
+          _ => Token::new(TokenKind::Assign, r1),
         },
-        b'<' => match self.source.peek_nth(2) {
-          Some((b'|', r2)) => Token::new(TokenKind::PipeBackward, union_of(*r1, *r2)),
-          Some((b'=', r2)) => Token::new(TokenKind::CompLessEqual, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::CompLess, *r1),
+        b'<' => match self.source.peek_nth(1).cloned() {
+          Some((b'|', r2)) => Token::new(TokenKind::PipeBackward, union_of(r1, r2)),
+          Some((b'=', r2)) => Token::new(TokenKind::CompLessEqual, union_of(r1, r2)),
+          _ => Token::new(TokenKind::CompLess, r1),
         },
-        b'>' => match self.source.peek_nth(2) {
-          Some((b'>', r2)) => Token::new(TokenKind::Compose, union_of(*r1, *r2)),
-          Some((b'=', r2)) => Token::new(TokenKind::CompGreaterEqual, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::CompGreater, *r1),
+        b'>' => match self.source.peek_nth(1).cloned() {
+          Some((b'>', r2)) => Token::new(TokenKind::Compose, union_of(r1, r2)),
+          Some((b'=', r2)) => Token::new(TokenKind::CompGreaterEqual, union_of(r1, r2)),
+          _ => Token::new(TokenKind::CompGreater, r1),
         },
-        b'/' => match self.source.peek_nth(2) {
-          Some((b'\\', r2)) => Token::new(TokenKind::Intersection, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::Div, *r1),
+        b'/' => match self.source.peek_nth(1).cloned() {
+          Some((b'\\', r2)) => Token::new(TokenKind::Intersection, union_of(r1, r2)),
+          _ => Token::new(TokenKind::Div, r1),
         },
-        b'\\' => match self.source.peek_nth(2) {
-          Some((b'/', r2)) => Token::new(TokenKind::Union, union_of(*r1, *r2)),
+        b'\\' => match self.source.peek_nth(1).cloned() {
+          Some((b'/', r2)) => Token::new(TokenKind::Union, union_of(r1, r2)),
           _ => {
-            self.dlogger.logUnrecognizedCharacter(*r1, *c1);
-            Token::new(TokenKind::None, *r1)
+            self.dlogger.log_unrecognized_character(r1, c1);
+            Token::new(TokenKind::None, r1)
           }
         },
-        b'.' => match self.source.peek_nth(2) {
-          Some((b'.', r2)) => Token::new(TokenKind::Range, union_of(*r1, *r2)),
-          Some((b'=', r2)) => Token::new(TokenKind::RangeInclusive, union_of(*r1, *r2)),
-          _ => Token::new(TokenKind::RevApply, *r1),
+        b'.' => match self.source.peek_nth(1).cloned() {
+          Some((b'.', r2)) => Token::new(TokenKind::Range, union_of(r1, r2)),
+          Some((b'=', r2)) => Token::new(TokenKind::RangeInclusive, union_of(r1, r2)),
+          _ => Token::new(TokenKind::RevApply, r1),
         },
-        b'*' => Token::new(TokenKind::Mul, *r1),
-        b'%' => Token::new(TokenKind::Rem, *r1),
-        b'(' => Token::new(TokenKind::ParenLeft, *r1),
-        b')' => Token::new(TokenKind::ParenRight, *r1),
-        b'{' => Token::new(TokenKind::BraceLeft, *r1),
-        b'}' => Token::new(TokenKind::BraceRight, *r1),
-        b'[' => Token::new(TokenKind::BracketLeft, *r1),
-        b']' => Token::new(TokenKind::BracketRight, *r1),
-        c => {
-          self.dlogger.logUnrecognizedCharacter(*r1, *c1);
-          Token::new(TokenKind::None, *r1)
+        b'*' => Token::new(TokenKind::Mul, r1),
+        b'%' => Token::new(TokenKind::Rem, r1),
+        b'(' => Token::new(TokenKind::ParenLeft, r1),
+        b')' => Token::new(TokenKind::ParenRight, r1),
+        b'{' => Token::new(TokenKind::BraceLeft, r1),
+        b'}' => Token::new(TokenKind::BraceRight, r1),
+        b'[' => Token::new(TokenKind::BracketLeft, r1),
+        b']' => Token::new(TokenKind::BracketRight, r1),
+        _ => {
+          self.dlogger.log_unrecognized_character(r1, c1);
+          Token::new(TokenKind::None, r1)
         }
       }),
       None => None,

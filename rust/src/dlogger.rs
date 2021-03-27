@@ -28,8 +28,9 @@ impl DiagnosticLog {
 pub struct DiagnosticLogger {
   sender: Sender<Diagnostic>,
 }
+
 impl DiagnosticLogger {
-  pub fn logUnexpectedEOFInString(&mut self, range: Range) {
+  pub fn log_unexpected_eof_in_string(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -43,21 +44,21 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn logUnrecognizedEscapeCode(&mut self, range: Range, c: u8) {
+  pub fn log_unrecognized_escape_code(&mut self, range: Range, c: u8) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(2)),
       code_description: None,
       source: Some(COMPILER_NAME.to_owned()),
-      message: format!("invalid control char code `{:?}` in string", c as char),
+      message: format!("invalid control char code `{}` in string", c as char),
       related_information: None,
       tags: None,
       data: None,
     })
   }
 
-  pub fn logInvalidUnicodeCodePoint(&mut self, range: Range) {
+  pub fn log_invalid_unicode_code_point(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -71,7 +72,7 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn logDigitExceedsRadix(&mut self, range: Range, radix: u8, digit: u8) {
+  pub fn log_digit_exceeds_radix(&mut self, range: Range, radix: u8, digit: u8) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -88,35 +89,35 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn logUnrecognizedRadixCode(&mut self, range: Range, code: u8) {
+  pub fn log_unrecognized_radix_code(&mut self, range: Range, code: u8) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(5)),
       code_description: None,
       source: Some(COMPILER_NAME.to_owned()),
-      message: format!("radix code 0{:?} is not recognized", code as char),
+      message: format!("radix code 0{} is not recognized", code as char),
       related_information: None,
       tags: None,
       data: None,
     })
   }
 
-  pub fn logUnrecognizedCharacter(&mut self, range: Range, character: u8) {
+  pub fn log_unrecognized_character(&mut self, range: Range, character: u8) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(6)),
       code_description: None,
       source: Some(COMPILER_NAME.to_owned()),
-      message: format!("unrecognized character: `{:?}`", character as char),
+      message: format!("unrecognized character: `{}`", character as char),
       related_information: None,
       tags: None,
       data: None,
     })
   }
 
-  pub fn logIncompleteUnicodeOrByteEscape(&mut self, range: Range, expected_len: u32) {
+  pub fn log_incomplete_unicode_or_byte_escape(&mut self, range: Range, expected_len: u32) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -134,6 +135,7 @@ impl DiagnosticLogger {
   }
 
   fn log(&mut self, d: Diagnostic) {
+    dbg!(d.clone());
     self.sender.send(d).unwrap()
   }
 }

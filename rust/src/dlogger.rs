@@ -18,7 +18,7 @@ impl DiagnosticLog {
     DiagnosticLog { recv, send }
   }
 
-  pub fn getLogger(&mut self) -> DiagnosticLogger {
+  pub fn get_logger(&mut self) -> DiagnosticLogger {
     DiagnosticLogger {
       sender: self.send.clone(),
     }

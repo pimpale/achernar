@@ -18,7 +18,7 @@ pub static COMPILER_NAME: &str = "acnc";
 fn main() {
   let mut log = DiagnosticLog::new();
 
-  for t in tokenize(stdin().bytes().map_while(|x| x.ok()), log.getLogger()) {
+  for t in tokenize(stdin().bytes().map_while(|x| x.ok()), log.get_logger()) {
       dbg!(t);
   }
 }

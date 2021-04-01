@@ -42,46 +42,51 @@ pub enum TokenKind {
   IntType,                                // int
   RealType,                               // real
   // Math Operators
-  Add, // +
-  Sub, // -
+  Plus, // +
+  Minus, // -
   Mul, // *
   Div, // /
   Rem, // %
-  Pow, // ^
+  Pow, // **
+  Negate, // -- difference
   // Boolean Operators
+  Not, // not
   And, // and
   Or,  // or
-  // Set Operators
-  Union,        // \/ union
-  Intersection, // /\ intersection
-  Append,       // ++ append
-  Difference,   // -- difference
-  In,           // in membership
+  // Set Operators (also work on bitvectors)
+  Complement,          // ~
+  RelativeComplement,  // \
+  Union,               // \/
+  Intersection,        // /\
+  SymmetricDifference, // ^
+  In,                  // in
+  // List operators
+  Append,     // ++ append
   // Type operators
-  Cons, // ,
-  Sum,  // |
+  Both,   // ,
+  Either, // |
   // Range Operators
   Range,          // ..
   RangeInclusive, // ..=
   // Comparison and Equality
-  CompEqual,        // ==
-  CompNotEqual,     // /=
-  CompLess,         // <
-  CompLessEqual,    // <=
-  CompGreater,      // >
-  CompGreaterEqual, // >=
+  Equal,        // ==
+  NotEqual,     // /=
+  Less,         // <
+  LessEqual,    // <=
+  Greater,      // >
+  GreaterEqual, // >=
   // Assignment
   Assign, // =
   // Reference
-  Ref,
-  Deref,
+  Ref,   // &
+  Deref, // @
   // labels
   Label(Vec<u8>), // 'x
   // Arrows
   PipeForward,  // |>
   PipeBackward, // <|
   Compose,      // >>
-  Arrow,        // ->
+  Defun,        // ->
   // CaseOptions
   CaseOption, // ||
   // Other Miscellaneous Operator Things
@@ -104,8 +109,8 @@ pub enum TokenKind {
 
 #[derive(Debug, Clone)]
 pub struct Token {
-  kind: TokenKind,
-  range: Range,
+  pub kind: TokenKind,
+  pub range: Range,
 }
 
 impl Token {

@@ -29,14 +29,14 @@ pub fn tokenize<IntoSource: IntoIterator<Item = u8>>(
 impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
   // skips all whitespace
   fn skip_whitespace(&mut self) {
-    while let Some((b' ' | b'\t' | b'\r' | b'\n', _)) = self.source.peek() {
+    while let Some((b' ' | b'\t' | b'\r' | b'\n', _)) = self.source.peek_nth(0) {
       self.source.next();
     }
   }
 
   // skips indentation, but not new lines
   fn skip_indentation(&mut self) {
-    while let Some((b' ' | b'\t', _)) = self.source.peek() {
+    while let Some((b' ' | b'\t', _)) = self.source.peek_nth(0) {
       self.source.next();
     }
   }
@@ -45,7 +45,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
   // requires that there is at least one valid token
   fn internal_lex_word(&mut self) -> (Vec<u8>, Range) {
     assert!(matches!(
-      self.source.peek(),
+      self.source.peek_nth(0),
       Some((b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_', _))
     ));
 
@@ -54,7 +54,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     while let Some((
         c @ (b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'),
         r
-    )) = self.source.peek() {
+    )) = self.source.peek_nth(0) {
       word.push(*c);
       // handle range
       if let Some(or) = range {
@@ -109,7 +109,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
   // lexes a label
   fn lex_label(&mut self) -> Token {
-    assert!(matches!(self.source.peek(), Some((b'\'', _))));
+    assert!(matches!(self.source.peek_nth(0), Some((b'\'', _))));
 
     // handle initial apostrophe
     let (_, ar) = self.source.next().unwrap();
@@ -123,12 +123,12 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
   // requires at least one character exists...
   fn internal_lex_base_number(&mut self, radix: u8, max_len: Option<u32>) -> (BigUint, Range, u32) {
-    let mut range = self.source.peek().unwrap().1;
+    let mut range = self.source.peek_nth(0).unwrap().1;
 
     let mut len = 0u32;
     let mut n = BigUint::zero();
 
-    while let Some((c, r)) = self.source.peek().cloned() {
+    while let Some((c, r)) = self.source.peek_nth(0).cloned() {
       let mut digit = match c {
         b'_' => {
           self.source.next();
@@ -172,16 +172,16 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
   // lexes a number
   fn lex_number(&mut self) -> Token {
     assert!(matches!(
-      self.source.peek(),
+      self.source.peek_nth(0),
       Some((b'0'..=b'9' | b'-' | b'+', _))
     ));
 
     // we grab the first range
-    let first_range = self.source.peek().unwrap().1;
+    let first_range = self.source.peek_nth(0).unwrap().1;
 
     let sign;
 
-    match self.source.peek() {
+    match self.source.peek_nth(0) {
       Some((b'-', _)) => {
         // drop this char
         self.source.next();
@@ -201,7 +201,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
     let radix;
 
-    if let Some((b'0', _)) = self.source.peek() {
+    if let Some((b'0', _)) = self.source.peek_nth(0) {
       match self.source.peek_nth(1) {
         Some((b'b', _)) => {
           radix = 2;
@@ -248,7 +248,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let (whole_raw, whole_range, _) = self.internal_lex_base_number(radix, None);
 
     let fractional;
-    if let Some((b'.', _)) = self.source.peek() {
+    if let Some((b'.', _)) = self.source.peek_nth(0) {
       fractional = true;
       self.source.next();
     } else {
@@ -286,7 +286,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
   // terminator must not be a digit
   fn internal_lex_terminated_string(&mut self, terminator: u8) -> (Vec<u8>, Range) {
     // get initial range
-    let mut range = self.source.peek().unwrap().1;
+    let mut range = self.source.peek_nth(0).unwrap().1;
 
     let mut string = vec![];
 
@@ -301,7 +301,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     }
 
     let mut state = State::Text;
-    while let Some((c, r)) = self.source.peek() {
+    while let Some((c, r)) = self.source.peek_nth(0) {
       range = union_of(*r, range);
       match state {
         State::Text => {
@@ -372,7 +372,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
   fn internal_lex_delimited_string(&mut self, delimiter: u8) -> (Vec<u8>, Range) {
     // assert that the first character is the delimiter
-    assert!(self.source.peek().unwrap().0 == delimiter);
+    assert!(self.source.peek_nth(0).unwrap().0 == delimiter);
 
     // drop first delimiter
     let (_, r1) = self.source.next().unwrap();
@@ -398,9 +398,9 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
   }
 
   fn lex_metadata(&mut self) -> Token {
-    assert!(matches!(self.source.peek(), Some((b'#', _))));
+    assert!(matches!(self.source.peek_nth(0), Some((b'#', _))));
 
-    let mut range = self.source.peek().unwrap().1;
+    let mut range = self.source.peek_nth(0).unwrap().1;
     let mut string = vec![];
     loop {
       // drop the hash
@@ -413,7 +413,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       self.skip_indentation();
 
       // check that we have another quote
-      if let Some((b'#', _)) = self.source.peek() {
+      if let Some((b'#', _)) = self.source.peek_nth(0) {
         string.push(b'\n');
       } else {
         break;
@@ -435,7 +435,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       [Some((b'"', _)), Some((b'"', _))]
     ));
 
-    let mut range = self.source.peek().unwrap().1;
+    let mut range = self.source.peek_nth(0).unwrap().1;
     let mut string = vec![];
     loop {
       // drop the double quote
@@ -467,7 +467,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
   fn lex_simple_token(&mut self, tk:TokenKind, n:u32) -> Token {
     assert!(n >= 1);
-    let mut range =self.source.peek().unwrap().1;
+    let mut range =self.source.peek_nth(0).unwrap().1;
 
     // absorb the next n tokens
     for _ in 0..n {
@@ -488,7 +488,7 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
 
     // here, c1 represents the next char that would be pulled,
     // c2 represents the char after that, etc
-    match self.source.peek().cloned(){
+    match self.source.peek_nth(0).cloned(){
       Some((c1, r1)) => Some(match c1 {
         // here we match different characters
         b'a'..=b'z' | b'A'..=b'Z' => self.lex_identifier_or_keyword(),

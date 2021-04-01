@@ -1,40 +1,39 @@
 use lsp_types::Range;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum IdentifierData {
   None,
   Identifier(String),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Identifier {
   range: Range,
   data: IdentifierData,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Metadata {
   range: Range,
   significant: bool,
-  data: String,
+  value: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum LabelData {
   None,
   Label(String),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Label {
   range: Range,
   data: LabelData,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum BinaryOpKind {
-  None,
   // Type coercion
   Constrain,
   // Function definition
@@ -56,6 +55,8 @@ pub enum BinaryOpKind {
   Div,
   Rem,
   Pow,
+  Negate,
+  Posit,
   // Memory Referencing
   Ref,
   Deref,
@@ -64,20 +65,24 @@ pub enum BinaryOpKind {
   And,
   Or,
   // Comparison
-  CompEqual,
-  CompNotEqual,
-  CompLess,
-  CompLessEqual,
-  CompGreater,
-  CompGreaterEqual,
+  Equal,
+  NotEqual,
+  Less,
+  LessEqual,
+  Greater,
+  GreaterEqual,
   // Set Operations
+  Complement,
+  RelativeComplement,
   Union,
   Intersection,
-  Difference,
+  SymmetricDifference,
   In,
+  // List Operations
+  Append,     // ++ append
   // Type Manipulation
-  Cons,
-  Sum,
+  Both,
+  Either,
   // Range
   Range,
   RangeInclusive,
@@ -91,7 +96,7 @@ pub enum BinaryOpKind {
   ModuleAccess,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ExprData {
   // An error when parsing
   None,
@@ -107,9 +112,7 @@ pub enum ExprData {
     values: Vec<u32>,
   },
   // Literal for a boolean
-  Bool {
-    value: bool,
-  },
+  Bool(bool),
   // Literal for a real (floating point) number
   Real {
     positive: bool,
@@ -117,21 +120,13 @@ pub enum ExprData {
     denominator: Vec<u32>,
   },
   // A string literal
-  String {
-    value: String,
-  },
+  String(Vec<u8>),
   // Loops until a scope is returned
-  Loop {
-    body: Box<Expr>,
-  },
+  Loop(Box<Expr>),
   // embed a computed value in a pattern
-  Val {
-    value: Box<Expr>,
-  },
+  Val(Box<Expr>),
   // quote a pattern
-  Pat {
-    value: Box<Expr>,
-  },
+  Pat(Box<Expr>),
   // Wraps a term in a label that can be deferred or returned from
   Label {
     label: Label,
@@ -148,9 +143,7 @@ pub enum ExprData {
     body: Box<Expr>,
   },
   // Constructs a new compound type
-  Struct {
-    value: Box<Expr>,
-  },
+  Struct(Box<Expr>),
   // Binary operation
   BinaryOp {
     op: BinaryOpKind,
@@ -169,26 +162,20 @@ pub enum ExprData {
     cases: Box<Expr>,
   },
   // Introduces new scope and label
-  Group {
-    value: Box<Expr>,
-  },
+  Group(Box<Expr>),
   // A reference to a previously defined variable
-  Reference {
-    identifier: Identifier,
-  },
+  Reference(Identifier),
   // (PATTERN ONLY) ignores a single element
   BindIgnore,
   // (PATTERN ONLY) Automagically deconstructs and binds a struct
   BindSplat,
   // (PATTERN ONLY) matches a single element to new variable
-  Bind {
-    identifier: Identifier,
-  },
+  Bind(Identifier),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Expr {
-  range: Range,
-  metadata: Vec<Metadata>,
-  data: ExprData,
+  pub range: Range,
+  pub metadata: Vec<Metadata>,
+  pub kind: ExprData,
 }

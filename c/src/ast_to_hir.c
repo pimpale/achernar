@@ -261,11 +261,11 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
         .children_len = 0};
     return hir_noneExpr(vep, a);
   }
-  case ast_EK_Void: {
-    return hir_simpleExpr(vep, a, hir_EK_Void);
+  case ast_EK_Nil: {
+    return hir_simpleExpr(vep, a, hir_EK_Nil);
   }
-  case ast_EK_VoidType: {
-    return hir_simpleExpr(vep, a, hir_EK_VoidType);
+  case ast_EK_NilType: {
+    return hir_simpleExpr(vep, a, hir_EK_NilType);
   }
   case ast_EK_NeverType: {
     return hir_simpleExpr(vep, a, hir_EK_NeverType);
@@ -288,18 +288,14 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     return obj;
   }
   case ast_EK_Group: {
-    hir_Expr *obj = hir_alloc_obj_m(a, hir_Expr);
-    obj->from = vep;
-    obj->kind = hir_EK_Group;
-    obj->group.expr = hir_translateExpr(vep->group.expr, ls, diagnostics, a);
-    return obj;
+    return hir_translateExpr(vep->group.expr, ls, diagnostics, a);
   }
   case ast_EK_String: {
     // construct recursive data structure containing all functions
     // Apply "," with each character
 
     // the final element of the list is void
-    hir_Expr *tail = hir_simpleExpr(vep, a, hir_EK_Void);
+    hir_Expr *tail = hir_simpleExpr(vep, a, hir_EK_Nil);
     for (usize i_plus_one = vep->stringLiteral.value.len; i_plus_one > 0;
          i_plus_one--) {
       usize i = i_plus_one - 1;
@@ -359,10 +355,10 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       // this gives us the defers in the correct order
       com_vec defers = LabelStack_popLabel(ls);
       // note record these
-      obj->label.defer_len = com_vec_len_m(&defers, hir_Expr *);
-      obj->label.defer = com_vec_release(&defers);
+      obj->label.defers_len = com_vec_len_m(&defers, hir_Expr *);
+      obj->label.defers = com_vec_release(&defers);
     } else {
-      obj->label.defer_len = 0;
+      obj->label.defers_len = 0;
     }
     return obj;
   }
@@ -388,7 +384,7 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
       *com_queue_push_m(&lse->defers, hir_Expr *) =
           hir_translateExpr(vep->defer.val, ls, diagnostics, a);
       // now return void
-      return hir_simpleExpr(vep, a, hir_EK_Void);
+      return hir_simpleExpr(vep, a, hir_EK_Nil);
     } else {
       return hir_noneExpr(vep, a);
     }

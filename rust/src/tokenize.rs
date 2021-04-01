@@ -101,7 +101,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"async" => TokenKind::Async,
       b"await" => TokenKind::Await,
       b"import" => TokenKind::Import,
-      _ => TokenKind::Identifier(String::from_utf8(word).unwrap()),
+      _ => TokenKind::Identifier(word),
     };
 
     Token::new(tk, range)
@@ -118,7 +118,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let (word, range) = self.internal_lex_word();
 
     // return label
-    Token::new(TokenKind::Label(String::from_utf8(word).unwrap()), union_of(ar, range))
+    Token::new(TokenKind::Label(word), union_of(ar, range))
   }
 
   // requires at least one character exists...
@@ -383,14 +383,14 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
   fn lex_strop(&mut self) -> Token {
     let (ident, range) = self.internal_lex_delimited_string(b'`');
-    Token::new(TokenKind::Identifier(String::from_utf8(ident).unwrap()), range)
+    Token::new(TokenKind::Identifier(ident), range)
   }
 
   fn lex_string(&mut self) -> Token {
     let (value, range) = self.internal_lex_delimited_string(b'"');
     Token::new(
       TokenKind::String {
-        value: String::from_utf8(value).unwrap(),
+        value,
         block: false,
       },
       range,
@@ -422,7 +422,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
     Token::new(
       TokenKind::Metadata {
-        value: String::from_utf8(string).unwrap(),
+        value: string,
         significant: false,
       },
       range,
@@ -458,7 +458,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
     Token::new(
       TokenKind::String {
-        value: String::from_utf8(string).unwrap(),
+        value: string,
         block: true,
       },
       range,

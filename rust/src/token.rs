@@ -9,7 +9,7 @@ pub enum TokenKind {
   // if it's tk none you can't assume anything
   None,
   // function, type, or variable
-  Identifier(String),
+  Identifier(Vec<u8>),
   // Keywords
   If,     // if
   Then,   // then
@@ -33,7 +33,7 @@ pub enum TokenKind {
   Inf,                                    // inf
   Nan,                                    // nan
   Bool(bool),                             // true, false
-  String { value: String, block: bool }, // "string"
+  String { value: Vec<u8>, block: bool }, // "string"
   Int(BigInt),                            // 7
   Real(BigRational),                      // 0.7
   NilType,                                // nil
@@ -76,7 +76,7 @@ pub enum TokenKind {
   Ref,
   Deref,
   // labels
-  Label(String), // 'x
+  Label(Vec<u8>), // 'x
   // Arrows
   PipeForward,  // |>
   PipeBackward, // <|
@@ -99,7 +99,7 @@ pub enum TokenKind {
   RevApply,     // .
   Sequence,     // ;
   // Comments, and Attributes
-  Metadata { value: String, significant: bool }, // #!attribute and # comment
+  Metadata { value: Vec<u8>, significant: bool }, // #!attribute and # comment
 }
 
 #[derive(Debug, Clone)]

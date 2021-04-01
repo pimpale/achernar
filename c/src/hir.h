@@ -25,8 +25,8 @@ typedef enum {
   hir_EK_Pat, // Quotes pattern
 
   // Literals for values
-  hir_EK_Void,      // Literal for void
-  hir_EK_VoidType,  // Literal for type of void
+  hir_EK_Nil,       // Literal for nil
+  hir_EK_NilType,   // Literal for type of nil
   hir_EK_NeverType, // Literal for never type
   hir_EK_Bool,      // Literal for a boolean value
   hir_EK_BoolType,  // Literal for the type of a boolean value
@@ -209,11 +209,9 @@ typedef struct hir_Expr_s {
     struct {
       com_str identifer;
       hir_Expr *expr;
+      hir_Expr *defers;
+      usize defers_len;
     } label;
-    struct {
-      com_str label;
-      hir_Expr *expr;
-    } defer;
     struct {
       hir_Expr *expr;
       hir_Expr *scope;

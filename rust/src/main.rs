@@ -6,6 +6,7 @@ mod dlogger;
 mod hir;
 mod token;
 mod tokenize;
+mod astbuilder;
 
 use std::io::stdin;
 use std::io::Read;
@@ -17,8 +18,8 @@ pub static COMPILER_NAME: &str = "acnc";
 
 fn main() {
   let mut log = DiagnosticLog::new();
+  let charstream = stdin().bytes().map_while(|x| x.ok());
+  let tokenstream =tokenize(charstream, log.get_logger()) ;
+  let ast =
 
-  for t in tokenize(stdin().bytes().map_while(|x| x.ok()), log.get_logger()) {
-      dbg!(t);
-  }
 }

@@ -297,9 +297,9 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
 
     let mut state = State::Text;
     while let (Some(c), r) = self.source.peek_nth(0).unwrap() {
-      range = union_of(*r, range);
       match state {
         State::Text => {
+          range = union_of(*r, range);
           match *c {
             c if c == terminator => state = State::Exit,
             b'\\' => state = State::Backslash,
@@ -308,6 +308,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
           self.source.next();
         }
         State::Backslash => {
+          range = union_of(*r, range);
           state = State::Text;
           match *c {
             c if c == terminator => string.push(c),
@@ -324,6 +325,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
           self.source.next();
         }
         State::Byte => {
+          range = union_of(*r, range);
           // parse hex digit
           let (val, range, len) = self.internal_lex_base_number(16, Some(2));
 
@@ -338,6 +340,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
           state = State::Text;
         }
         State::Utf8(u) => {
+          range = union_of(*r, range);
           // parse hex digit
           let (val, range, len) = self.internal_lex_base_number(16, Some(u));
 

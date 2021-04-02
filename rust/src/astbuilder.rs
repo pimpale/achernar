@@ -7,16 +7,18 @@ use num_bigint::Sign;
 use peekmore::{PeekMore, PeekMoreIterator};
 
 // clobbers the cursor
-fn peek_past_metadata<'a, TkIter: Iterator<Item = Token>>(
-  tkiter: &'a mut PeekMoreIterator<TkIter>,
-) -> &'a Token {
+fn peek_past_metadata<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+) -> &Token {
   tkiter
-    .advance_cursor_while(|tk| match tk {
-      Some(&Token {
-        kind: Some(TokenKind::Metadata { .. }),
-        ..
-      }) => true,
-      _ => false,
+    .advance_cursor_while(|tk| {
+      matches!(
+        tk,
+        Some(&Token {
+          kind: Some(TokenKind::Metadata { .. }),
+          ..
+        })
+      )
     })
     .peek()
     .unwrap()
@@ -61,7 +63,7 @@ fn parse_prefix_op<TkIter: Iterator<Item = Token>>(
     // return
     Expr {
       range: union_of(range, operand.range),
-      kind: ExprData::UnaryOp { op, operand },
+      kind: ExprKind::UnaryOp { op, operand },
       metadata,
     }
   } else {
@@ -92,7 +94,7 @@ fn parse_suffix_op<TkIter: Iterator<Item = Token>>(
       expr = Expr {
         metadata,
         range: union_of(operand.range, range),
-        kind: ExprData::UnaryOp { op, operand },
+        kind: ExprKind::UnaryOp { op, operand },
       }
     } else {
       // if we dont have a definition just return the current expr
@@ -125,7 +127,7 @@ fn parse_l_binary_op<TkIter: Iterator<Item = Token>>(
       // set new expr which contains the lhs and rhs
       expr = Expr {
         range: union_of(left_operand.range, right_operand.range),
-        kind: ExprData::BinaryOp {
+        kind: ExprKind::BinaryOp {
           op,
           left_operand,
           right_operand,
@@ -162,7 +164,7 @@ fn parse_r_binary_op<TkIter: Iterator<Item = Token>>(
     // return
     Expr {
       range: union_of(left_operand.range, right_operand.range),
-      kind: ExprData::BinaryOp {
+      kind: ExprKind::BinaryOp {
         op,
         left_operand,
         right_operand,
@@ -205,7 +207,7 @@ fn parse_label<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   _: &mut DiagnosticLogger,
 ) -> Option<Label> {
-  let Token { range, kind } = tkiter.peek().unwrap();
+  let Token { range, kind } = tkiter.peek_nth(0).unwrap();
   if let Some(TokenKind::Label(value)) = kind {
     let label = Label {
       range: *range,
@@ -224,7 +226,7 @@ fn parse_identifier<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   _: &mut DiagnosticLogger,
 ) -> Option<Identifier> {
-  let Token { range, kind } = tkiter.peek().unwrap();
+  let Token { range, kind } = tkiter.peek_nth(0).unwrap();
   if let Some(TokenKind::Identifier(value)) = kind {
     let identifier = Identifier {
       range: *range,
@@ -244,7 +246,7 @@ fn parse_exact_struct<TkIter: Iterator<Item = Token>>(
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
   let metadata = get_metadata(tkiter);
-  assert!(tkiter.peek().unwrap().kind == Some(TokenKind::BraceLeft));
+  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::BraceLeft));
   let Token { range: lrange, .. } = tkiter.next().unwrap();
 
   let body = Box::new(parse_expr(tkiter, dlogger));
@@ -257,14 +259,14 @@ fn parse_exact_struct<TkIter: Iterator<Item = Token>>(
     Some(TokenKind::BraceRight) => Expr {
       range: union_of(lrange, rrange),
       metadata,
-      kind: ExprData::Struct(body),
+      kind: ExprKind::Struct(body),
     },
     _ => {
       dlogger.log_unexpected_token_specific(rrange, Some(TokenKind::BraceRight), kind);
       Expr {
         range: union_of(lrange, body.range),
         metadata,
-        kind: ExprData::Struct(body),
+        kind: ExprKind::Struct(body),
       }
     }
   }
@@ -275,7 +277,7 @@ fn parse_exact_group<TkIter: Iterator<Item = Token>>(
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
   let metadata = get_metadata(tkiter);
-  assert!(tkiter.peek().unwrap().kind == Some(TokenKind::ParenLeft));
+  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::ParenLeft));
   let Token { range: lrange, .. } = tkiter.next().unwrap();
 
   let body = Box::new(parse_expr(tkiter, dlogger));
@@ -288,14 +290,14 @@ fn parse_exact_group<TkIter: Iterator<Item = Token>>(
     Some(TokenKind::ParenRight) => Expr {
       range: union_of(lrange, rrange),
       metadata,
-      kind: ExprData::Group(body),
+      kind: ExprKind::Group(body),
     },
     _ => {
       dlogger.log_unexpected_token_specific(rrange, Some(TokenKind::ParenRight), kind);
       Expr {
         range: union_of(lrange, body.range),
         metadata,
-        kind: ExprData::Group(body),
+        kind: ExprKind::Group(body),
       }
     }
   }
@@ -311,7 +313,7 @@ fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
   Expr {
     metadata,
     range: identifier.range,
-    kind: ExprData::Reference(Some(identifier)),
+    kind: ExprKind::Reference(Some(identifier)),
   }
 }
 
@@ -329,7 +331,7 @@ fn parse_exact_ret<TkIter: Iterator<Item = Token>>(
   Expr {
     metadata,
     range: union_of(ret_tk.range, body.range),
-    kind: ExprData::Ret { label, body },
+    kind: ExprKind::Ret { label, body },
   }
 }
 
@@ -347,7 +349,7 @@ fn parse_exact_defer<TkIter: Iterator<Item = Token>>(
   Expr {
     metadata,
     range: union_of(defer_tk.range, body.range),
-    kind: ExprData::Defer { label, body },
+    kind: ExprKind::Defer { label, body },
   }
 }
 
@@ -374,7 +376,7 @@ fn parse_exact_if<TkIter: Iterator<Item = Token>>(
   Expr {
     metadata,
     range: union_of(if_tk.range, else_expr.range),
-    kind: ExprData::IfThen {
+    kind: ExprKind::IfThen {
       cond_expr,
       then_expr,
       else_expr,
@@ -415,7 +417,7 @@ fn parse_exact_case<TkIter: Iterator<Item = Token>>(
   Expr {
     metadata,
     range: union_of(case_tk.range, cases.range),
-    kind: ExprData::CaseOf { expr, cases },
+    kind: ExprKind::CaseOf { expr, cases },
   }
 }
 
@@ -430,7 +432,7 @@ fn parse_exact_label<TkIter: Iterator<Item = Token>>(
   Expr {
     metadata,
     range: union_of(label.range, body.range),
-    kind: ExprData::Label { label, body },
+    kind: ExprKind::Label { label, body },
   }
 }
 
@@ -438,7 +440,7 @@ fn parse_exact_bool_type<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::BoolType, ExprData::BoolType)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::BoolType, ExprKind::BoolType)(tkiter, dlogger)
 }
 
 // parses a bool
@@ -455,7 +457,7 @@ fn parse_exact_bool<TkIter: Iterator<Item = Token>>(
     Expr {
       metadata,
       range,
-      kind: ExprData::Bool(value),
+      kind: ExprKind::Bool(value),
     }
   } else {
     unreachable!();
@@ -476,7 +478,7 @@ fn parse_exact_string<TkIter: Iterator<Item = Token>>(
     Expr {
       metadata,
       range,
-      kind: ExprData::String { value, block },
+      kind: ExprKind::String { value, block },
     }
   } else {
     unreachable!();
@@ -487,7 +489,7 @@ fn parse_exact_int_type<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::IntType, ExprData::IntType)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::IntType, ExprKind::IntType)(tkiter, dlogger)
 }
 
 // parses a int
@@ -505,7 +507,7 @@ fn parse_exact_int<TkIter: Iterator<Item = Token>>(
     Expr {
       metadata,
       range,
-      kind: ExprData::Int {
+      kind: ExprKind::Int {
         positive: sign != Sign::Minus,
         values,
       },
@@ -519,7 +521,7 @@ fn parse_exact_real_type<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::RealType, ExprData::RealType)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::RealType, ExprKind::RealType)(tkiter, dlogger)
 }
 
 // parses a real
@@ -538,10 +540,10 @@ fn parse_exact_real<TkIter: Iterator<Item = Token>>(
     Expr {
       metadata,
       range,
-      kind: ExprData::Real {
+      kind: ExprKind::Real {
         numerator,
         denominator,
-        positive: nsign * dsign == Sign::Minus,
+        positive: nsign * dsign != Sign::Minus,
       },
     }
   } else {
@@ -552,7 +554,7 @@ fn parse_exact_real<TkIter: Iterator<Item = Token>>(
 // creates a parser that parses a single token of the type specified
 fn parse_exact_simple<TkIter: Iterator<Item = Token>>(
   expected_kind: TokenKind,
-  result_kind: ExprData,
+  result_kind: ExprKind,
 ) -> impl FnOnce(&mut PeekMoreIterator<TkIter>, &mut DiagnosticLogger) -> Expr {
   move |tkiter: &mut PeekMoreIterator<TkIter>, _: &mut DiagnosticLogger| {
     let metadata = get_metadata(tkiter);
@@ -577,35 +579,35 @@ fn parse_exact_this<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::This, ExprData::This)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::This, ExprKind::This)(tkiter, dlogger)
 }
 
 fn parse_exact_ignore<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::Ignore, ExprData::BindIgnore)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::Ignore, ExprKind::BindIgnore)(tkiter, dlogger)
 }
 
 fn parse_exact_splat<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::Splat, ExprData::BindSplat)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::Splat, ExprKind::BindSplat)(tkiter, dlogger)
 }
 
 fn parse_exact_nil_type<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::NilType, ExprData::NilType)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::NilType, ExprKind::NilType)(tkiter, dlogger)
 }
 
 fn parse_exact_never_type<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::NeverType, ExprData::NeverType)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::NeverType, ExprKind::NeverType)(tkiter, dlogger)
 }
 
 fn decide_term<TkIter: Iterator<Item = Token>>(
@@ -647,24 +649,24 @@ fn parse_term<TkIter: Iterator<Item = Token>>(
   } = peek_past_metadata(tkiter).clone();
   if let Some(kind) = maybe_kind {
     if let Some(parser) = decide_term(&kind) {
-      return parser(tkiter, dlogger);
+      parser(tkiter, dlogger)
     } else {
       // grab metadata
       let metadata = get_metadata(tkiter);
       // consume unexpected token
       dlogger.log_unexpected_token(range, "term", Some(kind));
       tkiter.next();
-      return Expr {
+      Expr {
         range,
         metadata,
-        kind: ExprData::None,
-      };
+        kind: ExprKind::None,
+      }
     }
   } else {
     dlogger.log_unexpected_token(range, "term", maybe_kind);
     Expr {
       range,
-      kind: ExprData::None,
+      kind: ExprKind::None,
       metadata: get_metadata(tkiter),
     }
   }
@@ -678,6 +680,7 @@ fn decide_prefix(tkkind: &TokenKind) -> Option<UnaryOpKind> {
     TokenKind::Loop => Some(UnaryOpKind::Loop),
     TokenKind::Pat => Some(UnaryOpKind::Pat),
     TokenKind::Val => Some(UnaryOpKind::Val),
+    TokenKind::Bind => Some(UnaryOpKind::Bind),
     _ => None,
   }
 }
@@ -730,7 +733,7 @@ fn parse_apply_operators<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_r_binary_op(tkiter, dlogger, parse_suffix_operators, |tkiter, _| {
+  parse_r_binary_op(tkiter, dlogger, parse_tight_operators, |tkiter, _| {
     if let Token {
       kind: Some(kind),
       range,
@@ -740,7 +743,7 @@ fn parse_apply_operators<TkIter: Iterator<Item = Token>>(
         return Some((BinaryOpKind::Apply, *range, vec![]));
       }
     }
-    return None;
+    None
   })
 }
 
@@ -751,7 +754,7 @@ fn parse_range_operators<TkIter: Iterator<Item = Token>>(
   parse_r_binary_op(
     tkiter,
     dlogger,
-    parse_as_operator,
+    parse_apply_operators,
     simple_operator_fn(|x| match x {
       TokenKind::Range => Some(BinaryOpKind::Range),
       TokenKind::RangeInclusive => Some(BinaryOpKind::RangeInclusive),

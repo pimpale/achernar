@@ -104,7 +104,7 @@ pub enum UnaryOpKind {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ExprData {
+pub enum ExprKind {
   // An error when parsing
   None,
   // Representing the current
@@ -194,5 +194,5 @@ pub enum ExprData {
 pub struct Expr {
   pub range: Range,
   pub metadata: Vec<Metadata>,
-  pub kind: ExprData,
+  pub kind: ExprKind,
 }

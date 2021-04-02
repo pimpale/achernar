@@ -1,5 +1,4 @@
 use super::token::TokenKind;
-use super::COMPILER_NAME;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;
 use lsp_types::NumberOrString;
@@ -20,15 +19,17 @@ impl DiagnosticLog {
     DiagnosticLog { recv, send }
   }
 
-  pub fn get_logger(&mut self) -> DiagnosticLogger {
+  pub fn get_logger(&mut self, source:Option<String> ) -> DiagnosticLogger {
     DiagnosticLogger {
       sender: self.send.clone(),
+      source
     }
   }
 }
 
 pub struct DiagnosticLogger {
   sender: Sender<Diagnostic>,
+  source: Option<String>,
 }
 
 impl DiagnosticLogger {
@@ -38,7 +39,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(1)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: "unexpected end of file in string, expected close quote".to_owned(),
       related_information: None,
       tags: None,
@@ -52,7 +53,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(2)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: format!("invalid control char code `{}` in string", c as char),
       related_information: None,
       tags: None,
@@ -66,7 +67,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(3)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: "invalid unicode code point following unicode control code".to_owned(),
       related_information: None,
       tags: None,
@@ -80,7 +81,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(4)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: format!(
         "digit ({}) is greater than or equal to the radix ({})",
         digit, radix
@@ -97,7 +98,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(5)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: format!("radix code 0{} is not recognized", code as char),
       related_information: None,
       tags: None,
@@ -111,7 +112,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(6)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: format!("unrecognized character: `{}`", character as char),
       related_information: None,
       tags: None,
@@ -125,7 +126,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(7)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: format!(
         "unicode or byte escape sequence requires {} hex characters immediately following",
         expected_len
@@ -154,7 +155,7 @@ impl DiagnosticLogger {
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(8)),
       code_description: None,
-      source: Some(COMPILER_NAME.to_owned()),
+      source: self.source.clone(),
       message: format!(
         "expected {} but found unexpected {}",
         expected,

@@ -5,6 +5,7 @@ use strum::ToString;
 
 #[derive(Debug, Clone, ToString, PartialEq)]
 pub enum TokenKind {
+  UnrecognizedCharacter,     // token parsing error
   // function, type, or variable
   Identifier(Vec<u8>),
   // Keywords
@@ -46,7 +47,7 @@ pub enum TokenKind {
   Or,  // or
   // Nil Manipulation
   NilSafeAssert,   // !
-  NilCoalesce,     // ??
+  NilCoalesce,     // ?
   NilSafeRevApply, // ?.
   // Set Operators (also work on bitvectors)
   Complement,          // ~

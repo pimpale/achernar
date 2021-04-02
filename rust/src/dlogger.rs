@@ -1,8 +1,10 @@
+use super::token::TokenKind;
 use super::COMPILER_NAME;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
+use std::string::ToString;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -132,6 +134,45 @@ impl DiagnosticLogger {
       tags: None,
       data: None,
     })
+  }
+
+  fn format_token(&self, maybe_tk: Option<TokenKind>) -> String {
+    match maybe_tk {
+      Some(tkk) => format!("token of kind `{}`", tkk.to_string()),
+      None => String::from("EOF"),
+    }
+  }
+
+  pub fn log_unexpected_token(
+    &mut self,
+    range: Range,
+    expected: &str,
+    unexpected_kind: Option<TokenKind>,
+  ) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(8)),
+      code_description: None,
+      source: Some(COMPILER_NAME.to_owned()),
+      message: format!(
+        "expected {} but found unexpected {}",
+        expected,
+        self.format_token(unexpected_kind)
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unexpected_token_specific(
+    &mut self,
+    range: Range,
+    expected_kind: Option<TokenKind>,
+    unexpected_kind: Option<TokenKind>,
+  ) {
+    self.log_unexpected_token(range, &self.format_token(expected_kind), unexpected_kind);
   }
 
   fn log(&mut self, d: Diagnostic) {

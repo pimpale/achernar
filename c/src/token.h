@@ -52,7 +52,7 @@ typedef enum {
   tk_Div, // /
   tk_Rem, // %
   tk_Pow, // ^
-  // Boolean Operators
+  // Logical Boolean Operators
   tk_And, // and
   tk_Or,  // or
   // Set Operators

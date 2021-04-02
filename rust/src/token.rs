@@ -1,13 +1,10 @@
 use lsp_types::Range;
 use num_bigint::BigInt;
 use num_rational::BigRational;
+use strum::ToString;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ToString, PartialEq)]
 pub enum TokenKind {
-  // These are not tokens, and do not contain token data
-  Eof,
-  // if it's tk none you can't assume anything
-  None,
   // function, type, or variable
   Identifier(Vec<u8>),
   // Keywords
@@ -15,20 +12,15 @@ pub enum TokenKind {
   Then,   // then
   Else,   // else
   Loop,   // loop
-  Of,     // of
   Ret,    // ret
   Defer,  // defer
   Case,   // case
+  Of,     // of
   As,     // as
   Where,  // where
-  Dyn,    // dyn
-  Impl,   // impl
   This,   // this
-  Val,    // val
-  Pat,    // pat
-  Async,  // async
-  Await,  // await
-  Import, // import
+  Pat,  // pat
+  Val,   // val
   // Literals and constants
   Inf,                                    // inf
   Nan,                                    // nan
@@ -42,17 +34,20 @@ pub enum TokenKind {
   IntType,                                // int
   RealType,                               // real
   // Math Operators
-  Plus, // +
+  Plus,  // +
   Minus, // -
-  Mul, // *
-  Div, // /
-  Rem, // %
-  Pow, // **
-  Negate, // -- difference
+  Mul,   // *
+  Div,   // /
+  Rem,   // %
+  Pow,   // **
   // Boolean Operators
   Not, // not
   And, // and
   Or,  // or
+  // Nil Manipulation
+  NilSafeAssert,   // !
+  NilCoalesce,     // ??
+  NilSafeRevApply, // ?.
   // Set Operators (also work on bitvectors)
   Complement,          // ~
   RelativeComplement,  // \
@@ -61,10 +56,13 @@ pub enum TokenKind {
   SymmetricDifference, // ^
   In,                  // in
   // List operators
-  Append,     // ++ append
+  Append, // ++ append
   // Type operators
   Both,   // ,
   Either, // |
+  // Async operators
+  Async,  // async
+  Await,  // await
   // Range Operators
   Range,          // ..
   RangeInclusive, // ..=
@@ -100,7 +98,7 @@ pub enum TokenKind {
   BraceLeft,    // {
   BraceRight,   // }
   Constrain,    // :
-  FieldAccess,  // ::
+  ModuleAccess, // ::
   RevApply,     // .
   Sequence,     // ;
   // Comments, and Attributes
@@ -109,12 +107,12 @@ pub enum TokenKind {
 
 #[derive(Debug, Clone)]
 pub struct Token {
-  pub kind: TokenKind,
+  pub kind: Option<TokenKind>,
   pub range: Range,
 }
 
 impl Token {
   pub fn new(kind: TokenKind, range: Range) -> Self {
-    Token { kind, range }
+    Token { kind:Some(kind), range }
   }
 }

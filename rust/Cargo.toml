@@ -12,3 +12,4 @@ num-rational = "^0.4"
 num-traits = "^0.2"
 lsp-types = "^0.88"
 peekmore = "^1.0.0"
+strum = { version = "0.20", features = ["derive"] }

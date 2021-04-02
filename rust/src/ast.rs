@@ -1,38 +1,26 @@
 use lsp_types::Range;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum IdentifierData {
-  None,
-  Identifier(String),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Identifier {
-  range: Range,
-  data: IdentifierData,
+  pub range: Range,
+  pub value: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {
-  range: Range,
-  significant: bool,
-  value: Vec<u8>,
+  pub range: Range,
+  pub significant: bool,
+  pub value: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum LabelData {
-  None,
-  Label(String),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Label {
-  range: Range,
-  data: LabelData,
+  pub range: Range,
+  pub value: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum BinaryOpKind {
   // Type coercion
   Constrain,
@@ -57,13 +45,12 @@ pub enum BinaryOpKind {
   Pow,
   Negate,
   Posit,
-  // Memory Referencing
-  Ref,
-  Deref,
   // Booleans
-  Not,
   And,
   Or,
+  // Nil Manipulation
+  NilCoalesce,
+  NilSafeRevApply,
   // Comparison
   Equal,
   NotEqual,
@@ -72,14 +59,13 @@ pub enum BinaryOpKind {
   Greater,
   GreaterEqual,
   // Set Operations
-  Complement,
   RelativeComplement,
   Union,
   Intersection,
   SymmetricDifference,
   In,
   // List Operations
-  Append,     // ++ append
+  Append, // ++ append
   // Type Manipulation
   Both,
   Either,
@@ -96,10 +82,28 @@ pub enum BinaryOpKind {
   ModuleAccess,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum UnaryOpKind {
+  // Memory Referencing
+  Ref,
+  Deref,
+  // Boolean
+  Not,
+  // Set Operations
+  Complement,
+  // Nil Manipulation
+  NilSafeAssert,
+  // Async operators
+  Async,
+  Await,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ExprData {
   // An error when parsing
   None,
+  // Representing the current
+  This,
   // Literal for void
   Nil,
   // Literal for void type
@@ -134,12 +138,12 @@ pub enum ExprData {
   },
   // Defer until label
   Defer {
-    label: Label,
+    label: Option<Label>,
     body: Box<Expr>,
   },
   // Returns from a scope with a value
   Ret {
-    label: Label,
+    label: Option<Label>,
     body: Box<Expr>,
   },
   // Constructs a new compound type
@@ -149,6 +153,11 @@ pub enum ExprData {
     op: BinaryOpKind,
     left_operand: Box<Expr>,
     right_operand: Box<Expr>,
+  },
+  // Unary operation
+  UnaryOp {
+    op: UnaryOpKind,
+    operand: Box<Expr>,
   },
   // if then else expression
   IfThen {
@@ -173,7 +182,7 @@ pub enum ExprData {
   Bind(Identifier),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Expr {
   pub range: Range,
   pub metadata: Vec<Metadata>,

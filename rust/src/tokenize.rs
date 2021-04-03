@@ -87,6 +87,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"nan" => TokenKind::Nan,
       b"in" => TokenKind::In,
       b"where" => TokenKind::Where,
+      b"not" => TokenKind::Not,
       b"and" => TokenKind::And,
       b"or" => TokenKind::Or,
       b"nil" => TokenKind::NilType,
@@ -484,82 +485,83 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
 
     // here, c1 represents the next char that would be pulled,
     // c2 represents the char after that, etc
-    let tk = match self.source.peek_nth(0).unwrap().clone().0 {
+    let tk = match self.source.peek_nth(0).unwrap().0 {
       // here we match different characters
       Some(b'a'..=b'z' | b'A'..=b'Z') => self.lex_identifier_or_keyword(),
       Some(b'0'..=b'9') => self.lex_number(),
       Some(b'`') => self.lex_strop(),
       Some(b'#') => self.lex_metadata(),
       Some(b'\'') => self.lex_label(),
-      Some(b'"') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'"') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'"') => self.lex_block_string(),
         _ => self.lex_string(),
       },
-      Some(b'+') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'+') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'+') => self.lex_simple_token(TokenKind::Append, 2),
         Some(b'0'..=b'9') => self.lex_number(),
         _ => self.lex_simple_token(TokenKind::Plus, 1),
       },
-      Some(b'-') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'-') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'>') => self.lex_simple_token(TokenKind::Defun, 2),
         Some(b'0'..=b'9') => self.lex_number(),
         _ => self.lex_simple_token(TokenKind::Minus, 1),
       },
-      Some(b'$') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'$') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'_') => self.lex_simple_token(TokenKind::Ignore, 2),
         Some(b'*') => self.lex_simple_token(TokenKind::Splat, 2),
         _ => self.lex_simple_token(TokenKind::Bind, 1),
       },
       Some(b';') => self.lex_simple_token(TokenKind::Sequence, 1),
-      Some(b':') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b':') => match self.source.peek_nth(1).unwrap().0 {
         Some(b':') => self.lex_simple_token(TokenKind::ModuleAccess, 2),
         _ => self.lex_simple_token(TokenKind::Constrain, 1),
       },
       Some(b'&') => self.lex_simple_token(TokenKind::Ref, 1),
       Some(b'@') => self.lex_simple_token(TokenKind::Deref, 1),
-      Some(b'|') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'|') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'>') => self.lex_simple_token(TokenKind::PipeForward, 2),
         Some(b'|') => self.lex_simple_token(TokenKind::CaseOption, 2),
         _ => self.lex_simple_token(TokenKind::Either, 1),
       },
       Some(b',') => self.lex_simple_token(TokenKind::Both, 1),
-      Some(b'!') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'!') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'=') => self.lex_simple_token(TokenKind::NotEqual, 2),
         _ => self.lex_simple_token(TokenKind::NilSafeAssert, 1),
       },
-      Some(b'=') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'=') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'=') => self.lex_simple_token(TokenKind::Equal, 2),
         _ => self.lex_simple_token(TokenKind::Assign, 1),
       },
-      Some(b'<') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'<') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'|') => self.lex_simple_token(TokenKind::PipeBackward, 2),
         Some(b'=') => self.lex_simple_token(TokenKind::LessEqual, 2),
         _ => self.lex_simple_token(TokenKind::Less, 1),
       },
-      Some(b'>') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'>') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'>') => self.lex_simple_token(TokenKind::Compose, 2),
         Some(b'=') => self.lex_simple_token(TokenKind::GreaterEqual, 2),
         _ => self.lex_simple_token(TokenKind::Greater, 1),
       },
       Some(b'~') => self.lex_simple_token(TokenKind::Complement, 1),
-      Some(b'/') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'^') => self.lex_simple_token(TokenKind::SymmetricDifference, 1),
+      Some(b'/') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'\\') => self.lex_simple_token(TokenKind::Intersection, 2),
         _ => self.lex_simple_token(TokenKind::Div, 1),
       },
-      Some(b'\\') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'\\') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'/') => self.lex_simple_token(TokenKind::Union, 2),
         _ => self.lex_simple_token(TokenKind::RelativeComplement, 1),
       },
-      Some(b'.') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'.') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'.') => self.lex_simple_token(TokenKind::Range, 2),
         Some(b'=') => self.lex_simple_token(TokenKind::RangeInclusive, 2),
         _ => self.lex_simple_token(TokenKind::RevApply, 1),
       },
-      Some(b'?') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'?') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'.') => self.lex_simple_token(TokenKind::NilSafeRevApply, 2),
         _ => self.lex_simple_token(TokenKind::NilCoalesce, 1),
       },
-      Some(b'*') => match self.source.peek_nth(1).unwrap().clone().0 {
+      Some(b'*') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'*') => self.lex_simple_token(TokenKind::Pow, 2),
         _ => self.lex_simple_token(TokenKind::Mul, 1),
       },

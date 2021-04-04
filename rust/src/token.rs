@@ -5,13 +5,10 @@ use strum::ToString;
 
 #[derive(Debug, Clone, ToString, PartialEq)]
 pub enum TokenKind {
-  UnrecognizedCharacter,     // token parsing error
+  UnrecognizedCharacter, // token parsing error
   // function, type, or variable
   Identifier(Vec<u8>),
   // Keywords
-  If,     // if
-  Then,   // then
-  Else,   // else
   Loop,   // loop
   Ret,    // ret
   Defer,  // defer
@@ -20,8 +17,11 @@ pub enum TokenKind {
   As,     // as
   Where,  // where
   This,   // this
-  Pat,  // pat
-  Val,   // val
+  Pat,    // pat
+  Val,    // val
+  Struct, // struct
+  Enum,   // enum
+  New,    // new
   // Literals and constants
   Inf,                                    // inf
   Nan,                                    // nan
@@ -62,8 +62,8 @@ pub enum TokenKind {
   Both,   // ,
   Either, // |
   // Async operators
-  Async,  // async
-  Await,  // await
+  Async, // async
+  Await, // await
   // Range Operators
   Range,          // ..
   RangeInclusive, // ..=
@@ -114,6 +114,9 @@ pub struct Token {
 
 impl Token {
   pub fn new(kind: TokenKind, range: Range) -> Self {
-    Token { kind:Some(kind), range }
+    Token {
+      kind: Some(kind),
+      range,
+    }
   }
 }

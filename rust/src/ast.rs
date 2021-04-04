@@ -1,22 +1,12 @@
 use lsp_types::Range;
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Identifier {
-  pub range: Range,
-  pub value: Vec<u8>,
-}
+use num_bigint::BigInt;
+use num_rational::BigRational;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {
   pub range: Range,
   pub significant: bool,
-  pub value: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Label {
-  pub range: Range,
   pub value: Vec<u8>,
 }
 
@@ -96,10 +86,15 @@ pub enum UnaryOpKind {
   // Async operators
   Async,
   Await,
+  // Compound type manipulation
+  Struct,
+  Enum,
+  New,
   // syntactic constructs
   Loop,
   Val,
   Pat,
+  // (PATTERN ONLY) matches a single element to new variable
   Bind,
 }
 
@@ -122,18 +117,11 @@ pub enum ExprKind {
   // Literal for real type
   RealType,
   // Literal for an integer number
-  Int {
-    positive: bool,
-    values: Vec<u32>,
-  },
+  Int(BigInt),
   // Literal for a boolean
   Bool(bool),
-  // Literal for a real (floating point) number
-  Real {
-    positive: bool,
-    numerator: Vec<u32>,
-    denominator: Vec<u32>,
-  },
+  // Literal for a real number
+  Real(BigRational),
   // A string literal
   String {
     value: Vec<u8>,
@@ -141,17 +129,17 @@ pub enum ExprKind {
   },
   // Wraps a term in a label that can be deferred or returned from
   Label {
-    label: Label,
+    label: Vec<u8>,
     body: Box<Expr>,
   },
   // Defer until label
   Defer {
-    label: Option<Label>,
+    label: Option<Vec<u8>>,
     body: Box<Expr>,
   },
   // Returns from a scope with a value
   Ret {
-    label: Option<Label>,
+    label: Option<Vec<u8>>,
     body: Box<Expr>,
   },
   // Constructs a new compound type
@@ -181,13 +169,11 @@ pub enum ExprKind {
   // Introduces new scope and label
   Group(Box<Expr>),
   // A reference to a previously defined variable
-  Reference(Option<Identifier>),
+  Reference(Option<Vec<u8>>),
   // (PATTERN ONLY) ignores a single element
   BindIgnore,
   // (PATTERN ONLY) Automagically deconstructs and binds a struct
   BindSplat,
-  // (PATTERN ONLY) matches a single element to new variable
-  Bind(Option<Identifier>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

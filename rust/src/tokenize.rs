@@ -92,11 +92,11 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"or" => TokenKind::Or,
       b"nil" => TokenKind::NilType,
       b"never" => TokenKind::NeverType,
-      b"if" => TokenKind::If,
-      b"then" => TokenKind::Then,
-      b"else" => TokenKind::Else,
       b"async" => TokenKind::Async,
       b"await" => TokenKind::Await,
+      b"struct" => TokenKind::Struct,
+      b"enum" => TokenKind::Enum,
+      b"new" => TokenKind::New,
       _ => TokenKind::Identifier(word),
     };
 

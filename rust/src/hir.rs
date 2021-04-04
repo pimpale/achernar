@@ -1,79 +1,63 @@
 use super::ast;
 use num_bigint::BigInt;
+use num_rational::BigRational;
 
-enum ExprData<'ast> {
+pub enum ExprKind<'hir, 'ast> {
   // An error when parsing
   None,
+  This,
   // Loops until a scope is returned
-  Loop {
-    body: Box<Expr<'ast>>,
-  },
+  Loop(&'hir Expr<'hir, 'ast>),
 
   // applies a function
   Apply {
-    function: Box<Expr<'ast>>,
-    param: Box<Expr<'ast>>,
+    fun: &'hir Expr<'hir, 'ast>,
+    arg: &'hir Expr<'hir, 'ast>,
   },
   // Wraps a term in a label that can be deferred or returned from
   Label {
-    label: String,
-    scope: Box<Expr<'ast>>,
-  },
-  // Wraps a term in a label that can be deferred or returned from
-  Defer {
-    label: String,
-    deferred: Box<Expr<'ast>>,
+    label: Vec<u8>,
+    scope: &'hir Expr<'hir, 'ast>,
+    defers:Vec<Expr<'hir, 'ast>>
   },
   // Returns from a scope with a value
   Ret {
-    label: String,
-    value: Box<Expr<'ast>>,
+    label: Vec<u8>,
+    value: &'hir Expr<'hir, 'ast>,
   },
-  // Constructs a new compound type
+  // constructs a new compound ty
   StructLiteral {
-    body: Box<Expr<'ast>>,
+    body: &'hir Expr<'hir, 'ast>,
   },
   // Accessing the module of a module object
   StructAccess {
-    root: Box<Expr<'ast>>,
-    field: String,
+    root: &'hir Expr<'hir, 'ast>,
+    field: Vec<u8>,
   },
   // A reference to a previously defined variable
-  Reference {
-    identifier: String,
-  },
+  Reference(Vec<u8>),
   // Switches on a pattern
   CaseOf {
-    root: Box<Expr<'ast>>,
-    cases: Vec<Expr<'ast>>,
-  },
-  // Switches on a pattern
-  CaseOption {
-    pattern: Box<Pat<'ast>>,
-    result: Box<Expr<'ast>>,
+    root: &'hir Expr<'hir, 'ast>,
+    cases: Vec<(Pat<'hir, 'ast>, Expr<'hir, 'ast>)>,
   },
   // Quotes pattern
-  Pat {
-    pat: Box<Pat<'ast>>,
-  },
-
+  Pat(&'hir Pat<'hir, 'ast>),
   // Literals for values
   Nil,
   NilType,
   Never,
   NeverType,
-  Bool {
-    value: bool,
-  },
+  Bool(bool),
   BoolType,
   // actually bigint
-  Int {
-    value: BigInt,
-  },
   IntType,
+  Int(BigInt),
+  RealType,
+  Real(BigRational),
 
   // Type stuff
-  // creates a struct from an ad hoc compound object
+  // creates a pub struct from an ad hoc compound object
   StructFn,
   // creates a disjoint union from an ad hoc compound object
   EnumFn,
@@ -81,68 +65,78 @@ enum ExprData<'ast> {
   NewFn,
   // creates a tuple
   ConsFn,
-
   // Create Function
   Defun {
-    pattern: Box<Pat<'ast>>,
-    result: Box<Expr<'ast>>,
+    pattern: &'hir Pat<'hir, 'ast>,
+    result: &'hir Expr<'hir, 'ast>,
   },
-
   // Sequence
-  // () -> () -> ()
-  Sequence,
+  SequenceFn,
 
   // Assign value to place
-  // Pattern($x) -> x -> void
-  Assign {
-    target: Box<Pat<'ast>>,
-    value: Box<Expr<'ast>>,
+  LetIn {
+    pat: &'hir Pat<'hir, 'ast>,
+    val: &'hir Expr<'hir, 'ast>,
+    body: &'hir Expr<'hir, 'ast>,
   },
 }
 
-struct Expr<'ast> {
-  source: &'ast ast::Expr,
-  data: ExprData<'ast>,
+pub struct Expr<'hir, 'ast> {
+  pub source: Option<&'ast ast::Expr>,
+  pub kind: ExprKind<'hir, 'ast>,
 }
 
-enum PatData<'ast> {
+pub enum BindTargetKind {
+  Identifier( Vec<u8>),
+  Splat,
+  Ignore
+}
+
+pub enum PatKind<'hir, 'ast> {
   // An error when parsing
   None,
   // Irrefutably matches a single element to new variable
   Bind {
-    pattern: Box<Pat<'ast>>,
-    identifier: String,
+    pattern: &'hir Pat<'hir, 'ast>,
+    target:BindTargetKind,
   },
-  // Irrefutably matches, and ignores result
-  BindIgnore,
-  // automagically deconstructs a struct
-  BindSplat,
-  // constrains the type of a pattern expression by a type value
-  Constrain {
-    pattern: Box<Pat<'ast>>,
-    r#type: Box<Expr<'ast>>,
+  // defines the type of a value
+  Ty {
+    pattern: &'hir Pat<'hir, 'ast>,
+    ty: &'hir Expr<'hir, 'ast>,
+  },
+  // destructure a tuple
+  Cons {
+    left_operand: &'hir Pat<'hir, 'ast>,
+    right_operand: &'hir Pat<'hir, 'ast>,
   },
   // Apply like a pattern (means that any of the arguments can use pattern syntax)
-  Apply {
-    function: Box<Expr<'ast>>,
-    param: Box<Pat<'ast>>,
+  ActivePattern {
+    function: &'hir Expr<'hir, 'ast>,
+    param: &'hir Pat<'hir, 'ast>,
   },
   // Refutable pattern of a value
-  Expr,
+  Value(&'hir Pat<'hir, 'ast>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
-  And,
+  And{
+    left_operand: &'hir Pat<'hir, 'ast>,
+    right_operand: &'hir Pat<'hir, 'ast>,
+  },
   // Evaluates the second pattern iff the first pattern doesn't match, matches if at least one is true
-  Or,
-  // Destructures a field of a struct object
+  Or{
+    left_operand: &'hir Pat<'hir, 'ast>,
+    right_operand: &'hir Pat<'hir, 'ast>,
+  },
+  // Depub structures a field of a pub struct object
   StructEntry {
     field: String,
-    pattern: Box<Pat<'ast>>,
+    pattern: &'hir Pat<'hir, 'ast>,
   },
 }
 
-struct Pat<'ast> {
-  source: &'ast ast::Expr,
-  data: PatData<'ast>,
+pub struct Pat<'ast, 'hir> {
+  pub source: Option<&'ast ast::Expr>,
+  pub kind: PatKind<'hir, 'ast>,
 }
 
 //  // Math with integers
@@ -204,7 +198,7 @@ struct Pat<'ast> {
 //  // Math with floats
 //
 //  // Handle memory address + ownership
-//  hir_EK_PlaceType, // this is the type of a valid place that may be assigned to
+//  hir_EK_PlaceType, // this is the ty of a valid place that may be assigned to
 //                    // or take reference of
 //  hir_EK_PatternType, // PlaceType | StructPattern | IntPatternType |
 //                      // RealPatternType | Splat | TODO
@@ -215,6 +209,3 @@ struct Pat<'ast> {
 //
 //  // Returns a place from a memory address
 //  hir_EK_MutateMemAddrFn,
-
-
-

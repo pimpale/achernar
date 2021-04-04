@@ -340,14 +340,8 @@ static hir_Expr *hir_translateExpr(const ast_Expr *vep, LabelStack *ls,
     // push new label element
     bool didPushLabel = LabelStack_pushLabel(ls, obj, vep->label.label, a);
 
-    // IMPORTANT!
-    // if expr is group, then we evaluate the group's body
-    if (vep->label.val->kind == ast_EK_Group) {
-      obj->label.expr =
-          hir_translateExpr(vep->label.val->group.expr, ls, diagnostics, a);
-    } else {
-      obj->label.expr = hir_translateExpr(vep->label.val, ls, diagnostics, a);
-    }
+    // translate expr 
+    obj->label.expr = hir_translateExpr(vep->label.val, ls, diagnostics, a);
 
     // only pop off label if we managed to push one
     if (didPushLabel) {

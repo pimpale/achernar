@@ -1,3 +1,4 @@
+use super::ast;
 use super::token::TokenKind;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;
@@ -185,12 +186,46 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(7)),
+      code: Some(NumberOrString::Number(9)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
         "cannot find label `{}` in scope",
         String::from_utf8_lossy(label.as_slice())
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_expected_case_option_expr(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(10)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "expected CaseOption BinaryOp, but found unexpected {}",
+        kind.to_string()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_expected_case_option_binop(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(11)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "expected CaseOption, but found unexpected {}",
+        kind.to_string()
       ),
       related_information: None,
       tags: None,

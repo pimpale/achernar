@@ -2,6 +2,7 @@ use lsp_types::Range;
 use serde::{Deserialize, Serialize};
 use num_bigint::BigInt;
 use num_rational::BigRational;
+use strum::ToString;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {
@@ -10,7 +11,7 @@ pub struct Metadata {
   pub value: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToString)]
 pub enum BinaryOpKind {
   // Type coercion
   Constrain,
@@ -72,7 +73,7 @@ pub enum BinaryOpKind {
   ModuleAccess,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToString)]
 pub enum UnaryOpKind {
   // Memory Referencing
   Ref,
@@ -98,7 +99,7 @@ pub enum UnaryOpKind {
   Bind,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToString)]
 pub enum ExprKind {
   // An error when parsing
   None,

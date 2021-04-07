@@ -3,21 +3,21 @@ use super::dlogger::DiagnosticLogger;
 use super::hir;
 use bumpalo::Bump;
 use num_bigint::BigInt;
-use std::cell::RefCell;
 use std::alloc::Allocator;
+use std::cell::RefCell;
 
 struct HirBuilder<'hir> {
   allocator: &'hir Bump,
   dlogger: DiagnosticLogger,
 }
 
-struct LabelElement<'le, 'hir, 'ast, A:Allocator> {
+struct LabelElement<'le, 'hir, 'ast, A: Allocator> {
   prior_le: Option<&'le LabelElement<'le, 'hir, 'ast, A>>,
   label: &'ast Vec<u8>,
   defers: RefCell<Vec<hir::Expr<'hir, 'ast, A>, A>>,
 }
 
-fn get_label<'le, 'hir, 'ast, A:Allocator>(
+fn get_label<'le, 'hir, 'ast, A: Allocator>(
   mut le: Option<&'le LabelElement<'le, 'hir, 'ast, A>>,
   label: &Vec<u8>,
 ) -> Option<(&'le LabelElement<'le, 'hir, 'ast, A>, u64)> {
@@ -34,11 +34,8 @@ fn get_label<'le, 'hir, 'ast, A:Allocator>(
   return None;
 }
 
-fn clone_in<'hir,A:Allocator, T:Clone>(
-    allocator:A,
-    vec:&Vec<T>
-) -> Vec<T, A> {
-  let v = Vec::new_in(allocator);
+fn clone_in<'hir, A: Allocator, T: Clone>(allocator: A, vec: &Vec<T>) -> Vec<T, A> {
+  let mut v = Vec::new_in(allocator);
   v.clone_from_slice(vec.as_slice());
   v
 }
@@ -57,6 +54,13 @@ impl<'hir> HirBuilder<'hir> {
         arg: x,
       },
     })
+  }
+
+  fn tr_pat<'ast>(&mut self, source: &'ast ast::Expr) -> hir::Pat<'hir, 'ast, &'hir Bump> {
+      hir::Pat {
+        source: Some(source),
+        kind: hir::PatKind::None,
+      }
   }
 
   fn tr_expr<'ast>(
@@ -247,12 +251,64 @@ impl<'hir> HirBuilder<'hir> {
         ref expr,
         ref cases,
       } => {
-        // TODO translate case tree to vector of cases
-        let x = 5;
+        let mut case_options = Vec::new_in(self.allocator);
+
+        // depth first search of binary tree
+        let mut optstack = vec![cases];
+        while let Some(current) = optstack.pop() {
+          match current.kind {
+            ast::ExprKind::BinaryOp {
+              ref left_operand,
+              ref right_operand,
+              ref op,
+            } => match op {
+              ast::BinaryOpKind::CaseOption => {
+                optstack.push(left_operand);
+                optstack.push(right_operand);
+              }
+              ast::BinaryOpKind::Defun => {
+                case_options.push((self.tr_pat(left_operand), self.tr_expr(right_operand, ls)))
+              }
+              ref bok => {
+                self
+                  .dlogger
+                  .log_expected_case_option_binop(current.range, bok);
+              }
+            },
+            ref kind => {
+              self
+                .dlogger
+                .log_expected_case_option_expr(current.range, kind);
+            }
+          }
+        }
+
+        // return case option
         hir::Expr {
           source: Some(source),
-          kind: hir::ExprKind::None,
+          kind: hir::ExprKind::CaseOf {
+            expr: self.allocator.alloc(self.tr_expr(expr, ls)),
+            case_options,
+          },
         }
+      }
+
+      ast::ExprKind::UnaryOp {
+          ref op,
+          ref operand
+      } => match op {
+        ast::UnaryOpKind::Ref =>
+        ast::UnaryOpKind::Deref =>
+        ast::UnaryOpKind::Not=>
+        ast::UnaryOpKind::Not=>
+        ast::UnaryOpKind::Bind =>
+        ast::UnaryOpKind::Complement =>
+        ast::UnaryOpKind::Enum =>
+        ast::UnaryOpKind::Struct =>
+        ast::UnaryOpKind::Struct =>
+
+        ast::UnaryOpKind::Async =>
+        ast::UnaryOpKind::Await =>
       }
     }
   }

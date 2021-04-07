@@ -38,8 +38,8 @@ pub enum ExprKind<'hir, 'ast, A:Allocator> {
   Reference(Vec<u8, A>),
   // Switches on a pattern
   CaseOf {
-    root: &'hir Expr<'hir, 'ast, A>,
-    cases: Vec<(Pat<'hir, 'ast, A>, Expr<'hir, 'ast, A>), A>,
+    expr: &'hir Expr<'hir, 'ast, A>,
+    case_options: Vec<(Pat<'hir, 'ast, A>, Expr<'hir, 'ast, A>), A>,
   },
   // Quotes pattern
   Pat(&'hir Pat<'hir, 'ast, A>),

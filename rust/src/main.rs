@@ -12,6 +12,7 @@ mod hirbuilder;
 
 use std::io::stdin;
 use std::io::Read;
+use bumpalo::Bump;
 
 use dlogger::DiagnosticLog;
 use tokenize::tokenize;
@@ -27,8 +28,10 @@ fn main() {
     log.get_logger(Some(String::from("acnc-construct-ast"))),
   );
 
+  let allocator = Bump::new();
   let hir = construct_hir(
-    ast,
+    &ast,
+    &allocator,
     log.get_logger(Some(String::from("acnc-construct-hir"))),
   );
   dbg!(ast);

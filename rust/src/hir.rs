@@ -16,19 +16,18 @@ pub enum ExprKind<'hir, 'ast> {
   },
   // Wraps a term in a label that can be deferred or returned from
   Label {
-    label: Vec<u8>,
+    defers: Vec<Expr<'hir, 'ast>>,
     scope: &'hir Expr<'hir, 'ast>,
-    defers:Vec<Expr<'hir, 'ast>>
   },
   // Returns from a scope with a value
   Ret {
-    label: Vec<u8>,
+    // the number of labels up to find the correct one
+    //
+    labels_up: u64,
     value: &'hir Expr<'hir, 'ast>,
   },
   // constructs a new compound ty
-  StructLiteral {
-    body: &'hir Expr<'hir, 'ast>,
-  },
+  StructLiteral(&'hir Expr<'hir, 'ast>),
   // Accessing the module of a module object
   StructAccess {
     root: &'hir Expr<'hir, 'ast>,
@@ -87,9 +86,9 @@ pub struct Expr<'hir, 'ast> {
 }
 
 pub enum BindTargetKind {
-  Identifier( Vec<u8>),
+  Identifier(Vec<u8>),
   Splat,
-  Ignore
+  Ignore,
 }
 
 pub enum PatKind<'hir, 'ast> {
@@ -98,7 +97,7 @@ pub enum PatKind<'hir, 'ast> {
   // Irrefutably matches a single element to new variable
   Bind {
     pattern: &'hir Pat<'hir, 'ast>,
-    target:BindTargetKind,
+    target: BindTargetKind,
   },
   // defines the type of a value
   Ty {
@@ -118,12 +117,12 @@ pub enum PatKind<'hir, 'ast> {
   // Refutable pattern of a value
   Value(&'hir Pat<'hir, 'ast>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
-  And{
+  And {
     left_operand: &'hir Pat<'hir, 'ast>,
     right_operand: &'hir Pat<'hir, 'ast>,
   },
   // Evaluates the second pattern iff the first pattern doesn't match, matches if at least one is true
-  Or{
+  Or {
     left_operand: &'hir Pat<'hir, 'ast>,
     right_operand: &'hir Pat<'hir, 'ast>,
   },

@@ -19,10 +19,10 @@ impl DiagnosticLog {
     DiagnosticLog { recv, send }
   }
 
-  pub fn get_logger(&mut self, source:Option<String> ) -> DiagnosticLogger {
+  pub fn get_logger(&mut self, source: Option<String>) -> DiagnosticLogger {
     DiagnosticLogger {
       sender: self.send.clone(),
-      source
+      source,
     }
   }
 }
@@ -179,5 +179,22 @@ impl DiagnosticLogger {
   fn log(&mut self, d: Diagnostic) {
     dbg!(d.clone());
     self.sender.send(d).unwrap()
+  }
+
+  pub fn log_cannot_find_label_in_scope(&mut self, range: Range, label: Vec<u8>) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(7)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "cannot find label `{}` in scope",
+        String::from_utf8_lossy(label.as_slice())
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
   }
 }

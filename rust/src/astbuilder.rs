@@ -267,7 +267,7 @@ fn parse_exact_group<TkIter: Iterator<Item = Token>>(
 // parses an exact reference or panics
 fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
+  _dlogger: &mut DiagnosticLogger,
 ) -> Expr {
   let metadata = get_metadata(tkiter);
 

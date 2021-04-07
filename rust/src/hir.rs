@@ -8,41 +8,41 @@ pub enum ExprKind<'hir, 'ast, A:Allocator> {
   None,
   This,
   // Loops until a scope is returned
-  Loop(&'hir Expr<'hir, 'ast>),
+  Loop(&'hir Expr<'hir, 'ast, A>),
 
   // applies a function
   Apply {
-    fun: &'hir Expr<'hir, 'ast>,
-    arg: &'hir Expr<'hir, 'ast>,
+    fun: &'hir Expr<'hir, 'ast, A>,
+    arg: &'hir Expr<'hir, 'ast, A>,
   },
   // Wraps a term in a label that can be deferred or returned from
   Label {
-    defers: Vec<Expr<'hir, 'ast>, &'hir A>,
-    scope: &'hir Expr<'hir, 'ast>,
+    defers: Vec<Expr<'hir, 'ast, A>, A>,
+    scope: &'hir Expr<'hir, 'ast, A>,
   },
   // Returns from a scope with a value
   Ret {
     // the number of labels up to find the correct one
     //
     labels_up: u64,
-    value: &'hir Expr<'hir, 'ast>,
+    value: &'hir Expr<'hir, 'ast, A>,
   },
   // constructs a new compound ty
-  StructLiteral(&'hir Expr<'hir, 'ast>),
+  StructLiteral(&'hir Expr<'hir, 'ast, A>),
   // Accessing the module of a module object
   StructAccess {
-    root: &'hir Expr<'hir, 'ast>,
-    field: Vec<u8, &'hir A>,
+    root: &'hir Expr<'hir, 'ast, A>,
+    field: Vec<u8, A>,
   },
   // A reference to a previously defined variable
-  Reference(Vec<u8>),
+  Reference(Vec<u8, A>),
   // Switches on a pattern
   CaseOf {
-    root: &'hir Expr<'hir, 'ast>,
-    cases: Vec<(Pat<'hir, 'ast>, Expr<'hir, 'ast>), &'hir A>,
+    root: &'hir Expr<'hir, 'ast, A>,
+    cases: Vec<(Pat<'hir, 'ast, A>, Expr<'hir, 'ast, A>), A>,
   },
   // Quotes pattern
-  Pat(&'hir Pat<'hir, 'ast>),
+  Pat(&'hir Pat<'hir, 'ast, A>),
   // Literals for values
   Nil,
   NilType,
@@ -67,76 +67,76 @@ pub enum ExprKind<'hir, 'ast, A:Allocator> {
   ConsFn,
   // Create Function
   Defun {
-    pattern: &'hir Pat<'hir, 'ast>,
-    result: &'hir Expr<'hir, 'ast>,
+    pattern: &'hir Pat<'hir, 'ast, A>,
+    result: &'hir Expr<'hir, 'ast, A>,
   },
   // Sequence
   SequenceFn,
 
   // Assign value to place
   LetIn {
-    pat: &'hir Pat<'hir, 'ast>,
-    val: &'hir Expr<'hir, 'ast>,
-    body: &'hir Expr<'hir, 'ast>,
+    pat: &'hir Pat<'hir, 'ast, A>,
+    val: &'hir Expr<'hir, 'ast, A>,
+    body: &'hir Expr<'hir, 'ast, A>,
   },
 }
 
-pub struct Expr<'hir, 'ast> {
+pub struct Expr<'hir, 'ast, A:Allocator> {
   pub source: Option<&'ast ast::Expr>,
-  pub kind: ExprKind<'hir, 'ast>,
+  pub kind: ExprKind<'hir, 'ast, A>,
 }
 
-pub enum BindTargetKind {
-  Identifier(Vec<u8>),
+pub enum BindTargetKind<A:Allocator>{
+  Identifier(Vec<u8, A>),
   Splat,
   Ignore,
 }
 
-pub enum PatKind<'hir, 'ast> {
+pub enum PatKind<'hir, 'ast, A:Allocator> {
   // An error when parsing
   None,
   // Irrefutably matches a single element to new variable
   Bind {
-    pattern: &'hir Pat<'hir, 'ast>,
-    target: BindTargetKind,
+    pattern: &'hir Pat<'hir, 'ast, A>,
+    target: BindTargetKind<A>,
   },
   // defines the type of a value
   Ty {
-    pattern: &'hir Pat<'hir, 'ast>,
-    ty: &'hir Expr<'hir, 'ast>,
+    pattern: &'hir Pat<'hir, 'ast, A>,
+    ty: &'hir Expr<'hir, 'ast, A>,
   },
   // destructure a tuple
   Cons {
-    left_operand: &'hir Pat<'hir, 'ast>,
-    right_operand: &'hir Pat<'hir, 'ast>,
+    left_operand: &'hir Pat<'hir, 'ast, A>,
+    right_operand: &'hir Pat<'hir, 'ast, A>,
   },
   // Apply like a pattern (means that any of the arguments can use pattern syntax)
   ActivePattern {
-    function: &'hir Expr<'hir, 'ast>,
-    param: &'hir Pat<'hir, 'ast>,
+    function: &'hir Expr<'hir, 'ast, A>,
+    param: &'hir Pat<'hir, 'ast, A>,
   },
   // Refutable pattern of a value
-  Value(&'hir Pat<'hir, 'ast>),
+  Value(&'hir Pat<'hir, 'ast, A>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   And {
-    left_operand: &'hir Pat<'hir, 'ast>,
-    right_operand: &'hir Pat<'hir, 'ast>,
+    left_operand: &'hir Pat<'hir, 'ast, A>,
+    right_operand: &'hir Pat<'hir, 'ast, A>,
   },
   // Evaluates the second pattern iff the first pattern doesn't match, matches if at least one is true
   Or {
-    left_operand: &'hir Pat<'hir, 'ast>,
-    right_operand: &'hir Pat<'hir, 'ast>,
+    left_operand: &'hir Pat<'hir, 'ast, A>,
+    right_operand: &'hir Pat<'hir, 'ast, A>,
   },
   // Depub structures a field of a pub struct object
   StructEntry {
     field: String,
-    pattern: &'hir Pat<'hir, 'ast>,
+    pattern: &'hir Pat<'hir, 'ast, A>,
   },
 }
 
-pub struct Pat<'ast, 'hir> {
+pub struct Pat<'hir, 'ast, A:Allocator> {
   pub source: Option<&'ast ast::Expr>,
-  pub kind: PatKind<'hir, 'ast>,
+  pub kind: PatKind<'hir, 'ast, A>,
 }
 
 //  // Math with integers

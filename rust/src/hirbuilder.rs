@@ -4,23 +4,23 @@ use super::hir;
 use bumpalo::Bump;
 use num_bigint::BigInt;
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::alloc::Allocator;
 
 struct HirBuilder<'hir> {
   allocator: &'hir Bump,
   dlogger: DiagnosticLogger,
 }
 
-struct LabelElement<'le, 'ast, 'hir> {
-  prior_le: Option<&'le LabelElement<'le, 'ast, 'hir>>,
+struct LabelElement<'le, 'hir, 'ast, A:Allocator> {
+  prior_le: Option<&'le LabelElement<'le, 'hir, 'ast, A>>,
   label: &'ast Vec<u8>,
-  defers: RefCell<VecDeque<hir::Expr<'ast, 'hir>>>,
+  defers: RefCell<Vec<hir::Expr<'hir, 'ast, A>, A>>,
 }
 
-fn get_label<'le, 'ast, 'hir>(
-  mut le: Option<&'le LabelElement<'le, 'ast, 'hir>>,
+fn get_label<'le, 'hir, 'ast, A:Allocator>(
+  mut le: Option<&'le LabelElement<'le, 'hir, 'ast, A>>,
   label: &Vec<u8>,
-) -> Option<(&'le LabelElement<'le, 'ast, 'hir>, u64)> {
+) -> Option<(&'le LabelElement<'le, 'hir, 'ast, A>, u64)> {
   let mut labels_up = 1;
   while le.is_some() {
     if le.map(|x| x.label == label) == Some(true) {
@@ -34,13 +34,22 @@ fn get_label<'le, 'ast, 'hir>(
   return None;
 }
 
+fn clone_in<'hir,A:Allocator, T:Clone>(
+    allocator:A,
+    vec:&Vec<T>
+) -> Vec<T, A> {
+  let v = Vec::new_in(allocator);
+  v.clone_from_slice(vec.as_slice());
+  v
+}
+
 impl<'hir> HirBuilder<'hir> {
   fn gen_apply_fn<'ast>(
     &mut self,
     source: Option<&'ast ast::Expr>,
-    fun: hir::Expr<'ast, 'hir>,
-    args: Vec<&'hir hir::Expr<'ast, 'hir>>,
-  ) -> hir::Expr<'ast, 'hir> {
+    fun: hir::Expr<'hir, 'ast, &'hir Bump>,
+    args: Vec<&'hir hir::Expr<'hir, 'ast, &'hir Bump>>,
+  ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
     args.iter().fold(fun, |acc, x| hir::Expr {
       source,
       kind: hir::ExprKind::Apply {
@@ -53,8 +62,8 @@ impl<'hir> HirBuilder<'hir> {
   fn tr_expr<'ast>(
     &mut self,
     source: &'ast ast::Expr,
-    ls: Option<&LabelElement<'_, 'ast, 'hir>>,
-  ) -> hir::Expr<'ast, 'hir> {
+    ls: Option<&LabelElement<'_, 'hir, 'ast, &'hir Bump>>,
+  ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
     match source.kind {
       ast::ExprKind::None => hir::Expr {
         source: Some(source),
@@ -136,7 +145,7 @@ impl<'hir> HirBuilder<'hir> {
         let label_element = LabelElement {
           label,
           prior_le: ls,
-          defers: RefCell::new(vec![].into()),
+          defers: RefCell::new(Vec::new_in(self.allocator)),
         };
 
         // parse body
@@ -159,12 +168,11 @@ impl<'hir> HirBuilder<'hir> {
         if let Some(label) = maybe_label {
           // clone last label element with matching name
           if let Some((dle, _)) = get_label(ls, label) {
-            // we push the defer into the front
-            // since we want later defers to be executed first
+            // we push the defer to the end
             dle
               .defers
               .borrow_mut()
-              .push_front(self.tr_expr(body, dle.prior_le));
+              .push(self.tr_expr(body, dle.prior_le));
 
             // return a nil element to replace the defer
             hir::Expr {
@@ -173,7 +181,7 @@ impl<'hir> HirBuilder<'hir> {
             }
           } else {
             // means that there are no matching labels
-            // throw diagnotic
+            // throw diagnostic
             self
               .dlogger
               .log_cannot_find_label_in_scope(source.range, label.clone());
@@ -233,7 +241,7 @@ impl<'hir> HirBuilder<'hir> {
       },
       ast::ExprKind::Reference(ref identifier) => hir::Expr {
         source: Some(source),
-        kind: hir::ExprKind::Reference(Vec::new_in(self.allocator).append(identifier.clone())),
+        kind: hir::ExprKind::Reference(clone_in(self.allocator, identifier)),
       },
       ast::ExprKind::CaseOf {
         ref expr,
@@ -243,18 +251,18 @@ impl<'hir> HirBuilder<'hir> {
         let x = 5;
         hir::Expr {
           source: Some(source),
-          kind: hir::ExprKind::Reference(identifier.clone()),
+          kind: hir::ExprKind::None,
         }
       }
     }
   }
 }
 
-pub fn construct_hir<'ast, 'hir>(
+pub fn construct_hir<'hir, 'ast>(
   ast: &'ast ast::Expr,
   allocator: &'hir Bump,
   dlogger: DiagnosticLogger,
-) -> hir::Expr<'ast, 'hir> {
+) -> hir::Expr<'hir, 'ast, &'hir Bump> {
   let mut hb = HirBuilder { allocator, dlogger };
 
   hb.tr_expr(ast, None)

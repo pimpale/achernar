@@ -35,5 +35,4 @@ fn main() {
     &allocator,
     log.get_logger(Some(String::from("acnc-construct-hir"))),
   );
-  dbg!(ast);
 }

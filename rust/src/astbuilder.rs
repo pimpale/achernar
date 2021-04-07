@@ -202,7 +202,7 @@ fn simple_operator_fn<'a, TkIter: Iterator<Item = Token>, OpKind>(
   }
 }
 
-fn parse_exact_struct<TkIter: Iterator<Item = Token>>(
+fn parse_exact_struct_literal<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
@@ -220,14 +220,14 @@ fn parse_exact_struct<TkIter: Iterator<Item = Token>>(
     Some(TokenKind::BraceRight) => Expr {
       range: union_of(lrange, rrange),
       metadata,
-      kind: ExprKind::Struct(body),
+      kind: ExprKind::StructLiteral(body),
     },
     _ => {
       dlogger.log_unexpected_token_specific(rrange, Some(TokenKind::BraceRight), kind);
       Expr {
         range: union_of(lrange, body.range),
         metadata,
-        kind: ExprKind::Struct(body),
+        kind: ExprKind::StructLiteral(body),
       }
     }
   }
@@ -279,7 +279,7 @@ fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
     Expr {
       metadata,
       range,
-      kind: ExprKind::Reference(Some(identifier)),
+      kind: ExprKind::Reference(identifier),
     }
   } else {
     unimplemented!()
@@ -586,7 +586,7 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::Int(_) => Some(parse_exact_int::<TkIter>),
     TokenKind::RealType => Some(parse_exact_real_type::<TkIter>),
     TokenKind::Real(_) => Some(parse_exact_real::<TkIter>),
-    TokenKind::BraceLeft => Some(parse_exact_struct::<TkIter>),
+    TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
     TokenKind::String { .. } => Some(parse_exact_string::<TkIter>),
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),
     TokenKind::Ret => Some(parse_exact_ret::<TkIter>),

@@ -143,7 +143,7 @@ pub enum ExprKind {
     body: Box<Expr>,
   },
   // Constructs a new compound type
-  Struct(Box<Expr>),
+  StructLiteral(Box<Expr>),
   // Binary operation
   BinaryOp {
     op: BinaryOpKind,
@@ -155,12 +155,6 @@ pub enum ExprKind {
     op: UnaryOpKind,
     operand: Box<Expr>,
   },
-  // if then else expression
-  IfThen {
-    cond_expr: Box<Expr>,
-    then_expr: Box<Expr>,
-    else_expr: Box<Expr>,
-  },
   // Matches an expression to the first matching pattern and destructures it
   CaseOf {
     expr: Box<Expr>,
@@ -169,7 +163,7 @@ pub enum ExprKind {
   // Introduces new scope and label
   Group(Box<Expr>),
   // A reference to a previously defined variable
-  Reference(Option<Vec<u8>>),
+  Reference(Vec<u8>),
   // (PATTERN ONLY) ignores a single element
   BindIgnore,
   // (PATTERN ONLY) Automagically deconstructs and binds a struct

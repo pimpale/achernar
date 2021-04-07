@@ -1,8 +1,9 @@
 use super::ast;
 use num_bigint::BigInt;
 use num_rational::BigRational;
+use std::alloc::Allocator;
 
-pub enum ExprKind<'hir, 'ast> {
+pub enum ExprKind<'hir, 'ast, A:Allocator> {
   // An error when parsing
   None,
   This,
@@ -16,7 +17,7 @@ pub enum ExprKind<'hir, 'ast> {
   },
   // Wraps a term in a label that can be deferred or returned from
   Label {
-    defers: Vec<Expr<'hir, 'ast>>,
+    defers: Vec<Expr<'hir, 'ast>, &'hir A>,
     scope: &'hir Expr<'hir, 'ast>,
   },
   // Returns from a scope with a value
@@ -31,14 +32,14 @@ pub enum ExprKind<'hir, 'ast> {
   // Accessing the module of a module object
   StructAccess {
     root: &'hir Expr<'hir, 'ast>,
-    field: Vec<u8>,
+    field: Vec<u8, &'hir A>,
   },
   // A reference to a previously defined variable
   Reference(Vec<u8>),
   // Switches on a pattern
   CaseOf {
     root: &'hir Expr<'hir, 'ast>,
-    cases: Vec<(Pat<'hir, 'ast>, Expr<'hir, 'ast>)>,
+    cases: Vec<(Pat<'hir, 'ast>, Expr<'hir, 'ast>), &'hir A>,
   },
   // Quotes pattern
   Pat(&'hir Pat<'hir, 'ast>),

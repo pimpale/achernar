@@ -1,6 +1,7 @@
 #![feature(or_patterns)]
 #![feature(iter_map_while)]
 #![feature(destructuring_assignment)]
+#![feature(allocator_api)]
 mod ast;
 mod astbuilder;
 mod codereader;

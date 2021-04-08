@@ -232,4 +232,34 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
+  pub fn log_unexpected_val(&mut self, range: Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(12)),
+      code_description: None,
+      source: self.source.clone(),
+      message: String::from("`val` expr is only valid in a pattern"),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+
+  pub fn log_unexpected_bind(&mut self, range: Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(13)),
+      code_description: None,
+      source: self.source.clone(),
+      message: String::from("variable binding expr is only valid in a pattern"),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
 }

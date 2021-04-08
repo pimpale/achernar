@@ -65,6 +65,16 @@ pub enum ExprKind<'hir, 'ast, A:Allocator> {
   NewFn,
   // creates a tuple
   ConsFn,
+  // Creates a Reference T -> &T
+  RefFn,
+  // Dereferences &T -> T
+  DerefFn,
+  // not
+  NotFn,
+  ComplementFn,
+  AsyncFn,
+  AwaitFn,
+  NilSafeAssertFn,
   // Create Function
   Defun {
     pattern: &'hir Pat<'hir, 'ast, A>,

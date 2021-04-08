@@ -286,7 +286,6 @@ fn tr_expr<'hir, 'ast>(
         },
       }
     }
-
     ast::ExprKind::UnaryOp {
       ref op,
       ref operand,
@@ -404,6 +403,55 @@ fn tr_expr<'hir, 'ast>(
         }
       }
     },
+    ast::ExprKind::BinaryOp {
+      ref op,
+      ref left_operand,
+      ref right_operand,
+    } => match op {
+
+   // ast::BinaryOpKind::Constrain => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::ConstrainFn, }, ,
+   // ast::BinaryOpKind::Defun => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::DefunFn, }, ,
+   // ast::BinaryOpKind::CaseOption => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::CaseOptionFn, }, ,
+   // ast::BinaryOpKind::Apply => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::ApplyFn, }, ,
+   // ast::BinaryOpKind::RevApply => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::RevApplyFn, }, ,
+   // ast::BinaryOpKind::Compose => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::ComposeFn, }, ,
+   // ast::BinaryOpKind::PipeForward => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::PipeForwardFn, }, ,
+   // ast::BinaryOpKind::PipeBackward => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::PipeBackwardFn, }, ,
+   // ast::BinaryOpKind::Add => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::AddFn, }, ,
+   // ast::BinaryOpKind::Sub => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::SubFn, }, ,
+   // ast::BinaryOpKind::Mul => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::MulFn, }, ,
+   // ast::BinaryOpKind::Div => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::DivFn, }, ,
+   // ast::BinaryOpKind::Rem => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::RemFn, }, ,
+   // ast::BinaryOpKind::Pow => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::PowFn, }, ,
+   // ast::BinaryOpKind::And => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::AndFn, }, ,
+   // ast::BinaryOpKind::Or => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::OrFn, }, ,
+   // ast::BinaryOpKind::NilCoalesce => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::NilCoalesceFn, }, ,
+   // ast::BinaryOpKind::NilSafeRevApply => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::NilSafeRevApplyFn, }, ,
+   // ast::BinaryOpKind::Equal => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::EqualFn, }, ,
+   // ast::BinaryOpKind::NotEqual => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::NotEqualFn, }, ,
+   // ast::BinaryOpKind::Less => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::LessFn, }, ,
+   // ast::BinaryOpKind::LessEqual => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::LessEqualFn, }, ,
+   // ast::BinaryOpKind::Greater => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::GreaterFn, }, ,
+   // ast::BinaryOpKind::GreaterEqual => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::GreaterEqualFn, }, ,
+   // ast::BinaryOpKind::RelativeComplement => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::RelativeComplementFn, }, ,
+   // ast::BinaryOpKind::Union => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::UnionFn, }, ,
+   // ast::BinaryOpKind::Intersection => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::IntersectionFn, }, ,
+   // ast::BinaryOpKind::SymmetricDifference => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::SymmetricDifferenceFn, }, ,
+   // ast::BinaryOpKind::In => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::InFn, }, ,
+   // ast::BinaryOpKind::Both => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::BothFn, }, ,
+   // ast::BinaryOpKind::Either => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::EitherFn, }, ,
+   // ast::BinaryOpKind::Range => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::RangeFn, }, ,
+   // ast::BinaryOpKind::RangeInclusive => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::RangeInclusiveFn, }, ,
+   // ast::BinaryOpKind::Assign => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::AssignFn, }, ,
+   // ast::BinaryOpKind::Sequence => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::SequenceFn, }, ,
+   // ast::BinaryOpKind::As => gen_apply_fn(allocator, Some(source, hir::Expr { source:Some(source), kind: hir::ExprKind::AsFn, }, ,
+
+
+
+  ast::BinaryOpKind::ModuleAccess => ,
+
+
+    }
   }
 }
 

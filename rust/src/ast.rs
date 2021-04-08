@@ -34,8 +34,6 @@ pub enum BinaryOpKind {
   Div,
   Rem,
   Pow,
-  Negate,
-  Posit,
   // Booleans
   And,
   Or,
@@ -75,6 +73,9 @@ pub enum BinaryOpKind {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToString)]
 pub enum UnaryOpKind {
+  // Math
+  Negate,
+  Posit,
   // Memory Referencing
   Ref,
   Deref,

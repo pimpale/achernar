@@ -98,19 +98,23 @@ pub struct Expr<'hir, 'ast, A:Allocator> {
 
 pub enum BindTargetKind<A:Allocator>{
   Identifier(Vec<u8, A>),
-  Splat,
-  Ignore,
 }
 
 pub enum PatKind<'hir, 'ast, A:Allocator> {
   // An error when parsing
   None,
+  // Bind all fields of the struct to their respective names
+  Splat,
+  // Match a single element of the
+  Ignore,
+  None,
   // Irrefutably matches a single element to new variable
   Bind {
     pattern: &'hir Pat<'hir, 'ast, A>,
     target: BindTargetKind<A>,
+    ty: &'hir Expr<'hir, 'ast, A>
   },
-  // defines the type of a value
+  // constrains the type of a value
   Ty {
     pattern: &'hir Pat<'hir, 'ast, A>,
     ty: &'hir Expr<'hir, 'ast, A>,

@@ -233,14 +233,17 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_val(&mut self, range: Range) {
+  pub fn log_unexpected_in_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(12)),
       code_description: None,
       source: self.source.clone(),
-      message: String::from("`val` expr is only valid in a pattern"),
+      message: format!(
+        "{} is invalid in a pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        kind.to_string()
+      ),
       related_information: None,
       tags: None,
       data: None,
@@ -248,18 +251,34 @@ impl DiagnosticLogger {
   }
 
 
-  pub fn log_unexpected_bind(&mut self, range: Range) {
+  pub fn log_only_in_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(13)),
       code_description: None,
       source: self.source.clone(),
-      message: String::from("variable binding expr is only valid in a pattern"),
+      message: format!(
+        "{} is invalid outside of a pattern. If you wish to use this pattern as a function, consider using `pat`",
+        kind.to_string()
+      ),
       related_information: None,
       tags: None,
       data: None,
     })
   }
 
+  pub fn log_only_in_case(&mut self, range:Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(14)),
+      code_description: None,
+      source: self.source.clone(),
+      message: String::from("the CaseOption operator may only be used in a case context"),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
 }

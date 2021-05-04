@@ -54,9 +54,9 @@ pub enum BinaryOpKind {
   SymmetricDifference,
   In,
   // List Operations
-  Append, // ++ append
+  Append,
   // Type Manipulation
-  Both,
+  Cons,
   Either,
   // Range
   Range,
@@ -166,8 +166,6 @@ pub enum ExprKind {
   Group(Box<Expr>),
   // A reference to a previously defined variable
   Reference(Vec<u8>),
-  // (PATTERN ONLY) ignores a single element
-  BindIgnore,
   // (PATTERN ONLY) Automagically deconstructs and binds a struct
   BindSplat,
 }

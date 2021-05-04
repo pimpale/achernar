@@ -507,7 +507,6 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
         _ => self.lex_simple_token(TokenKind::Minus, 1),
       },
       Some(b'$') => match self.source.peek_nth(1).unwrap().0 {
-        Some(b'_') => self.lex_simple_token(TokenKind::Ignore, 2),
         Some(b'*') => self.lex_simple_token(TokenKind::Splat, 2),
         _ => self.lex_simple_token(TokenKind::Bind, 1),
       },
@@ -523,7 +522,7 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
         Some(b'|') => self.lex_simple_token(TokenKind::CaseOption, 2),
         _ => self.lex_simple_token(TokenKind::Either, 1),
       },
-      Some(b',') => self.lex_simple_token(TokenKind::Both, 1),
+      Some(b',') => self.lex_simple_token(TokenKind::Cons, 1),
       Some(b'!') => match self.source.peek_nth(1).unwrap().0 {
         Some(b'=') => self.lex_simple_token(TokenKind::NotEqual, 2),
         _ => self.lex_simple_token(TokenKind::NilSafeAssert, 1),

@@ -543,13 +543,6 @@ fn parse_exact_this<TkIter: Iterator<Item = Token>>(
   parse_exact_simple(TokenKind::This, ExprKind::This)(tkiter, dlogger)
 }
 
-fn parse_exact_ignore<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::Ignore, ExprKind::BindIgnore)(tkiter, dlogger)
-}
-
 fn parse_exact_splat<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -576,7 +569,6 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
 ) -> Option<fn(&mut PeekMoreIterator<TkIter>, &mut DiagnosticLogger) -> Expr> {
   match *tkkind {
     TokenKind::This => Some(parse_exact_this::<TkIter>),
-    TokenKind::Ignore => Some(parse_exact_ignore::<TkIter>),
     TokenKind::Splat => Some(parse_exact_splat::<TkIter>),
     TokenKind::NilType => Some(parse_exact_nil_type::<TkIter>),
     TokenKind::NeverType => Some(parse_exact_never_type::<TkIter>),
@@ -913,7 +905,7 @@ fn parse_binary_type_operators<TkIter: Iterator<Item = Token>>(
     dlogger,
     parse_binary_set_operators,
     simple_operator_fn(|x| match x {
-      TokenKind::Both => Some(BinaryOpKind::Both),
+      TokenKind::Cons => Some(BinaryOpKind::Cons),
       TokenKind::Either => Some(BinaryOpKind::Either),
       _ => None,
     }),

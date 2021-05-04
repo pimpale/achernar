@@ -59,7 +59,7 @@ pub enum TokenKind {
   // List operators
   Append, // ++ append
   // Type operators
-  Both,   // ,
+  Cons,   // ,
   Either, // |
   // Async operators
   Async, // async
@@ -90,7 +90,6 @@ pub enum TokenKind {
   CaseOption, // ||
   // Other Miscellaneous Operator Things
   Bind,         // $
-  Ignore,       // $_
   Splat,        // $*
   ParenLeft,    // (
   ParenRight,   // )

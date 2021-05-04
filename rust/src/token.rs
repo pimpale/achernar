@@ -5,7 +5,6 @@ use strum::ToString;
 
 #[derive(Debug, Clone, ToString, PartialEq)]
 pub enum TokenKind {
-    UnrecognizedCharacter, // token parsing error
     // function, type, or variable
     Identifier(Vec<u8>),
     // Keywords

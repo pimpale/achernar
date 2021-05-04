@@ -1,4 +1,3 @@
-#![feature(or_patterns)]
 #![feature(iter_map_while)]
 #![feature(destructuring_assignment)]
 #![feature(allocator_api)]
@@ -35,4 +34,5 @@ fn main() {
     &allocator,
     log.get_logger(Some(String::from("acnc-construct-hir"))),
   );
+  dbg!(hir);
 }

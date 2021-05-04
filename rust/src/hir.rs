@@ -3,6 +3,7 @@ use num_bigint::BigInt;
 use num_rational::BigRational;
 use std::alloc::Allocator;
 
+#[derive(Debug)]
 pub enum ExprKind<'hir, 'ast, A: Allocator> {
     // An error when parsing
     None,
@@ -101,11 +102,13 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
     },
 }
 
+#[derive(Debug)]
 pub struct Expr<'hir, 'ast, A: Allocator> {
     pub source: Option<&'ast ast::Expr>,
     pub kind: ExprKind<'hir, 'ast, A>,
 }
 
+#[derive(Debug)]
 pub enum PatKind<'hir, 'ast, A: Allocator> {
     // An error when parsing
     None,
@@ -159,6 +162,7 @@ pub enum PatKind<'hir, 'ast, A: Allocator> {
     },
 }
 
+#[derive(Debug)]
 pub struct Pat<'hir, 'ast, A: Allocator> {
     pub source: Option<&'ast ast::Expr>,
     pub kind: PatKind<'hir, 'ast, A>,

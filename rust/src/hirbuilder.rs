@@ -14,7 +14,7 @@ struct LabelElement<'le, 'hir, 'ast, A: Allocator> {
 
 fn get_label<'le, 'hir, 'ast, A: Allocator>(
   mut le: Option<&'le LabelElement<'le, 'hir, 'ast, A>>,
-  label: &Vec<u8>,
+  label: &[u8],
 ) -> Option<(&'le LabelElement<'le, 'hir, 'ast, A>, u64)> {
   let mut labels_up = 1;
   while le.is_some() {
@@ -26,12 +26,12 @@ fn get_label<'le, 'hir, 'ast, A: Allocator>(
     }
   }
   // if not found
-  return None;
+  None
 }
 
-fn clone_in<A: Allocator, T: Clone>(allocator: A, vec: &Vec<T>) -> Vec<T, A> {
+fn clone_in<A: Allocator, T: Clone>(allocator: A, slice: &[T]) -> Vec<T, A> {
   let mut v = Vec::new_in(allocator);
-  v.clone_from_slice(vec.as_slice());
+  v.extend_from_slice(slice);
   v
 }
 
@@ -516,7 +516,7 @@ fn tr_expr<'hir, 'ast>(
       hir::Expr {
         source: Some(source),
         kind: hir::ExprKind::Label {
-          defers: label_element.defers.into_inner().into(),
+          defers: label_element.defers.into_inner(),
           scope: allocator.alloc(scope),
         },
       }
@@ -1135,7 +1135,7 @@ fn tr_expr<'hir, 'ast>(
         source: Some(source),
         kind: hir::ExprKind::LetIn {
           pat: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
-          val: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
+          val: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
           // this represents an assign at the tail end of an expression.
           // such assigns will not be available outside, and should warn about unused vars
           body: allocator.alloc(hir::Expr {

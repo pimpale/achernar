@@ -32,11 +32,7 @@ fn get_metadata<TkIter: Iterator<Item = Token>>(
     range,
   }) = tkiter.peek_nth(0).cloned()
   {
-    metadata.push(Metadata {
-      significant,
-      value,
-      range,
-    });
+    metadata.push(Metadata { range, significant, value });
     // consume
     tkiter.next();
   }

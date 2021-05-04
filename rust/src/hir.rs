@@ -7,6 +7,8 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
     // An error when parsing
     None,
     This,
+    // Hole
+    Hole,
     // Loops until a scope is returned
     Loop(&'hir Expr<'hir, 'ast, A>),
     // Operator changes expression to async
@@ -111,6 +113,14 @@ pub enum PatKind<'hir, 'ast, A: Allocator> {
     BindIdentifier(Vec<u8, A>),
     // Ignore
     BindIgnore,
+    // Hole
+    Hole,
+    // match with a variety of types
+    Range {
+        inclusive:bool,
+        left_operand: &'hir Expr<'hir, 'ast, A>,
+        right_operand: &'hir Expr<'hir, 'ast, A>,
+    },
     // constrains the type of a value
     Ty {
         pattern: &'hir Pat<'hir, 'ast, A>,

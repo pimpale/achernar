@@ -71,6 +71,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let (word, range) = self.internal_lex_word();
 
     let tk = match word.as_slice() {
+      b"_" => TokenKind::Hole,
       b"loop" => TokenKind::Loop,
       b"true" => TokenKind::Bool(true),
       b"false" => TokenKind::Bool(false),

@@ -37,7 +37,7 @@ pub enum BinaryOpKind {
   // Booleans
   And,
   Or,
-  // Nil Manipulation
+  // Optional Manipulation
   NilCoalesce,
   NilSafeRevApply,
   // Comparison
@@ -166,6 +166,8 @@ pub enum ExprKind {
   Group(Box<Expr>),
   // A reference to a previously defined variable
   Reference(Vec<u8>),
+  // Hole, helps with deducing valid types
+  Hole,
   // (PATTERN ONLY) Automagically deconstructs and binds a struct
   BindSplat,
 }

@@ -564,11 +564,19 @@ fn parse_exact_never_type<TkIter: Iterator<Item = Token>>(
   parse_exact_simple(TokenKind::NeverType, ExprKind::NeverType)(tkiter, dlogger)
 }
 
+fn parse_exact_hole<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  parse_exact_simple(TokenKind::Hole, ExprKind::Hole)(tkiter, dlogger)
+}
+
 fn decide_term<TkIter: Iterator<Item = Token>>(
   tkkind: &TokenKind,
 ) -> Option<fn(&mut PeekMoreIterator<TkIter>, &mut DiagnosticLogger) -> Expr> {
   match *tkkind {
     TokenKind::This => Some(parse_exact_this::<TkIter>),
+    TokenKind::Hole => Some(parse_exact_hole::<TkIter>),
     TokenKind::Splat => Some(parse_exact_splat::<TkIter>),
     TokenKind::NilType => Some(parse_exact_nil_type::<TkIter>),
     TokenKind::NeverType => Some(parse_exact_never_type::<TkIter>),

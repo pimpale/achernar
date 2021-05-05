@@ -336,6 +336,7 @@ fn tr_pat<'hir, 'ast>(
       | ast::BinaryOpKind::Sequence
       | ast::BinaryOpKind::As
       | ast::BinaryOpKind::Append
+      | ast::BinaryOpKind::SuchThat
       | ast::BinaryOpKind::ModuleAccess) => {
         dlogger.log_unexpected_binop_in_pattern(source.range, c);
         hir::Pat {
@@ -386,14 +387,6 @@ fn tr_pat<'hir, 'ast>(
           right_operand: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
       },
-      ast::BinaryOpKind::Either => {
-        // TODO what to do with either?
-        dlogger.log_unexpected_binop_in_pattern(source.range, &ast::BinaryOpKind::Either);
-        hir::Pat {
-          source: Some(source),
-          kind: hir::PatKind::None,
-        }
-      }
       ast::BinaryOpKind::Range => hir::Pat {
         source: Some(source),
         kind: hir::PatKind::Range {
@@ -1111,18 +1104,13 @@ fn tr_expr<'hir, 'ast>(
           allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
         ],
       ),
-      ast::BinaryOpKind::Either => gen_apply_fn(
-        allocator,
-        Some(source),
-        hir::Expr {
-          source: Some(source),
-          kind: hir::ExprKind::Reference(b"_either".to_vec_in(allocator)),
+      ast::BinaryOpKind::SuchThat => hir::Expr {
+        source: Some(source),
+        kind: hir::ExprKind::Refinement {
+          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
+          refinement: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
-        vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
-        ],
-      ),
+      },
       ref c @ (ast::BinaryOpKind::RangeInclusive | ast::BinaryOpKind::Range) => {
         dlogger.log_unexpected_binop_in_expr(source.range, c);
 

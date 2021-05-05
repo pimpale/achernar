@@ -57,7 +57,7 @@ pub enum BinaryOpKind {
   Append,
   // Type Manipulation
   Cons,
-  Either,
+  SuchThat,
   // Range
   Range,
   RangeInclusive,

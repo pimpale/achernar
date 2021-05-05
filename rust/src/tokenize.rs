@@ -520,7 +520,7 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
         Some(b'|') => match self.source.peek_nth(1).unwrap().0 {
           Some(b'>') => return Some(self.lex_simple_token(TokenKind::PipeForward, 2)),
           Some(b'|') => return Some(self.lex_simple_token(TokenKind::CaseOption, 2)),
-          _ => return Some(self.lex_simple_token(TokenKind::Either, 1)),
+          _ => return Some(self.lex_simple_token(TokenKind::SuchThat, 1)),
         },
         Some(b',') => return Some(self.lex_simple_token(TokenKind::Cons, 1)),
         Some(b'!') => match self.source.peek_nth(1).unwrap().0 {

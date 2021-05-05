@@ -910,7 +910,7 @@ fn parse_binary_type_operators<TkIter: Iterator<Item = Token>>(
     parse_binary_set_operators,
     simple_operator_fn(|x| match x {
       TokenKind::Cons => Some(BinaryOpKind::Cons),
-      TokenKind::Either => Some(BinaryOpKind::Either),
+      TokenKind::SuchThat => Some(BinaryOpKind::SuchThat),
       _ => None,
     }),
   )

@@ -5,117 +5,117 @@ use strum::ToString;
 
 #[derive(Debug, Clone, ToString, PartialEq)]
 pub enum TokenKind {
-    // function, type, or variable
-    Identifier(Vec<u8>),
-    // Keywords
-    Loop,   // loop
-    Ret,    // ret
-    Defer,  // defer
-    Case,   // case
-    Of,     // of
-    As,     // as
-    Where,  // where
-    This,   // this
-    Pat,    // pat
-    Val,    // val
-    Struct, // struct
-    Enum,   // enum
-    New,    // new
-    // Literals and constants
-    Inf,                                    // inf
-    Nan,                                    // nan
-    Bool(bool),                             // true, false
-    String { value: Vec<u8>, block: bool }, // "string"
-    Int(BigInt),                            // 7
-    Real(BigRational),                      // 0.7
-    NilType,                                // nil
-    NeverType,                              // never
-    BoolType,                               // bool
-    IntType,                                // int
-    RealType,                               // real
-    // Math Operators
-    Plus,  // +
-    Minus, // -
-    Mul,   // *
-    Div,   // /
-    Rem,   // %
-    Pow,   // **
-    // Boolean Operators
-    Not, // not
-    And, // and
-    Or,  // or
-    // Nil Manipulation
-    NilSafeAssert,   // !
-    NilCoalesce,     // ?
-    NilSafeRevApply, // ?.
-    // Set Operators (also work on bitvectors)
-    Complement,          // ~
-    RelativeComplement,  // \
-    Union,               // \/
-    Intersection,        // /\
-    SymmetricDifference, // ^
-    In,                  // in
-    // List operators
-    Append, // ++ append
-    // Type operators
-    Cons,   // ,
-    Either, // |
-    // Async operators
-    Async, // async
-    Await, // await
-    // Range Operators
-    Range,          // ..
-    RangeInclusive, // ..=
-    // Comparison and Equality
-    Equal,        // ==
-    NotEqual,     // /=
-    Less,         // <
-    LessEqual,    // <=
-    Greater,      // >
-    GreaterEqual, // >=
-    // Assignment
-    Assign, // =
-    // Reference
-    Ref,   // &
-    Deref, // @
-    // labels
-    Label(Vec<u8>), // 'x
-    // Arrows
-    PipeForward,  // |>
-    PipeBackward, // <|
-    Compose,      // >>
-    Defun,        // ->
-    // CaseOptions
-    CaseOption, // ||
-    // Other Miscellaneous Operator Things
-    Bind,         // $
-    Splat,        // $*
-    Hole,         // _
-    ParenLeft,    // (
-    ParenRight,   // )
-    BracketLeft,  // [
-    BracketRight, // ]
-    BraceLeft,    // {
-    BraceRight,   // }
-    Constrain,    // :
-    ModuleAccess, // ::
-    RevApply,     // .
-    Sequence,     // ;
-    // Comments, and Attributes
-    Metadata { value: Vec<u8>, significant: bool }, // #!attribute and # comment
+  // function, type, or variable
+  Identifier(Vec<u8>),
+  // Keywords
+  Loop,   // loop
+  Ret,    // ret
+  Defer,  // defer
+  Case,   // case
+  Of,     // of
+  As,     // as
+  Where,  // where
+  This,   // this
+  Pat,    // pat
+  Val,    // val
+  Struct, // struct
+  Enum,   // enum
+  New,    // new
+  // Literals and constants
+  Inf,                                    // inf
+  Nan,                                    // nan
+  Bool(bool),                             // true, false
+  String { value: Vec<u8>, block: bool }, // "string"
+  Int(BigInt),                            // 7
+  Real(BigRational),                      // 0.7
+  NilType,                                // nil
+  NeverType,                              // never
+  BoolType,                               // bool
+  IntType,                                // int
+  RealType,                               // real
+  // Math Operators
+  Plus,  // +
+  Minus, // -
+  Mul,   // *
+  Div,   // /
+  Rem,   // %
+  Pow,   // **
+  // Boolean Operators
+  Not, // not
+  And, // and
+  Or,  // or
+  // Nil Manipulation
+  NilSafeAssert,   // !
+  NilCoalesce,     // ?
+  NilSafeRevApply, // ?.
+  // Set Operators (also work on bitvectors)
+  Complement,          // ~
+  RelativeComplement,  // \
+  Union,               // \/
+  Intersection,        // /\
+  SymmetricDifference, // ^
+  In,                  // in
+  // List operators
+  Append, // ++ append
+  // Type operators
+  Cons,     // ,
+  SuchThat, // |
+  // Async operators
+  Async, // async
+  Await, // await
+  // Range Operators
+  Range,          // ..
+  RangeInclusive, // ..=
+  // Comparison and Equality
+  Equal,        // ==
+  NotEqual,     // /=
+  Less,         // <
+  LessEqual,    // <=
+  Greater,      // >
+  GreaterEqual, // >=
+  // Assignment
+  Assign, // =
+  // Reference
+  Ref,   // &
+  Deref, // @
+  // labels
+  Label(Vec<u8>), // 'x
+  // Arrows
+  PipeForward,  // |>
+  PipeBackward, // <|
+  Compose,      // >>
+  Defun,        // ->
+  // CaseOptions
+  CaseOption, // ||
+  // Other Miscellaneous Operator Things
+  Bind,         // $
+  Splat,        // $*
+  Hole,         // _
+  ParenLeft,    // (
+  ParenRight,   // )
+  BracketLeft,  // [
+  BracketRight, // ]
+  BraceLeft,    // {
+  BraceRight,   // }
+  Constrain,    // :
+  ModuleAccess, // ::
+  RevApply,     // .
+  Sequence,     // ;
+  // Comments, and Attributes
+  Metadata { value: Vec<u8>, significant: bool }, // #!attribute and # comment
 }
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    pub kind: Option<TokenKind>,
-    pub range: Range,
+  pub kind: Option<TokenKind>,
+  pub range: Range,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, range: Range) -> Self {
-        Token {
-            kind: Some(kind),
-            range,
-        }
+  pub fn new(kind: TokenKind, range: Range) -> Self {
+    Token {
+      kind: Some(kind),
+      range,
     }
+  }
 }

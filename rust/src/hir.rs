@@ -63,6 +63,11 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
         left_operand: &'hir Expr<'hir, 'ast, A>,
         right_operand: &'hir Expr<'hir, 'ast, A>,
     },
+    // Creates a new type that always matches the pattern provided
+    Refinement {
+        ty: &'hir Expr<'hir, 'ast, A>,
+        refinement: &'hir Pat<'hir, 'ast, A>
+    },
     // Literals for values
     Nil,
     NilType,
@@ -155,7 +160,7 @@ pub enum PatKind<'hir, 'ast, A: Allocator> {
     },
     // Depub structures a field of a pub struct object
     StructLiteral {
-        // whether or not the struct has an other ... matcher
+        // whether or not the struct has an other matcher
         // $* = _
         splat: &'hir Option<Pat<'hir, 'ast, A>>,
         patterns: Vec<(Vec<u8, A>, Pat<'hir, 'ast, A>), A>

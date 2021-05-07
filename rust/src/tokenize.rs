@@ -125,7 +125,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let mut len = 0u32;
     let mut n = BigUint::zero();
 
-    while let (Some(c), r) = self.source.peek_nth(0).unwrap().clone() {
+    while let (Some(c), r) = *self.source.peek_nth(0).unwrap() {
       let mut digit = match c {
         b'_' => {
           self.source.next();

@@ -4,7 +4,6 @@ use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
-use std::string::ToString;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -140,7 +139,7 @@ impl DiagnosticLogger {
 
   fn format_token(&self, maybe_tk: Option<TokenKind>) -> String {
     match maybe_tk {
-      Some(tkk) => format!("token of kind `{}`", tkk.to_string()),
+      Some(tkk) => format!("token of kind `{}`", tkk.as_ref()),
       None => String::from("EOF"),
     }
   }
@@ -208,7 +207,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "expected CaseOption BinaryOp, but found unexpected {}",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -225,7 +224,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "expected CaseOption, but found unexpected {}",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -242,7 +241,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "{} is invalid in a pattern. If you wish to use the value yielded from this expression, consider using `val`",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -259,7 +258,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "{} is an invalid unary operator in a pattern. If you wish to use the value yielded from this expression, consider using `val`",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -276,7 +275,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "{} is an invalid binary operator in a pattern. If you wish to use the value yielded from this expression, consider using `val`",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -293,7 +292,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "{} is not permitted in a pattern struct literal. The body of the struct must contain only assigns seperated by semicolons.",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -310,7 +309,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "{} is not permitted in a pattern struct literal. The body of the struct must contain only assigns seperated by semicolons.",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -331,7 +330,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "{} is an invalid target in for an assign in a pattern struct literal. The left hand side may either be `$*` or a single variable binding.",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,
@@ -352,7 +351,7 @@ impl DiagnosticLogger {
           source: self.source.clone(),
           message: format!(
             "$ may only be used to prefix an identifier. {} is not permitted as a target in a pattern struct literal.",
-            kind.to_string()
+            kind.as_ref()
           ),
           related_information: None,
           tags: None,
@@ -367,7 +366,7 @@ impl DiagnosticLogger {
       code: Some(NumberOrString::Number(12)),
       code_description: None,
       source: self.source.clone(),
-      message: format!("Cannot bind variable to symbol of `{}`.", kind.to_string()),
+      message: format!("Cannot bind variable to symbol of `{}`.", kind.as_ref()),
       related_information: None,
       tags: None,
       data: None,
@@ -381,7 +380,7 @@ impl DiagnosticLogger {
       code: Some(NumberOrString::Number(13)),
       code_description: None,
       source: self.source.clone(),
-      message: format!("{} is invalid outside of a pattern.", kind.to_string()),
+      message: format!("{} is invalid outside of a pattern.", kind.as_ref()),
       related_information: None,
       tags: None,
       data: None,
@@ -397,7 +396,7 @@ impl DiagnosticLogger {
              source: self.source.clone(),
              message: format!(
                "{} is invalid outside of a pattern. If you wish to use this pattern as a function, consider using `pat`",
-               kind.to_string()
+               kind.as_ref()
              ),
              related_information: None,
              tags: None,
@@ -414,7 +413,7 @@ impl DiagnosticLogger {
         source: self.source.clone(),
         message: format!(
           "{} is invalid outside of a pattern. If you wish to use this pattern as a function, consider using `pat`",
-          kind.to_string()
+          kind.as_ref()
         ),
         related_information: None,
         tags: None,
@@ -460,7 +459,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "expected identifier after module access operator, but found unexpected {}",
-        kind.to_string()
+        kind.as_ref()
       ),
       related_information: None,
       tags: None,

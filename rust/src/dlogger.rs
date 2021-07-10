@@ -466,4 +466,18 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
+  pub fn log_unexpected_infer_arg(&mut self, range: Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(17)),
+      code_description: None,
+      source: self.source.clone(),
+      message: "infer args may only be placed as the left hand side of a defun or the right side of an apply".to_owned(),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
 }

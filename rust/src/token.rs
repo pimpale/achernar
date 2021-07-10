@@ -1,9 +1,9 @@
 use lsp_types::Range;
 use num_bigint::BigInt;
 use num_rational::BigRational;
-use strum::ToString;
+use strum::AsRefStr;
 
-#[derive(Debug, Clone, ToString, PartialEq)]
+#[derive(Debug, Clone, AsRefStr, PartialEq)]
 pub enum TokenKind {
   // function, type, or variable
   Identifier(Vec<u8>),
@@ -44,10 +44,8 @@ pub enum TokenKind {
   Not, // not
   And, // and
   Or,  // or
-  // Nil Manipulation
-  NilSafeAssert,   // !
-  NilCoalesce,     // ?
-  NilSafeRevApply, // ?.
+  // Error manipulation
+  ReturnOnError, // ?
   // Set Operators (also work on bitvectors)
   Complement,          // ~
   RelativeComplement,  // \
@@ -60,15 +58,12 @@ pub enum TokenKind {
   // Type operators
   Cons,     // ,
   SuchThat, // |
-  // Async operators
-  Async, // async
-  Await, // await
   // Range Operators
   Range,          // ..
   RangeInclusive, // ..=
   // Comparison and Equality
   Equal,        // ==
-  NotEqual,     // /=
+  NotEqual,     // !=
   Less,         // <
   LessEqual,    // <=
   Greater,      // >
@@ -88,6 +83,7 @@ pub enum TokenKind {
   // CaseOptions
   CaseOption, // ||
   // Other Miscellaneous Operator Things
+  NoInfer,      // !
   Bind,         // $
   Splat,        // $*
   Hole,         // _
@@ -98,6 +94,7 @@ pub enum TokenKind {
   BraceLeft,    // {
   BraceRight,   // }
   Constrain,    // :
+  RevConstrain, // :=
   ModuleAccess, // ::
   RevApply,     // .
   Sequence,     // ;

@@ -1,7 +1,7 @@
 use lsp_types::Range;
-use serde::{Deserialize, Serialize};
 use num_bigint::BigInt;
 use num_rational::BigRational;
+use serde::{Deserialize, Serialize};
 use strum::AsRefStr;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -15,6 +15,7 @@ pub struct Metadata {
 pub enum BinaryOpKind {
   // Type coercion
   Constrain,
+  RevConstrain,
   // Function definition
   Defun,
   // CaseOption
@@ -37,9 +38,6 @@ pub enum BinaryOpKind {
   // Booleans
   And,
   Or,
-  // Optional Manipulation
-  NilCoalesce,
-  NilSafeRevApply,
   // Comparison
   Equal,
   NotEqual,
@@ -73,6 +71,8 @@ pub enum BinaryOpKind {
 
 #[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]
 pub enum UnaryOpKind {
+  // Function noninference
+  NoInfer,
   // Math
   Negate,
   Posit,
@@ -83,11 +83,8 @@ pub enum UnaryOpKind {
   Not,
   // Set Operations
   Complement,
-  // Nil Manipulation
-  NilSafeAssert,
-  // Async operators
-  Async,
-  Await,
+  // Optional Manipulation
+  ReturnOnError,
   // Compound type manipulation
   Struct,
   Enum,
@@ -164,6 +161,8 @@ pub enum ExprKind {
   },
   // Introduces new scope and label
   Group(Box<Expr>),
+  // Provides an argument to infer
+  InferArg(Box<Expr>),
   // A reference to a previously defined variable
   Reference(Vec<u8>),
   // Hole, helps with deducing valid types

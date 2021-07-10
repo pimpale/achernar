@@ -32,7 +32,11 @@ fn get_metadata<TkIter: Iterator<Item = Token>>(
     range,
   }) = tkiter.peek_nth(0).cloned()
   {
-    metadata.push(Metadata { range, significant, value });
+    metadata.push(Metadata {
+      range,
+      significant,
+      value,
+    });
     // consume
     tkiter.next();
   }
@@ -224,6 +228,37 @@ fn parse_exact_struct_literal<TkIter: Iterator<Item = Token>>(
         range: union_of(lrange, body.range),
         metadata,
         kind: ExprKind::StructLiteral(body),
+      }
+    }
+  }
+}
+
+fn parse_exact_infer_arg<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  let metadata = get_metadata(tkiter);
+  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::BracketLeft));
+  let Token { range: lrange, .. } = tkiter.next().unwrap();
+
+  let body = Box::new(parse_expr(tkiter, dlogger));
+
+  let Token {
+    range: rrange,
+    kind,
+  } = tkiter.next().unwrap();
+  match kind {
+    Some(TokenKind::BracketRight) => Expr {
+      range: union_of(lrange, rrange),
+      metadata,
+      kind: ExprKind::InferArg(body),
+    },
+    _ => {
+      dlogger.log_unexpected_token_specific(rrange, Some(TokenKind::BracketRight), kind);
+      Expr {
+        range: union_of(lrange, body.range),
+        metadata,
+        kind: ExprKind::InferArg(body),
       }
     }
   }
@@ -585,6 +620,7 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
     TokenKind::String { .. } => Some(parse_exact_string::<TkIter>),
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),
+    TokenKind::BracketLeft => Some(parse_exact_infer_arg::<TkIter>),
     TokenKind::Ret => Some(parse_exact_ret::<TkIter>),
     TokenKind::Defer => Some(parse_exact_defer::<TkIter>),
     TokenKind::Case => Some(parse_exact_case::<TkIter>),
@@ -665,7 +701,8 @@ fn parse_suffix_operators<TkIter: Iterator<Item = Token>>(
     dlogger,
     parse_prefix_operators,
     simple_operator_fn(|x| match x {
-      TokenKind::NilSafeAssert => Some(UnaryOpKind::NilSafeAssert),
+      TokenKind::NoInfer => Some(UnaryOpKind::NoInfer),
+      TokenKind::ReturnOnError => Some(UnaryOpKind::ReturnOnError),
       _ => None,
     }),
   )
@@ -681,7 +718,6 @@ fn parse_tight_operators<TkIter: Iterator<Item = Token>>(
     parse_suffix_operators,
     simple_operator_fn(|x| match x {
       TokenKind::RevApply => Some(BinaryOpKind::RevApply),
-      TokenKind::NilSafeRevApply => Some(BinaryOpKind::NilSafeRevApply),
       TokenKind::ModuleAccess => Some(BinaryOpKind::ModuleAccess),
       _ => None,
     }),
@@ -752,22 +788,6 @@ fn parse_constrain<TkIter: Iterator<Item = Token>>(
   )
 }
 
-fn parse_async_operators<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_prefix_op(
-    tkiter,
-    dlogger,
-    parse_constrain,
-    simple_operator_fn(|x| match x {
-      TokenKind::Async => Some(UnaryOpKind::Async),
-      TokenKind::Await => Some(UnaryOpKind::Await),
-      _ => None,
-    }),
-  )
-}
-
 fn parse_pow<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -775,7 +795,7 @@ fn parse_pow<TkIter: Iterator<Item = Token>>(
   parse_r_binary_op(
     tkiter,
     dlogger,
-    parse_async_operators,
+    parse_constrain,
     simple_operator_fn(|x| match x {
       TokenKind::Pow => Some(BinaryOpKind::Pow),
       _ => None,
@@ -945,14 +965,29 @@ fn parse_pipe_forward<TkIter: Iterator<Item = Token>>(
   )
 }
 
+fn parse_rev_constrain<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  parse_r_binary_op(
+    tkiter,
+    dlogger,
+    parse_pipe_forward,
+    simple_operator_fn(|x| match x {
+      TokenKind::RevConstrain => Some(BinaryOpKind::RevConstrain),
+      _ => None,
+    }),
+  )
+}
+
 fn parse_defun<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_l_binary_op(
+  parse_r_binary_op(
     tkiter,
     dlogger,
-    parse_pipe_forward,
+    parse_rev_constrain,
     simple_operator_fn(|x| match x {
       TokenKind::Defun => Some(BinaryOpKind::Defun),
       _ => None,

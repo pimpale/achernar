@@ -1,38 +1,132 @@
 use std::alloc::Allocator;
+use hashbrown::HashMap;
+use super::hir;
 
-// Most of the MIR code comes from
-// rustc compiler...
 
-pub enum Place<'mir, A:Allocator> {
+struct ContextEntry<'ast, 'hir, 'mir, A:Allocator, HA:Allocator>{
+  source:
+}
+
+struct Context<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
+  types: HashMap<Vec<u8, A>, Ty<'ast, 'hir, 'mir, A, HA>, A>,
+}
+
+
+enum Ty<'mir, A:Allocator> {
+  Ty,
+  Nil,
+  Bool,
+  Int,
+  Rational,
+  BitVec {
+      // INVARIANT: bits is 8 | 16 | 32 | 64
+      bits:u8,
+      signed:bool,
+  },
+  Float {
+      // INVARIANT: bits is 32 | 64
+      bits:u8,
+  },
+  Cons {
+      left: &'mir Ty<'mir, A>,
+      right: &'mir Ty<'mir, A>,
+  },
+  Struct {
+      fields: HashMap<Vec<u8, A>, Ty<'mir, A>>
+  },
+  Enum {
+      fields: HashMap<Vec<u8, A>, Ty<'mir, A>>
+  },
+  Fn {
+      inType: &'mir Ty<'mir, A>,
+      outType: &'mir Ty<'mir, A>,
+  },
+  Never
+}
+
+enum Val<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
+  Nil,
+  Bool(bool),
+  Int(BigInt),
+  Rational(BigRational),
+  BitVecU8(u8),
+  BitVecU16(u16),
+  BitVecU32(u32),
+  BitVecU64(u64),
+  BitVecI8(i8),
+  BitVecI16(i16),
+  BitVecI32(i32),
+  BitVecI64(i64),
+  Float32(f32),
+  Float64(f64),
+  Cons {
+      left: &'mir Val<'ast, 'hir, 'mir, A, HA>,
+      right: &'mir Val<'ast, 'hir, 'mir, A, HA>,
+  },
+  Struct {
+      fields: HashMap<Vec<u8, A>, Val<'ast, 'hir, 'mir, A, HA>, A>
+  },
+  Enum {
+      fields: HashMap<Vec<u8, A>, Val<'ast, 'hir, 'mir, A, HA>, A>
+  },
+  Fn {
+      code: MirFn<'ast, 'hir, 'mir, A, HA>
+  },
+  Ty(Ty<'mir, A>),
+  Never {
+      returned: &'mir Val<'ast, 'hir, 'mir, A, HA>,
+      levelsUp: u32
+  }
+}
+
+pub enum Place<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
   Local {
+      source: Option<&'hir hir::Pat<'hir, 'ast, HA>>,
+      ty: Ty<'ast, 'hir, 'mir, A, HA>
   }
+
 }
 
-pub enum Operand<'mir, A:Allocator> {
-    Move(Place<'mir, A>),
-    Copy(Place<'mir, A>),
+pub enum Operand<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
+    Move(Place<'ast, 'hir, 'mir, A, HA>),
+    Copy(Place<'ast, 'hir, 'mir, A, HA>),
 }
 
-pub struct BasicBlock<'mir, A:Allocator> {
-    statements: Vec<Statement<'mir, A>, A>,
-    terminator: Terminator<'mir, A>
+pub struct BasicBlock<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
+    statements: Vec<Statement<'ast, 'hir, 'mir, A, HA>, A>,
+    terminator: Terminator<'ast, 'hir, 'mir, A, HA>
 }
 
 
-pub enum Statement<'mir, A:Allocator> {
+
+pub struct Statement<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
+    source: &'hir hir::Expr<'hir, 'ast, HA>,
+    kind: StatementKind<'ast, 'hir, 'mir, A, HA>
+}
+
+pub enum StatementKind<'ast, 'hir, 'mir, A:Allocator, HA:Allocator>{
   Write {
-      target: Place<'mir, A>,
-      value: Operand<'mir, A>,
+      target: Place<'ast, 'hir, 'mir, A, HA>,
+      value: Operand<'ast, 'hir, 'mir, A, HA>,
   }
 }
 
-pub enum Terminator<'mir, A:Allocator> {
+pub enum Terminator<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
   // leaves the program
   Exit,
   // Calls another function
   Call {
-      function: Operand<'mir, A>,
+      // the function to call
+      function: Operand<'ast, 'hir, 'mir, A, HA>,
+      // the argument provided to the call
+      arg: Operand<'ast, 'hir, 'mir, A, HA>,
+      // the call will write its return value in this place
+      write_result: Place<'ast, 'hir, 'mir, A, HA>,
+      // execution will continue from this point
+      dest: BasicBlock<'ast, 'hir, 'mir, A, HA>
   },
+}
 
-
+pub struct MirFn<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
+    root: BasicBlock<'ast, 'hir, 'mir, A, HA>
 }

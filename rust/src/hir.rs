@@ -47,7 +47,7 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
   // Quotes pattern
   Pat(&'hir Pat<'hir, 'ast, A>),
   // Constrain the value
-  Ty {
+  Annotate {
     expr: &'hir Expr<'hir, 'ast, A>,
     ty: &'hir Expr<'hir, 'ast, A>,
   },
@@ -183,20 +183,9 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
   FloatToBitVecRDNFn, // round down
   FloatToBitVecRUPFn, // round up
 
-//  // Handle memory address + ownership
-//  hir_EK_PlaceType, // this is the ty of a valid place that may be assigned to
-//                    // or take reference of
-//  hir_EK_PatternType, // PlaceType | StructPattern | IntPatternType |
-//                      // RationalPatternType | Splat | TODO
-//
-//  // Handle memory addresses
-//  hir_EK_GetMemAddrFn,   // PlaceType($x) -> Ref(x)
-//  hir_EK_DerefMemAddrFn, // Ref($x) -> PlaceType(x)
-//
-//  // Returns a place from a memory address
-//  hir_EK_MutateMemAddrFn,
-
-
+  // Handle Memory addresses
+  RefFn,
+  DerefFn,
 }
 
 #[derive(Debug)]
@@ -222,7 +211,7 @@ pub enum PatKind<'hir, 'ast, A: Allocator> {
     right_operand: &'hir Expr<'hir, 'ast, A>,
   },
   // constrains the type of a value
-  Ty {
+  Annotate {
     pattern: &'hir Pat<'hir, 'ast, A>,
     ty: &'hir Expr<'hir, 'ast, A>,
   },

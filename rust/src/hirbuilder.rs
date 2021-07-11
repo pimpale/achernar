@@ -358,7 +358,7 @@ fn tr_pat<'hir, 'ast>(
       }
       ast::BinaryOpKind::Constrain => hir::Pat {
         source: Some(source),
-        kind: hir::PatKind::Ty {
+        kind: hir::PatKind::Annotate {
           pattern: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
           ty: allocator.alloc(tr_expr(allocator, dlogger, right_operand, None)),
         },
@@ -366,7 +366,7 @@ fn tr_pat<'hir, 'ast>(
       // TODO warn style
       ast::BinaryOpKind::RevConstrain => hir::Pat {
         source: Some(source),
-        kind: hir::PatKind::Ty {
+        kind: hir::PatKind::Annotate {
           // swap the expressions
           ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand, None)),
           pattern: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
@@ -839,14 +839,14 @@ fn tr_expr<'hir, 'ast>(
     } => match op {
       ast::BinaryOpKind::Constrain => hir::Expr {
         source: Some(source),
-        kind: hir::ExprKind::Ty {
+        kind: hir::ExprKind::Annotate {
           expr: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
           ty: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
         },
       },
       ast::BinaryOpKind::RevConstrain => hir::Expr {
         source: Some(source),
-        kind: hir::ExprKind::Ty {
+        kind: hir::ExprKind::Annotate {
           ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
           expr: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
         },

@@ -74,8 +74,8 @@ fn tr_pat<'hir, 'ast>(
     | ast::ExprKind::BoolType
     | ast::ExprKind::Int(_)
     | ast::ExprKind::IntType
-    | ast::ExprKind::Real(_)
-    | ast::ExprKind::RealType
+    | ast::ExprKind::Rational(_)
+    | ast::ExprKind::RationalType
     | ast::ExprKind::String { .. } => hir::Pat {
       source: Some(source),
       kind: hir::PatKind::Value(allocator.alloc(tr_expr(allocator, dlogger, source, None))),
@@ -85,12 +85,18 @@ fn tr_pat<'hir, 'ast>(
     c
     @
     (ast::ExprKind::Label { .. }
-    | ast::ExprKind::InferArg(_)
     | ast::ExprKind::Reference(_)
     | ast::ExprKind::Defer { .. }
     | ast::ExprKind::Ret { .. }
     | ast::ExprKind::CaseOf { .. }) => {
       dlogger.log_unexpected_in_pattern(source.range, c);
+      hir::Pat {
+        source: Some(source),
+        kind: hir::PatKind::None,
+      }
+    }
+    ast::ExprKind::InferArg(_) => {
+      dlogger.log_unexpected_infer_arg(source.range);
       hir::Pat {
         source: Some(source),
         kind: hir::PatKind::None,
@@ -433,7 +439,6 @@ fn tr_expr<'hir, 'ast>(
       source: Some(source),
       kind: hir::ExprKind::None,
     },
-
     ast::ExprKind::InferArg(_) => {
       dlogger.log_unexpected_infer_arg(source.range);
       hir::Expr {
@@ -478,14 +483,14 @@ fn tr_expr<'hir, 'ast>(
       source: Some(source),
       kind: hir::ExprKind::IntType,
     },
-    ast::ExprKind::Real(ref i) => hir::Expr {
+    ast::ExprKind::Rational(ref i) => hir::Expr {
       source: Some(source),
       // TODO allocate this via bumpalo
-      kind: hir::ExprKind::Real(i.clone()),
+      kind: hir::ExprKind::Rational(i.clone()),
     },
-    ast::ExprKind::RealType => hir::Expr {
+    ast::ExprKind::RationalType => hir::Expr {
       source: Some(source),
-      kind: hir::ExprKind::RealType,
+      kind: hir::ExprKind::RationalType,
     },
     ast::ExprKind::String { ref value, .. } => value.iter().rev().fold(
       // start with a null at the end of the list
@@ -495,23 +500,18 @@ fn tr_expr<'hir, 'ast>(
       },
       // as we work our way backwards, we prepend the current char as an int to our list
       |acc, x| {
-        gen_apply_fn(
-          allocator,
-          Some(source),
-          hir::Expr {
-            source: Some(source),
-            kind: hir::ExprKind::ConsFn,
-          },
-          vec![
+        hir::Expr {
+          source: Some(source),
+          kind: hir::ExprKind::Cons {
             // first arg is the new expr for the int
-            allocator.alloc(hir::Expr {
+            left_operand: allocator.alloc(hir::Expr {
               source: Some(source),
               kind: hir::ExprKind::Int(BigInt::from(*x)),
             }),
             // second arg is the current tail of the list
-            allocator.alloc(acc),
-          ],
-        )
+            right_operand: allocator.alloc(acc),
+          },
+        }
       },
     ),
     ast::ExprKind::Label {
@@ -615,7 +615,66 @@ fn tr_expr<'hir, 'ast>(
     },
     ast::ExprKind::Reference(ref identifier) => hir::Expr {
       source: Some(source),
-      kind: hir::ExprKind::Reference(clone_in(allocator, identifier)),
+      kind: match identifier.as_slice() {
+        // Math with bools
+        b"_bool_not" => hir::ExprKind::BoolNotFn,
+        // Math with bigints
+        b"_int_add" => hir::ExprKind::IntAddFn,
+        b"_int_sub" => hir::ExprKind::IntSubFn,
+        b"_int_mul" => hir::ExprKind::IntMulFn,
+        b"_int_div" => hir::ExprKind::IntDivFn,
+        b"_int_rem" => hir::ExprKind::IntRemFn,
+        // Math with rationals
+        b"_rational_add" => hir::ExprKind::RationalAddFn,
+        b"_rational_sub" => hir::ExprKind::RationalSubFn,
+        b"_rational_mul" => hir::ExprKind::RationalMulFn,
+        b"_rational_div" => hir::ExprKind::RationalDivFn,
+        b"_rational_rem" => hir::ExprKind::RationalRemFn,
+        // conversion fn
+        b"_int_to_rational" => hir::ExprKind::IntToRationalFn, // promote int to rational
+        b"_rational_to_int_rne" => hir::ExprKind::RationalToIntRNEFn, // round to nearest even
+        b"_rational_to_int_rtz" => hir::ExprKind::RationalToIntRTZFn, // round to zero
+        b"_rational_to_int_rdn" => hir::ExprKind::RationalToIntRDNFn, // round down
+        b"_rational_to_int_rup" => hir::ExprKind::RationalToIntRUPFn, // round up
+        // Unsigned operation
+        b"_unsigned_bit_vec" => hir::ExprKind::UnsignedBitVecFn, // creates a bitvector from an integer
+        b"_unsigned_bit_vec_add" => hir::ExprKind::UnsignedBitVecAddFn,
+        b"_unsigned_bit_vec_add_overflow" => hir::ExprKind::UnsignedBitVecAddOverflowFn,
+        b"_unsigned_bit_vec_sub" => hir::ExprKind::UnsignedBitVecSubFn,
+        b"_unsigned_bit_vec_sub_overflow" => hir::ExprKind::UnsignedBitVecSubOverflowFn,
+        b"_unsigned_bit_vec_mul" => hir::ExprKind::UnsignedBitVecMulFn,
+        b"_unsigned_bit_vec_mul_overflow" => hir::ExprKind::UnsignedBitVecMulOverflowFn,
+        b"_unsigned_bit_vec_div" => hir::ExprKind::UnsignedBitVecDivFn,
+        b"_unsigned_bit_vec_rem" => hir::ExprKind::UnsignedBitVecRemFn,
+        b"_unsigned_bit_vec_div_rem" => hir::ExprKind::UnsignedBitVecDivRemFn,
+        b"_unsigned_bit_vec_shr" => hir::ExprKind::UnsignedBitVecShrFn, // logical shift right
+        b"_unsigned_bit_vec_shl" => hir::ExprKind::UnsignedBitVecShlFn, // shift left
+        b"_unsigned_bit_vec_rol" => hir::ExprKind::UnsignedBitVecRolFn, // rotate left
+        b"_unsigned_bit_vec_ror" => hir::ExprKind::UnsignedBitVecRorFn, // rotate right
+        b"_unsigned_bit_vec_and" => hir::ExprKind::UnsignedBitVecAndFn,
+        b"_unsigned_bit_vec_or" => hir::ExprKind::UnsignedBitVecOrFn,
+        b"_unsigned_bit_vec_xor" => hir::ExprKind::UnsignedBitVecXorFn,
+        b"_unsigned_bit_vec_not" => hir::ExprKind::UnsignedBitVecNotFn,
+        // Signed Operations
+        b"_signed_bit_vec" => hir::ExprKind::SignedBitVecFn, // creates a bitvector from an integer
+        b"_signed_bit_vec_add" => hir::ExprKind::SignedBitVecAddFn,
+        b"_signed_bit_vec_add_overflow" => hir::ExprKind::SignedBitVecAddOverflowFn,
+        b"_signed_bit_vec_sub" => hir::ExprKind::SignedBitVecSubFn,
+        b"_signed_bit_vec_sub_overflow" => hir::ExprKind::SignedBitVecSubOverflowFn,
+        b"_signed_bit_vec_mul" => hir::ExprKind::SignedBitVecMulFn,
+        b"_signed_bit_vec_mul_overflow" => hir::ExprKind::SignedBitVecMulOverflowFn,
+        b"_signed_bit_vec_div" => hir::ExprKind::SignedBitVecDivFn,
+        b"_signed_bit_vec_rem" => hir::ExprKind::SignedBitVecRemFn,
+        b"_signed_bit_vec_div_rem" => hir::ExprKind::SignedBitVecDivRemFn,
+        b"_signed_bit_vec_shr" => hir::ExprKind::SignedBitVecShrFn, // arithmetic shift right
+        b"_signed_bit_vec_shl" => hir::ExprKind::SignedBitVecShlFn, // shift left
+        b"_signed_bit_vec_and" => hir::ExprKind::SignedBitVecAndFn,
+        b"_signed_bit_vec_or" => hir::ExprKind::SignedBitVecOrFn,
+        b"_signed_bit_vec_xor" => hir::ExprKind::SignedBitVecXorFn,
+        b"_signed_bit_vec_not" => hir::ExprKind::SignedBitVecNotFn,
+        b"_signed_bit_vec_negate" => hir::ExprKind::SignedBitVecNegateFn,
+        identifier => hir::ExprKind::Reference(clone_in(allocator, identifier)),
+      },
     },
     ref c @ ast::ExprKind::BindSplat => {
       dlogger.log_only_in_pattern(source.range, c);
@@ -734,33 +793,18 @@ fn tr_expr<'hir, 'ast>(
         },
         vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
       ),
-      ast::UnaryOpKind::Struct => gen_apply_fn(
-        allocator,
-        Some(source),
-        hir::Expr {
-          source: Some(source),
-          kind: hir::ExprKind::StructFn,
-        },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
-      ),
-      ast::UnaryOpKind::Enum => gen_apply_fn(
-        allocator,
-        Some(source),
-        hir::Expr {
-          source: Some(source),
-          kind: hir::ExprKind::EnumFn,
-        },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
-      ),
-      ast::UnaryOpKind::New => gen_apply_fn(
-        allocator,
-        Some(source),
-        hir::Expr {
-          source: Some(source),
-          kind: hir::ExprKind::NewFn,
-        },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
-      ),
+      ast::UnaryOpKind::Struct => hir::Expr {
+        source: Some(source),
+        kind: hir::ExprKind::Struct(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+      },
+      ast::UnaryOpKind::Enum => hir::Expr {
+        source: Some(source),
+        kind: hir::ExprKind::Enum(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+      },
+      ast::UnaryOpKind::New => hir::Expr {
+        source: Some(source),
+        kind: hir::ExprKind::New(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+      },
       ast::UnaryOpKind::NoInfer => hir::Expr {
         source: Some(source),
         kind: hir::ExprKind::NoInfer(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
@@ -840,6 +884,7 @@ fn tr_expr<'hir, 'ast>(
       }
       ast::BinaryOpKind::Apply => hir::Expr {
         source: Some(source),
+        // whether to provide inference args or not
         kind: if let ast::Expr {
           kind: ast::ExprKind::InferArg(ref inferrable),
           ..
@@ -859,6 +904,7 @@ fn tr_expr<'hir, 'ast>(
             arg: allocator.alloc(tr_expr(allocator, dlogger, inferrable, ls)),
           }
         } else {
+          // otherwise directly add
           hir::ExprKind::Apply {
             fun: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
             arg: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
@@ -1127,18 +1173,13 @@ fn tr_expr<'hir, 'ast>(
           allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
         ],
       ),
-      ast::BinaryOpKind::Cons => gen_apply_fn(
-        allocator,
-        Some(source),
-        hir::Expr {
-          source: Some(source),
-          kind: hir::ExprKind::ConsFn,
+      ast::BinaryOpKind::Cons => hir::Expr {
+        source: Some(source),
+        kind: hir::ExprKind::Cons {
+          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
+          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
         },
-        vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
-        ],
-      ),
+      },
       ast::BinaryOpKind::SuchThat => hir::Expr {
         source: Some(source),
         kind: hir::ExprKind::Refinement {
@@ -1168,6 +1209,7 @@ fn tr_expr<'hir, 'ast>(
         },
       },
       ast::BinaryOpKind::Sequence => {
+        // if the lhs is an assign
         if let ast::Expr {
           kind:
             ast::ExprKind::BinaryOp {
@@ -1189,18 +1231,13 @@ fn tr_expr<'hir, 'ast>(
           }
         } else {
           // continue
-          gen_apply_fn(
-            allocator,
-            Some(source),
-            hir::Expr {
-              source: Some(source),
-              kind: hir::ExprKind::SequenceFn,
+          hir::Expr {
+            source: Some(source),
+            kind: hir::ExprKind::Sequence {
+              left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
+              right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
             },
-            vec![
-              allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-              allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
-            ],
-          )
+          }
         }
       }
       ast::BinaryOpKind::As => gen_apply_fn(

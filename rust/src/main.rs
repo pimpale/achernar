@@ -7,6 +7,7 @@ mod codereader;
 mod dlogger;
 mod hir;
 mod hirbuilder;
+mod mir;
 mod mirbuilder;
 mod token;
 mod tokenize;

@@ -515,28 +515,28 @@ fn parse_exact_int<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn parse_exact_real_type<TkIter: Iterator<Item = Token>>(
+fn parse_exact_rational_type<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_exact_simple(TokenKind::RealType, ExprKind::RealType)(tkiter, dlogger)
+  parse_exact_simple(TokenKind::RationalType, ExprKind::RationalType)(tkiter, dlogger)
 }
 
-// parses a real
-fn parse_exact_real<TkIter: Iterator<Item = Token>>(
+// parses a rational
+fn parse_exact_rational<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   _dlogger: &mut DiagnosticLogger,
 ) -> Expr {
   let metadata = get_metadata(tkiter);
   if let Token {
     range,
-    kind: Some(TokenKind::Real(value)),
+    kind: Some(TokenKind::Rational(value)),
   } = tkiter.next().unwrap()
   {
     Expr {
       metadata,
       range,
-      kind: ExprKind::Real(value),
+      kind: ExprKind::Rational(value),
     }
   } else {
     unreachable!();
@@ -615,8 +615,8 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::Bool(_) => Some(parse_exact_bool::<TkIter>),
     TokenKind::IntType => Some(parse_exact_int_type::<TkIter>),
     TokenKind::Int(_) => Some(parse_exact_int::<TkIter>),
-    TokenKind::RealType => Some(parse_exact_real_type::<TkIter>),
-    TokenKind::Real(_) => Some(parse_exact_real::<TkIter>),
+    TokenKind::RationalType => Some(parse_exact_rational_type::<TkIter>),
+    TokenKind::Rational(_) => Some(parse_exact_rational::<TkIter>),
     TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
     TokenKind::String { .. } => Some(parse_exact_string::<TkIter>),
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),

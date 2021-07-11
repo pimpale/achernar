@@ -27,7 +27,6 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
   // Returns from a scope with a value
   Ret {
     // the number of labels up to find the correct one
-    //
     labels_up: u64,
     value: &'hir Expr<'hir, 'ast, A>,
   },
@@ -70,25 +69,27 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
   // Literals for values
   Nil,
   NilType,
-  Never,
   NeverType,
   Bool(bool),
   BoolType,
   // actually bigint
   IntType,
   Int(BigInt),
-  RealType,
-  Real(BigRational),
+  RationalType,
+  Rational(BigRational),
 
   // Type stuff
   // creates a pub struct from an ad hoc compound object
-  StructFn,
+  Struct(&'hir Expr<'hir, 'ast, A>),
   // creates a disjoint union from an ad hoc compound object
-  EnumFn,
+  Enum(&'hir Expr<'hir, 'ast, A>),
   // Creates a function constructing the compound type provided
-  NewFn,
+  New(&'hir Expr<'hir, 'ast, A>),
   // creates a tuple
-  ConsFn,
+  Cons {
+    left_operand: &'hir Expr<'hir, 'ast, A>,
+    right_operand: &'hir Expr<'hir, 'ast, A>,
+  },
   // Create Function
   Defun {
     pattern: &'hir Pat<'hir, 'ast, A>,
@@ -96,13 +97,106 @@ pub enum ExprKind<'hir, 'ast, A: Allocator> {
     infer_pattern: bool,
   },
   // Sequence
-  SequenceFn,
+  Sequence {
+    left_operand: &'hir Expr<'hir, 'ast, A>,
+    right_operand: &'hir Expr<'hir, 'ast, A>,
+  },
   // Assign value to place
   LetIn {
     pat: &'hir Pat<'hir, 'ast, A>,
     val: &'hir Expr<'hir, 'ast, A>,
     body: &'hir Expr<'hir, 'ast, A>,
   },
+
+  // functions
+  // Math with bools
+  BoolNotFn,
+  // Math with integers
+  IntAddFn,
+  IntSubFn,
+  IntMulFn,
+  IntDivFn,
+  IntRemFn,
+  // Math with rationals
+  RationalAddFn,
+  RationalSubFn,
+  RationalMulFn,
+  RationalDivFn,
+  RationalRemFn,
+  // Conversion between integers and rationals
+  IntToRationalFn,    // promote int to rational
+  RationalToIntRNEFn, // round to nearest even
+  RationalToIntRTZFn, // round to zero
+  RationalToIntRDNFn, // round down
+  RationalToIntRUPFn, // round up
+  // Bit Vectors
+  // Unsigned Operations
+  UnsignedBitVecFn, // creates a bitvector from an integer
+  UnsignedBitVecAddFn,
+  UnsignedBitVecAddOverflowFn,
+  UnsignedBitVecSubFn,
+  UnsignedBitVecSubOverflowFn,
+  UnsignedBitVecMulFn,
+  UnsignedBitVecMulOverflowFn,
+  UnsignedBitVecDivFn,
+  UnsignedBitVecRemFn,
+  UnsignedBitVecDivRemFn,
+  UnsignedBitVecShrFn, // logical shift right
+  UnsignedBitVecShlFn, // shift left
+  UnsignedBitVecRolFn, // rotate left
+  UnsignedBitVecRorFn, // rotate right
+  UnsignedBitVecAndFn,
+  UnsignedBitVecOrFn,
+  UnsignedBitVecXorFn,
+  UnsignedBitVecNotFn,
+  // Signed Operations
+  SignedBitVecFn, // creates a bitvector from an integer
+  SignedBitVecAddFn,
+  SignedBitVecAddOverflowFn,
+  SignedBitVecSubFn,
+  SignedBitVecSubOverflowFn,
+  SignedBitVecMulFn,
+  SignedBitVecMulOverflowFn,
+  SignedBitVecDivFn,
+  SignedBitVecRemFn,
+  SignedBitVecDivRemFn,
+  SignedBitVecShrFn, // arithmetic shift right
+  SignedBitVecShlFn, // shift left
+  SignedBitVecAndFn,
+  SignedBitVecOrFn,
+  SignedBitVecXorFn,
+  SignedBitVecNotFn,
+  SignedBitVecNegateFn,
+
+  // Math with floats
+  FloatFn,
+  FloatAddFn,
+  FloatSubFn,
+  FloatMulFn,
+  FloatDivFn,
+  FloatRemFn,
+  FloatDivRemFn,
+  // Conversion between bitvecs and floats
+  BitVecToFloatFn,    // promote bitVec to float
+  FloatToBitVecRNEFn, // round to nearest even
+  FloatToBitVecRTZFn, // round to zero
+  FloatToBitVecRDNFn, // round down
+  FloatToBitVecRUPFn, // round up
+
+//  // Handle memory address + ownership
+//  hir_EK_PlaceType, // this is the ty of a valid place that may be assigned to
+//                    // or take reference of
+//  hir_EK_PatternType, // PlaceType | StructPattern | IntPatternType |
+//                      // RationalPatternType | Splat | TODO
+//
+//  // Handle memory addresses
+//  hir_EK_GetMemAddrFn,   // PlaceType($x) -> Ref(x)
+//  hir_EK_DerefMemAddrFn, // Ref($x) -> PlaceType(x)
+//
+//  // Returns a place from a memory address
+//  hir_EK_MutateMemAddrFn,
+
+
 }
 
 #[derive(Debug)]
@@ -171,74 +265,3 @@ pub struct Pat<'hir, 'ast, A: Allocator> {
   pub kind: PatKind<'hir, 'ast, A>,
 }
 
-// // Math with integers
-// IntAddFn,
-// IntSubFn,
-// IntMulFn,
-// IntDivFn,
-// IntRemFn,
-// // Math with reals
-// RealAddFn,
-// RealSubFn,
-// RealMulFn,
-// RealDivFn,
-// RealRemFn,
-// // Conversion between integers and reals
-// RealToIntRNE, // round to nearest even
-// RealToIntRTZ, // round to zero
-// RealToIntRDN, // round down
-// RealToIntRUP, // round up
-// IntToReal,    // promote int to real
-// // Bit Vectors
-// // Unsigned Operations
-// UnsignedBitVecFn, // creates a bitvector from an integer
-// UnsignedBitVecAddFn,
-// UnsignedBitVecAddOverflowFn,
-// UnsignedBitVecSubFn,
-// UnsignedBitVecSubOverflowFn,
-// UnsignedBitVecMulFn,
-// UnsignedBitVecMulOverflowFn,
-// UnsignedBitVecDivFn,
-// UnsignedBitVecRemFn,
-// UnsignedBitVecDivRemFn,
-// UnsignedBitVecShrFn, // logical shift right
-// UnsignedBitVecShlFn, // shift left
-// UnsignedBitVecRolFn, // rotate left
-// UnsignedBitVecRorFn, // rotate right
-// UnsignedBitVecAndFn,
-// UnsignedBitVecOrFn,
-// UnsignedBitVecXorFn,
-// UnsignedBitVecNotFn,
-// // Signed Operations
-// SignedBitVecFn, // creates a bitvector from an integer
-// SignedBitVecAddFn,
-// SignedBitVecAddOverflowFn,
-// SignedBitVecSubFn,
-// SignedBitVecSubOverflowFn,
-// SignedBitVecMulFn,
-// SignedBitVecMulOverflowFn,
-// SignedBitVecDivFn,
-// SignedBitVecRemFn,
-// SignedBitVecDivRemFn,
-// SignedBitVecShrFn, // arithmetic shift right
-// SignedBitVecShlFn, // shift left
-// SignedBitVecAndFn,
-// SignedBitVecOrFn,
-// SignedBitVecXorFn,
-// SignedBitVecNotFn,
-// SignedBitVecNegate,
-
-//  // Math with floats
-//
-//  // Handle memory address + ownership
-//  hir_EK_PlaceType, // this is the ty of a valid place that may be assigned to
-//                    // or take reference of
-//  hir_EK_PatternType, // PlaceType | StructPattern | IntPatternType |
-//                      // RealPatternType | Splat | TODO
-//
-//  // Handle memory addresses
-//  hir_EK_GetMemAddrFn,   // PlaceType($x) -> Ref(x)
-//  hir_EK_DerefMemAddrFn, // Ref($x) -> PlaceType(x)
-//
-//  // Returns a place from a memory address
-//  hir_EK_MutateMemAddrFn,

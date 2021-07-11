@@ -113,14 +113,14 @@ pub enum ExprKind {
   BoolType,
   // Literal for int type
   IntType,
-  // Literal for real type
-  RealType,
+  // Literal for rational type
+  RationalType,
   // Literal for an integer number
   Int(BigInt),
   // Literal for a boolean
   Bool(bool),
-  // Literal for a real number
-  Real(BigRational),
+  // Literal for a rational number
+  Rational(BigRational),
   // A string literal
   String {
     value: Vec<u8>,

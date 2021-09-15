@@ -1,10 +1,12 @@
 use std::alloc::Allocator;
 use hashbrown::HashMap;
+use num_bigint::BigInt;
+use num_rational::BigRational;
 use super::hir;
 
 
 struct ContextEntry<'ast, 'hir, 'mir, A:Allocator, HA:Allocator>{
-  source:
+  source: i8
 }
 
 struct Context<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
@@ -12,7 +14,7 @@ struct Context<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
 }
 
 
-enum Ty<'mir, A:Allocator> {
+enum Ty<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
   Ty,
   Nil,
   Bool,
@@ -28,18 +30,18 @@ enum Ty<'mir, A:Allocator> {
       bits:u8,
   },
   Cons {
-      left: &'mir Ty<'mir, A>,
-      right: &'mir Ty<'mir, A>,
+      left: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
+      right: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
   },
   Struct {
-      fields: HashMap<Vec<u8, A>, Ty<'mir, A>>
+      fields: HashMap<Vec<u8, A>, Ty<'ast, 'hir, 'mir, A, HA>>
   },
   Enum {
-      fields: HashMap<Vec<u8, A>, Ty<'mir, A>>
+      fields: HashMap<Vec<u8, A>, Ty<'ast, 'hir, 'mir, A, HA>>
   },
-  Fn {
-      inType: &'mir Ty<'mir, A>,
-      outType: &'mir Ty<'mir, A>,
+  Func {
+      inType: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
+      outType: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
   },
   Never
 }
@@ -69,10 +71,10 @@ enum Val<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
   Enum {
       fields: HashMap<Vec<u8, A>, Val<'ast, 'hir, 'mir, A, HA>, A>
   },
-  Fn {
-      code: MirFn<'ast, 'hir, 'mir, A, HA>
+  Func {
+      code: MirFunc<'ast, 'hir, 'mir, A, HA>
   },
-  Ty(Ty<'mir, A>),
+  Ty(Ty<'ast, 'hir, 'mir, A, HA>),
   Never {
       returned: &'mir Val<'ast, 'hir, 'mir, A, HA>,
       levelsUp: u32
@@ -127,6 +129,6 @@ pub enum Terminator<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
   },
 }
 
-pub struct MirFn<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
+pub struct MirFunc<'ast, 'hir, 'mir, A:Allocator, HA:Allocator> {
     root: BasicBlock<'ast, 'hir, 'mir, A, HA>
 }

@@ -615,66 +615,7 @@ fn tr_expr<'hir, 'ast>(
     },
     ast::ExprKind::Reference(ref identifier) => hir::Expr {
       source: Some(source),
-      kind: match identifier.as_slice() {
-        // Math with bools
-        b"_bool_not" => hir::ExprKind::BoolNotFn,
-        // Math with bigints
-        b"_int_add" => hir::ExprKind::IntAddFn,
-        b"_int_sub" => hir::ExprKind::IntSubFn,
-        b"_int_mul" => hir::ExprKind::IntMulFn,
-        b"_int_div" => hir::ExprKind::IntDivFn,
-        b"_int_rem" => hir::ExprKind::IntRemFn,
-        // Math with rationals
-        b"_rational_add" => hir::ExprKind::RationalAddFn,
-        b"_rational_sub" => hir::ExprKind::RationalSubFn,
-        b"_rational_mul" => hir::ExprKind::RationalMulFn,
-        b"_rational_div" => hir::ExprKind::RationalDivFn,
-        b"_rational_rem" => hir::ExprKind::RationalRemFn,
-        // conversion fn
-        b"_int_to_rational" => hir::ExprKind::IntToRationalFn, // promote int to rational
-        b"_rational_to_int_rne" => hir::ExprKind::RationalToIntRNEFn, // round to nearest even
-        b"_rational_to_int_rtz" => hir::ExprKind::RationalToIntRTZFn, // round to zero
-        b"_rational_to_int_rdn" => hir::ExprKind::RationalToIntRDNFn, // round down
-        b"_rational_to_int_rup" => hir::ExprKind::RationalToIntRUPFn, // round up
-        // Unsigned operation
-        b"_unsigned_bit_vec" => hir::ExprKind::UnsignedBitVecFn, // creates a bitvector from an integer
-        b"_unsigned_bit_vec_add" => hir::ExprKind::UnsignedBitVecAddFn,
-        b"_unsigned_bit_vec_add_overflow" => hir::ExprKind::UnsignedBitVecAddOverflowFn,
-        b"_unsigned_bit_vec_sub" => hir::ExprKind::UnsignedBitVecSubFn,
-        b"_unsigned_bit_vec_sub_overflow" => hir::ExprKind::UnsignedBitVecSubOverflowFn,
-        b"_unsigned_bit_vec_mul" => hir::ExprKind::UnsignedBitVecMulFn,
-        b"_unsigned_bit_vec_mul_overflow" => hir::ExprKind::UnsignedBitVecMulOverflowFn,
-        b"_unsigned_bit_vec_div" => hir::ExprKind::UnsignedBitVecDivFn,
-        b"_unsigned_bit_vec_rem" => hir::ExprKind::UnsignedBitVecRemFn,
-        b"_unsigned_bit_vec_div_rem" => hir::ExprKind::UnsignedBitVecDivRemFn,
-        b"_unsigned_bit_vec_shr" => hir::ExprKind::UnsignedBitVecShrFn, // logical shift right
-        b"_unsigned_bit_vec_shl" => hir::ExprKind::UnsignedBitVecShlFn, // shift left
-        b"_unsigned_bit_vec_rol" => hir::ExprKind::UnsignedBitVecRolFn, // rotate left
-        b"_unsigned_bit_vec_ror" => hir::ExprKind::UnsignedBitVecRorFn, // rotate right
-        b"_unsigned_bit_vec_and" => hir::ExprKind::UnsignedBitVecAndFn,
-        b"_unsigned_bit_vec_or" => hir::ExprKind::UnsignedBitVecOrFn,
-        b"_unsigned_bit_vec_xor" => hir::ExprKind::UnsignedBitVecXorFn,
-        b"_unsigned_bit_vec_not" => hir::ExprKind::UnsignedBitVecNotFn,
-        // Signed Operations
-        b"_signed_bit_vec" => hir::ExprKind::SignedBitVecFn, // creates a bitvector from an integer
-        b"_signed_bit_vec_add" => hir::ExprKind::SignedBitVecAddFn,
-        b"_signed_bit_vec_add_overflow" => hir::ExprKind::SignedBitVecAddOverflowFn,
-        b"_signed_bit_vec_sub" => hir::ExprKind::SignedBitVecSubFn,
-        b"_signed_bit_vec_sub_overflow" => hir::ExprKind::SignedBitVecSubOverflowFn,
-        b"_signed_bit_vec_mul" => hir::ExprKind::SignedBitVecMulFn,
-        b"_signed_bit_vec_mul_overflow" => hir::ExprKind::SignedBitVecMulOverflowFn,
-        b"_signed_bit_vec_div" => hir::ExprKind::SignedBitVecDivFn,
-        b"_signed_bit_vec_rem" => hir::ExprKind::SignedBitVecRemFn,
-        b"_signed_bit_vec_div_rem" => hir::ExprKind::SignedBitVecDivRemFn,
-        b"_signed_bit_vec_shr" => hir::ExprKind::SignedBitVecShrFn, // arithmetic shift right
-        b"_signed_bit_vec_shl" => hir::ExprKind::SignedBitVecShlFn, // shift left
-        b"_signed_bit_vec_and" => hir::ExprKind::SignedBitVecAndFn,
-        b"_signed_bit_vec_or" => hir::ExprKind::SignedBitVecOrFn,
-        b"_signed_bit_vec_xor" => hir::ExprKind::SignedBitVecXorFn,
-        b"_signed_bit_vec_not" => hir::ExprKind::SignedBitVecNotFn,
-        b"_signed_bit_vec_negate" => hir::ExprKind::SignedBitVecNegateFn,
-        identifier => hir::ExprKind::Reference(clone_in(allocator, identifier)),
-      },
+      kind: hir::ExprKind::Reference(clone_in(allocator, identifier)),
     },
     ref c @ ast::ExprKind::BindSplat => {
       dlogger.log_only_in_pattern(source.range, c);

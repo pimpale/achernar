@@ -109,85 +109,6 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
     val: &'hir Expr<'hir, 'ast, HA>,
     body: &'hir Expr<'hir, 'ast, HA>,
   },
-
-  // functions
-  // Math with bools
-  BoolNotFn,
-  // Math with integers
-  IntAddFn,
-  IntSubFn,
-  IntMulFn,
-  IntDivFn,
-  IntRemFn,
-  // Math with rationals
-  RationalAddFn,
-  RationalSubFn,
-  RationalMulFn,
-  RationalDivFn,
-  RationalRemFn,
-  // Conversion between integers and rationals
-  IntToRationalFn,    // promote int to rational
-  RationalToIntRNEFn, // round to nearest even
-  RationalToIntRTZFn, // round to zero
-  RationalToIntRDNFn, // round down
-  RationalToIntRUPFn, // round up
-  // Bit Vectors
-  // Unsigned Operations
-  UnsignedBitVecFn, // creates a bitvector from an integer
-  UnsignedBitVecAddFn,
-  UnsignedBitVecAddOverflowFn,
-  UnsignedBitVecSubFn,
-  UnsignedBitVecSubOverflowFn,
-  UnsignedBitVecMulFn,
-  UnsignedBitVecMulOverflowFn,
-  UnsignedBitVecDivFn,
-  UnsignedBitVecRemFn,
-  UnsignedBitVecDivRemFn,
-  UnsignedBitVecShrFn, // logical shift right
-  UnsignedBitVecShlFn, // shift left
-  UnsignedBitVecRolFn, // rotate left
-  UnsignedBitVecRorFn, // rotate right
-  UnsignedBitVecAndFn,
-  UnsignedBitVecOrFn,
-  UnsignedBitVecXorFn,
-  UnsignedBitVecNotFn,
-  // Signed Operations
-  SignedBitVecFn, // creates a bitvector from an integer
-  SignedBitVecAddFn,
-  SignedBitVecAddOverflowFn,
-  SignedBitVecSubFn,
-  SignedBitVecSubOverflowFn,
-  SignedBitVecMulFn,
-  SignedBitVecMulOverflowFn,
-  SignedBitVecDivFn,
-  SignedBitVecRemFn,
-  SignedBitVecDivRemFn,
-  SignedBitVecShrFn, // arithmetic shift right
-  SignedBitVecShlFn, // shift left
-  SignedBitVecAndFn,
-  SignedBitVecOrFn,
-  SignedBitVecXorFn,
-  SignedBitVecNotFn,
-  SignedBitVecNegateFn,
-
-  // Math with floats
-  FloatFn,
-  FloatAddFn,
-  FloatSubFn,
-  FloatMulFn,
-  FloatDivFn,
-  FloatRemFn,
-  FloatDivRemFn,
-  // Conversion between bitvecs and floats
-  BitVecToFloatFn,    // promote bitVec to float
-  FloatToBitVecRNEFn, // round to nearest even
-  FloatToBitVecRTZFn, // round to zero
-  FloatToBitVecRDNFn, // round down
-  FloatToBitVecRUPFn, // round up
-
-  // Handle Memory addresses
-  RefFn,
-  DerefFn,
 }
 
 #[derive(Debug)]
@@ -255,4 +176,86 @@ pub struct Pat<'hir, 'ast, HA: Allocator> {
   pub source: Option<&'ast ast::Expr>,
   pub kind: PatKind<'hir, 'ast, HA>,
 }
+
+
+
+
+//  // functions
+//  // Math with bools
+//  BoolNotFn,
+//  // Math with integers
+//  IntAddFn,
+//  IntSubFn,
+//  IntMulFn,
+//  IntDivFn,
+//  IntRemFn,
+//  // Math with rationals
+//  RationalAddFn,
+//  RationalSubFn,
+//  RationalMulFn,
+//  RationalDivFn,
+//  RationalRemFn,
+//  // Conversion between integers and rationals
+//  IntToRationalFn,    // promote int to rational
+//  RationalToIntRNEFn, // round to nearest even
+//  RationalToIntRTZFn, // round to zero
+//  RationalToIntRDNFn, // round down
+//  RationalToIntRUPFn, // round up
+//  // Bit Vectors
+//  // Unsigned Operations
+//  UnsignedBitVecFn, // creates a bitvector from an integer
+//  UnsignedBitVecAddFn,
+//  UnsignedBitVecAddOverflowFn,
+//  UnsignedBitVecSubFn,
+//  UnsignedBitVecSubOverflowFn,
+//  UnsignedBitVecMulFn,
+//  UnsignedBitVecMulOverflowFn,
+//  UnsignedBitVecDivFn,
+//  UnsignedBitVecRemFn,
+//  UnsignedBitVecDivRemFn,
+//  UnsignedBitVecShrFn, // logical shift right
+//  UnsignedBitVecShlFn, // shift left
+//  UnsignedBitVecRolFn, // rotate left
+//  UnsignedBitVecRorFn, // rotate right
+//  UnsignedBitVecAndFn,
+//  UnsignedBitVecOrFn,
+//  UnsignedBitVecXorFn,
+//  UnsignedBitVecNotFn,
+//  // Signed Operations
+//  SignedBitVecFn, // creates a bitvector from an integer
+//  SignedBitVecAddFn,
+//  SignedBitVecAddOverflowFn,
+//  SignedBitVecSubFn,
+//  SignedBitVecSubOverflowFn,
+//  SignedBitVecMulFn,
+//  SignedBitVecMulOverflowFn,
+//  SignedBitVecDivFn,
+//  SignedBitVecRemFn,
+//  SignedBitVecDivRemFn,
+//  SignedBitVecShrFn, // arithmetic shift right
+//  SignedBitVecShlFn, // shift left
+//  SignedBitVecAndFn,
+//  SignedBitVecOrFn,
+//  SignedBitVecXorFn,
+//  SignedBitVecNotFn,
+//  SignedBitVecNegateFn,
+//
+//  // Math with floats
+//  FloatFn,
+//  FloatAddFn,
+//  FloatSubFn,
+//  FloatMulFn,
+//  FloatDivFn,
+//  FloatRemFn,
+//  FloatDivRemFn,
+//  // Conversion between bitvecs and floats
+//  BitVecToFloatFn,    // promote bitVec to float
+//  FloatToBitVecRNEFn, // round to nearest even
+//  FloatToBitVecRTZFn, // round to zero
+//  FloatToBitVecRDNFn, // round down
+//  FloatToBitVecRUPFn, // round up
+//
+//  // Handle Memory addresses
+//  RefFn,
+//  DerefFn,
 

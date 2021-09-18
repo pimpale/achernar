@@ -4,30 +4,6 @@ use super::hir;
 use bumpalo::Bump;
 use num_bigint::BigInt;
 use std::alloc::Allocator;
-use std::cell::RefCell;
-
-struct LabelElement<'le, 'hir, 'ast, A: Allocator> {
-  prior_le: Option<&'le LabelElement<'le, 'hir, 'ast, A>>,
-  label: &'ast Vec<u8>,
-  defers: RefCell<Vec<hir::Expr<'hir, 'ast, A>, A>>,
-}
-
-fn get_label<'le, 'hir, 'ast, A: Allocator>(
-  mut le: Option<&'le LabelElement<'le, 'hir, 'ast, A>>,
-  label: &[u8],
-) -> Option<(&'le LabelElement<'le, 'hir, 'ast, A>, u64)> {
-  let mut labels_up = 1;
-  while le.is_some() {
-    if le.map(|x| x.label == label) == Some(true) {
-      return Some((le.unwrap(), labels_up));
-    } else {
-      le = le.unwrap().prior_le;
-      labels_up += 1;
-    }
-  }
-  // if not found
-  None
-}
 
 fn clone_in<A: Allocator, T: Clone>(allocator: A, slice: &[T]) -> Vec<T, A> {
   let mut v = Vec::new_in(allocator);
@@ -37,7 +13,7 @@ fn clone_in<A: Allocator, T: Clone>(allocator: A, slice: &[T]) -> Vec<T, A> {
 
 fn gen_apply_fn<'hir, 'ast>(
   allocator: &'hir Bump,
-  source: Option<&'ast ast::Expr>,
+  source: &'ast ast::Expr,
   fun: hir::Expr<'hir, 'ast, &'hir Bump>,
   args: Vec<&'hir hir::Expr<'hir, 'ast, &'hir Bump>>,
 ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
@@ -50,6 +26,16 @@ fn gen_apply_fn<'hir, 'ast>(
   })
 }
 
+fn gen_bool<'hir, 'ast>(
+  source: &'ast ast::Expr,
+  b: bool,
+) -> hir::Expr<'hir, 'ast, &'hir Bump> {
+  hir::Expr {
+    source: source,
+    kind: hir::ExprKind::Bool(b),
+  }
+}
+
 fn tr_pat<'hir, 'ast>(
   allocator: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
@@ -58,27 +44,21 @@ fn tr_pat<'hir, 'ast>(
   match source.kind {
     // propagate error
     ast::ExprKind::None => hir::Pat {
-      source: Some(source),
+      source,
       kind: hir::PatKind::None,
     },
     ast::ExprKind::Hole => hir::Pat {
-      source: Some(source),
+      source,
       kind: hir::PatKind::Hole,
     },
     // transparent valueification
     ast::ExprKind::This
-    | ast::ExprKind::NeverType
     | ast::ExprKind::Nil
-    | ast::ExprKind::NilType
     | ast::ExprKind::Bool(_)
-    | ast::ExprKind::BoolType
     | ast::ExprKind::Int(_)
-    | ast::ExprKind::IntType
-    | ast::ExprKind::Rational(_)
-    | ast::ExprKind::RationalType
     | ast::ExprKind::String { .. } => hir::Pat {
-      source: Some(source),
-      kind: hir::PatKind::Value(allocator.alloc(tr_expr(allocator, dlogger, source, None))),
+      source,
+      kind: hir::PatKind::Value(allocator.alloc(tr_expr(allocator, dlogger, source))),
     },
     // reject use in pattern without explicit `val`
     ref
@@ -91,22 +71,22 @@ fn tr_pat<'hir, 'ast>(
     | ast::ExprKind::CaseOf { .. }) => {
       dlogger.log_unexpected_in_pattern(source.range, c);
       hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::None,
       }
     }
     ast::ExprKind::InferArg(_) => {
       dlogger.log_unexpected_infer_arg(source.range);
       hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::None,
       }
     }
     // elide groups
     ast::ExprKind::Group(ref body) => tr_pat(allocator, dlogger, body),
     ast::ExprKind::BindSplat => hir::Pat {
-      source: Some(source),
-      kind: hir::PatKind::None,
+      source,
+      kind: hir::PatKind::BindSplat,
     },
     ast::ExprKind::StructLiteral(ref body) => {
       // create a struct of literals
@@ -186,7 +166,7 @@ fn tr_pat<'hir, 'ast>(
       }
       // return struct
       hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::StructLiteral {
           splat: allocator.alloc(splat),
           patterns,
@@ -198,78 +178,78 @@ fn tr_pat<'hir, 'ast>(
       ref operand,
     } => match op {
       ast::UnaryOpKind::Posit => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           function: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Reference(b"_posit".to_vec_in(allocator)),
           }),
           param: allocator.alloc(tr_pat(allocator, dlogger, operand)),
         },
       },
       ast::UnaryOpKind::Negate => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           function: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Reference(b"_negate".to_vec_in(allocator)),
           }),
           param: allocator.alloc(tr_pat(allocator, dlogger, operand)),
         },
       },
       ast::UnaryOpKind::Ref => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           function: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Reference(b"_ref".to_vec_in(allocator)),
           }),
           param: allocator.alloc(tr_pat(allocator, dlogger, operand)),
         },
       },
       ast::UnaryOpKind::Deref => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           function: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Reference(b"_deref".to_vec_in(allocator)),
           }),
           param: allocator.alloc(tr_pat(allocator, dlogger, operand)),
         },
       },
       ast::UnaryOpKind::Not => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           function: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Reference(b"_not".to_vec_in(allocator)),
           }),
           param: allocator.alloc(tr_pat(allocator, dlogger, operand)),
         },
       },
       ast::UnaryOpKind::NoInfer => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           function: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Reference(b"_noinfer".to_vec_in(allocator)),
           }),
           param: allocator.alloc(tr_pat(allocator, dlogger, operand)),
         },
       },
       ast::UnaryOpKind::Complement => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           function: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Reference(b"_complement".to_vec_in(allocator)),
           }),
           param: allocator.alloc(tr_pat(allocator, dlogger, operand)),
         },
       },
       ast::UnaryOpKind::Val => hir::Pat {
-        source: Some(source),
-        kind: hir::PatKind::Value(allocator.alloc(tr_expr(allocator, dlogger, operand, None))),
+        source,
+        kind: hir::PatKind::Value(allocator.alloc(tr_expr(allocator, dlogger, operand))),
       },
       ast::UnaryOpKind::Bind => match **operand {
         // binds a variable to an identifier
@@ -277,7 +257,7 @@ fn tr_pat<'hir, 'ast>(
           kind: ast::ExprKind::Reference(ref identifier),
           ..
         } => hir::Pat {
-          source: Some(source),
+          source,
           kind: hir::PatKind::BindIdentifier(clone_in(allocator, identifier)),
         },
         // ignores variable
@@ -285,7 +265,7 @@ fn tr_pat<'hir, 'ast>(
           kind: ast::ExprKind::Hole,
           ..
         } => hir::Pat {
-          source: Some(source),
+          source,
           kind: hir::PatKind::BindIgnore,
         },
         // handle error
@@ -294,7 +274,7 @@ fn tr_pat<'hir, 'ast>(
         } => {
           dlogger.log_unexpected_bind_target(range, kind);
           hir::Pat {
-            source: Some(source),
+            source,
             kind: hir::PatKind::None,
           }
         }
@@ -310,7 +290,7 @@ fn tr_pat<'hir, 'ast>(
       | ast::UnaryOpKind::Pat) => {
         dlogger.log_unexpected_unop_in_pattern(source.range, c);
         hir::Pat {
-          source: Some(source),
+          source,
           kind: hir::PatKind::None,
         }
       }
@@ -352,76 +332,76 @@ fn tr_pat<'hir, 'ast>(
       | ast::BinaryOpKind::ModuleAccess) => {
         dlogger.log_unexpected_binop_in_pattern(source.range, c);
         hir::Pat {
-          source: Some(source),
+          source,
           kind: hir::PatKind::None,
         }
       }
       ast::BinaryOpKind::Constrain => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::Annotate {
           pattern: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
-          ty: allocator.alloc(tr_expr(allocator, dlogger, right_operand, None)),
+          ty: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         },
       },
       // TODO warn style
       ast::BinaryOpKind::RevConstrain => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::Annotate {
           // swap the expressions
-          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand, None)),
+          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
           pattern: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::Apply => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
-          function: allocator.alloc(tr_expr(allocator, dlogger, left_operand, None)),
+          function: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
           param: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::RevApply => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::ActivePattern {
           // swap the expressions
           param: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
-          function: allocator.alloc(tr_expr(allocator, dlogger, right_operand, None)),
+          function: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::And => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::And {
           left_operand: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
           right_operand: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::Or => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::Or {
           left_operand: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
           right_operand: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::Cons => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::Cons {
           left_operand: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
           right_operand: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::Range => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::Range {
           inclusive: false,
-          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, None)),
-          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, None)),
+          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::RangeInclusive => hir::Pat {
-        source: Some(source),
+        source,
         kind: hir::PatKind::Range {
           inclusive: true,
-          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, None)),
-          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, None)),
+          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         },
       },
     },
@@ -432,80 +412,59 @@ fn tr_expr<'hir, 'ast>(
   allocator: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
-  ls: Option<&LabelElement<'_, 'hir, 'ast, &'hir Bump>>,
 ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
   match source.kind {
     ast::ExprKind::None => hir::Expr {
-      source: Some(source),
+      source,
       kind: hir::ExprKind::None,
     },
     ast::ExprKind::InferArg(_) => {
       dlogger.log_unexpected_infer_arg(source.range);
       hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::None,
       }
     }
     ast::ExprKind::Hole => hir::Expr {
-      source: Some(source),
+      source,
       kind: hir::ExprKind::Hole,
     },
     ast::ExprKind::This => hir::Expr {
-      source: Some(source),
+      source,
       kind: hir::ExprKind::This,
     },
-    ast::ExprKind::NeverType => hir::Expr {
-      source: Some(source),
-      kind: hir::ExprKind::NeverType,
-    },
     ast::ExprKind::Nil => hir::Expr {
-      source: Some(source),
+      source,
       kind: hir::ExprKind::Nil,
     },
-    ast::ExprKind::NilType => hir::Expr {
-      source: Some(source),
-      kind: hir::ExprKind::NilType,
-    },
     ast::ExprKind::Bool(b) => hir::Expr {
-      source: Some(source),
+      source,
       kind: hir::ExprKind::Bool(b),
     },
-    ast::ExprKind::BoolType => hir::Expr {
-      source: Some(source),
-      kind: hir::ExprKind::BoolType,
-    },
     ast::ExprKind::Int(ref i) => hir::Expr {
-      source: Some(source),
+      source,
       // TODO allocate this via bumpalo
       kind: hir::ExprKind::Int(i.clone()),
     },
-    ast::ExprKind::IntType => hir::Expr {
-      source: Some(source),
-      kind: hir::ExprKind::IntType,
-    },
-    ast::ExprKind::Rational(ref i) => hir::Expr {
-      source: Some(source),
+    ast::ExprKind::Float(ref i) => hir::Expr {
+      source,
       // TODO allocate this via bumpalo
-      kind: hir::ExprKind::Rational(i.clone()),
-    },
-    ast::ExprKind::RationalType => hir::Expr {
-      source: Some(source),
-      kind: hir::ExprKind::RationalType,
+      kind: hir::ExprKind::Float(i.clone()),
     },
     ast::ExprKind::String { ref value, .. } => value.iter().rev().fold(
       // start with a null at the end of the list
       hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::Nil,
       },
       // as we work our way backwards, we prepend the current char as an int to our list
       |acc, x| {
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Cons {
             // first arg is the new expr for the int
             left_operand: allocator.alloc(hir::Expr {
-              source: Some(source),
+              source,
               kind: hir::ExprKind::Int(BigInt::from(*x)),
             }),
             // second arg is the current tail of the list
@@ -517,60 +476,32 @@ fn tr_expr<'hir, 'ast>(
     ast::ExprKind::Label {
       ref label,
       ref body,
-    } => {
-      // Create boxed label
-      let label_element = LabelElement {
-        label,
-        prior_le: ls,
-        defers: RefCell::new(Vec::new_in(allocator)),
-      };
-
-      // parse body
-      let scope = tr_expr(allocator, dlogger, body, Some(&label_element));
-
-      // return label
-      hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::Label {
-          defers: label_element.defers.into_inner(),
-          scope: allocator.alloc(scope),
-        },
-      }
-    }
-    ast::ExprKind::Group(ref body) => tr_expr(allocator, dlogger, body, ls),
+    } => hir::Expr {
+      source,
+      kind: hir::ExprKind::Label {
+        label: label.to_vec_in(allocator),
+        body: allocator.alloc(tr_expr(allocator, dlogger, body)),
+      },
+    },
+    ast::ExprKind::Group(ref body) => tr_expr(allocator, dlogger, body),
     ast::ExprKind::Defer {
       label: ref maybe_label,
       ref body,
     } => {
       // fail if label wasn't specified none
       if let Some(label) = maybe_label {
-        // clone last label element with matching name
-        if let Some((dle, _)) = get_label(ls, label) {
-          // we push the defer to the end
-          dle
-            .defers
-            .borrow_mut()
-            .push(tr_expr(allocator, dlogger, body, dle.prior_le));
-
-          // return a nil element to replace the defer
-          hir::Expr {
-            source: Some(source),
-            kind: hir::ExprKind::Nil,
-          }
-        } else {
-          // means that there are no matching labels
-          // throw diagnostic
-          dlogger.log_cannot_find_label_in_scope(source.range, label.clone());
-          hir::Expr {
-            source: Some(source),
-            kind: hir::ExprKind::None,
-          }
+        hir::Expr {
+          source,
+          kind: hir::ExprKind::Defer {
+            label: label.to_vec_in(allocator),
+            body: allocator.alloc(tr_expr(allocator, dlogger, body)),
+          },
         }
       } else {
         // a label was never properly provided
         // an error should already have been thrown, so don't double report
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::None,
         }
       }
@@ -581,46 +512,34 @@ fn tr_expr<'hir, 'ast>(
     } => {
       // fail if label wasn't specified none
       if let Some(label) = maybe_label {
-        // clone last label element with matching name
-        if let Some((_, labels_up)) = get_label(ls, label) {
-          // return a nil element to replace the defer
-          hir::Expr {
-            source: Some(source),
-            kind: hir::ExprKind::Ret {
-              value: allocator.alloc(tr_expr(allocator, dlogger, body, ls)),
-              labels_up,
-            },
-          }
-        } else {
-          // means that there are no matching labels
-          // throw diagnostic
-          dlogger.log_cannot_find_label_in_scope(source.range, label.clone());
-          hir::Expr {
-            source: Some(source),
-            kind: hir::ExprKind::None,
-          }
+        hir::Expr {
+          source,
+          kind: hir::ExprKind::Ret {
+            label: label.to_vec_in(allocator),
+            body: allocator.alloc(tr_expr(allocator, dlogger, body)),
+          },
         }
       } else {
         // a label was never properly provided
         // an error should already have been thrown, so don't double report
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::None,
         }
       }
     }
     ast::ExprKind::StructLiteral(ref body) => hir::Expr {
-      source: Some(source),
-      kind: hir::ExprKind::StructLiteral(allocator.alloc(tr_expr(allocator, dlogger, body, ls))),
+      source,
+      kind: hir::ExprKind::StructLiteral(allocator.alloc(tr_expr(allocator, dlogger, body))),
     },
     ast::ExprKind::Reference(ref identifier) => hir::Expr {
-      source: Some(source),
+      source,
       kind: hir::ExprKind::Reference(clone_in(allocator, identifier)),
     },
     ref c @ ast::ExprKind::BindSplat => {
       dlogger.log_only_in_pattern(source.range, c);
       hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::None,
       }
     }
@@ -645,7 +564,7 @@ fn tr_expr<'hir, 'ast>(
             }
             ast::BinaryOpKind::Defun => case_options.push((
               tr_pat(allocator, dlogger, left_operand),
-              tr_expr(allocator, dlogger, right_operand, ls),
+              tr_expr(allocator, dlogger, right_operand),
             )),
             bok => {
               dlogger.log_expected_case_option_binop(current.range, bok);
@@ -659,9 +578,10 @@ fn tr_expr<'hir, 'ast>(
 
       // return case option
       hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::CaseOf {
-          expr: allocator.alloc(tr_expr(allocator, dlogger, expr, ls)),
+          source: hir::CaseSource::Case,
+          expr: allocator.alloc(tr_expr(allocator, dlogger, expr)),
           case_options,
         },
       }
@@ -672,103 +592,103 @@ fn tr_expr<'hir, 'ast>(
     } => match op {
       ast::UnaryOpKind::Posit => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_posit".to_vec_in(allocator)),
         },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
+        vec![allocator.alloc(tr_expr(allocator, dlogger, operand))],
       ),
       ast::UnaryOpKind::Negate => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_negate".to_vec_in(allocator)),
         },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
+        vec![allocator.alloc(tr_expr(allocator, dlogger, operand))],
       ),
       ast::UnaryOpKind::Ref => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_ref".to_vec_in(allocator)),
         },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
+        vec![allocator.alloc(tr_expr(allocator, dlogger, operand))],
       ),
       ast::UnaryOpKind::Deref => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_deref".to_vec_in(allocator)),
         },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
+        vec![allocator.alloc(tr_expr(allocator, dlogger, operand))],
       ),
       ast::UnaryOpKind::Not => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_not".to_vec_in(allocator)),
         },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
+        vec![allocator.alloc(tr_expr(allocator, dlogger, operand))],
       ),
       ast::UnaryOpKind::Complement => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_complement".to_vec_in(allocator)),
         },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
+        vec![allocator.alloc(tr_expr(allocator, dlogger, operand))],
       ),
       // TODO decompose
       ast::UnaryOpKind::ReturnOnError => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_return_on_error".to_vec_in(allocator)),
         },
-        vec![allocator.alloc(tr_expr(allocator, dlogger, operand, ls))],
+        vec![allocator.alloc(tr_expr(allocator, dlogger, operand))],
       ),
       ast::UnaryOpKind::Struct => hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::Struct(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+        source,
+        kind: hir::ExprKind::Struct(allocator.alloc(tr_expr(allocator, dlogger, operand))),
       },
       ast::UnaryOpKind::Enum => hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::Enum(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+        source,
+        kind: hir::ExprKind::Enum(allocator.alloc(tr_expr(allocator, dlogger, operand))),
       },
       ast::UnaryOpKind::New => hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::New(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+        source,
+        kind: hir::ExprKind::New(allocator.alloc(tr_expr(allocator, dlogger, operand))),
       },
       ast::UnaryOpKind::NoInfer => hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::NoInfer(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+        source,
+        kind: hir::ExprKind::NoInfer(allocator.alloc(tr_expr(allocator, dlogger, operand))),
       },
       ast::UnaryOpKind::Loop => hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::Loop(allocator.alloc(tr_expr(allocator, dlogger, operand, ls))),
+        source,
+        kind: hir::ExprKind::Loop(allocator.alloc(tr_expr(allocator, dlogger, operand))),
       },
       ast::UnaryOpKind::Pat => hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::Pat(allocator.alloc(tr_pat(allocator, dlogger, operand))),
       },
       c @ ast::UnaryOpKind::Val => {
         dlogger.log_unexpected_unop_in_expr(source.range, c);
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::None,
         }
       }
       c @ ast::UnaryOpKind::Bind => {
         dlogger.log_unexpected_unop_in_expr(source.range, c);
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::None,
         }
       }
@@ -779,21 +699,21 @@ fn tr_expr<'hir, 'ast>(
       ref right_operand,
     } => match op {
       ast::BinaryOpKind::Constrain => hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::Annotate {
-          expr: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          ty: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          expr: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          ty: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::RevConstrain => hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::Annotate {
-          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          expr: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          expr: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::Defun => hir::Expr {
-        source: Some(source),
+        source,
         kind:
         // if argument is boxed with brackets, attempt to infer
         if let ast::Expr {
@@ -804,14 +724,14 @@ fn tr_expr<'hir, 'ast>(
           // if we found an inferrable param
           hir::ExprKind::Defun {
             pattern: allocator.alloc(tr_pat(allocator, dlogger, inferrable)),
-            result: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+            result: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
             infer_pattern: true,
           }
         } else {
             // if concrete param
           hir::ExprKind::Defun {
             pattern: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
-            result: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+            result: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
             infer_pattern: false,
           }
         },
@@ -819,12 +739,12 @@ fn tr_expr<'hir, 'ast>(
       ast::BinaryOpKind::CaseOption => {
         dlogger.log_only_in_case(source.range);
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::None,
         }
       }
       ast::BinaryOpKind::Apply => hir::Expr {
-        source: Some(source),
+        source,
         // whether to provide inference args or not
         kind: if let ast::Expr {
           kind: ast::ExprKind::InferArg(ref inferrable),
@@ -834,297 +754,346 @@ fn tr_expr<'hir, 'ast>(
           // if argument is boxed with brackets, attempt to infer
           hir::ExprKind::Apply {
             fun: allocator.alloc(hir::Expr {
-              source: Some(left_operand),
+              source: left_operand,
               kind: hir::ExprKind::NoInfer(allocator.alloc(tr_expr(
                 allocator,
                 dlogger,
                 left_operand,
-                ls,
               ))),
             }),
-            arg: allocator.alloc(tr_expr(allocator, dlogger, inferrable, ls)),
+            arg: allocator.alloc(tr_expr(allocator, dlogger, inferrable)),
           }
         } else {
           // otherwise directly add
           hir::ExprKind::Apply {
-            fun: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-            arg: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+            fun: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+            arg: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
           }
         },
       },
       ast::BinaryOpKind::RevApply => hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::Apply {
           // swap the expressions
-          fun: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
-          arg: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
+          fun: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
+          arg: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
         },
       },
       ast::BinaryOpKind::Compose => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_compose".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::PipeForward => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_pipe_forward".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::PipeBackward => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_pipe_backward".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Add => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_add".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Sub => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_sub".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Mul => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_mul".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Div => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_div".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Rem => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_rem".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Pow => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_pow".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::And => hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::And {
-          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+        // a && b
+        // case a
+        // of true  = > b
+        // || false = > false
+        source,
+        kind: hir::ExprKind::CaseOf {
+          expr: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          source: hir::CaseSource::And,
+          case_options: {
+            let mut v = Vec::new_in(allocator);
+            // true path
+            v.push((
+              hir::Pat {
+                source,
+                kind: hir::PatKind::Value(allocator.alloc(gen_bool(source, true))),
+              },
+              tr_expr(allocator, dlogger, right_operand),
+            ));
+
+            // false path
+            v.push((
+              hir::Pat {
+                source,
+                kind: hir::PatKind::Value(allocator.alloc(gen_bool(source, false))),
+              },
+              gen_bool(source, false),
+            ));
+            v
+          },
         },
       },
       ast::BinaryOpKind::Or => hir::Expr {
-        source: Some(source),
-        kind: hir::ExprKind::Or {
-          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+        // a || b
+        // case a
+        // of true => true
+        // of false => b
+        source,
+        kind: hir::ExprKind::CaseOf {
+          expr: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          source: hir::CaseSource::Or,
+          case_options: {
+            let mut v = Vec::new_in(allocator);
+            // true path
+            v.push((
+              hir::Pat {
+                source,
+                kind: hir::PatKind::Value(allocator.alloc(gen_bool(source, true))),
+              },
+              gen_bool(source, true),
+            ));
+
+            // false path
+            v.push((
+              hir::Pat {
+                source,
+                kind: hir::PatKind::Value(allocator.alloc(gen_bool(source, false))),
+              },
+              tr_expr(allocator, dlogger, right_operand),
+            ));
+            v
+          },
         },
       },
       ast::BinaryOpKind::Equal => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_eq".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::NotEqual => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_neq".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Less => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_l".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::LessEqual => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_le".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Greater => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_g".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::GreaterEqual => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_ge".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::RelativeComplement => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_relative_complement".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Union => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_union".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Intersection => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_intersection".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::SymmetricDifference => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_symmetric_difference".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::In => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_in".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Cons => hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::Cons {
-          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         },
       },
       ast::BinaryOpKind::SuchThat => hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::Refinement {
-          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
+          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
           refinement: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
         },
       },
@@ -1132,19 +1101,19 @@ fn tr_expr<'hir, 'ast>(
         dlogger.log_unexpected_binop_in_expr(source.range, c);
 
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::None,
         }
       }
       ast::BinaryOpKind::Assign => hir::Expr {
-        source: Some(source),
+        source,
         kind: hir::ExprKind::LetIn {
           pat: allocator.alloc(tr_pat(allocator, dlogger, left_operand)),
-          val: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          val: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
           // this represents an assign at the tail end of an expression.
           // such assigns will not be available outside, and should warn about unused vars
           body: allocator.alloc(hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Nil,
           }),
         },
@@ -1162,47 +1131,47 @@ fn tr_expr<'hir, 'ast>(
         } = **left_operand
         {
           hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::LetIn {
               pat: allocator.alloc(tr_pat(allocator, dlogger, assign_pat)),
-              val: allocator.alloc(tr_expr(allocator, dlogger, assign_value, ls)),
+              val: allocator.alloc(tr_expr(allocator, dlogger, assign_value)),
               // this represents an assign with a scope after it
-              body: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+              body: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
             },
           }
         } else {
           // continue
           hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::Sequence {
-              left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-              right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+              left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+              right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
             },
           }
         }
       }
       ast::BinaryOpKind::As => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_as".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::Append => gen_apply_fn(
         allocator,
-        Some(source),
+        source,
         hir::Expr {
-          source: Some(source),
+          source,
           kind: hir::ExprKind::Reference(b"_append".to_vec_in(allocator)),
         },
         vec![
-          allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
-          allocator.alloc(tr_expr(allocator, dlogger, right_operand, ls)),
+          allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+          allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
         ],
       ),
       ast::BinaryOpKind::ModuleAccess => {
@@ -1212,20 +1181,22 @@ fn tr_expr<'hir, 'ast>(
         } = **right_operand
         {
           hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::StructAccess {
-              root: allocator.alloc(tr_expr(allocator, dlogger, left_operand, ls)),
+              root: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
               field: clone_in(allocator, field),
             },
           }
         } else {
           dlogger.log_field_not_identifier(right_operand.range, &right_operand.kind);
           hir::Expr {
-            source: Some(source),
+            source,
             kind: hir::ExprKind::None,
           }
         }
       }
+        ast::BinaryOpKind::Range => todo!(),
+        ast::BinaryOpKind::RangeInclusive => todo!(),
     },
   }
 }
@@ -1235,5 +1206,5 @@ pub fn construct_hir<'hir, 'ast>(
   allocator: &'hir Bump,
   mut dlogger: DiagnosticLogger,
 ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
-  tr_expr(allocator, &mut dlogger, ast, None)
+  tr_expr(allocator, &mut dlogger, ast)
 }

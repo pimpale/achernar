@@ -24,15 +24,11 @@ pub enum TokenKind {
   // Literals and constants
   Inf,                                    // inf
   Nan,                                    // nan
+  Nil,                                    // nil
   Bool(bool),                             // true, false
   String { value: Vec<u8>, block: bool }, // "string"
   Int(BigInt),                            // 7
-  Real(BigRational),                      // 0.7
-  NilType,                                // nil
-  NeverType,                              // never
-  BoolType,                               // bool
-  IntType,                                // int
-  RealType,                               // real
+  Float(BigRational),                     // 0.7
   // Math Operators
   Plus,  // +
   Minus, // -

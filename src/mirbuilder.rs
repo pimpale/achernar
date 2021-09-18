@@ -8,10 +8,6 @@ use std::alloc::Allocator;
 
 use super::mir;
 
-struct Environment<'ast, 'hir, 'mir, A: Allocator, HA: Allocator> {
-  types: Environment<Vec<u8, A>, mir::Ty<'ast, 'hir, 'mir, A, HA>>,
-}
-
 pub fn eval<'ast, 'hir, 'mir, A: Allocator, HA: Allocator>(
   hir: &'mir mir::Expr<'ast, 'hir, 'mir, A, HA>,
   allocator: &'mir Bump,

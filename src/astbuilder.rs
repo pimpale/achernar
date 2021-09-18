@@ -438,13 +438,6 @@ fn parse_exact_label<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn parse_exact_bool_type<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::BoolType, ExprKind::BoolType)(tkiter, dlogger)
-}
-
 // parses a bool
 fn parse_exact_bool<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
@@ -487,13 +480,6 @@ fn parse_exact_string<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn parse_exact_int_type<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::IntType, ExprKind::IntType)(tkiter, dlogger)
-}
-
 // parses a int
 fn parse_exact_int<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
@@ -515,13 +501,6 @@ fn parse_exact_int<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn parse_exact_rational_type<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::RationalType, ExprKind::RationalType)(tkiter, dlogger)
-}
-
 // parses a rational
 fn parse_exact_rational<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
@@ -530,13 +509,13 @@ fn parse_exact_rational<TkIter: Iterator<Item = Token>>(
   let metadata = get_metadata(tkiter);
   if let Token {
     range,
-    kind: Some(TokenKind::Rational(value)),
+    kind: Some(TokenKind::Float(value)),
   } = tkiter.next().unwrap()
   {
     Expr {
       metadata,
       range,
-      kind: ExprKind::Rational(value),
+      kind: ExprKind::Float(value),
     }
   } else {
     unreachable!();
@@ -581,20 +560,6 @@ fn parse_exact_splat<TkIter: Iterator<Item = Token>>(
   parse_exact_simple(TokenKind::Splat, ExprKind::BindSplat)(tkiter, dlogger)
 }
 
-fn parse_exact_nil_type<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::NilType, ExprKind::NilType)(tkiter, dlogger)
-}
-
-fn parse_exact_never_type<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::NeverType, ExprKind::NeverType)(tkiter, dlogger)
-}
-
 fn parse_exact_hole<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -609,16 +574,11 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::This => Some(parse_exact_this::<TkIter>),
     TokenKind::Hole => Some(parse_exact_hole::<TkIter>),
     TokenKind::Splat => Some(parse_exact_splat::<TkIter>),
-    TokenKind::NilType => Some(parse_exact_nil_type::<TkIter>),
-    TokenKind::NeverType => Some(parse_exact_never_type::<TkIter>),
-    TokenKind::BoolType => Some(parse_exact_bool_type::<TkIter>),
     TokenKind::Bool(_) => Some(parse_exact_bool::<TkIter>),
-    TokenKind::IntType => Some(parse_exact_int_type::<TkIter>),
     TokenKind::Int(_) => Some(parse_exact_int::<TkIter>),
-    TokenKind::RationalType => Some(parse_exact_rational_type::<TkIter>),
-    TokenKind::Rational(_) => Some(parse_exact_rational::<TkIter>),
-    TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
+    TokenKind::Float(_) => Some(parse_exact_rational::<TkIter>),
     TokenKind::String { .. } => Some(parse_exact_string::<TkIter>),
+    TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),
     TokenKind::BracketLeft => Some(parse_exact_infer_arg::<TkIter>),
     TokenKind::Ret => Some(parse_exact_ret::<TkIter>),

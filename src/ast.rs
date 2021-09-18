@@ -101,31 +101,19 @@ pub enum UnaryOpKind {
 pub enum ExprKind {
   // An error when parsing
   None,
-  // Representing the current
+  // Representing the current type ?? TODO what is this??
   This,
-  // Literal for void
+
+  // Literals
   Nil,
-  // Literal for void type
-  NilType,
-  // Literal for never type
-  NeverType,
-  // Literal for bool type
-  BoolType,
-  // Literal for int type
-  IntType,
-  // Literal for rational type
-  RationalType,
-  // Literal for an integer number
   Int(BigInt),
-  // Literal for a boolean
   Bool(bool),
-  // Literal for a rational number
-  Rational(BigRational),
-  // A string literal
+  Float(BigRational),
   String {
     value: Vec<u8>,
     block: bool,
   },
+
   // Wraps a term in a label that can be deferred or returned from
   Label {
     label: Vec<u8>,

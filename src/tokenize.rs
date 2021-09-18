@@ -75,7 +75,6 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"loop" => TokenKind::Loop,
       b"true" => TokenKind::Bool(true),
       b"false" => TokenKind::Bool(false),
-      b"bool" => TokenKind::BoolType,
       b"val" => TokenKind::Val,
       b"pat" => TokenKind::Pat,
       b"case" => TokenKind::Case,
@@ -91,8 +90,6 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"not" => TokenKind::Not,
       b"and" => TokenKind::And,
       b"or" => TokenKind::Or,
-      b"nil" => TokenKind::NilType,
-      b"never" => TokenKind::NeverType,
       b"struct" => TokenKind::Struct,
       b"enum" => TokenKind::Enum,
       b"new" => TokenKind::New,
@@ -270,7 +267,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       );
 
       token = Token::new(
-        TokenKind::Real(fractional_n + whole_n),
+        TokenKind::Float(fractional_n + whole_n),
         union_of(first_range, fractional_range),
       );
     }

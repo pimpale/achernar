@@ -3,6 +3,16 @@ use num_bigint::BigInt;
 use num_rational::BigRational;
 use std::alloc::Allocator;
 
+
+#[derive(Debug)]
+pub enum CaseSource {
+  Case,
+  IfElse,
+  And,
+  Or
+}
+
+
 // HA -> HirAllocator
 
 #[derive(Debug)]
@@ -23,14 +33,17 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
   },
   // Wraps a term in a label that can be deferred or returned from
   Label {
-    defers: Vec<Expr<'hir, 'ast, HA>, HA>,
-    scope: &'hir Expr<'hir, 'ast, HA>,
+    label: Vec<u8, HA>,
+    body: &'hir Expr<'hir, 'ast, HA>,
   },
   // Returns from a scope with a value
   Ret {
-    // the number of labels up to find the correct one
-    labels_up: u64,
-    value: &'hir Expr<'hir, 'ast, HA>,
+    label: Vec<u8, HA>,
+    body: &'hir Expr<'hir, 'ast, HA>,
+  },
+  Defer {
+    label: Vec<u8, HA>,
+    body: &'hir Expr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
   StructLiteral(&'hir Expr<'hir, 'ast, HA>),
@@ -45,6 +58,7 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
   CaseOf {
     expr: &'hir Expr<'hir, 'ast, HA>,
     case_options: Vec<(Pat<'hir, 'ast, HA>, Expr<'hir, 'ast, HA>), HA>,
+    source: CaseSource,
   },
   // Quotes pattern
   Pat(&'hir Pat<'hir, 'ast, HA>),
@@ -53,32 +67,17 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
     expr: &'hir Expr<'hir, 'ast, HA>,
     ty: &'hir Expr<'hir, 'ast, HA>,
   },
-  // short circuiting and
-  And {
-    left_operand: &'hir Expr<'hir, 'ast, HA>,
-    right_operand: &'hir Expr<'hir, 'ast, HA>,
-  },
-  // short circuiting or
-  Or {
-    left_operand: &'hir Expr<'hir, 'ast, HA>,
-    right_operand: &'hir Expr<'hir, 'ast, HA>,
-  },
   // Creates a new type that always matches the pattern provided
   Refinement {
     ty: &'hir Expr<'hir, 'ast, HA>,
     refinement: &'hir Pat<'hir, 'ast, HA>,
   },
+
   // Literals for values
   Nil,
-  NilType,
-  NeverType,
   Bool(bool),
-  BoolType,
-  // actually bigint
-  IntType,
   Int(BigInt),
-  RationalType,
-  Rational(BigRational),
+  Float(BigRational),
 
   // Type stuff
   // creates a pub struct from an ad hoc compound object
@@ -113,7 +112,7 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
 
 #[derive(Debug)]
 pub struct Expr<'hir, 'ast, HA: Allocator> {
-  pub source: Option<&'ast ast::Expr>,
+  pub source: &'ast ast::Expr,
   pub kind: ExprKind<'hir, 'ast, HA>,
 }
 
@@ -125,6 +124,8 @@ pub enum PatKind<'hir, 'ast, HA: Allocator> {
   BindIdentifier(Vec<u8, HA>),
   // Ignore
   BindIgnore,
+  // Splat
+  BindSplat,
   // Hole
   Hole,
   // match with a variety of types
@@ -173,7 +174,7 @@ pub enum PatKind<'hir, 'ast, HA: Allocator> {
 
 #[derive(Debug)]
 pub struct Pat<'hir, 'ast, HA: Allocator> {
-  pub source: Option<&'ast ast::Expr>,
+  pub source: &'ast ast::Expr,
   pub kind: PatKind<'hir, 'ast, HA>,
 }
 

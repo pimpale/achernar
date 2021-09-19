@@ -3,25 +3,20 @@ use num_bigint::BigInt;
 use num_rational::BigRational;
 use std::alloc::Allocator;
 
-
 #[derive(Debug)]
 pub enum CaseSource {
   Case,
   IfElse,
   And,
-  Or
+  Or,
 }
-
 
 // HA -> HirAllocator
 
 #[derive(Debug)]
 pub enum ExprKind<'hir, 'ast, HA: Allocator> {
-  // An error when parsing
-  None,
-  This,
-  // Hole
-  Hole,
+  // Error in parsing
+  Error,
   // Loops until a scope is returned
   Loop(&'hir Expr<'hir, 'ast, HA>),
   // Does not infer types
@@ -119,7 +114,7 @@ pub struct Expr<'hir, 'ast, HA: Allocator> {
 #[derive(Debug)]
 pub enum PatKind<'hir, 'ast, HA: Allocator> {
   // An error when parsing
-  None,
+  Error,
   // Irrefutably matches a single element to new variable
   BindIdentifier(Vec<u8, HA>),
   // Ignore
@@ -177,9 +172,6 @@ pub struct Pat<'hir, 'ast, HA: Allocator> {
   pub source: &'ast ast::Expr,
   pub kind: PatKind<'hir, 'ast, HA>,
 }
-
-
-
 
 //  // functions
 //  // Math with bools
@@ -259,4 +251,3 @@ pub struct Pat<'hir, 'ast, HA: Allocator> {
 //  // Handle Memory addresses
 //  RefFn,
 //  DerefFn,
-

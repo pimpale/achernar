@@ -26,10 +26,7 @@ fn gen_apply_fn<'hir, 'ast>(
   })
 }
 
-fn gen_bool<'hir, 'ast>(
-  source: &'ast ast::Expr,
-  b: bool,
-) -> hir::Expr<'hir, 'ast, &'hir Bump> {
+fn gen_bool<'hir, 'ast>(source: &'ast ast::Expr, b: bool) -> hir::Expr<'hir, 'ast, &'hir Bump> {
   hir::Expr {
     source: source,
     kind: hir::ExprKind::Bool(b),
@@ -43,16 +40,16 @@ fn tr_pat<'hir, 'ast>(
 ) -> hir::Pat<'hir, 'ast, &'hir Bump> {
   match source.kind {
     // propagate error
-    ast::ExprKind::None => hir::Pat {
+    ast::ExprKind::Error => hir::Pat {
       source,
-      kind: hir::PatKind::None,
+      kind: hir::PatKind::Error,
     },
-    ast::ExprKind::Hole => hir::Pat {
+    ast::ExprKind::Error => hir::Pat {
       source,
       kind: hir::PatKind::Hole,
     },
     // transparent valueification
-    ast::ExprKind::This
+    ast::ExprKind::Error
     | ast::ExprKind::Nil
     | ast::ExprKind::Bool(_)
     | ast::ExprKind::Int(_)
@@ -72,14 +69,14 @@ fn tr_pat<'hir, 'ast>(
       dlogger.log_unexpected_in_pattern(source.range, c);
       hir::Pat {
         source,
-        kind: hir::PatKind::None,
+        kind: hir::PatKind::Error,
       }
     }
     ast::ExprKind::InferArg(_) => {
       dlogger.log_unexpected_infer_arg(source.range);
       hir::Pat {
         source,
-        kind: hir::PatKind::None,
+        kind: hir::PatKind::Error,
       }
     }
     // elide groups
@@ -260,14 +257,6 @@ fn tr_pat<'hir, 'ast>(
           source,
           kind: hir::PatKind::BindIdentifier(clone_in(allocator, identifier)),
         },
-        // ignores variable
-        ast::Expr {
-          kind: ast::ExprKind::Hole,
-          ..
-        } => hir::Pat {
-          source,
-          kind: hir::PatKind::BindIgnore,
-        },
         // handle error
         ast::Expr {
           range, ref kind, ..
@@ -275,7 +264,7 @@ fn tr_pat<'hir, 'ast>(
           dlogger.log_unexpected_bind_target(range, kind);
           hir::Pat {
             source,
-            kind: hir::PatKind::None,
+            kind: hir::PatKind::Error,
           }
         }
       },
@@ -291,7 +280,7 @@ fn tr_pat<'hir, 'ast>(
         dlogger.log_unexpected_unop_in_pattern(source.range, c);
         hir::Pat {
           source,
-          kind: hir::PatKind::None,
+          kind: hir::PatKind::Error,
         }
       }
     },
@@ -333,7 +322,7 @@ fn tr_pat<'hir, 'ast>(
         dlogger.log_unexpected_binop_in_pattern(source.range, c);
         hir::Pat {
           source,
-          kind: hir::PatKind::None,
+          kind: hir::PatKind::Error,
         }
       }
       ast::BinaryOpKind::Constrain => hir::Pat {
@@ -414,25 +403,17 @@ fn tr_expr<'hir, 'ast>(
   source: &'ast ast::Expr,
 ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
   match source.kind {
-    ast::ExprKind::None => hir::Expr {
+    ast::ExprKind::Error => hir::Expr {
       source,
-      kind: hir::ExprKind::None,
+      kind: hir::ExprKind::Error,
     },
     ast::ExprKind::InferArg(_) => {
       dlogger.log_unexpected_infer_arg(source.range);
       hir::Expr {
         source,
-        kind: hir::ExprKind::None,
+        kind: hir::ExprKind::Error,
       }
     }
-    ast::ExprKind::Hole => hir::Expr {
-      source,
-      kind: hir::ExprKind::Hole,
-    },
-    ast::ExprKind::This => hir::Expr {
-      source,
-      kind: hir::ExprKind::This,
-    },
     ast::ExprKind::Nil => hir::Expr {
       source,
       kind: hir::ExprKind::Nil,
@@ -502,7 +483,7 @@ fn tr_expr<'hir, 'ast>(
         // an error should already have been thrown, so don't double report
         hir::Expr {
           source,
-          kind: hir::ExprKind::None,
+          kind: hir::ExprKind::Error,
         }
       }
     }
@@ -524,7 +505,7 @@ fn tr_expr<'hir, 'ast>(
         // an error should already have been thrown, so don't double report
         hir::Expr {
           source,
-          kind: hir::ExprKind::None,
+          kind: hir::ExprKind::Error,
         }
       }
     }
@@ -540,7 +521,7 @@ fn tr_expr<'hir, 'ast>(
       dlogger.log_only_in_pattern(source.range, c);
       hir::Expr {
         source,
-        kind: hir::ExprKind::None,
+        kind: hir::ExprKind::Error,
       }
     }
     ast::ExprKind::CaseOf {
@@ -682,14 +663,14 @@ fn tr_expr<'hir, 'ast>(
         dlogger.log_unexpected_unop_in_expr(source.range, c);
         hir::Expr {
           source,
-          kind: hir::ExprKind::None,
+          kind: hir::ExprKind::Error,
         }
       }
       c @ ast::UnaryOpKind::Bind => {
         dlogger.log_unexpected_unop_in_expr(source.range, c);
         hir::Expr {
           source,
-          kind: hir::ExprKind::None,
+          kind: hir::ExprKind::Error,
         }
       }
     },
@@ -740,7 +721,7 @@ fn tr_expr<'hir, 'ast>(
         dlogger.log_only_in_case(source.range);
         hir::Expr {
           source,
-          kind: hir::ExprKind::None,
+          kind: hir::ExprKind::Error,
         }
       }
       ast::BinaryOpKind::Apply => hir::Expr {
@@ -1102,7 +1083,7 @@ fn tr_expr<'hir, 'ast>(
 
         hir::Expr {
           source,
-          kind: hir::ExprKind::None,
+          kind: hir::ExprKind::Error,
         }
       }
       ast::BinaryOpKind::Assign => hir::Expr {
@@ -1191,12 +1172,12 @@ fn tr_expr<'hir, 'ast>(
           dlogger.log_field_not_identifier(right_operand.range, &right_operand.kind);
           hir::Expr {
             source,
-            kind: hir::ExprKind::None,
+            kind: hir::ExprKind::Error,
           }
         }
       }
-        ast::BinaryOpKind::Range => todo!(),
-        ast::BinaryOpKind::RangeInclusive => todo!(),
+      ast::BinaryOpKind::Range => todo!(),
+      ast::BinaryOpKind::RangeInclusive => todo!(),
     },
   }
 }

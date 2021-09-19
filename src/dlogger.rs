@@ -481,28 +481,34 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_expected_nil_loop_body(&mut self, range: Range) {
+  pub fn log_unexpected_type(&mut self, range: Range, expected_type: &str, got_type: &str) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(18)),
       code_description: None,
       source: self.source.clone(),
-      message: "the body of a loop must evaluate to nil.".to_owned(),
+      message: format!(
+        "expected type {}, but found type {}",
+        expected_type, got_type
+      ),
       related_information: None,
       tags: None,
       data: None,
     })
   }
 
-  pub fn log_unexpected_type(&mut self, range: Range, expected_type: &str, got_type: &str) {
+  pub fn log_not_callable(&mut self, range: Range, got_type: &str) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(19)),
+      code: Some(NumberOrString::Number(18)),
       code_description: None,
       source: self.source.clone(),
-      message: format!("expected type {}, but found type {}", expected_type, got_type),
+      message: format!(
+        "expecte function type but found type {}",
+        expected_type, got_type
+      ),
       related_information: None,
       tags: None,
       data: None,

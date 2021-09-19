@@ -7,7 +7,7 @@ use num_rational::BigRational;
 use std::alloc::Allocator;
 
 use super::mir;
-
+/*
 pub fn eval<'ast, 'hir, 'mir, A: Allocator, HA: Allocator>(
   hir: &'mir mir::Expr<'ast, 'hir, 'mir, A, HA>,
   allocator: &'mir Bump,
@@ -31,3 +31,4 @@ pub fn construct_mir<'ast, 'hir, 'mir, HirAllocator: Allocator>(
     None => No
   }
 }
+*/

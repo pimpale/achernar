@@ -110,7 +110,7 @@ pub enum Terminator<'ast, 'hir, 'mir, A: Allocator, HA: Allocator> {
     // the call will write its return value in this place
     write_result: Place<'ast, 'hir, 'mir, A, HA>,
     // execution will continue from this point
-    dest: BasicBlock<'ast, 'hir, 'mir, A, HA>,
+    dest: &'mir BasicBlock<'ast, 'hir, 'mir, A, HA>,
   },
 }
 

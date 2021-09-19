@@ -14,8 +14,6 @@ pub enum TokenKind {
   Case,   // case
   Of,     // of
   As,     // as
-  Where,  // where
-  This,   // this
   Pat,    // pat
   Val,    // val
   Struct, // struct
@@ -82,7 +80,6 @@ pub enum TokenKind {
   NoInfer,      // !
   Bind,         // $
   Splat,        // $*
-  Hole,         // _
   ParenLeft,    // (
   ParenRight,   // )
   BracketLeft,  // [

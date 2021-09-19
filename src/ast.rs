@@ -100,10 +100,7 @@ pub enum UnaryOpKind {
 #[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]
 pub enum ExprKind {
   // An error when parsing
-  None,
-  // Representing the current type ?? TODO what is this??
-  This,
-
+  Error,
   // Literals
   Nil,
   Int(BigInt),
@@ -153,8 +150,6 @@ pub enum ExprKind {
   InferArg(Box<Expr>),
   // A reference to a previously defined variable
   Reference(Vec<u8>),
-  // Hole, helps with deducing valid types
-  Hole,
   // (PATTERN ONLY) Automagically deconstructs and binds a struct
   BindSplat,
 }

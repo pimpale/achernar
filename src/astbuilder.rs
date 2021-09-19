@@ -546,13 +546,6 @@ fn parse_exact_simple<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn parse_exact_this<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::This, ExprKind::This)(tkiter, dlogger)
-}
-
 fn parse_exact_splat<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -560,19 +553,10 @@ fn parse_exact_splat<TkIter: Iterator<Item = Token>>(
   parse_exact_simple(TokenKind::Splat, ExprKind::BindSplat)(tkiter, dlogger)
 }
 
-fn parse_exact_hole<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::Hole, ExprKind::Hole)(tkiter, dlogger)
-}
-
 fn decide_term<TkIter: Iterator<Item = Token>>(
   tkkind: &TokenKind,
 ) -> Option<fn(&mut PeekMoreIterator<TkIter>, &mut DiagnosticLogger) -> Expr> {
   match *tkkind {
-    TokenKind::This => Some(parse_exact_this::<TkIter>),
-    TokenKind::Hole => Some(parse_exact_hole::<TkIter>),
     TokenKind::Splat => Some(parse_exact_splat::<TkIter>),
     TokenKind::Bool(_) => Some(parse_exact_bool::<TkIter>),
     TokenKind::Int(_) => Some(parse_exact_int::<TkIter>),
@@ -611,14 +595,14 @@ fn parse_term<TkIter: Iterator<Item = Token>>(
       Expr {
         range,
         metadata,
-        kind: ExprKind::None,
+        kind: ExprKind::Error,
       }
     }
   } else {
     dlogger.log_unexpected_token(range, "term", maybe_kind);
     Expr {
       range,
-      kind: ExprKind::None,
+      kind: ExprKind::Error,
       metadata: get_metadata(tkiter),
     }
   }

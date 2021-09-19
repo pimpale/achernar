@@ -14,5 +14,4 @@ lsp-types = "^0.89.2"
 peekmore = "^1.0.0"
 strum = { version = "^0.21.0", features = ["derive"] }
 bumpalo = { version = "^3.7.0", features = ["allocator_api"] }
-z3 = "^0.11.2"
 hashbrown = "^0.11.2"

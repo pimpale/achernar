@@ -1,48 +1,112 @@
 use super::ast;
-use std::alloc::Allocator;
 use hashbrown::HashMap;
+use std::alloc::Allocator;
+use std::fmt;
 
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ty<'thir, TA: Allocator> {
   Ty,
   Nil,
   Bool,
-  Int {
-    // INVARIANT: bits is 8 | 16 | 32 | 64
-    bits: u8,
-    signed: bool,
-  },
-  Float {
-    // INVARIANT: bits is 32 | 64
-    bits: u8,
-  },
+  UInt8,
+  UInt16,
+  UInt32,
+  UInt64,
+  Int8,
+  Int16,
+  Int32,
+  Int64,
+  Float32,
+  Float64,
   Cons {
     left: &'thir Ty<'thir, TA>,
     right: &'thir Ty<'thir, TA>,
   },
-  Struct {
-    fields: HashMap<Vec<u8, TA>, Ty<'thir, TA>, TA>,
-  },
-  Enum {
-    fields: HashMap<Vec<u8, TA>, Ty<'thir, TA>, TA>,
-  },
-  Func {
-    inType: &'thir Ty<'thir, TA>,
-    outType: &'thir Ty<'thir, TA>,
+  Struct(HashMap<Vec<u8, TA>, Ty<'thir, TA>, TA>),
+  Enum(HashMap<Vec<u8, TA>, Ty<'thir, TA>, TA>),
+  Fun {
+    in_ty: &'thir Ty<'thir, TA>,
+    out_ty: &'thir Ty<'thir, TA>,
   },
 }
 
+impl<TA: Allocator> fmt::Display for Ty<'_, TA> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let val = match self {
+      Ty::Ty => "type".to_owned(),
+      Ty::Nil => "nil".to_owned(),
+      Ty::Bool => "bool".to_owned(),
+      Ty::UInt8 => "uint8".to_owned(),
+      Ty::UInt16 => "uint16".to_owned(),
+      Ty::UInt32 => "uint32".to_owned(),
+      Ty::UInt64 => "uint64".to_owned(),
+      Ty::Int8 => "int8".to_owned(),
+      Ty::Int16 => "int16".to_owned(),
+      Ty::Int32 => "int32".to_owned(),
+      Ty::Int64 => "int64".to_owned(),
+      Ty::Float32 => "float32".to_owned(),
+      Ty::Float64 => "float64".to_owned(),
+      Ty::Cons { left, right } => format!("{}, {}", left, right),
+      Ty::Struct(h) => format!("struct {{ {} }}", h.iter().fold(String::new(), |a, (key, val)| {
+        format!(
+          "{}, {}: {}",
+          a,
+          std::str::from_utf8(key).unwrap(),
+          format!("{}", val)
+        )
+      })),
+      Ty::Enum(h) => format!("enum {{ {} }}", h.iter().fold(String::new(), |a, (key, val)| {
+        format!(
+          "{}, {}: {}",
+          a,
+          std::str::from_utf8(key).unwrap(),
+          format!("{}", val)
+        )
+      })),
+      Ty::Fun { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty),
+    };
+
+    write!(f, "{}", val)
+  }
+}
+
+pub enum Val<'thir, 'ast, TA: Allocator> {
+  Nil,
+  Bool(bool),
+  UInt8(u8),
+  UInt16(u16),
+  UInt32(u32),
+  UInt64(u64),
+  Int8(i8),
+  Int16(i16),
+  Int32(i32),
+  Int64(i64),
+  Float32(f32),
+  Float64(f64),
+  Cons {
+    left: &'thir Val<'thir, 'ast, TA>,
+    right: &'thir Val<'thir, 'ast, TA>,
+  },
+  Struct {
+    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, TA>,
+  },
+  Enum {
+    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, TA>,
+  },
+  Fun(Expr<'thir, 'ast, TA>),
+  Ty(Ty<'thir, TA>),
+  Never {
+    returned: &'thir Val<'thir, 'ast, TA>,
+    levelsUp: u32,
+  },
+}
 
 // TA-> ThirAllocator
 
 #[derive(Debug)]
 pub enum ExprKind<'thir, 'ast, TA: Allocator> {
   // An error when parsing
-  None,
-  This,
-  // Hole
-  Hole,
+  Error,
   // Loops until a scope is returned
   Loop(&'thir Expr<'thir, 'ast, TA>),
   // applies a function
@@ -139,19 +203,17 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator> {
 pub struct Expr<'thir, 'ast, TA: Allocator> {
   pub source: &'ast ast::Expr,
   pub kind: ExprKind<'thir, 'ast, TA>,
-  pub ty: Option<Ty<'thir, TA>>
+  pub ty: Option<&'thir Ty<'thir, TA>>,
 }
 
 #[derive(Debug)]
 pub enum PatKind<'thir, 'ast, TA: Allocator> {
   // An error when parsing
-  None,
+  Error,
   // Irrefutably matches a single element to new variable
   BindIdentifier(Vec<u8, TA>),
   // Ignore
   BindIgnore,
-  // Hole
-  Hole,
   // match with a variety of types
   Range {
     inclusive: bool,
@@ -200,10 +262,5 @@ pub enum PatKind<'thir, 'ast, TA: Allocator> {
 pub struct Pat<'thir, 'ast, TA: Allocator> {
   pub source: &'ast ast::Expr,
   pub kind: PatKind<'thir, 'ast, TA>,
-  pub ty: Option<Ty<'thir, TA>>
+  pub ty: Option<Ty<'thir, TA>>,
 }
-
-
-
-
-

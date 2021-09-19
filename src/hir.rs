@@ -62,11 +62,6 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
     expr: &'hir Expr<'hir, 'ast, HA>,
     ty: &'hir Expr<'hir, 'ast, HA>,
   },
-  // Creates a new type that always matches the pattern provided
-  Refinement {
-    ty: &'hir Expr<'hir, 'ast, HA>,
-    refinement: &'hir Pat<'hir, 'ast, HA>,
-  },
 
   // Literals for values
   Nil,
@@ -94,8 +89,8 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
   },
   // Sequence
   Sequence {
-    left_operand: &'hir Expr<'hir, 'ast, HA>,
-    right_operand: &'hir Expr<'hir, 'ast, HA>,
+    fst: &'hir Expr<'hir, 'ast, HA>,
+    snd: &'hir Expr<'hir, 'ast, HA>,
   },
   // Assign value to place
   LetIn {

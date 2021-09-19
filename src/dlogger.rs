@@ -1,9 +1,12 @@
 use super::ast;
 use super::token::TokenKind;
 use lsp_types::Diagnostic;
+use lsp_types::DiagnosticRelatedInformation;
 use lsp_types::DiagnosticSeverity;
+use lsp_types::Location;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
+use lsp_types::Url;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -502,14 +505,54 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(18)),
+      code: Some(NumberOrString::Number(19)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "expecte function type but found type {}",
-        expected_type, got_type
+        "expected function type but found type {}, which is not callable",
+        got_type
       ),
       related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unused_label(&mut self, range: Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(20)),
+      code_description: None,
+      source: self.source.clone(),
+      message: "must return in label".to_owned(),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_inconsistent_return_type(
+    &mut self,
+    range: Range,
+    expected_type: &str,
+    got_type: &str,
+    expected_range: Range,
+  ) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(21)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "returned type {}, which is inconsistent with other return {}",
+        got_type, expected_type
+      ),
+      related_information: vec![DiagnosticRelatedInformation {
+        location: Location::new(expected_range, Url::parse("/")),
+        message: format!("returned type: {}", expected_type),
+      }],
       tags: None,
       data: None,
     })

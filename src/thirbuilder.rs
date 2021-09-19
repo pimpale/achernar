@@ -6,76 +6,82 @@ use bumpalo::Bump;
 use num_bigint::BigInt;
 use std::alloc::Allocator;
 
-struct LabelScope<'thir, 'hir, 'ast, TA: Allocator, HA: Allocator> {
+struct LabelScope<'thir, 'ast, TA: Allocator> {
   declaration: Option<&'ast ast::Expr>,
-  label: &'hir Vec<u8, HA>,
   defers: Vec<thir::Expr<'thir, 'ast, TA>>,
-  return_ty: Vec<thir::Ty<'thir, TA>>,
+  // used to typecheck any later returns
+  return_ty: Option<thir::Ty<'thir, TA>>,
 }
 
-struct VarScope<'thir, 'hir, 'ast, TA: Allocator, HA: Allocator> {
+struct VarScope<'thir, 'ast, TA: Allocator> {
   declaration: Option<&'ast ast::Expr>,
-  var: &'hir Vec<u8, HA>,
   ty: &'thir thir::Ty<'thir, TA>,
 }
 
-struct VarEnvironment<'thir, 'hir, 'ast, TA: Allocator, HA: Allocator> {
-  vars: Vec<VarScope<'thir, 'hir, 'ast, TA, HA>>,
-}
-
-struct LabelEnvironment<'thir, 'hir, 'ast, TA: Allocator, HA: Allocator> {
-  labels: Vec<LabelScope<'thir, 'hir, 'ast, TA, HA>>,
-}
-
-fn lookup_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
-  env: &'env LabelEnvironment<'thir, 'hir, 'ast, TA, HA>,
+fn lookup_maybe<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator, Scope>(
+  env: &'env Vec<(&'hir Vec<u8, HA>, Scope<'thir, 'ast, TA>)>,
   label: &[u8],
-) -> Option<&'env LabelScope<'thir, 'hir, 'ast, TA, HA>> {
-  for l in env.labels.iter().rev() {
-    if label == l.label {
-      return Some(l);
+) -> Option<(&'env Scope<'thir, 'ast, TA>, u32)> {
+  let mut count: u32 = 1;
+  for (scopelabel, scope) in env.labels.iter().rev() {
+    if label == scopelabel {
+      return Some((scope, count));
+    } else {
+      count += 1;
     }
   }
-  // if not found
-  None
+  return None;
 }
 
-fn introduce_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
-  env: &'env LabelEnvironment<'thir, 'hir, 'ast, TA, HA>,
-  label: &'hir Vec<u8, HA>,
-  declaration: Option<&'ast ast::Expr>,
-) {
-  env.labels.push(LabelScope {
-    declaration,
-    label,
-    defers: vec![],
-    return_ty: vec![]
+fn lookup<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator, Scope>(
+  env: &'env Vec<(&'hir Vec<u8, HA>, Scope<'thir, 'ast, TA>)>,
+  label: &[u8],
+) -> &'env Scope<'thir, 'ast, TA> {
+  lookup_count(env, label).unwrap().0
+}
+
+fn lookup_exists<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator, Scope>(
+  env: &'env Vec<(&'hir Vec<u8, HA>, Scope<'thir, 'ast, TA>)>,
+  label: &[u8],
+) -> bool {
+  lookup_count(env, label).is_some()
+}
+fn lookup_count_up<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator, Scope>(
+  env: &'env Vec<(&'hir Vec<u8, HA>, Scope<'thir, 'ast, TA>)>,
+  label: &[u8],
+) -> u32 {
+  lookup_count(env, label).unwrap().1
+}
+
+fn update_scope<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator, Scope>(
+  env: &'env mut Vec<(&'hir Vec<u8, HA>, Scope<'thir, 'ast, TA>)>,
+  label: &[u8],
+  update: F,
+) -> bool
+where
+  F: FnOnce(&'env mut Scope),
+{
+  for (scopelabel, scope) in env.labels.iter().rev() {
+    if label == scopelabel {
+      update(scope);
+      return true;
+    }
+  }
+  return false;
+}
+
+fn gen_sequence_fn<'thir, 'ast>(
+  allocator: &'thir Bump,
+  source: &'ast ast::Expr,
+  stmnts: IntoIterator<&'thir thir::Expr<'thir, 'ast, &'thir Bump>>,
+) -> thir::Expr<'thir, 'ast, &'thir Bump> {
+  stmnts.reduce(|acc, x| hir::Expr {
+    source,
+    kind: thir::ExprKind::Sequence {
+      left_operand: allocator.alloc(acc),
+      right_operand: x,
+    },
   })
-}
-
-fn pop_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
-  env: &'env LabelEnvironment<'thir, 'hir, 'ast, TA, HA>,
-) ->LabelScope<'thir, 'hir, 'ast, TA, HA> {
-    env.labels.pop().unwrap()
-}
-
-fn lookup_var<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
-  env: &'env VarEnvironment<'thir, 'hir, 'ast, TA, HA>,
-  var: &[u8],
-) -> Option<&'env VarScope<'thir, 'hir, 'ast, TA, HA>> {
-  for v in env.vars.iter().rev() {
-    if var == v.var {
-      return Some(v);
-    }
-  }
-  // if not found
-  None
-}
-
-fn pop_var<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
-  env: &'env VarEnvironment<'thir, 'hir, 'ast, TA, HA>,
-) -> VarScope<'thir, 'hir, 'ast, TA, HA> {
-    env.vars.pop().unwrap()
 }
 
 fn print_ty<'thir, TA: Allocator>(ty: Option<&thir::Ty<'thir, TA>>) -> String {
@@ -86,12 +92,9 @@ fn print_ty<'thir, TA: Allocator>(ty: Option<&thir::Ty<'thir, TA>>) -> String {
   }
 }
 
-fn ty_equal<'thir, TA: Allocator>(
-    a: &thir::Ty<'thir, TA>,
-    b: &thir::Ty<'thir, TA>
-) -> bool {
-    // TODO
-    true
+fn ty_equal<'thir, TA: Allocator>(a: &thir::Ty<'thir, TA>, b: &thir::Ty<'thir, TA>) -> bool {
+  // TODO
+  true
 }
 
 // this function will attempt to bestow types on all of the components recursing from bottom up
@@ -99,8 +102,8 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
   allocator: &'thir Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::Expr<'hir, 'ast, HA>,
-  label_env: &mut LabelEnvironment<'thir, 'hir, 'ast, &'thir Bump, HA>,
-  var_env: &mut VarEnvironment<'thir, 'hir, 'ast, &'thir Bump, HA>,
+  label_env: &mut Vec<(&'hir Vec<u8, HA>, LabelScope<'thir, 'ast, &'thir Bump>)>,
+  var_env: &mut Vec<(&'hir Vec<u8, HA>, VarScope<'thir, 'ast, &'thir Bump>)>,
 ) -> thir::Expr<'thir, 'ast, &'thir Bump> {
   match source.kind {
     hir::ExprKind::Error => thir::Expr {
@@ -159,25 +162,139 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
     }
     hir::ExprKind::Label { label, body } => {
       // introduce label into the label environment
-      introduce_label(
-          label_env,
-          &label,
-          Some(source.source)
-      );
+      label_env.push((
+        &label,
+        LabelScope {
+          declaration: Some(source.source),
+          defers: vec![],
+          return_ty: None,
+        },
+      ));
 
       // now translate the body
       // the body must evaluate to nil
       let body_tr = tr_check_expr(allocator, dlogger, body, label_env, var_env, &thir::Ty::Nil);
 
-      // we will now compare all of the rets with the main one
-      let LabelEnvironment { defers, return_ty, ..} = pop_label(label_env);
+      // pop label
+      let (
+        _,
+        LabelScope {
+          first_return_ty, ..
+        },
+      ) = label_env.pop().unwrap();
 
-      // ensure that there is at least one ret from label, otherwise warn that label is unused.
+      // ensure that there is at least one ret from label, otherwise throw error that label is unused.
+      if let Some(return_ty) = first_return_ty {
+        thir::Expr {
+          source: source.source,
+          kind: thir::ExprKind::Label(body_tr),
+          ty: return_ty.unwrap(),
+        };
+      } else {
+        dlogger.log_unused_label(source.source.range);
 
-      // then
+        thir::Expr {
+          source: source.source,
+          kind: thir::ExprKind::Error,
+          ty: None,
+        }
+      }
+    }
+    hir::ExprKind::Defer { label, body } => {
+      // typecheck body
+      let body_tr = tr_check_expr(allocator, dlogger, body, label_env, var_env, &thir::Ty::Nil);
 
-      
+      // attempt to attach the translated body to the defers list
+      let updated = update(label_env, label, |scope| scope.defers.push(body_tr));
 
+      // if unable to update, then throw error that label is undefined
+      if !updated {
+        dlogger.log_cannot_find_label_in_scope(source.source.range, label.clone());
+      }
+
+      // all defers are replaced with a nil
+      thir::Expr {
+        source: source.source,
+        kind: thir::ExprKind::Nil,
+        ty: thir::ExprKind::Nil,
+      }
+    }
+    hir::ExprKind::Ret { label, body } => {
+      // check that the label exists
+      if !exists(label_env, label) {
+        // return error that we can't find label
+        dlogger.log_cannot_find_label_in_scope(source.source.range, label.clone());
+
+        // for user convenience attempt typecheck and catch errors
+        tr_synth_ty(allocator, dlogger, body, label_env, var_env);
+
+        // end up returning error
+        return thir::Expr {
+          source: source.source,
+          kind: thir::ExprKind::Error,
+          ty: None,
+        };
+      }
+
+      // if we have a concrete return type, then we can check type
+      let body_tr = match lookup(label_env, label) {
+        LabelScope {
+          return_ty: Some(ty),
+          ..
+        } => tr_check_ty(allocator, dlogger, body, label_env, var_env, ty),
+        LabelScope {
+          return_ty: None, ..
+        } => {
+          let tr = tr_synth_ty(allocator, dlogger, body, label_env, var_env);
+          update(label_env, |abel| scope | scope.return_ty = tr.ty);
+          tr
+        }
+      };
+
+      // no name with a grave mark can appear
+      let retvarid = (b"`retval`".to_vec_in(allocator));
+
+      let deferblock = gen_sequence_fn(
+        allocator,
+        source.source,
+        lookup(label_env, label).unwrap().defers.iter().rev(),
+      );
+
+
+      let realret = thir::Expr {
+        source: source.source,
+        kind: thir::ExprKind::Ret {
+          labels_up: lookup_count_up(label_env, label),
+          value: allocator.alloc(thir::Expr {
+            source: source.source,
+            kind: thir::ExprKind::Reference(retvarid),
+            ty: body_tr.ty,
+          }),
+        },
+        ty: thir::Ty::Never,
+      };
+
+      // now construct the defer-ret construct
+      thir::Expr {
+        source: source.source,
+        kind: thir::ExprKind::LetIn {
+          pat: allocator.alloc(thir::Pat {
+            source: source.source,
+            kind: thir::PatKind::BindIdentifier(retvarid),
+            ty: body_tr.ty,
+          }),
+          val: allocator.alloc(body_tr),
+          body: allocator.alloc(thir::Expr {
+            source: source.source,
+            kind: thir::ExprKind::Sequence {
+              fst: allocator.alloc(deferblock),
+              snd: allocator.alloc(realret),
+            },
+            ty: thir::Ty::Never,
+          }),
+        },
+        ty: thir::Ty::Never,
+      }
     }
   }
 }
@@ -219,106 +336,5 @@ pub fn construct_thir<'thir, 'hir, 'ast, HA: Allocator>(
   let label_env = LabelEnvironment { labels: vec![] };
   let var_env = VarEnvironment { vars: vec![] };
 
-  tr_expr(allocator, &mut dlogger, &hir, &mut label_env, &mut var_env)
+  tr_expr(allocator, &mut dlogger, &hir, &mut label_env, &mut var_env);
 }
-
-// ls: Option<&LabelElement<'_, 'hir, 'ast, &'hir Bump>>,
-
-//     ast::ExprKind::Label {
-//       ref label,
-//       ref body,
-//     } => {
-//       // Create boxed label
-//       let label_element = LabelElement {
-//         label,
-//         prior_le: ls,
-//         defers: RefCell::new(Vec::new_in(allocator)),
-//       };
-//
-//       // parse body
-//       let scope = tr_expr(allocator, dlogger, body, Some(&label_element));
-//
-//       // return label
-//       hir::Expr {
-//         source: Some(source),
-//         kind: hir::ExprKind::Label {
-//           defers: label_element.defers.into_inner(),
-//           scope: allocator.alloc(scope),
-//         },
-//       }
-//     }
-//
-//
-
-//    ast::ExprKind::Defer {
-//      label: ref maybe_label,
-//      ref body,
-//    } => {
-//      // fail if label wasn't specified none
-//      if let Some(label) = maybe_label {
-//        // clone last label element with matching name
-//        if let Some((dle, _)) = get_label(ls, label) {
-//          // we push the defer to the end
-//          dle
-//            .defers
-//            .borrow_mut()
-//            .push(tr_expr(allocator, dlogger, body, dle.prior_le));
-//
-//          // return a nil element to replace the defer
-//          hir::Expr {
-//            source: Some(source),
-//            kind: hir::ExprKind::Nil,
-//          }
-//        } else {
-//          // means that there are no matching labels
-//          // throw diagnostic
-//          dlogger.log_cannot_find_label_in_scope(source.range, label.clone());
-//          hir::Expr {
-//            source: Some(source),
-//            kind: hir::ExprKind::None,
-//          }
-//        }
-//      } else {
-//        // a label was never properly provided
-//        // an error should already have been thrown, so don't double report
-//        hir::Expr {
-//          source: Some(source),
-//          kind: hir::ExprKind::None,
-//        }
-//      }
-//    }
-//
-//
-
-//      // fail if label wasn't specified none
-//      if let Some(label) = maybe_label {
-//        // clone last label element with matching name
-//        if let Some((_, labels_up)) = get_label(ls, label) {
-//          // return a nil element to replace the defer
-//          hir::Expr {
-//            source: Some(source),
-//            kind: hir::ExprKind::Ret {
-//              value: allocator.alloc(tr_expr(allocator, dlogger, body)),
-//              labels_up,
-//            },
-//          }
-//        } else {
-//          // means that there are no matching labels
-//          // throw diagnostic
-//          dlogger.log_cannot_find_label_in_scope(source.range, label.clone());
-//          hir::Expr {
-//            source: Some(source),
-//            kind: hir::ExprKind::None,
-//          }
-//        }
-//      } else {
-//        // a label was never properly provided
-//        // an error should already have been thrown, so don't double report
-//        hir::Expr {
-//          source: Some(source),
-//          kind: hir::ExprKind::None,
-//        }
-//      }
-//
-//
-//

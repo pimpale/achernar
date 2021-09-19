@@ -47,22 +47,28 @@ impl<TA: Allocator> fmt::Display for Ty<'_, TA> {
       Ty::Float32 => "float32".to_owned(),
       Ty::Float64 => "float64".to_owned(),
       Ty::Cons { left, right } => format!("{}, {}", left, right),
-      Ty::Struct(h) => format!("struct {{ {} }}", h.iter().fold(String::new(), |a, (key, val)| {
-        format!(
-          "{}, {}: {}",
-          a,
-          std::str::from_utf8(key).unwrap(),
-          format!("{}", val)
-        )
-      })),
-      Ty::Enum(h) => format!("enum {{ {} }}", h.iter().fold(String::new(), |a, (key, val)| {
-        format!(
-          "{}, {}: {}",
-          a,
-          std::str::from_utf8(key).unwrap(),
-          format!("{}", val)
-        )
-      })),
+      Ty::Struct(h) => format!(
+        "struct {{ {} }}",
+        h.iter().fold(String::new(), |a, (key, val)| {
+          format!(
+            "{}, {}: {}",
+            a,
+            std::str::from_utf8(key).unwrap(),
+            format!("{}", val)
+          )
+        })
+      ),
+      Ty::Enum(h) => format!(
+        "enum {{ {} }}",
+        h.iter().fold(String::new(), |a, (key, val)| {
+          format!(
+            "{}, {}: {}",
+            a,
+            std::str::from_utf8(key).unwrap(),
+            format!("{}", val)
+          )
+        })
+      ),
       Ty::Fun { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty),
     };
 
@@ -115,10 +121,7 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator> {
     arg: &'thir Expr<'thir, 'ast, TA>,
   },
   // Wraps a term in a label that can be deferred or returned from
-  Label {
-    defers: Vec<Expr<'thir, 'ast, TA>, TA>,
-    scope: &'thir Expr<'thir, 'ast, TA>,
-  },
+  Label(&'thir Expr<'thir, 'ast, TA>),
   // Returns from a scope with a value
   Ret {
     // the number of labels up to find the correct one
@@ -141,26 +144,7 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator> {
   },
   // Quotes pattern
   Pat(&'thir Pat<'thir, 'ast, TA>),
-  // Constrain the value
-  Annotate {
-    expr: &'thir Expr<'thir, 'ast, TA>,
-    ty: &'thir Expr<'thir, 'ast, TA>,
-  },
-  // short circuiting and
-  And {
-    left_operand: &'thir Expr<'thir, 'ast, TA>,
-    right_operand: &'thir Expr<'thir, 'ast, TA>,
-  },
-  // short circuiting or
-  Or {
-    left_operand: &'thir Expr<'thir, 'ast, TA>,
-    right_operand: &'thir Expr<'thir, 'ast, TA>,
-  },
-  // Creates a new type that always matches the pattern provided
-  Refinement {
-    ty: &'thir Expr<'thir, 'ast, TA>,
-    refinement: &'thir Pat<'thir, 'ast, TA>,
-  },
+
   // Literals for values
   Nil,
   NilType,
@@ -188,8 +172,8 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator> {
   },
   // Sequence
   Sequence {
-    left_operand: &'thir Expr<'thir, 'ast, TA>,
-    right_operand: &'thir Expr<'thir, 'ast, TA>,
+    fst: &'thir Expr<'thir, 'ast, TA>,
+    snd: &'thir Expr<'thir, 'ast, TA>,
   },
   // Assign value to place
   LetIn {

@@ -10,6 +10,7 @@ struct LabelScope<'thir, 'hir, 'ast, TA: Allocator, HA: Allocator> {
   declaration: Option<&'ast ast::Expr>,
   label: &'hir Vec<u8, HA>,
   defers: Vec<thir::Expr<'thir, 'ast, TA>>,
+  return_ty: Vec<thir::Ty<'thir, TA>>,
 }
 
 struct VarScope<'thir, 'hir, 'ast, TA: Allocator, HA: Allocator> {
@@ -26,7 +27,7 @@ struct LabelEnvironment<'thir, 'hir, 'ast, TA: Allocator, HA: Allocator> {
   labels: Vec<LabelScope<'thir, 'hir, 'ast, TA, HA>>,
 }
 
-fn Loookup_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
+fn lookup_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
   env: &'env LabelEnvironment<'thir, 'hir, 'ast, TA, HA>,
   label: &[u8],
 ) -> Option<&'env LabelScope<'thir, 'hir, 'ast, TA, HA>> {
@@ -37,6 +38,25 @@ fn Loookup_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
   }
   // if not found
   None
+}
+
+fn introduce_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
+  env: &'env LabelEnvironment<'thir, 'hir, 'ast, TA, HA>,
+  label: &'hir Vec<u8, HA>,
+  declaration: Option<&'ast ast::Expr>,
+) {
+  env.labels.push(LabelScope {
+    declaration,
+    label,
+    defers: vec![],
+    return_ty: vec![]
+  })
+}
+
+fn pop_label<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
+  env: &'env LabelEnvironment<'thir, 'hir, 'ast, TA, HA>,
+) ->LabelScope<'thir, 'hir, 'ast, TA, HA> {
+    env.labels.pop().unwrap()
 }
 
 fn lookup_var<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
@@ -52,10 +72,26 @@ fn lookup_var<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
   None
 }
 
-fn print_type<'thir, TA: Allocator>(
-    ty: thir::Ty<'thir, TA>,
-) -> String {
-    format!("{:?}", ty)
+fn pop_var<'env, 'thir, 'hir, 'ast, TA: Allocator, HA: Allocator>(
+  env: &'env VarEnvironment<'thir, 'hir, 'ast, TA, HA>,
+) -> VarScope<'thir, 'hir, 'ast, TA, HA> {
+    env.vars.pop().unwrap()
+}
+
+fn print_ty<'thir, TA: Allocator>(ty: Option<&thir::Ty<'thir, TA>>) -> String {
+  if let Some(ty) = ty {
+    format!("{}", ty)
+  } else {
+    "UNKNOWN".to_owned()
+  }
+}
+
+fn ty_equal<'thir, TA: Allocator>(
+    a: &thir::Ty<'thir, TA>,
+    b: &thir::Ty<'thir, TA>
+) -> bool {
+    // TODO
+    true
 }
 
 // this function will attempt to bestow types on all of the components recursing from bottom up
@@ -80,7 +116,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::Loop(allocator.alloc(body)),
-        ty: Some(&ty),
+        ty: Some(allocator.alloc(ty)),
       }
     }
     // TODO how does noinfer work
@@ -93,7 +129,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
       // bottom up synthesize the function
       let fun_tr = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
 
-      if let Some(thir::Ty::Fun { in_ty, out_ty}) = fun_tr.ty {
+      if let Some(thir::Ty::Fun { in_ty, out_ty }) = fun_tr.ty {
         // typecheck the argument
         let arg_tr = tr_check_expr(allocator, dlogger, arg, label_env, var_env, in_ty);
 
@@ -108,7 +144,8 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
         }
       } else {
         // log an error that this value isn't callable
-        dlogger.log_not_callable(
+        dlogger.log_not_callable(fun_tr.source.range, &print_ty(fun_tr.ty));
+
         // we will perform a basic synthesis typecheck here to maybe discover any errors
         // however, results won't be used, they're just to inform the user
         let _ = tr_synth_expr(allocator, dlogger, arg, label_env, var_env);
@@ -119,6 +156,28 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
           ty: None,
         }
       }
+    }
+    hir::ExprKind::Label { label, body } => {
+      // introduce label into the label environment
+      introduce_label(
+          label_env,
+          &label,
+          Some(source.source)
+      );
+
+      // now translate the body
+      // the body must evaluate to nil
+      let body_tr = tr_check_expr(allocator, dlogger, body, label_env, var_env, &thir::Ty::Nil);
+
+      // we will now compare all of the rets with the main one
+      let LabelEnvironment { defers, return_ty, ..} = pop_label(label_env);
+
+      // ensure that there is at least one ret from label, otherwise warn that label is unused.
+
+      // then
+
+      
+
     }
   }
 }

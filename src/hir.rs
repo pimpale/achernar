@@ -2,6 +2,10 @@ use super::ast;
 use num_bigint::BigInt;
 use num_rational::BigRational;
 use std::alloc::Allocator;
+use hashbrown::HashMap;
+use hashbrown::hash_map::DefaultHashBuilder;
+
+type DHB = DefaultHashBuilder;
 
 #[derive(Debug)]
 pub enum CaseSource {
@@ -14,7 +18,7 @@ pub enum CaseSource {
 // HA -> HirAllocator
 
 #[derive(Debug)]
-pub enum ExprKind<'hir, 'ast, HA: Allocator> {
+pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Error in parsing
   Error,
   // Loops until a scope is returned
@@ -71,7 +75,7 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
 
   // Type stuff
   // creates a pub struct from an ad hoc compound object
-  Struct(&'hir Expr<'hir, 'ast, HA>),
+  Struct(HashMap<Vec<u8, HA>, Expr<'hir, 'ast, HA>, DHB, HA>),
   // creates a disjoint union from an ad hoc compound object
   Enum(&'hir Expr<'hir, 'ast, HA>),
   // Creates a function constructing the compound type provided
@@ -101,13 +105,13 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator> {
 }
 
 #[derive(Debug)]
-pub struct Expr<'hir, 'ast, HA: Allocator> {
+pub struct Expr<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: ExprKind<'hir, 'ast, HA>,
 }
 
 #[derive(Debug)]
-pub enum PatKind<'hir, 'ast, HA: Allocator> {
+pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Irrefutably matches a single element to new variable
@@ -158,12 +162,12 @@ pub enum PatKind<'hir, 'ast, HA: Allocator> {
     // whether or not the struct has an other matcher
     // $* = _
     splat: &'hir Option<Pat<'hir, 'ast, HA>>,
-    patterns: Vec<(Vec<u8, HA>, Pat<'hir, 'ast, HA>), HA>,
+    patterns: HashMap<Vec<u8, HA>, Pat<'hir, 'ast, HA>, DHB, HA>,
   },
 }
 
 #[derive(Debug)]
-pub struct Pat<'hir, 'ast, HA: Allocator> {
+pub struct Pat<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: PatKind<'hir, 'ast, HA>,
 }

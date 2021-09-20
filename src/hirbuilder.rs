@@ -2,6 +2,8 @@ use super::ast;
 use super::dlogger::DiagnosticLogger;
 use super::hir;
 use bumpalo::Bump;
+use hashbrown::hash_map::Entry;
+use hashbrown::HashMap;
 use num_bigint::BigInt;
 use std::alloc::Allocator;
 
@@ -87,7 +89,7 @@ fn tr_pat<'hir, 'ast>(
     },
     ast::ExprKind::StructLiteral(ref body) => {
       // create a struct of literals
-      let mut patterns = Vec::new_in(allocator);
+      let mut patterns = HashMap::new_in(allocator);
 
       // depth first search of binary tree
       let mut sequences = vec![body];
@@ -118,11 +120,18 @@ fn tr_pat<'hir, 'ast>(
                 // this means that a bind was the target of the assign
                 ast::Expr {
                   kind: ast::ExprKind::Reference(ref identifier),
+                  range,
                   ..
-                } => patterns.push((
-                  clone_in(allocator, identifier),
-                  tr_pat(allocator, dlogger, right_operand), // make sure to parse rhs
-                )),
+                } => match patterns.entry(clone_in(allocator, identifier)) {
+                  Entry::Vacant(ve) => {
+                    // identifier unique, translate rhs and insert into map
+                    ve.insert(tr_pat(allocator, dlogger, right_operand));
+                  }
+                  Entry::Occupied(oe) => {
+                    // identifier not unique, log error for using duplicate identifier in struct
+                    dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().source.range);
+                  }
+                },
 
                 // means that something other than a reference was the target of the bind
                 ast::Expr {
@@ -1125,8 +1134,8 @@ fn tr_expr<'hir, 'ast>(
           hir::Expr {
             source,
             kind: hir::ExprKind::Sequence {
-              left_operand: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
-              right_operand: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
+              fst: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
+              snd: allocator.alloc(tr_expr(allocator, dlogger, right_operand)),
             },
           }
         }

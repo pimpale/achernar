@@ -184,7 +184,7 @@ impl DiagnosticLogger {
     self.sender.send(d).unwrap()
   }
 
-  pub fn log_cannot_find_label_in_scope(&mut self, range: Range, label: Vec<u8>) {
+  pub fn log_cannot_find_label_in_scope(&mut self, range: Range, label: &[u8]) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -193,7 +193,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "cannot find label `{}` in scope",
-        String::from_utf8_lossy(label.as_slice())
+        String::from_utf8_lossy(label)
       ),
       related_information: None,
       tags: None,
@@ -549,10 +549,33 @@ impl DiagnosticLogger {
         "returned type {}, which is inconsistent with other return {}",
         got_type, expected_type
       ),
-      related_information: vec![DiagnosticRelatedInformation {
-        location: Location::new(expected_range, Url::parse("/")),
+      related_information: Some(vec![DiagnosticRelatedInformation {
+        location: Location::new(Url::parse("/").unwrap(),expected_range),
         message: format!("returned type: {}", expected_type),
-      }],
+      }]),
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_duplicate_field_name(
+    &mut self,
+    range: Range,
+    name: &[u8],
+    previous_range: Range,
+  ) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(22)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "duplicate field `{}`", String::from_utf8_lossy(name)),
+      related_information: Some(vec![DiagnosticRelatedInformation {
+        location: Location::new(Url::parse("/").unwrap(),previous_range),
+        message: format!("previous field `{}`", String::from_utf8_lossy(name)),
+      }]),
       tags: None,
       data: None,
     })

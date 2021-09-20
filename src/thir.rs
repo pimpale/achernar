@@ -4,9 +4,10 @@ use std::alloc::Allocator;
 use std::fmt;
 
 #[derive(Debug, Clone)]
-pub enum Ty<'thir, TA: Allocator> {
+pub enum Ty<'thir, TA: Allocator + Clone> {
   Ty,
   Nil,
+  Never,
   Bool,
   UInt8,
   UInt16,
@@ -30,11 +31,12 @@ pub enum Ty<'thir, TA: Allocator> {
   },
 }
 
-impl<TA: Allocator> fmt::Display for Ty<'_, TA> {
+impl<TA: Allocator + Clone> fmt::Display for Ty<'_, TA> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let val = match self {
       Ty::Ty => "type".to_owned(),
       Ty::Nil => "nil".to_owned(),
+      Ty::Never => "never".to_owned(),
       Ty::Bool => "bool".to_owned(),
       Ty::UInt8 => "uint8".to_owned(),
       Ty::UInt16 => "uint16".to_owned(),
@@ -76,7 +78,7 @@ impl<TA: Allocator> fmt::Display for Ty<'_, TA> {
   }
 }
 
-pub enum Val<'thir, 'ast, TA: Allocator> {
+pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   Nil,
   Bool(bool),
   UInt8(u8),
@@ -110,7 +112,7 @@ pub enum Val<'thir, 'ast, TA: Allocator> {
 // TA-> ThirAllocator
 
 #[derive(Debug)]
-pub enum ExprKind<'thir, 'ast, TA: Allocator> {
+pub enum ExprKind<'thir, 'ast, TA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Loops until a scope is returned
@@ -125,7 +127,7 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator> {
   // Returns from a scope with a value
   Ret {
     // the number of labels up to find the correct one
-    labels_up: u64,
+    labels_up: u32,
     value: &'thir Expr<'thir, 'ast, TA>,
   },
   // constructs a new compound ty
@@ -184,14 +186,14 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator> {
 }
 
 #[derive(Debug)]
-pub struct Expr<'thir, 'ast, TA: Allocator> {
+pub struct Expr<'thir, 'ast, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: ExprKind<'thir, 'ast, TA>,
   pub ty: Option<&'thir Ty<'thir, TA>>,
 }
 
 #[derive(Debug)]
-pub enum PatKind<'thir, 'ast, TA: Allocator> {
+pub enum PatKind<'thir, 'ast, TA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Irrefutably matches a single element to new variable
@@ -243,8 +245,8 @@ pub enum PatKind<'thir, 'ast, TA: Allocator> {
 }
 
 #[derive(Debug)]
-pub struct Pat<'thir, 'ast, TA: Allocator> {
+pub struct Pat<'thir, 'ast, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: PatKind<'thir, 'ast, TA>,
-  pub ty: Option<Ty<'thir, TA>>,
+  pub ty: Option<&'thir Ty<'thir, TA>>,
 }

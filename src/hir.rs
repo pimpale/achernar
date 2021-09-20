@@ -45,7 +45,7 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
     body: &'hir Expr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  StructLiteral(&'hir Expr<'hir, 'ast, HA>),
+  StructLiteral(HashMap<Vec<u8, HA>, Expr<'hir, 'ast, HA>, DHB, HA>),
   // Accessing the module of a module object
   StructAccess {
     root: &'hir Expr<'hir, 'ast, HA>,
@@ -75,7 +75,7 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   // Type stuff
   // creates a pub struct from an ad hoc compound object
-  Struct(HashMap<Vec<u8, HA>, Expr<'hir, 'ast, HA>, DHB, HA>),
+  Struct(&'hir Expr<'hir, 'ast, HA>),
   // creates a disjoint union from an ad hoc compound object
   Enum(&'hir Expr<'hir, 'ast, HA>),
   // Creates a function constructing the compound type provided

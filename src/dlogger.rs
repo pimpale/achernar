@@ -256,7 +256,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(12)),
+      code: Some(NumberOrString::Number(13)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -273,7 +273,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(12)),
+      code: Some(NumberOrString::Number(14)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -290,7 +290,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(12)),
+      code: Some(NumberOrString::Number(15)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -307,7 +307,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(12)),
+      code: Some(NumberOrString::Number(16)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -328,7 +328,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(12)),
+      code: Some(NumberOrString::Number(17)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -349,7 +349,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
           range,
           severity: Some(DiagnosticSeverity::Error),
-          code: Some(NumberOrString::Number(12)),
+          code: Some(NumberOrString::Number(18)),
           code_description: None,
           source: self.source.clone(),
           message: format!(
@@ -366,7 +366,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(12)),
+      code: Some(NumberOrString::Number(19)),
       code_description: None,
       source: self.source.clone(),
       message: format!("Cannot bind variable to symbol of `{}`.", kind.as_ref()),
@@ -380,7 +380,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(13)),
+      code: Some(NumberOrString::Number(20)),
       code_description: None,
       source: self.source.clone(),
       message: format!("{} is invalid outside of a pattern.", kind.as_ref()),
@@ -392,26 +392,26 @@ impl DiagnosticLogger {
 
   pub fn log_unexpected_binop_in_expr(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
-             range,
-             severity: Some(DiagnosticSeverity::Error),
-             code: Some(NumberOrString::Number(13)),
-             code_description: None,
-             source: self.source.clone(),
-             message: format!(
-               "{} is invalid outside of a pattern. If you wish to use this pattern as a function, consider using `pat`",
-               kind.as_ref()
-             ),
-             related_information: None,
-             tags: None,
-             data: None,
-        })
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(21)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is invalid outside of a pattern. If you wish to use this pattern as a function, consider using `pat`",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
   }
 
   pub fn log_unexpected_unop_in_expr(&mut self, range: Range, kind: &ast::UnaryOpKind) {
     self.log(Diagnostic {
         range,
         severity: Some(DiagnosticSeverity::Error),
-        code: Some(NumberOrString::Number(14)),
+        code: Some(NumberOrString::Number(22)),
         code_description: None,
         source: self.source.clone(),
         message: format!(
@@ -428,7 +428,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(14)),
+      code: Some(NumberOrString::Number(23)),
       code_description: None,
       source: self.source.clone(),
       message: String::from("Only one splat is allowed in a pattern struct."),
@@ -443,7 +443,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(15)),
+      code: Some(NumberOrString::Number(24)),
       code_description: None,
       source: self.source.clone(),
       message: String::from("the CaseOption operator may only be used in a case context"),
@@ -457,7 +457,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(16)),
+      code: Some(NumberOrString::Number(25)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -474,7 +474,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(17)),
+      code: Some(NumberOrString::Number(26)),
       code_description: None,
       source: self.source.clone(),
       message: "infer args may only be placed as the left hand side of a defun or the right side of an apply".to_owned(),
@@ -488,7 +488,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(18)),
+      code: Some(NumberOrString::Number(27)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -505,7 +505,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(19)),
+      code: Some(NumberOrString::Number(28)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -522,7 +522,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(20)),
+      code: Some(NumberOrString::Number(29)),
       code_description: None,
       source: self.source.clone(),
       message: "must return in label".to_owned(),
@@ -542,7 +542,7 @@ impl DiagnosticLogger {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(21)),
+      code: Some(NumberOrString::Number(30)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
@@ -550,7 +550,7 @@ impl DiagnosticLogger {
         got_type, expected_type
       ),
       related_information: Some(vec![DiagnosticRelatedInformation {
-        location: Location::new(Url::parse("/").unwrap(),expected_range),
+        location: Location::new(Url::parse("/").unwrap(), expected_range),
         message: format!("returned type: {}", expected_type),
       }]),
       tags: None,
@@ -558,24 +558,104 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_duplicate_field_name(
+  pub fn log_duplicate_field_name(&mut self, range: Range, name: &[u8], previous_range: Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(31)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!("duplicate field `{}`", String::from_utf8_lossy(name)),
+      related_information: Some(vec![DiagnosticRelatedInformation {
+        location: Location::new(Url::parse("/").unwrap(), previous_range),
+        message: format!("previous field `{}`", String::from_utf8_lossy(name)),
+      }]),
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unexpected_element_in_struct(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(32)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is not permitted in a struct literal. The body of the struct must contain only assigns seperated by semicolons.",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unexpected_binop_in_struct(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(33)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is not permitted in a struct literal. The body of the struct must contain only assigns seperated by semicolons.",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unsupported_target_in_struct_assign(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(34)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is an invalid target in for an assign in a struct literal. The left hand side may either be `$*` or a single variable binding.",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_nonexistent_field(
     &mut self,
     range: Range,
-    name: &[u8],
-    previous_range: Range,
+    field:&[u8],
   ) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(22)),
+      code: Some(NumberOrString::Number(35)),
       code_description: None,
       source: self.source.clone(),
-      message: format!(
-        "duplicate field `{}`", String::from_utf8_lossy(name)),
-      related_information: Some(vec![DiagnosticRelatedInformation {
-        location: Location::new(Url::parse("/").unwrap(),previous_range),
-        message: format!("previous field `{}`", String::from_utf8_lossy(name)),
-      }]),
+      message: format!( "nonexistent field `{}`", String::from_utf8_lossy(field)),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_not_struct(
+    &mut self,
+    range: Range,
+  ) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(36)),
+      code_description: None,
+      source: self.source.clone(),
+      message: String::from("this object is not a struct, so no fields can be accessed"),
+      related_information: None,
       tags: None,
       data: None,
     })

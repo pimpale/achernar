@@ -518,10 +518,78 @@ fn tr_expr<'hir, 'ast>(
         }
       }
     }
-    ast::ExprKind::StructLiteral(ref body) => hir::Expr {
-      source,
-      kind: hir::ExprKind::StructLiteral(allocator.alloc(tr_expr(allocator, dlogger, body))),
-    },
+    ast::ExprKind::StructLiteral(ref body) => {
+      // create a struct of literals
+      let mut fields = HashMap::new_in(allocator);
+
+      // depth first search of binary tree
+      let mut sequences = vec![body];
+
+      while let Some(current) = sequences.pop() {
+        match current.kind {
+          ast::ExprKind::BinaryOp {
+            ref left_operand,
+            ref right_operand,
+            ref op,
+          } => match op {
+            ast::BinaryOpKind::Sequence => {
+              sequences.push(left_operand);
+              sequences.push(right_operand);
+            }
+            ast::BinaryOpKind::Assign => match left_operand.as_ref() {
+              // match field
+              ast::Expr {
+                kind:
+                  ast::ExprKind::UnaryOp {
+                    op: ast::UnaryOpKind::Bind,
+                    operand,
+                  },
+                ..
+              } => match operand.as_ref() {
+                // this means that a bind was the target of the assign
+                ast::Expr {
+                  kind: ast::ExprKind::Reference(ref identifier),
+                  range,
+                  ..
+                } => match fields.entry(clone_in(allocator, identifier)) {
+                  Entry::Vacant(ve) => {
+                    // identifier unique, translate rhs and insert into map
+                    ve.insert(tr_expr(allocator, dlogger, right_operand));
+                  }
+                  Entry::Occupied(oe) => {
+                    // identifier not unique, log error for using duplicate identifier in struct
+                    dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().source.range);
+                  }
+                },
+
+                // means that something other than a reference was the target of the bind
+                ast::Expr {
+                  range, ref kind, ..
+                } => dlogger.log_unsupported_bind_target_in_struct_assign(*range, kind),
+              },
+              // error handle
+              ast::Expr {
+                range, ref kind, ..
+              } => {
+                // means that there was no single bind as a target of the assign
+                dlogger.log_unsupported_target_in_struct_assign(*range, kind);
+              }
+            },
+            _ => {
+              dlogger.log_unexpected_binop_in_struct(current.range, op);
+            }
+          },
+          ref kind => {
+            dlogger.log_unexpected_element_in_struct(current.range, kind);
+          }
+        }
+      }
+      // return struct
+      hir::Expr {
+        source,
+        kind: hir::ExprKind::StructLiteral(fields),
+      }
+    }
     ast::ExprKind::Reference(ref identifier) => hir::Expr {
       source,
       kind: hir::ExprKind::Reference(clone_in(allocator, identifier)),
@@ -1081,11 +1149,9 @@ fn tr_expr<'hir, 'ast>(
         },
       },
       ast::BinaryOpKind::SuchThat => hir::Expr {
+        // TODO what the heck is a refinement
         source,
-        kind: hir::ExprKind::Refinement {
-          ty: allocator.alloc(tr_expr(allocator, dlogger, left_operand)),
-          refinement: allocator.alloc(tr_pat(allocator, dlogger, right_operand)),
-        },
+        kind: hir::ExprKind::Error,
       },
       c @ (ast::BinaryOpKind::RangeInclusive | ast::BinaryOpKind::Range) => {
         dlogger.log_unexpected_binop_in_expr(source.range, c);

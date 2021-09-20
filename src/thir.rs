@@ -1,7 +1,10 @@
 use super::ast;
+use hashbrown::hash_map::DefaultHashBuilder;
 use hashbrown::HashMap;
 use std::alloc::Allocator;
 use std::fmt;
+
+type DHB = DefaultHashBuilder;
 
 #[derive(Debug, Clone)]
 pub enum Ty<'thir, TA: Allocator + Clone> {
@@ -23,8 +26,8 @@ pub enum Ty<'thir, TA: Allocator + Clone> {
     left: &'thir Ty<'thir, TA>,
     right: &'thir Ty<'thir, TA>,
   },
-  Struct(HashMap<Vec<u8, TA>, Ty<'thir, TA>, TA>),
-  Enum(HashMap<Vec<u8, TA>, Ty<'thir, TA>, TA>),
+  Struct(HashMap<Vec<u8, TA>, &'thir Ty<'thir, TA>, DHB, TA>),
+  Enum(HashMap<Vec<u8, TA>, &'thir Ty<'thir, TA>, DHB, TA>),
   Fun {
     in_ty: &'thir Ty<'thir, TA>,
     out_ty: &'thir Ty<'thir, TA>,
@@ -96,10 +99,10 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
     right: &'thir Val<'thir, 'ast, TA>,
   },
   Struct {
-    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, TA>,
+    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>,
   },
   Enum {
-    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, TA>,
+    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>,
   },
   Fun(Expr<'thir, 'ast, TA>),
   Ty(Ty<'thir, TA>),
@@ -131,7 +134,7 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator + Clone> {
     value: &'thir Expr<'thir, 'ast, TA>,
   },
   // constructs a new compound ty
-  StructLiteral(&'thir Expr<'thir, 'ast, TA>),
+  StructLiteral(HashMap<Vec<u8, TA>, Expr<'thir, 'ast, TA>, DHB, TA>),
   // Accessing the module of a module object
   StructAccess {
     root: &'thir Expr<'thir, 'ast, TA>,
@@ -163,8 +166,8 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator + Clone> {
   New(&'thir Expr<'thir, 'ast, TA>),
   // creates a tuple
   Cons {
-    left_operand: &'thir Expr<'thir, 'ast, TA>,
-    right_operand: &'thir Expr<'thir, 'ast, TA>,
+    fst: &'thir Expr<'thir, 'ast, TA>,
+    snd: &'thir Expr<'thir, 'ast, TA>,
   },
   // Create Function
   Defun {

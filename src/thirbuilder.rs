@@ -3,22 +3,29 @@ use super::dlogger::DiagnosticLogger;
 use super::hir;
 use super::thir;
 use bumpalo::Bump;
+use hashbrown::HashMap;
 use num_bigint::BigInt;
 use std::alloc::Allocator;
 
-struct LabelScope<'thir, 'ast, TA: Allocator> {
+fn clone_in<A: Allocator, T: Clone>(allocator: A, slice: &[T]) -> Vec<T, A> {
+  let mut v = Vec::new_in(allocator);
+  v.extend_from_slice(slice);
+  v
+}
+
+struct LabelScope<'thir, 'ast, TA: Allocator + Clone> {
   declaration: Option<&'ast ast::Expr>,
   defers: Vec<thir::Expr<'thir, 'ast, TA>>,
   // used to typecheck any later returns
   return_ty: Option<&'thir thir::Ty<'thir, TA>>,
 }
 
-struct VarScope<'thir, 'ast, TA: Allocator> {
+struct VarScope<'thir, 'ast, TA: Allocator + Clone> {
   declaration: Option<&'ast ast::Expr>,
   ty: &'thir thir::Ty<'thir, TA>,
 }
 
-fn lookup_maybe<'env, 'hir, HA: Allocator, Scope>(
+fn lookup_maybe<'env, 'hir, HA: Allocator + Clone, Scope>(
   env: &'env Vec<(&'hir Vec<u8, HA>, Scope)>,
   label: &[u8],
 ) -> Option<(&'env Scope, u32)> {
@@ -33,28 +40,28 @@ fn lookup_maybe<'env, 'hir, HA: Allocator, Scope>(
   return None;
 }
 
-fn lookup<'env, 'hir, HA: Allocator, Scope>(
+fn lookup<'env, 'hir, HA: Allocator + Clone, Scope>(
   env: &'env Vec<(&'hir Vec<u8, HA>, Scope)>,
   label: &[u8],
 ) -> &'env Scope {
   lookup_maybe(env, label).unwrap().0
 }
 
-fn lookup_exists<'env, 'hir, HA: Allocator, Scope>(
+fn lookup_exists<'env, 'hir, HA: Allocator + Clone, Scope>(
   env: &'env Vec<(&'hir Vec<u8, HA>, Scope)>,
   label: &[u8],
 ) -> bool {
   lookup_maybe(env, label).is_some()
 }
 
-fn lookup_count_up<'env, 'hir, HA: Allocator, Scope>(
+fn lookup_count_up<'env, 'hir, HA: Allocator + Clone, Scope>(
   env: &'env Vec<(&'hir Vec<u8, HA>, Scope)>,
   label: &[u8],
 ) -> u32 {
   lookup_maybe(env, label).unwrap().1
 }
 
-fn update<'env, 'hir, HA: Allocator, Scope, F>(
+fn update<'env, 'hir, HA: Allocator + Clone, Scope, F>(
   env: &'env mut Vec<(&'hir Vec<u8, HA>, Scope)>,
   label: &[u8],
   update: F,
@@ -89,7 +96,7 @@ fn gen_sequence_fn<'thir, 'ast>(
     .unwrap()
 }
 
-fn print_ty<'thir, TA: Allocator>(ty: Option<&thir::Ty<'thir, TA>>) -> String {
+fn print_ty<'thir, TA: Allocator + Clone>(ty: Option<&thir::Ty<'thir, TA>>) -> String {
   if let Some(ty) = ty {
     format!("{}", ty)
   } else {
@@ -97,13 +104,16 @@ fn print_ty<'thir, TA: Allocator>(ty: Option<&thir::Ty<'thir, TA>>) -> String {
   }
 }
 
-fn ty_equal<'thir, TA: Allocator>(a: &thir::Ty<'thir, TA>, b: &thir::Ty<'thir, TA>) -> bool {
+fn ty_equal<'thir, TA: Allocator + Clone>(
+  a: &thir::Ty<'thir, TA>,
+  b: &thir::Ty<'thir, TA>,
+) -> bool {
   // TODO
   true
 }
 
 // this function will attempt to bestow types on all of the components recursing from bottom up
-fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
+fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'thir Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::Expr<'hir, 'ast, HA>,
@@ -277,7 +287,6 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
               source: source.source,
               kind: thir::ExprKind::Ret {
                 labels_up: lookup_count_up(label_env, &label),
-
                 // lookup variable introduced earlier
                 value: allocator.alloc(thir::Expr {
                   source: source.source,
@@ -292,13 +301,67 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator>(
         ty: Some(allocator.alloc(thir::Ty::Never)),
       }
     }
-    thir::ExprKind::StructLiteral(body) => {}
+    hir::ExprKind::StructLiteral(fields) => {
+      let fields_tr = HashMap::new_in(allocator);
+
+      for (key, value) in fields.iter() {
+        let tr_field = tr_synth_expr(allocator, dlogger, value, label_env, var_env);
+
+        // only add field if its free of type errors
+        if tr_field.ty.is_some() {
+          fields_tr.insert(clone_in(allocator, key), tr_field);
+        }
+      }
+
+      let type_tr = HashMap::new_in(allocator);
+
+      for (key, value) in fields_tr.iter() {
+        type_tr.insert(clone_in(allocator, key), value.ty.unwrap());
+      }
+
+      thir::Expr {
+        source: source.source,
+        kind: thir::ExprKind::StructLiteral(fields_tr),
+        ty: Some(allocator.alloc(thir::Ty::Struct(type_tr))),
+      }
+    }
+    hir::ExprKind::StructAccess { root, field } => {
+      // translate root
+      let root_tr = tr_synth_expr(allocator, dlogger, root, label_env, var_env);
+      let field_tr = clone_in(allocator, &field);
+
+      if let Some(thir::Ty::Struct(fields)) = root_tr.ty {
+        // if compatible, attempt to look up ty
+        if let Some(ty) = fields.get(&field_tr) {
+          return thir::Expr {
+            source: source.source,
+            kind: thir::ExprKind::StructAccess {
+              root: allocator.alloc(root_tr),
+              field: field_tr,
+            },            ty: Some(ty),
+          };
+        } else {
+          // if field doesn't exist. return error
+          dlogger.log_nonexistent_field(source.source.range, &field);
+        }
+      } else {
+        // if ty is not a struct, return error
+        dlogger.log_not_struct(source.source.range);
+      }
+
+      // return error
+      thir::Expr {
+        source: source.source,
+        kind: thir::ExprKind::Error,
+        ty: None,
+      }
+    }
   }
 }
 
 // this function will attempt to check types on all the components recursing top down.
 // the
-fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator>(
+fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'thir Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::Expr<'hir, 'ast, HA>,
@@ -325,7 +388,7 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator>(
   }
 }
 
-pub fn construct_thir<'thir, 'hir, 'ast, HA: Allocator>(
+pub fn construct_thir<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   hir: &'hir hir::Expr<'hir, 'ast, HA>,
   allocator: &'thir Bump,
   mut dlogger: DiagnosticLogger,

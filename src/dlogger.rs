@@ -617,7 +617,7 @@ impl DiagnosticLogger {
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "{} is an invalid target in for an assign in a struct literal. The left hand side may either be `$*` or a single variable binding.",
+        "{} is an invalid target in for an assign in a struct literal. The left hand side must be a single variable binding.",
         kind.as_ref()
       ),
       related_information: None,
@@ -625,6 +625,7 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
 
   pub fn log_nonexistent_field(
     &mut self,
@@ -660,4 +661,24 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
+  pub fn log_variable_not_found(
+    &mut self,
+    range: Range,
+    identifier:&[u8],
+  ) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::Error),
+      code: Some(NumberOrString::Number(37)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!("no variable `{}` found in this scope", String::from_utf8_lossy(identifier)) ,
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+
 }

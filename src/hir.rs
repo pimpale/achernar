@@ -53,18 +53,16 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
   },
   // A reference to a previously defined variable
   Reference(Vec<u8, HA>),
+  // Constrain the value
+  Annotate {
+    expr: &'hir Expr<'hir, 'ast, HA>,
+    ty: &'hir Expr<'hir, 'ast, HA>,
+  },
   // Switches on a pattern
   CaseOf {
     expr: &'hir Expr<'hir, 'ast, HA>,
     case_options: Vec<(Pat<'hir, 'ast, HA>, Expr<'hir, 'ast, HA>), HA>,
     source: CaseSource,
-  },
-  // Quotes pattern
-  Pat(&'hir Pat<'hir, 'ast, HA>),
-  // Constrain the value
-  Annotate {
-    expr: &'hir Expr<'hir, 'ast, HA>,
-    ty: &'hir Expr<'hir, 'ast, HA>,
   },
 
   // Literals for values

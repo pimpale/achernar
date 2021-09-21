@@ -9,6 +9,7 @@ mod hir;
 mod hirbuilder;
 mod thir;
 mod thirbuilder;
+mod thirinterpret;
 mod token;
 mod tokenize;
 

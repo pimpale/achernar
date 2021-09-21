@@ -8,6 +8,7 @@ type DHB = DefaultHashBuilder;
 
 #[derive(Debug, Clone)]
 pub enum Ty<'thir, TA: Allocator + Clone> {
+  Error, // signifies error in type resolution
   Ty,
   Nil,
   Never,
@@ -23,8 +24,8 @@ pub enum Ty<'thir, TA: Allocator + Clone> {
   Float32,
   Float64,
   Cons {
-    left: &'thir Ty<'thir, TA>,
-    right: &'thir Ty<'thir, TA>,
+    fst: &'thir Ty<'thir, TA>,
+    snd: &'thir Ty<'thir, TA>,
   },
   Struct(HashMap<Vec<u8, TA>, &'thir Ty<'thir, TA>, DHB, TA>),
   Enum(HashMap<Vec<u8, TA>, &'thir Ty<'thir, TA>, DHB, TA>),
@@ -37,6 +38,7 @@ pub enum Ty<'thir, TA: Allocator + Clone> {
 impl<TA: Allocator + Clone> fmt::Display for Ty<'_, TA> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let val = match self {
+      Ty::Error => "!!error!!".to_owned(),
       Ty::Ty => "type".to_owned(),
       Ty::Nil => "nil".to_owned(),
       Ty::Never => "never".to_owned(),
@@ -51,7 +53,7 @@ impl<TA: Allocator + Clone> fmt::Display for Ty<'_, TA> {
       Ty::Int64 => "int64".to_owned(),
       Ty::Float32 => "float32".to_owned(),
       Ty::Float64 => "float64".to_owned(),
-      Ty::Cons { left, right } => format!("{}, {}", left, right),
+      Ty::Cons { fst, snd } => format!("{}, {}", fst, snd),
       Ty::Struct(h) => format!(
         "struct {{ {} }}",
         h.iter().fold(String::new(), |a, (key, val)| {
@@ -95,8 +97,8 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   Float32(f32),
   Float64(f64),
   Cons {
-    left: &'thir Val<'thir, 'ast, TA>,
-    right: &'thir Val<'thir, 'ast, TA>,
+    fst: &'thir Val<'thir, 'ast, TA>,
+    snd: &'thir Val<'thir, 'ast, TA>,
   },
   Struct {
     fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>,
@@ -192,7 +194,7 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator + Clone> {
 pub struct Expr<'thir, 'ast, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: ExprKind<'thir, 'ast, TA>,
-  pub ty: Option<&'thir Ty<'thir, TA>>,
+  pub ty: &'thir Ty<'thir, TA>,
 }
 
 #[derive(Debug)]
@@ -251,5 +253,5 @@ pub enum PatKind<'thir, 'ast, TA: Allocator + Clone> {
 pub struct Pat<'thir, 'ast, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: PatKind<'thir, 'ast, TA>,
-  pub ty: Option<&'thir Ty<'thir, TA>>,
+  pub ty: &'thir Ty<'thir, TA>,
 }

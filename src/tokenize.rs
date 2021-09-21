@@ -75,7 +75,6 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"true" => TokenKind::Bool(true),
       b"false" => TokenKind::Bool(false),
       b"val" => TokenKind::Val,
-      b"pat" => TokenKind::Pat,
       b"case" => TokenKind::Case,
       b"of" => TokenKind::Of,
       b"ret" => TokenKind::Ret,

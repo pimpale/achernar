@@ -91,8 +91,8 @@ pub enum UnaryOpKind {
   New,
   // syntactic constructs
   Loop,
+  // (PATTERN ONLY) computes a value in a pattern
   Val,
-  Pat,
   // (PATTERN ONLY) matches a single element to new variable
   Bind,
 }

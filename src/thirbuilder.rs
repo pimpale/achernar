@@ -96,7 +96,7 @@ fn gen_sequence_fn<'thir, 'ast>(
     .unwrap()
 }
 
-fn print_ty<'thir, TA: Allocator + Clone>(ty: Option<&thir::Ty<'thir, TA>>) -> String {
+fn print_ty<'thir, TA: Allocator + Clone>(ty: &thir::Ty<'thir, TA>) -> String {
   if let Some(ty) = ty {
     format!("{}", ty)
   } else {
@@ -124,7 +124,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     hir::ExprKind::Error => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: None,
+      ty: allocator.alloc(thir::Ty::Error),
     },
     hir::ExprKind::Loop(body) => {
       let ty = thir::Ty::Nil;
@@ -134,20 +134,20 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::Loop(allocator.alloc(body)),
-        ty: Some(allocator.alloc(ty)),
+        ty: allocator.alloc(ty),
       }
     }
     // TODO how does noinfer work
     hir::ExprKind::NoInfer(_) => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: None,
+      ty: allocator.alloc(thir::Ty::Error),
     },
     hir::ExprKind::Apply { fun, arg } => {
       // bottom up synthesize the function
       let fun_tr = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
 
-      if let Some(thir::Ty::Fun { in_ty, out_ty }) = fun_tr.ty {
+      if let thir::Ty::Fun { in_ty, out_ty } = fun_tr.ty {
         // typecheck the argument
         let arg_tr = tr_check_expr(allocator, dlogger, arg, label_env, var_env, in_ty);
 
@@ -158,7 +158,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
             fun: &fun_tr,
             arg: &arg_tr,
           },
-          ty: Some(out_ty),
+          ty: out_ty,
         }
       } else {
         // log an error that this value isn't callable
@@ -171,7 +171,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Error,
-          ty: None,
+          ty: allocator.alloc(thir::Ty::Error),
         }
       }
     }
@@ -198,7 +198,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Label(allocator.alloc(body_tr)),
-          ty: Some(allocator.alloc(return_ty)),
+          ty: allocator.alloc(return_ty),
         }
       } else {
         dlogger.log_unused_label(source.source.range);
@@ -206,7 +206,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Error,
-          ty: None,
+          ty: allocator.alloc(thir::Ty::Error),
         }
       }
     }
@@ -226,7 +226,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::Nil,
-        ty: Some(allocator.alloc(thir::Ty::Nil)),
+        ty: allocator.alloc(thir::Ty::Nil),
       }
     }
     hir::ExprKind::Ret { label, body } => {
@@ -242,7 +242,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         return thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Error,
-          ty: None,
+          ty: allocator.alloc(thir::Ty::Error),
         };
       }
 
@@ -256,7 +256,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
           return_ty: None, ..
         } => {
           let tr = tr_synth_expr(allocator, dlogger, body, label_env, var_env);
-          update(label_env, &label, |scope| scope.return_ty = tr.ty);
+          update(label_env, &label, |scope| scope.return_ty = Some(tr.ty));
           tr
         }
       };
@@ -294,35 +294,33 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
                   ty: body_tr.ty,
                 }),
               },
-              ty: Some(allocator.alloc(thir::Ty::Never)),
+              ty: allocator.alloc(thir::Ty::Never),
             }),
           ),
         },
-        ty: Some(allocator.alloc(thir::Ty::Never)),
+        ty: allocator.alloc(thir::Ty::Never),
       }
     }
     hir::ExprKind::StructLiteral(fields) => {
       let fields_tr = HashMap::new_in(allocator);
 
       for (key, value) in fields.iter() {
-        let tr_field = tr_synth_expr(allocator, dlogger, value, label_env, var_env);
-
-        // only add field if its free of type errors
-        if tr_field.ty.is_some() {
-          fields_tr.insert(clone_in(allocator, key), tr_field);
-        }
+        fields_tr.insert(
+          clone_in(allocator, key),
+          tr_synth_expr(allocator, dlogger, value, label_env, var_env),
+        );
       }
 
       let type_tr = HashMap::new_in(allocator);
 
       for (key, value) in fields_tr.iter() {
-        type_tr.insert(clone_in(allocator, key), value.ty.unwrap());
+        type_tr.insert(clone_in(allocator, key), value.ty);
       }
 
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::StructLiteral(fields_tr),
-        ty: Some(allocator.alloc(thir::Ty::Struct(type_tr))),
+        ty: allocator.alloc(thir::Ty::Struct(type_tr)),
       }
     }
     hir::ExprKind::StructAccess { root, field } => {
@@ -330,15 +328,16 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
       let root_tr = tr_synth_expr(allocator, dlogger, root, label_env, var_env);
       let field_tr = clone_in(allocator, &field);
 
-      if let Some(thir::Ty::Struct(fields)) = root_tr.ty {
+      if let thir::Ty::Struct(fields) = root_tr.ty {
         // if compatible, attempt to look up ty
-        if let Some(ty) = fields.get(&field_tr) {
+        if let Some(field_ty) = fields.get(&field_tr) {
           return thir::Expr {
             source: source.source,
             kind: thir::ExprKind::StructAccess {
               root: allocator.alloc(root_tr),
               field: field_tr,
-            },            ty: Some(ty),
+            },
+            ty: field_ty,
           };
         } else {
           // if field doesn't exist. return error
@@ -349,12 +348,34 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         dlogger.log_not_struct(source.source.range);
       }
 
-      // return error
+      // if we had an error, return error
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::Error,
-        ty: None,
+        ty: allocator.alloc(thir::Ty::Error),
       }
+    }
+    hir::ExprKind::Reference(identifier) => {
+      // lookup variable
+      if !lookup_exists(var_env, &identifier) {
+        // log error
+        dlogger.log_variable_not_found(source.source.range, &identifier);
+        // return error if not exist
+        return thir::Expr {
+          source: source.source,
+          kind: thir::ExprKind::Error,
+          ty: allocator.alloc(thir::Ty::Error),
+        };
+      }
+
+      // return translated expr, looking up the ty in the document
+      thir::Expr {
+        source: source.source,
+        kind: thir::ExprKind::Reference(clone_in(allocator, &identifier)),
+        ty: lookup(var_env, &identifier).ty,
+      }
+    }
+    hir::ExprKind::Annotate { expr, ty } => {
     }
   }
 }
@@ -373,7 +394,7 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     hir::ExprKind::Error => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: None,
+      ty: allocator.alloc(thir::Ty::Error),
     },
     hir::ExprKind::Loop(body) => {
       // Loop has type nil.
@@ -382,7 +403,7 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::Loop(allocator.allocate()),
-        ty: None,
+        ty: allocator.alloc(thir::Ty::Error),
       }
     }
   }

@@ -14,7 +14,6 @@ pub enum TokenKind {
   Case,   // case
   Of,     // of
   As,     // as
-  Pat,    // pat
   Val,    // val
   Struct, // struct
   Enum,   // enum

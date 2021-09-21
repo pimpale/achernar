@@ -285,7 +285,7 @@ fn tr_pat<'hir, 'ast>(
       | ast::UnaryOpKind::Enum
       | ast::UnaryOpKind::New
       | ast::UnaryOpKind::Loop
-      | ast::UnaryOpKind::Pat) => {
+      ) => {
         dlogger.log_unexpected_unop_in_pattern(source.range, c);
         hir::Pat {
           source,
@@ -565,7 +565,7 @@ fn tr_expr<'hir, 'ast>(
                 // means that something other than a reference was the target of the bind
                 ast::Expr {
                   range, ref kind, ..
-                } => dlogger.log_unsupported_bind_target_in_struct_assign(*range, kind),
+                } => dlogger.log_unsupported_target_in_struct_assign(*range, kind),
               },
               // error handle
               ast::Expr {
@@ -731,10 +731,6 @@ fn tr_expr<'hir, 'ast>(
       ast::UnaryOpKind::Loop => hir::Expr {
         source,
         kind: hir::ExprKind::Loop(allocator.alloc(tr_expr(allocator, dlogger, operand))),
-      },
-      ast::UnaryOpKind::Pat => hir::Expr {
-        source,
-        kind: hir::ExprKind::Pat(allocator.alloc(tr_pat(allocator, dlogger, operand))),
       },
       c @ ast::UnaryOpKind::Val => {
         dlogger.log_unexpected_unop_in_expr(source.range, c);

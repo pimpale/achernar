@@ -617,7 +617,6 @@ fn decide_prefix(tkkind: &TokenKind) -> Option<UnaryOpKind> {
     TokenKind::New => Some(UnaryOpKind::New),
     TokenKind::Not => Some(UnaryOpKind::Not),
     TokenKind::Loop => Some(UnaryOpKind::Loop),
-    TokenKind::Pat => Some(UnaryOpKind::Pat),
     TokenKind::Val => Some(UnaryOpKind::Val),
     TokenKind::Bind => Some(UnaryOpKind::Bind),
     _ => None,

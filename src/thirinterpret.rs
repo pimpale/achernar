@@ -1,10 +1,15 @@
 use super::thir;
 use std::alloc::Allocator;
 
-pub fn val_equal<'thir, TA: Allocator + Clone>(
+
+
+pub fn alpha_equivalent<'thir, TA: Allocator + Clone>(
   a: &thir::Ty<'thir, TA>,
   b: &thir::Ty<'thir, TA>,
 ) -> bool {
+
+
+
   // TODO validate recursively on
   true
 }

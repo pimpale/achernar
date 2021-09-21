@@ -2,6 +2,7 @@ use super::ast;
 use super::dlogger::DiagnosticLogger;
 use super::hir;
 use super::thir;
+use super::thirinterpret;
 use bumpalo::Bump;
 use hashbrown::HashMap;
 use num_bigint::BigInt;
@@ -13,16 +14,16 @@ fn clone_in<A: Allocator, T: Clone>(allocator: A, slice: &[T]) -> Vec<T, A> {
   v
 }
 
-struct LabelScope<'thir, 'ast, TA: Allocator + Clone> {
+struct LabelScope<'thir, 'hir, 'ast, TA: Allocator + Clone, HA: Allocator + Clone> {
   declaration: Option<&'ast ast::Expr>,
-  defers: Vec<thir::Expr<'thir, 'ast, TA>>,
+  defers: Vec<&'hir hir::Expr<'hir, 'ast, HA>>,
   // used to typecheck any later returns
-  return_ty: Option<&'thir thir::Ty<'thir, TA>>,
+  return_ty: Option<&'thir thir::Val<'thir, 'ast, TA>>,
 }
 
 struct VarScope<'thir, 'ast, TA: Allocator + Clone> {
   declaration: Option<&'ast ast::Expr>,
-  ty: &'thir thir::Ty<'thir, TA>,
+  ty: &'thir thir::Val<'thir, 'ast, TA>,
 }
 
 fn lookup_maybe<'env, 'hir, HA: Allocator + Clone, Scope>(
@@ -85,7 +86,6 @@ fn gen_sequence_fn<'thir, 'ast>(
   last: &'thir thir::Expr<'thir, 'ast, &'thir Bump>,
 ) -> &'thir thir::Expr<'thir, 'ast, &'thir Bump> {
   stmnts
-    .chain(std::iter::once(last))
     .reduce(|acc, x| {
       allocator.alloc(thir::Expr {
         source,
@@ -96,20 +96,15 @@ fn gen_sequence_fn<'thir, 'ast>(
     .unwrap()
 }
 
-fn print_ty<'thir, TA: Allocator + Clone>(ty: &thir::Ty<'thir, TA>) -> String {
-  if let Some(ty) = ty {
-    format!("{}", ty)
-  } else {
-    "UNKNOWN".to_owned()
-  }
-}
-
-fn ty_equal<'thir, TA: Allocator + Clone>(
-  a: &thir::Ty<'thir, TA>,
-  b: &thir::Ty<'thir, TA>,
-) -> bool {
-  // TODO
-  true
+fn gen_nil<'thir, 'ast>(
+  allocator: &'thir Bump,
+  source: &'ast ast::Expr,
+) -> &'thir thir::Expr<'thir, 'ast, &'thir Bump> {
+  allocator.alloc(thir::Expr {
+    source: source,
+    kind: thir::ExprKind::Nil,
+    ty: &thir::Val::NilTy,
+  })
 }
 
 // this function will attempt to bestow types on all of the components recursing from bottom up
@@ -117,17 +112,20 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'thir Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::Expr<'hir, 'ast, HA>,
-  label_env: &mut Vec<(&'hir Vec<u8, HA>, LabelScope<'thir, 'ast, &'thir Bump>)>,
+  label_env: &mut Vec<(
+    &'hir Vec<u8, HA>,
+    LabelScope<'thir, 'hir, 'ast, &'thir Bump, HA>,
+  )>,
   var_env: &mut Vec<(&'hir Vec<u8, HA>, VarScope<'thir, 'ast, &'thir Bump>)>,
 ) -> thir::Expr<'thir, 'ast, &'thir Bump> {
   match source.kind {
     hir::ExprKind::Error => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: allocator.alloc(thir::Ty::Error),
+      ty: allocator.alloc(thir::Val::Error),
     },
     hir::ExprKind::Loop(body) => {
-      let ty = thir::Ty::Nil;
+      let ty = thir::Val::Nil;
 
       let body = tr_check_expr(allocator, dlogger, body, label_env, var_env, &ty);
 
@@ -141,13 +139,13 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     hir::ExprKind::NoInfer(_) => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: allocator.alloc(thir::Ty::Error),
+      ty: allocator.alloc(thir::Val::Error),
     },
     hir::ExprKind::Apply { fun, arg } => {
       // bottom up synthesize the function
       let fun_tr = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
 
-      if let thir::Ty::Fun { in_ty, out_ty } = fun_tr.ty {
+      if let thir::Val::FunTy { in_ty, out_ty } = fun_tr.ty {
         // typecheck the argument
         let arg_tr = tr_check_expr(allocator, dlogger, arg, label_env, var_env, in_ty);
 
@@ -162,7 +160,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         }
       } else {
         // log an error that this value isn't callable
-        dlogger.log_not_callable(fun_tr.source.range, &print_ty(fun_tr.ty));
+        dlogger.log_not_callable(fun_tr.source.range, fun_tr.ty);
 
         // we will perform a basic synthesis typecheck here to maybe discover any errors
         // however, results won't be used, they're just to inform the user
@@ -171,7 +169,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Error,
-          ty: allocator.alloc(thir::Ty::Error),
+          ty: allocator.alloc(thir::Val::Error),
         }
       }
     }
@@ -188,7 +186,14 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
 
       // now translate the body
       // the body must evaluate to nil
-      let body_tr = tr_check_expr(allocator, dlogger, body, label_env, var_env, &thir::Ty::Nil);
+      let body_tr = tr_check_expr(
+        allocator,
+        dlogger,
+        body,
+        label_env,
+        var_env,
+        &thir::Val::Nil,
+      );
 
       // pop label
       let (_, LabelScope { return_ty, .. }) = label_env.pop().unwrap();
@@ -206,16 +211,13 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Error,
-          ty: allocator.alloc(thir::Ty::Error),
+          ty: allocator.alloc(thir::Val::Error),
         }
       }
     }
     hir::ExprKind::Defer { label, body } => {
-      // typecheck body
-      let body_tr = tr_check_expr(allocator, dlogger, body, label_env, var_env, &thir::Ty::Nil);
-
       // attempt to attach the translated body to the defers list
-      let updated = update(label_env, &label, |scope| scope.defers.push(body_tr));
+      let updated = update(label_env, &label, |scope| scope.defers.push(body));
 
       // if unable to update, then throw error that label is undefined
       if !updated {
@@ -226,7 +228,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::Nil,
-        ty: allocator.alloc(thir::Ty::Nil),
+        ty: allocator.alloc(thir::Val::Nil),
       }
     }
     hir::ExprKind::Ret { label, body } => {
@@ -242,7 +244,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         return thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Error,
-          ty: allocator.alloc(thir::Ty::Error),
+          ty: allocator.alloc(thir::Val::Error),
         };
       }
 
@@ -256,49 +258,72 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
           return_ty: None, ..
         } => {
           let tr = tr_synth_expr(allocator, dlogger, body, label_env, var_env);
-          update(label_env, &label, |scope| scope.return_ty = Some(tr.ty));
+          update(label_env, &label, |scope| scope.return_ty = Some(&tr.ty));
           tr
         }
       };
 
-      // no name with a grave mark can appear
-      let retvarid = b"`retval`".to_vec_in(allocator);
+      // null byte can never appear in a user defined variable name
+      let retvarid = clone_in(allocator, b"\x00return");
 
-      // now construct the defer-ret construct
+      // now make the defer-ret construct
+      // ret 'x 0
+      // to
+      // let toret = 0;
+      // (run defers);
+      // ret 'x toret
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::LetIn {
           // introduce variable with value of ret
           pat: allocator.alloc(thir::Pat {
             source: source.source,
-            kind: thir::PatKind::BindIdentifier(retvarid),
+            kind: thir::PatKind::BindIdentifier(&retvarid),
             ty: body_tr.ty,
           }),
           val: allocator.alloc(body_tr),
 
           // write body
-          body: gen_sequence_fn(
-            allocator,
-            source.source,
-            // main statments
-            lookup(label_env, &label).defers.iter().rev(),
-            // terminator
-            allocator.alloc(thir::Expr {
-              source: source.source,
-              kind: thir::ExprKind::Ret {
-                labels_up: lookup_count_up(label_env, &label),
-                // lookup variable introduced earlier
-                value: allocator.alloc(thir::Expr {
-                  source: source.source,
-                  kind: thir::ExprKind::Reference(retvarid),
-                  ty: body_tr.ty,
-                }),
-              },
-              ty: allocator.alloc(thir::Ty::Never),
-            }),
-          ),
+          body: allocator.alloc(thir::Expr {
+            source: source.source,
+            kind: thir::ExprKind::Sequence {
+              fst: lookup(label_env, &label).defers.iter().rfold(
+                // accumulator
+                gen_nil(allocator, source.source),
+                // closure
+                |acc, x| {
+                  // translate defer
+                  let tr_x =
+                    tr_check_expr(allocator, dlogger, x, label_env, var_env, &thir::Val::NilTy);
+                  // return sequenced defer
+                  allocator.alloc(thir::Expr {
+                    source: x.source,
+                    kind: thir::ExprKind::Sequence {
+                      fst: acc,
+                      snd: allocator.alloc(tr_x),
+                    },
+                    ty: tr_x.ty,
+                  })
+                },
+              ),
+              snd: allocator.alloc(thir::Expr {
+                source: source.source,
+                kind: thir::ExprKind::Ret {
+                  labels_up: lookup_count_up(label_env, &label),
+                  // lookup variable introduced earlier
+                  value: allocator.alloc(thir::Expr {
+                    source: source.source,
+                    kind: thir::ExprKind::Reference(&retvarid),
+                    ty: body_tr.ty,
+                  }),
+                },
+                ty: allocator.alloc(thir::Val::NeverTy),
+              }),
+            },
+            ty: allocator.alloc(thir::Val::NeverTy),
+          }),
         },
-        ty: allocator.alloc(thir::Ty::Never),
+        ty: allocator.alloc(thir::Val::NeverTy),
       }
     }
     hir::ExprKind::StructLiteral(fields) => {
@@ -306,21 +331,21 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
 
       for (key, value) in fields.iter() {
         fields_tr.insert(
-          clone_in(allocator, key),
+          &clone_in(allocator, key),
           tr_synth_expr(allocator, dlogger, value, label_env, var_env),
         );
       }
 
       let type_tr = HashMap::new_in(allocator);
 
-      for (key, value) in fields_tr.iter() {
-        type_tr.insert(clone_in(allocator, key), value.ty);
+      for (&key, value) in fields_tr.iter() {
+        type_tr.insert(key, value.ty);
       }
 
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::StructLiteral(fields_tr),
-        ty: allocator.alloc(thir::Ty::Struct(type_tr)),
+        ty: allocator.alloc(thir::Val::StructTy(type_tr)),
       }
     }
     hir::ExprKind::StructAccess { root, field } => {
@@ -328,7 +353,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
       let root_tr = tr_synth_expr(allocator, dlogger, root, label_env, var_env);
       let field_tr = clone_in(allocator, &field);
 
-      if let thir::Ty::Struct(fields) = root_tr.ty {
+      if let thir::Val::Struct(fields) = root_tr.ty {
         // if compatible, attempt to look up ty
         if let Some(field_ty) = fields.get(&field_tr) {
           return thir::Expr {
@@ -352,31 +377,33 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
       thir::Expr {
         source: source.source,
         kind: thir::ExprKind::Error,
-        ty: allocator.alloc(thir::Ty::Error),
+        ty: allocator.alloc(thir::Val::Error),
       }
     }
     hir::ExprKind::Reference(identifier) => {
-      // lookup variable
-      if !lookup_exists(var_env, &identifier) {
-        // log error
+      let lkup_val = lookup_maybe(var_env, &identifier);
+
+      if let Some((varscope, _)) = lkup_val {
+        thir::Expr {
+          source: source.source,
+          kind: thir::ExprKind::Reference(&clone_in(allocator, &identifier)),
+          ty: varscope.ty,
+        }
+      } else {
         dlogger.log_variable_not_found(source.source.range, &identifier);
         // return error if not exist
-        return thir::Expr {
+        thir::Expr {
           source: source.source,
           kind: thir::ExprKind::Error,
-          ty: allocator.alloc(thir::Ty::Error),
-        };
-      }
-
-      // return translated expr, looking up the ty in the document
-      thir::Expr {
-        source: source.source,
-        kind: thir::ExprKind::Reference(clone_in(allocator, &identifier)),
-        ty: lookup(var_env, &identifier).ty,
+          ty: allocator.alloc(thir::Val::Error),
+        }
       }
     }
-    hir::ExprKind::Annotate { expr, ty } => {
-    }
+    hir::ExprKind::Annotate { expr, ty } => thir::Expr {
+      source: source.source,
+      kind: thir::ExprKind::Error,
+      ty: allocator.alloc(thir::Val::Error),
+    },
   }
 }
 
@@ -386,24 +413,34 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'thir Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::Expr<'hir, 'ast, HA>,
-  label_env: &mut Vec<(&'hir Vec<u8, HA>, LabelScope<'thir, 'ast, &'thir Bump>)>,
+  label_env: &mut Vec<(
+    &'hir Vec<u8, HA>,
+    LabelScope<'thir, 'hir, 'ast, &'thir Bump, HA>,
+  )>,
   var_env: &mut Vec<(&'hir Vec<u8, HA>, VarScope<'thir, 'ast, &'thir Bump>)>,
-  ty: &thir::Ty<'thir, &'thir Bump>,
+  ty: &thir::Val<'thir, 'ast, &'thir Bump>,
 ) -> thir::Expr<'thir, 'ast, &'thir Bump> {
   match source.kind {
     hir::ExprKind::Error => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: allocator.alloc(thir::Ty::Error),
+      ty: allocator.alloc(thir::Val::Error),
     },
     hir::ExprKind::Loop(body) => {
       // Loop has type nil.
-      let body = tr_check_expr(allocator, dlogger, body, label_env, var_env, &thir::Ty::Nil);
+      let body = tr_check_expr(
+        allocator,
+        dlogger,
+        body,
+        label_env,
+        var_env,
+        &thir::Val::Nil,
+      );
 
       thir::Expr {
         source: source.source,
-        kind: thir::ExprKind::Loop(allocator.allocate()),
-        ty: allocator.alloc(thir::Ty::Error),
+        kind: thir::ExprKind::Nil,
+        ty: allocator.alloc(thir::Val::Error),
       }
     }
   }

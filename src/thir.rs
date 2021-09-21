@@ -6,55 +6,107 @@ use std::fmt;
 
 type DHB = DefaultHashBuilder;
 
-#[derive(Debug, Clone)]
-pub enum Ty<'thir, TA: Allocator + Clone> {
+// These are terms that have normalized completely, to the fullest extent possible
+#[derive(Debug)]
+pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   Error, // signifies error in type resolution
-  Ty,
-  Nil,
-  Never,
-  Bool,
-  UInt8,
-  UInt16,
-  UInt32,
-  UInt64,
-  Int8,
-  Int16,
-  Int32,
-  Int64,
-  Float32,
-  Float64,
-  Cons {
-    fst: &'thir Ty<'thir, TA>,
-    snd: &'thir Ty<'thir, TA>,
+
+  // Types
+  Universe(u32), // type of a type is Universe(0)
+  NilTy,
+  NeverTy,
+  BoolTy,
+  U8Ty,
+  U16Ty,
+  U32Ty,
+  U64Ty,
+  I8Ty,
+  I16Ty,
+  I32Ty,
+  I64Ty,
+  F32Ty,
+  F64Ty,
+  ConsTy {
+    fst: &'thir Val<'thir, 'ast, TA>,
+    snd: &'thir Val<'thir, 'ast, TA>,
   },
-  Struct(HashMap<Vec<u8, TA>, &'thir Ty<'thir, TA>, DHB, TA>),
-  Enum(HashMap<Vec<u8, TA>, &'thir Ty<'thir, TA>, DHB, TA>),
-  Fun {
-    in_ty: &'thir Ty<'thir, TA>,
-    out_ty: &'thir Ty<'thir, TA>,
+  StructTy(HashMap<&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>, DHB, TA>),
+  EnumTy(HashMap<&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>, DHB, TA>),
+  FunTy {
+    in_ty: &'thir Val<'thir, 'ast, TA>,
+    out_ty:&'thir  Val<'thir, 'ast, TA>,
+  },
+
+  // Values
+  Nil,
+  Bool(bool),
+  U8(u8),
+  U16(u16),
+  U32(u32),
+  U64(u64),
+  I8(i8),
+  I16(i16),
+  I32(i32),
+  I64(i64),
+  F32(f32),
+  F64(f64),
+  Cons {
+    fst: &'thir Val<'thir, 'ast, TA>,
+    snd: &'thir Val<'thir, 'ast, TA>,
+  },
+  Struct(HashMap<&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>),
+  Enum(HashMap<&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>),
+  Fun(Expr<'thir, 'ast, TA>),
+  Never {
+    returned: &'thir Val<'thir, 'ast, TA>,
+    levelsUp: u32,
+  },
+  // Neutral represents a value that we can't evaluate since we're missing information
+  Neutral {
+    term: Neutral<'thir, 'ast, TA>,
+    ty: &'thir Val<'thir, 'ast, TA>,
   },
 }
 
-impl<TA: Allocator + Clone> fmt::Display for Ty<'_, TA> {
+#[derive(Debug)]
+pub enum Neutral<'thir, 'ast, TA: Allocator + Clone> {
+  Var(u32), // De Brujin index
+  App {
+    fun: &'thir Neutral<'thir, 'ast, TA>,
+    arg: NormalForm<'thir, 'ast, TA>,
+  },
+  StructAccess {
+    root: &'thir Neutral<'thir, 'ast, TA>,
+    field: &'thir Vec<u8, TA>,
+  },
+}
+
+#[derive(Debug)]
+pub struct NormalForm<'thir, 'ast, TA: Allocator + Clone> {
+  term: &'thir Val<'thir, 'ast, TA>,
+  ty: &'thir Val<'thir, 'ast, TA>,
+}
+
+impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let val = match self {
-      Ty::Error => "!!error!!".to_owned(),
-      Ty::Ty => "type".to_owned(),
-      Ty::Nil => "nil".to_owned(),
-      Ty::Never => "never".to_owned(),
-      Ty::Bool => "bool".to_owned(),
-      Ty::UInt8 => "uint8".to_owned(),
-      Ty::UInt16 => "uint16".to_owned(),
-      Ty::UInt32 => "uint32".to_owned(),
-      Ty::UInt64 => "uint64".to_owned(),
-      Ty::Int8 => "int8".to_owned(),
-      Ty::Int16 => "int16".to_owned(),
-      Ty::Int32 => "int32".to_owned(),
-      Ty::Int64 => "int64".to_owned(),
-      Ty::Float32 => "float32".to_owned(),
-      Ty::Float64 => "float64".to_owned(),
-      Ty::Cons { fst, snd } => format!("{}, {}", fst, snd),
-      Ty::Struct(h) => format!(
+      Val::Error => "!!error!!".to_owned(),
+      Val::Universe(level) => format!("(Universe {})", level),
+      Val::NilTy => "Nil".to_owned(),
+      Val::NeverTy => "Never".to_owned(),
+      Val::BoolTy => "Bool".to_owned(),
+      Val::U8Ty => "U8".to_owned(),
+      Val::U16Ty => "U16".to_owned(),
+      Val::U32Ty => "U32".to_owned(),
+      Val::U64Ty => "U64".to_owned(),
+      Val::I8Ty => "I8".to_owned(),
+      Val::I16Ty => "I16".to_owned(),
+      Val::I32Ty => "I32".to_owned(),
+      Val::I64Ty => "I64".to_owned(),
+      Val::F32Ty => "F32".to_owned(),
+      Val::F64Ty => "F64".to_owned(),
+      Val::ConsTy { fst, snd } => format!("(Cons {} {})", fst, snd),
+      Val::StructTy(h) => format!(
         "struct {{ {} }}",
         h.iter().fold(String::new(), |a, (key, val)| {
           format!(
@@ -65,7 +117,7 @@ impl<TA: Allocator + Clone> fmt::Display for Ty<'_, TA> {
           )
         })
       ),
-      Ty::Enum(h) => format!(
+      Val::EnumTy(h) => format!(
         "enum {{ {} }}",
         h.iter().fold(String::new(), |a, (key, val)| {
           format!(
@@ -76,42 +128,25 @@ impl<TA: Allocator + Clone> fmt::Display for Ty<'_, TA> {
           )
         })
       ),
-      Ty::Fun { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty),
+      Val::FunTy { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty),
+      Val::Nil => "()".to_owned(),
+      Val::Bool(v) => format!("{}", v),
+      Val::U8(v) => format!("{}u8", v),
+      Val::U16(v) => format!("{}u16", v),
+      Val::U32(v) => format!("{}u32", v),
+      Val::U64(v) => format!("{}u64", v),
+      Val::I8(v) => format!("{}i8", v),
+      Val::I16(v) => format!("{}i16", v),
+      Val::I32(v) => format!("{}i32", v),
+      Val::I64(v) => format!("{}i64", v),
+      Val::F32(v) => format!("{}f32", v),
+      Val::F64(v) => format!("{}f64", v),
+      Val::Cons { fst, snd } => format!("{}, {}", fst, snd),
+      _ => "whoops, not implemented".to_owned()
     };
 
     write!(f, "{}", val)
   }
-}
-
-pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
-  Nil,
-  Bool(bool),
-  UInt8(u8),
-  UInt16(u16),
-  UInt32(u32),
-  UInt64(u64),
-  Int8(i8),
-  Int16(i16),
-  Int32(i32),
-  Int64(i64),
-  Float32(f32),
-  Float64(f64),
-  Cons {
-    fst: &'thir Val<'thir, 'ast, TA>,
-    snd: &'thir Val<'thir, 'ast, TA>,
-  },
-  Struct {
-    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>,
-  },
-  Enum {
-    fields: HashMap<Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>,
-  },
-  Fun(Expr<'thir, 'ast, TA>),
-  Ty(Ty<'thir, TA>),
-  Never {
-    returned: &'thir Val<'thir, 'ast, TA>,
-    levelsUp: u32,
-  },
 }
 
 // TA-> ThirAllocator
@@ -131,19 +166,19 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator + Clone> {
   Label(&'thir Expr<'thir, 'ast, TA>),
   // Returns from a scope with a value
   Ret {
-    // the number of labels up to find the correct one
+    // the number of labels up to find the correct one (de brujin index)
     labels_up: u32,
     value: &'thir Expr<'thir, 'ast, TA>,
   },
   // constructs a new compound ty
-  StructLiteral(HashMap<Vec<u8, TA>, Expr<'thir, 'ast, TA>, DHB, TA>),
+  StructLiteral(HashMap<&'thir Vec<u8, TA>, Expr<'thir, 'ast, TA>, DHB, TA>),
   // Accessing the module of a module object
   StructAccess {
     root: &'thir Expr<'thir, 'ast, TA>,
     field: Vec<u8, TA>,
   },
   // A reference to a previously defined variable
-  Reference(Vec<u8, TA>),
+  Reference(&'thir Vec<u8, TA>),
   // Switches on a pattern
   CaseOf {
     expr: &'thir Expr<'thir, 'ast, TA>,
@@ -194,7 +229,7 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator + Clone> {
 pub struct Expr<'thir, 'ast, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: ExprKind<'thir, 'ast, TA>,
-  pub ty: &'thir Ty<'thir, TA>,
+  pub ty: &'thir Val<'thir, 'ast, TA>,
 }
 
 #[derive(Debug)]
@@ -202,7 +237,7 @@ pub enum PatKind<'thir, 'ast, TA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Irrefutably matches a single element to new variable
-  BindIdentifier(Vec<u8, TA>),
+  BindIdentifier(&'thir Vec<u8, TA>),
   // Ignore
   BindIgnore,
   // match with a variety of types
@@ -244,8 +279,8 @@ pub enum PatKind<'thir, 'ast, TA: Allocator + Clone> {
   StructLiteral {
     // whether or not the struct TAs an other matcher
     // $* = _
-    splat: &'thir Option<Pat<'thir, 'ast, TA>>,
-    patterns: Vec<(Vec<u8, TA>, Pat<'thir, 'ast, TA>), TA>,
+    splat: Option<&'thir Pat<'thir, 'ast, TA>>,
+    patterns: Vec<(&'thir Vec<u8, TA>, Pat<'thir, 'ast, TA>), TA>,
   },
 }
 
@@ -253,5 +288,5 @@ pub enum PatKind<'thir, 'ast, TA: Allocator + Clone> {
 pub struct Pat<'thir, 'ast, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: PatKind<'thir, 'ast, TA>,
-  pub ty: &'thir Ty<'thir, TA>,
+  pub ty: &'thir Val<'thir, 'ast, TA>,
 }

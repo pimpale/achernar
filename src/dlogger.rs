@@ -1,4 +1,5 @@
 use super::ast;
+use super::thir;
 use super::token::TokenKind;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticRelatedInformation;
@@ -10,6 +11,7 @@ use lsp_types::Url;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
+use std::alloc::Allocator;
 
 pub struct DiagnosticLog {
   recv: Receiver<Diagnostic>,
@@ -501,7 +503,7 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_not_callable(&mut self, range: Range, got_type: &str) {
+  pub fn log_not_callable<A: Allocator + Clone>(&mut self, range: Range, got_type: &thir::Ty<'_, A>) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),

@@ -1,17 +1,11 @@
 use super::ast;
 use super::dlogger::DiagnosticLogger;
 use super::hir;
+use super::utils::{clone_in, new_vec_from};
 use bumpalo::Bump;
-use hashbrown::hash_map::Entry;
-use hashbrown::HashMap;
 use num_bigint::BigInt;
-use std::alloc::Allocator;
-
-fn clone_in<A: Allocator, T: Clone>(allocator: A, slice: &[T]) -> Vec<T, A> {
-  let mut v = Vec::new_in(allocator);
-  v.extend_from_slice(slice);
-  v
-}
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 fn gen_apply_fn<'hir, 'ast>(
   allocator: &'hir Bump,
@@ -89,7 +83,7 @@ fn tr_pat<'hir, 'ast>(
     },
     ast::ExprKind::StructLiteral(ref body) => {
       // create a struct of literals
-      let mut patterns = HashMap::new_in(allocator);
+      let mut patterns = HashMap::new();
 
       // depth first search of binary tree
       let mut sequences = vec![body];
@@ -175,7 +169,7 @@ fn tr_pat<'hir, 'ast>(
         source,
         kind: hir::PatKind::StructLiteral {
           splat: allocator.alloc(splat),
-          patterns,
+          patterns: new_vec_from(allocator, patterns.drain()),
         },
       }
     }
@@ -520,7 +514,7 @@ fn tr_expr<'hir, 'ast>(
     }
     ast::ExprKind::StructLiteral(ref body) => {
       // create a struct of literals
-      let mut fields = HashMap::new_in(allocator);
+      let mut fields = HashMap::new();
 
       // depth first search of binary tree
       let mut sequences = vec![body];
@@ -587,7 +581,7 @@ fn tr_expr<'hir, 'ast>(
       // return struct
       hir::Expr {
         source,
-        kind: hir::ExprKind::StructLiteral(fields),
+        kind: hir::ExprKind::StructLiteral(new_vec_from(allocator, fields.drain())),
       }
     }
     ast::ExprKind::Reference(ref identifier) => hir::Expr {

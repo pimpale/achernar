@@ -1,10 +1,11 @@
 use super::ast;
-use hashbrown::hash_map::DefaultHashBuilder;
-use hashbrown::HashMap;
 use std::alloc::Allocator;
 use std::fmt;
 
-type DHB = DefaultHashBuilder;
+pub struct Closure<'thir, 'ast, TA: Allocator + Clone> {
+  
+  env: Vec<thir::Val<'thir, 'ast, TA>>,
+}
 
 // These are terms that have normalized completely, to the fullest extent possible
 #[derive(Debug)]
@@ -12,7 +13,7 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   Error, // signifies error in type resolution
 
   // Types
-  Universe(u32), // type of a type is Universe(0)
+  Universe(usize), // type of a type is Universe(0)
   NilTy,
   NeverTy,
   BoolTy,
@@ -30,11 +31,11 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
     fst: &'thir Val<'thir, 'ast, TA>,
     snd: &'thir Val<'thir, 'ast, TA>,
   },
-  StructTy(HashMap<&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>, DHB, TA>),
-  EnumTy(HashMap<&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>, DHB, TA>),
+  StructTy(Vec<(&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>), TA>),
+  EnumTy(Vec<(&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>), TA>),
   FunTy {
     in_ty: &'thir Val<'thir, 'ast, TA>,
-    out_ty:&'thir  Val<'thir, 'ast, TA>,
+    out_ty: &'thir Val<'thir, 'ast, TA>,
   },
 
   // Values
@@ -54,12 +55,12 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
     fst: &'thir Val<'thir, 'ast, TA>,
     snd: &'thir Val<'thir, 'ast, TA>,
   },
-  Struct(HashMap<&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>),
-  Enum(HashMap<&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>, DHB, TA>),
+  Struct(Vec<(&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>), TA>),
+  Enum(Vec<(&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>), TA>),
   Fun(Expr<'thir, 'ast, TA>),
   Never {
     returned: &'thir Val<'thir, 'ast, TA>,
-    levelsUp: u32,
+    levelsUp: usize,
   },
   // Neutral represents a value that we can't evaluate since we're missing information
   Neutral {
@@ -70,7 +71,9 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
 
 #[derive(Debug)]
 pub enum Neutral<'thir, 'ast, TA: Allocator + Clone> {
-  Var(u32), // De Brujin index
+  // De Brujin level (not index)
+  // this counts from the top of the stack
+  Var(u32),
   App {
     fun: &'thir Neutral<'thir, 'ast, TA>,
     arg: NormalForm<'thir, 'ast, TA>,
@@ -142,7 +145,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::F32(v) => format!("{}f32", v),
       Val::F64(v) => format!("{}f64", v),
       Val::Cons { fst, snd } => format!("{}, {}", fst, snd),
-      _ => "whoops, not implemented".to_owned()
+      _ => "whoops, not implemented".to_owned(),
     };
 
     write!(f, "{}", val)
@@ -167,18 +170,19 @@ pub enum ExprKind<'thir, 'ast, TA: Allocator + Clone> {
   // Returns from a scope with a value
   Ret {
     // the number of labels up to find the correct one (de brujin index)
-    labels_up: u32,
+    labels_up: usize,
     value: &'thir Expr<'thir, 'ast, TA>,
   },
   // constructs a new compound ty
-  StructLiteral(HashMap<&'thir Vec<u8, TA>, Expr<'thir, 'ast, TA>, DHB, TA>),
+  StructLiteral(Vec<(&'thir Vec<u8, TA>, Expr<'thir, 'ast, TA>), TA>),
   // Accessing the module of a module object
   StructAccess {
     root: &'thir Expr<'thir, 'ast, TA>,
     field: Vec<u8, TA>,
   },
   // A reference to a previously defined variable
-  Reference(&'thir Vec<u8, TA>),
+  // this number refers to the debruijin index of the variable in the environment
+  Reference(usize),
   // Switches on a pattern
   CaseOf {
     expr: &'thir Expr<'thir, 'ast, TA>,
@@ -237,31 +241,21 @@ pub enum PatKind<'thir, 'ast, TA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Irrefutably matches a single element to new variable
-  BindIdentifier(&'thir Vec<u8, TA>),
+  // the variable has already been resolved to debruijin indexes
+  BindVariable,
   // Ignore
   BindIgnore,
-  // match with a variety of types
-  Range {
-    inclusive: bool,
-    left_operand: &'thir Expr<'thir, 'ast, TA>,
-    right_operand: &'thir Expr<'thir, 'ast, TA>,
-  },
-  // constrains the type of a value
-  Annotate {
-    pattern: &'thir Pat<'thir, 'ast, TA>,
-    ty: &'thir Expr<'thir, 'ast, TA>,
-  },
   // destructure a tuple
   Cons {
-    left_operand: &'thir Pat<'thir, 'ast, TA>,
-    right_operand: &'thir Pat<'thir, 'ast, TA>,
+    fst: &'thir Pat<'thir, 'ast, TA>,
+    snd: &'thir Pat<'thir, 'ast, TA>,
   },
   // Selects a function and calls it with the scrutinee.
   // The result is then refutably matched with the argument provided
   // Example: Array($a, $b, $c) = someFunc();
   ActivePattern {
-    function: &'thir Expr<'thir, 'ast, TA>,
-    param: &'thir Pat<'thir, 'ast, TA>,
+    fun: &'thir Expr<'thir, 'ast, TA>,
+    arg: &'thir Pat<'thir, 'ast, TA>,
   },
   // Refutable pattern of a value
   Value(&'thir Expr<'thir, 'ast, TA>),

@@ -2,10 +2,6 @@ use super::ast;
 use num_bigint::BigInt;
 use num_rational::BigRational;
 use std::alloc::Allocator;
-use hashbrown::HashMap;
-use hashbrown::hash_map::DefaultHashBuilder;
-
-type DHB = DefaultHashBuilder;
 
 #[derive(Debug)]
 pub enum CaseSource {
@@ -45,7 +41,7 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
     body: &'hir Expr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  StructLiteral(HashMap<Vec<u8, HA>, Expr<'hir, 'ast, HA>, DHB, HA>),
+  StructLiteral(Vec<(Vec<u8, HA>, Expr<'hir, 'ast, HA>), HA>),
   // Accessing the module of a module object
   StructAccess {
     root: &'hir Expr<'hir, 'ast, HA>,
@@ -160,7 +156,7 @@ pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
     // whether or not the struct has an other matcher
     // $* = _
     splat: &'hir Option<Pat<'hir, 'ast, HA>>,
-    patterns: HashMap<Vec<u8, HA>, Pat<'hir, 'ast, HA>, DHB, HA>,
+    patterns: Vec<(Vec<u8, HA>, Pat<'hir, 'ast, HA>), HA>,
   },
 }
 

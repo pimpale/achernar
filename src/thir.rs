@@ -2,18 +2,27 @@ use super::ast;
 use std::alloc::Allocator;
 use std::fmt;
 
+#[derive(Debug)]
+pub enum RuntimeError{
+    InvalidSyntax,
+    AppliedNonFunction,
+    AppliedNonFunctionNeutral,
+}
+
+#[derive(Debug)]
 pub struct Closure<'thir, 'ast, TA: Allocator + Clone> {
-  
-  env: Vec<thir::Val<'thir, 'ast, TA>>,
+  pub ext_env: Vec<Val<'thir, 'ast, TA>>, // external environment
+  pub pat: Pat<'thir, 'ast, TA>,
+  pub expr: &'thir Expr<'thir, 'ast, TA>,
 }
 
 // These are terms that have normalized completely, to the fullest extent possible
 #[derive(Debug)]
 pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
-  Error, // signifies error in type resolution
+  Error(RuntimeError), // signifies error in type resolution
 
   // Types
-  Universe(usize), // type of a type is Universe(0)
+  Universe(usize), // type of a type is Universe(1)
   NilTy,
   NeverTy,
   BoolTy,
@@ -27,15 +36,19 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   I64Ty,
   F32Ty,
   F64Ty,
+
+  // This is also known as a sigma type
   ConsTy {
-    fst: &'thir Val<'thir, 'ast, TA>,
-    snd: &'thir Val<'thir, 'ast, TA>,
+    fst: Box<Val<'thir, 'ast, TA>>,
+    snd: Box<Closure<'thir, 'ast, TA>>,
   },
   StructTy(Vec<(&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>), TA>),
   EnumTy(Vec<(&'thir Vec<u8, TA>, &'thir Val<'thir, 'ast, TA>), TA>),
+
+  // This is also known as a Pi Type
   FunTy {
-    in_ty: &'thir Val<'thir, 'ast, TA>,
-    out_ty: &'thir Val<'thir, 'ast, TA>,
+    in_ty: Box<Val<'thir, 'ast, TA>>,
+    out_ty: Box<Closure<'thir, 'ast, TA>>,
   },
 
   // Values
@@ -52,20 +65,20 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   F32(f32),
   F64(f64),
   Cons {
-    fst: &'thir Val<'thir, 'ast, TA>,
-    snd: &'thir Val<'thir, 'ast, TA>,
+    fst: Box<Val<'thir, 'ast, TA>>,
+    snd: Box<Val<'thir, 'ast, TA>>,
   },
-  Struct(Vec<(&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>), TA>),
-  Enum(Vec<(&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>), TA>),
-  Fun(Expr<'thir, 'ast, TA>),
+  Struct(Vec<(&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>)>),
+  Enum(Vec<(&'thir Vec<u8, TA>, Val<'thir, 'ast, TA>)>),
+  Fun(Closure<'thir, 'ast, TA>),
   Never {
-    returned: &'thir Val<'thir, 'ast, TA>,
+    returned: Box<Val<'thir, 'ast, TA>>,
     levelsUp: usize,
   },
   // Neutral represents a value that we can't evaluate since we're missing information
   Neutral {
-    term: Neutral<'thir, 'ast, TA>,
-    ty: &'thir Val<'thir, 'ast, TA>,
+      val: Box<Neutral<'thir, 'ast, TA>>,
+      ty: Box<Val<'thir, 'ast, TA>>
   },
 }
 
@@ -75,19 +88,19 @@ pub enum Neutral<'thir, 'ast, TA: Allocator + Clone> {
   // this counts from the top of the stack
   Var(u32),
   App {
-    fun: &'thir Neutral<'thir, 'ast, TA>,
+    fun: Box<Neutral<'thir, 'ast, TA>>,
     arg: NormalForm<'thir, 'ast, TA>,
   },
   StructAccess {
-    root: &'thir Neutral<'thir, 'ast, TA>,
+    root: Box<Neutral<'thir, 'ast, TA>>,
     field: &'thir Vec<u8, TA>,
   },
 }
 
 #[derive(Debug)]
 pub struct NormalForm<'thir, 'ast, TA: Allocator + Clone> {
-  term: &'thir Val<'thir, 'ast, TA>,
-  ty: &'thir Val<'thir, 'ast, TA>,
+  term: Val<'thir, 'ast, TA>,
+  ty: Val<'thir, 'ast, TA>,
 }
 
 impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
@@ -116,7 +129,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
             "{}, {}: {}",
             a,
             std::str::from_utf8(key).unwrap(),
-            format!("{}", val)
+            val.to_string()
           )
         })
       ),
@@ -127,11 +140,11 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
             "{}, {}: {}",
             a,
             std::str::from_utf8(key).unwrap(),
-            format!("{}", val)
+            val.to_string()
           )
         })
       ),
-      Val::FunTy { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty),
+      Val::FunTy { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty.expr),
       Val::Nil => "()".to_owned(),
       Val::Bool(v) => format!("{}", v),
       Val::U8(v) => format!("{}u8", v),
@@ -255,7 +268,7 @@ pub enum PatKind<'thir, 'ast, TA: Allocator + Clone> {
   // Example: Array($a, $b, $c) = someFunc();
   ActivePattern {
     fun: &'thir Expr<'thir, 'ast, TA>,
-    arg: &'thir Pat<'thir, 'ast, TA>,
+    pat: &'thir Pat<'thir, 'ast, TA>,
   },
   // Refutable pattern of a value
   Value(&'thir Expr<'thir, 'ast, TA>),

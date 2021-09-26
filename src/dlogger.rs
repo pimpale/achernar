@@ -8,10 +8,10 @@ use lsp_types::Location;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
 use lsp_types::Url;
+use std::alloc::Allocator;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
-use std::alloc::Allocator;
 
 pub struct DiagnosticLog {
   recv: Receiver<Diagnostic>,
@@ -503,7 +503,11 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_not_callable<A: Allocator + Clone>(&mut self, range: Range, got_type: &thir::Ty<'_, A>) {
+  pub fn log_not_callable<A: Allocator + Clone>(
+    &mut self,
+    range: Range,
+    got_type: &thir::Ty<'_, A>,
+  ) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -628,29 +632,21 @@ impl DiagnosticLogger {
     })
   }
 
-
-  pub fn log_nonexistent_field(
-    &mut self,
-    range: Range,
-    field:&[u8],
-  ) {
+  pub fn log_nonexistent_field(&mut self, range: Range, field: &[u8]) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(35)),
       code_description: None,
       source: self.source.clone(),
-      message: format!( "nonexistent field `{}`", String::from_utf8_lossy(field)),
+      message: format!("nonexistent field `{}`", String::from_utf8_lossy(field)),
       related_information: None,
       tags: None,
       data: None,
     })
   }
 
-  pub fn log_not_struct(
-    &mut self,
-    range: Range,
-  ) {
+  pub fn log_not_struct(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
@@ -664,23 +660,20 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_variable_not_found(
-    &mut self,
-    range: Range,
-    identifier:&[u8],
-  ) {
+  pub fn log_variable_not_found(&mut self, range: Range, identifier: &[u8]) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(37)),
       code_description: None,
       source: self.source.clone(),
-      message: format!("no variable `{}` found in this scope", String::from_utf8_lossy(identifier)) ,
+      message: format!(
+        "no variable `{}` found in this scope",
+        String::from_utf8_lossy(identifier)
+      ),
       related_information: None,
       tags: None,
       data: None,
     })
   }
-
-
 }

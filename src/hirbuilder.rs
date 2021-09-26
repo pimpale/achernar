@@ -278,8 +278,7 @@ fn tr_pat<'hir, 'ast>(
       | ast::UnaryOpKind::Struct
       | ast::UnaryOpKind::Enum
       | ast::UnaryOpKind::New
-      | ast::UnaryOpKind::Loop
-      ) => {
+      | ast::UnaryOpKind::Loop) => {
         dlogger.log_unexpected_unop_in_pattern(source.range, c);
         hir::Pat {
           source,

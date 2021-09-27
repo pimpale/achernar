@@ -367,7 +367,24 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
         Var::MovedOut => unimplemented!(),
       }
     },
-    hir::ExprKind::Annotate {
+    // TODO how to deal with the typing being different for synth and check
+    hir::ExprKind::Annotate {expr, ty} => {
+        // calculate type
+        let ty = eval(ty, var_env);
+
+        // calculate var
+        let val = eval(expr, var_env);
+
+        // verify that `val` has type `ty`
+        if !check_typed_by(&val, &ty) {
+            // log error that val doesn't have type ty
+            unimplemented!();
+        }
+
+        val
+    }
+    hr::ExprKind::CaseOf { expr, case_options, source } => {
+
     }
   }
 }

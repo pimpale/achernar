@@ -55,12 +55,24 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
     source: CaseSource,
   },
 
-  // Literals for values
+  // Literals
+  Universe(usize), // type of a type is Universe(1)
+  NilTy,
+  NeverTy,
+  BoolTy,
+  U8Ty,
+  U16Ty,
+  U32Ty,
+  U64Ty,
+  I8Ty,
+  I16Ty,
+  I32Ty,
+  I64Ty,
+  F32Ty,
+  F64Ty,
+
   Nil,
-  NilType,
-  NeverType,
   Bool(bool),
-  BoolType,
   Int(BigInt),
   Float(BigRational),
 
@@ -69,8 +81,6 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
   Struct(&'hir Expr<'hir, 'ast, HA>),
   // creates a disjoint union from an ad hoc compound object
   Enum(&'hir Expr<'hir, 'ast, HA>),
-  // Creates a function constructing the compound type provided
-  New(&'hir Expr<'hir, 'ast, HA>),
   // creates a tuple
   Cons {
     fst: &'hir Expr<'hir, 'ast, HA>,

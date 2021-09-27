@@ -27,28 +27,22 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir Expr<'hir, 'ast, HA>,
   },
   // Wraps a term in a label that can be deferred or returned from
-  Label {
-    label: Vec<u8, HA>,
-    body: &'hir Expr<'hir, 'ast, HA>,
-  },
+  Label (&'hir Expr<'hir, 'ast, HA>),
   // Returns from a scope with a value
   Ret {
-    label: Vec<u8, HA>,
-    body: &'hir Expr<'hir, 'ast, HA>,
-  },
-  Defer {
-    label: Vec<u8, HA>,
-    body: &'hir Expr<'hir, 'ast, HA>,
+    labels_up: usize,
+    value: &'hir Expr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  StructLiteral(Vec<(Vec<u8, HA>, Expr<'hir, 'ast, HA>), HA>),
+  StructLiteral(Vec<(&'ast Vec<u8>, Expr<'hir, 'ast, HA>), HA>),
   // Accessing the module of a module object
   StructAccess {
     root: &'hir Expr<'hir, 'ast, HA>,
-    field: Vec<u8, HA>,
+    field: &'ast Vec<u8>,
   },
   // A reference to a previously defined variable
-  Reference(Vec<u8, HA>),
+  // debruijin index
+  Var(usize),
   // Constrain the value
   Annotate {
     expr: &'hir Expr<'hir, 'ast, HA>,
@@ -63,7 +57,10 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   // Literals for values
   Nil,
+  NilType,
+  NeverType,
   Bool(bool),
+  BoolType,
   Int(BigInt),
   Float(BigRational),
 
@@ -76,8 +73,8 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
   New(&'hir Expr<'hir, 'ast, HA>),
   // creates a tuple
   Cons {
-    left_operand: &'hir Expr<'hir, 'ast, HA>,
-    right_operand: &'hir Expr<'hir, 'ast, HA>,
+    fst: &'hir Expr<'hir, 'ast, HA>,
+    snd: &'hir Expr<'hir, 'ast, HA>,
   },
   // Create Function
   Defun {
@@ -109,11 +106,9 @@ pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Irrefutably matches a single element to new variable
-  BindIdentifier(Vec<u8, HA>),
-  // Ignore
+  BindVariable,
+  // Irrefutably discards a variable
   BindIgnore,
-  // Splat
-  BindSplat,
   // Hole
   Hole,
   // match with a variety of types
@@ -129,35 +124,32 @@ pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
   },
   // destructure a tuple
   Cons {
-    left_operand: &'hir Pat<'hir, 'ast, HA>,
-    right_operand: &'hir Pat<'hir, 'ast, HA>,
+    fst: &'hir Pat<'hir, 'ast, HA>,
+    snd: &'hir Pat<'hir, 'ast, HA>,
   },
   // Selects a function and calls it with the scrutinee.
   // The result is then refutably matched with the argument provided
   // Example: Array($a, $b, $c) = someFunc();
   ActivePattern {
-    function: &'hir Expr<'hir, 'ast, HA>,
-    param: &'hir Pat<'hir, 'ast, HA>,
+    fun: &'hir Expr<'hir, 'ast, HA>,
+    arg: &'hir Pat<'hir, 'ast, HA>,
   },
   // Refutable pattern of a value
   Value(&'hir Expr<'hir, 'ast, HA>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
+  // none of these may bind any variables
   And {
     left_operand: &'hir Pat<'hir, 'ast, HA>,
     right_operand: &'hir Pat<'hir, 'ast, HA>,
   },
   // Evaluates the second pattern iff the first pattern doesn't match, matches if at least one is true
+  // none of these may bind any variables
   Or {
     left_operand: &'hir Pat<'hir, 'ast, HA>,
     right_operand: &'hir Pat<'hir, 'ast, HA>,
   },
   // Depub structures a field of a pub struct object
-  StructLiteral {
-    // whether or not the struct has an other matcher
-    // $* = _
-    splat: &'hir Option<Pat<'hir, 'ast, HA>>,
-    patterns: Vec<(Vec<u8, HA>, Pat<'hir, 'ast, HA>), HA>,
-  },
+  StructLiteral(Vec<(&'ast Vec<u8>, Pat<'hir, 'ast, HA>), HA>),
 }
 
 #[derive(Debug)]

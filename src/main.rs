@@ -8,9 +8,9 @@ mod codereader;
 mod dlogger;
 mod hir;
 mod hirbuilder;
+mod hireval;
 mod thir;
 mod thirbuilder;
-mod thirinterpret;
 mod token;
 mod tokenize;
 

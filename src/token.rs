@@ -78,7 +78,6 @@ pub enum TokenKind {
   // Other Miscellaneous Operator Things
   NoInfer,      // !
   Bind,         // $
-  Splat,        // $*
   ParenLeft,    // (
   ParenRight,   // )
   BracketLeft,  // [

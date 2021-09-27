@@ -74,34 +74,6 @@ where
   return false;
 }
 
-fn gen_sequence_fn<'thir, 'ast>(
-  allocator: &'thir Bump,
-  source: &'ast ast::Expr,
-  stmnts: impl Iterator<Item = &'thir thir::Expr<'thir, 'ast, &'thir Bump>>,
-  last: &'thir thir::Expr<'thir, 'ast, &'thir Bump>,
-) -> &'thir thir::Expr<'thir, 'ast, &'thir Bump> {
-  stmnts
-    .reduce(|acc, x| {
-      allocator.alloc(thir::Expr {
-        source,
-        kind: thir::ExprKind::Sequence { fst: acc, snd: x },
-        ty: x.ty,
-      })
-    })
-    .unwrap()
-}
-
-fn gen_nil<'thir, 'ast>(
-  allocator: &'thir Bump,
-  source: &'ast ast::Expr,
-) -> &'thir thir::Expr<'thir, 'ast, &'thir Bump> {
-  allocator.alloc(thir::Expr {
-    source: source,
-    kind: thir::ExprKind::Nil,
-    ty: &thir::Val::NilTy,
-  })
-}
-
 // this function will attempt to bestow types on all of the components recursing from bottom up
 fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'thir Bump,
@@ -117,7 +89,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     hir::ExprKind::Error => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: allocator.alloc(thir::Val::Error),
+      ty: allocator.alloc(thir::Val::Error(thir::RuntimeError::InvalidSyntax)),
     },
     hir::ExprKind::Loop(body) => {
       let ty = thir::Val::Nil;
@@ -257,9 +229,6 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
           tr
         }
       };
-
-      // null byte can never appear in a user defined variable name
-      let retvarid = clone_in(allocator, b"\x00return");
 
       // now make the defer-ret construct
       // ret 'x 0

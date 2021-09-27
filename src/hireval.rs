@@ -147,7 +147,7 @@ pub fn apply_closure<'thir, 'ast, TA: Allocator + Clone>(
 pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
   e: &'thir thir::Expr<'thir, 'ast, TA>,
   var_env: &mut Vec<thir::Val<'thir, 'ast, TA>>,
-  label_env: &mut Vec<thir::Val<'thir, 'ast, TA>>,
+  label_env: &mut Vec<()>,
   pure: bool,
 ) -> thir::Val<'thir, 'ast, TA> {
   match e.kind {
@@ -157,6 +157,11 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
         break thir::Val::Never { returned, levelsUp };
       }
     },
-    thir::ExprKind::Apply { fun, arg } => {}
+    thir::ExprKind::Apply { fun, arg } => eval_apply(fun, arg),
+    thir::ExprKind::Label(expr) => {
+        label_env.push(());
+        if let Never { eval(expr, var_env, label_env, pure);
+
+    }
   }
 }

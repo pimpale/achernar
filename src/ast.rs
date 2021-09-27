@@ -150,8 +150,6 @@ pub enum ExprKind {
   InferArg(Box<Expr>),
   // A reference to a previously defined variable
   Reference(Vec<u8>),
-  // (PATTERN ONLY) Automagically deconstructs and binds a struct
-  BindSplat,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

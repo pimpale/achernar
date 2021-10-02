@@ -784,10 +784,6 @@ fn tr_expr<'hir, 'ast>(
         source,
         kind: hir::ExprKind::Enum(ha.alloc(tr_expr(ha, dlogger, operand, var_env, label_env))),
       },
-      ast::UnaryOpKind::New => hir::Expr {
-        source,
-        kind: hir::ExprKind::New(ha.alloc(tr_expr(ha, dlogger, operand, var_env, label_env))),
-      },
       ast::UnaryOpKind::NoInfer => hir::Expr {
         source,
         kind: hir::ExprKind::NoInfer(ha.alloc(tr_expr(ha, dlogger, operand, var_env, label_env))),

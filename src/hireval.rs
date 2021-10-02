@@ -79,11 +79,14 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
     snd: Box<Val<'hir, 'ast, TA>>,
   },
   Struct(HashMap<&'ast Vec<u8>, Var<'hir, 'ast, TA>>),
-  Enum(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>)>),
+  Enum {
+      field: &'ast Vec<u8>,
+      value: Val<'hir, 'ast, TA>,
+  },
   Fun(Closure<'hir, 'ast, TA>),
   Never {
     returned: Box<Val<'hir, 'ast, TA>>,
-    levelsUp: usize,
+    levels_up: usize,
   },
   // Neutral represents a value that we can't evaluate since we're missing information
   Neutral {
@@ -133,7 +136,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::F64Ty => "F64".to_owned(),
       Val::ConsTy { fst, snd } => format!("(Cons {} {})", fst, snd),
       Val::StructTy(h) => format!(
-        "struct {{ {} }}",
+        "struct({{ {} }})",
         h.iter().fold(String::new(), |a, (key, val)| {
           format!(
             "{}, {}: {}",
@@ -144,7 +147,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
         })
       ),
       Val::EnumTy(h) => format!(
-        "enum {{ {} }}",
+        "enum({{ {} }})",
         h.iter().fold(String::new(), |a, (key, val)| {
           format!(
             "{}, {}: {}",
@@ -154,7 +157,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
           )
         })
       ),
-      Val::FunTy { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty.expr),
+      Val::FunTy { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty),
       Val::Nil => "()".to_owned(),
       Val::Bool(v) => format!("{}", v),
       Val::U8(v) => format!("{}u8", v),
@@ -168,10 +171,38 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::F32(v) => format!("{}f32", v),
       Val::F64(v) => format!("{}f64", v),
       Val::Cons { fst, snd } => format!("{}, {}", fst, snd),
-      _ => "whoops, not implemented".to_owned(),
+      Val::Struct(h) => format!(
+        "{{ {} }}",
+        h.iter().fold(String::new(), |a, (key, var)| {
+          format!(
+            "{}, {}: {}",
+            a,
+            std::str::from_utf8(key).unwrap(),
+            match var {
+                Var::ImmutablyBorrowed(v) => format!("{} <borrowed>", v),
+                Var::MutablyBorrowed(v) => format!("{} <borrowed mutably>", v),
+                Var::Unborrowed(v) => format!("{}", v),
+                Var::MovedOut => format!("<moved out>"),
+            }
+          )
+        })
+      ),
+      Val::Enum {field, value} => format!(
+        "enum({}: {})",
+        std::str::from_utf8(field).unwrap(),
+        value
+      ),
+      Val::Fun(c) => c.to_string(),
+      Val::Never{returned, levels_up} => format!("<never ^{} ({})>", levels_up, returned),
+      Val::Neutral{..} => "<neutral>".to_owned()
     };
 
     write!(f, "{}", val)
+  }
+}
+impl<TA: Allocator + Clone> fmt::Display for Closure<'_, '_, TA> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+      write!(f, "<closure>")
   }
 }
 
@@ -183,6 +214,56 @@ pub fn alpha_equivalent<'hir, 'ast, TA: Allocator + Clone>(
 ) -> bool {
   // TODO validate recursively on
   true
+}
+
+// simply recursively perform the check
+pub fn check_typed_by<'hir, 'ast, TA: Allocator + Clone>(
+  val: &Val<'hir, 'ast, TA>,
+  ty: &Val<'hir, 'ast, TA>,
+) -> bool {
+  match (val, ty) {
+    (Val::NilTy, Val::Universe(0)) => true,
+    (Val::NeverTy, Val::Universe(0)) => true,
+    (Val::BoolTy, Val::Universe(0)) => true,
+    (Val::U8Ty, Val::Universe(0)) => true,
+    (Val::U16Ty, Val::Universe(0)) => true,
+    (Val::U32Ty, Val::Universe(0)) => true,
+    (Val::U64Ty, Val::Universe(0)) => true,
+    (Val::I8Ty, Val::Universe(0)) => true,
+    (Val::I16Ty, Val::Universe(0)) => true,
+    (Val::I32Ty, Val::Universe(0)) => true,
+    (Val::I64Ty, Val::Universe(0)) => true,
+    (Val::F32Ty, Val::Universe(0)) => true,
+    (Val::F64Ty, Val::Universe(0)) => true,
+    (Val::ConsTy { .. }, Val::Universe(0)) => true,
+    (Val::StructTy(_), Val::Universe(0)) => true,
+    (Val::EnumTy(_), Val::Universe(0)) => true,
+    (Val::FunTy { .. }, Val::Universe(0)) => true,
+    (Val::Nil, Val::NilTy) => true,
+    (Val::Never { .. }, Val::NeverTy) => true,
+    (Val::Bool(_), Val::BoolTy) => true,
+    (Val::U8(_), Val::U8Ty) => true,
+    (Val::U16(_), Val::U16Ty) => true,
+    (Val::U32(_), Val::U32Ty) => true,
+    (Val::U64(_), Val::U64Ty) => true,
+    (Val::I8(_), Val::I8Ty) => true,
+    (Val::I16(_), Val::I16Ty) => true,
+    (Val::I32(_), Val::I32Ty) => true,
+    (Val::I64(_), Val::I64Ty) => true,
+    (Val::F32(_), Val::F32Ty) => true,
+    (Val::F64(_), Val::F64Ty) => true,
+    (
+      Val::Cons {
+        fst: fst_v,
+        snd: snd_v,
+      },
+      Val::ConsTy {
+        fst: fst_t,
+        snd: snd_t,
+      },
+    ) => check_typed_by(fst_v, fst_t) && check_typed_by(snd_v, &apply_closure(snd_t, Val::Nil)),
+    (Val::F64(_), Val::F64Ty) => true,
+  }
 }
 
 // binds irrefutable pattern, assigning vars to var_env
@@ -366,25 +447,27 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
         Var::MutablyBorrowed(_) => unimplemented!(),
         Var::MovedOut => unimplemented!(),
       }
-    },
+    }
     // TODO how to deal with the typing being different for synth and check
-    hir::ExprKind::Annotate {expr, ty} => {
-        // calculate type
-        let ty = eval(ty, var_env);
+    hir::ExprKind::Annotate { expr, ty } => {
+      // calculate type
+      let ty = eval(ty, var_env);
 
-        // calculate var
-        let val = eval(expr, var_env);
+      // calculate var
+      let val = eval(expr, var_env);
 
-        // verify that `val` has type `ty`
-        if !check_typed_by(&val, &ty) {
-            // log error that val doesn't have type ty
-            unimplemented!();
-        }
+      // verify that `val` has type `ty`
+      if !check_typed_by(&val, &ty) {
+        // log error that val doesn't have type ty
+        unimplemented!();
+      }
 
-        val
+      val
     }
-    hr::ExprKind::CaseOf { expr, case_options, source } => {
-
-    }
+    hir::ExprKind::CaseOf {
+      expr,
+      case_options,
+      source,
+    } => {}
   }
 }

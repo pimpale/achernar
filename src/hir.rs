@@ -40,9 +40,13 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
     root: &'hir Expr<'hir, 'ast, HA>,
     field: &'ast Vec<u8>,
   },
+
   // A reference to a previously defined variable
   // debruijin index
   Var(usize),
+  Ref(usize),
+  MutRef(usize),
+
   // Constrain the value
   Annotate {
     expr: &'hir Expr<'hir, 'ast, HA>,

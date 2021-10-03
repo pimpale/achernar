@@ -14,3 +14,9 @@ where
   v.extend(iter);
   v
 }
+
+pub fn update<T, F>(x: &mut T, replace_fn: F) -> T
+where F: FnOnce(&mut T) -> T {
+    let replacement = replace_fn(x);
+    std::mem::replace(x, replacement)
+}

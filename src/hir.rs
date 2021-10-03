@@ -34,18 +34,26 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
     value: &'hir Expr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  StructLiteral(Vec<(&'ast Vec<u8>, Expr<'hir, 'ast, HA>), HA>),
+  StructLiteral(Vec<((&'ast Vec<u8>, &'ast ast::Expr) , Expr<'hir, 'ast, HA>), HA>),
   // Accessing the module of a module object
-  StructAccess {
+  StructFieldTake {
+    root: &'hir Expr<'hir, 'ast, HA>,
+    field: &'ast Vec<u8>,
+  },
+  StructFieldBorrow {
+    root: &'hir Expr<'hir, 'ast, HA>,
+    field: &'ast Vec<u8>,
+  },
+  StructFieldMutBorrow {
     root: &'hir Expr<'hir, 'ast, HA>,
     field: &'ast Vec<u8>,
   },
 
   // A reference to a previously defined variable
   // debruijin index
-  Var(usize),
-  Ref(usize),
-  MutRef(usize),
+  TakeVar(usize),
+  BorrowVar(usize),
+  MutBorrowVar(usize),
 
   // Constrain the value
   Annotate {

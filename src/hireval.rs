@@ -81,7 +81,7 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   Struct(HashMap<&'ast Vec<u8>, Var<'hir, 'ast, TA>>),
   Enum {
       field: &'ast Vec<u8>,
-      value: Val<'hir, 'ast, TA>,
+      value: Box<Val<'hir, 'ast, TA>>,
   },
   Fun(Closure<'hir, 'ast, TA>),
   Never {
@@ -272,7 +272,7 @@ pub fn check_typed_by<'hir, 'ast, TA: Allocator + Clone>(
 pub fn bind_irrefutable_pattern<'hir, 'ast, TA: Allocator + Clone>(
   p: &'hir hir::Pat<'hir, 'ast, TA>,
   val: Val<'hir, 'ast, TA>,
-  var_env: &mut Vec<Val<'hir, 'ast, TA>>,
+  var_env: &mut Vec<Var<'hir, 'ast, TA>>,
 ) -> Vec<Val<'hir, 'ast, TA>> {
   match p.kind {
     hir::PatKind::Error => unimplemented!(),
@@ -316,11 +316,11 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, TA: Allocator + Clone>(
         let mut vars = vec![];
 
         // build field hashmap
-        let mut fields: HashMap<&Vec<u8, TA>, Val<'hir, 'ast, TA>> =
-          fields_vec.into_iter().collect();
+        let mut fields: HashMap<_, _> = fields_vec.into_iter().collect();
 
         for (field_name, pat) in &patterns {
           if let Some(val) = fields.remove(field_name) {
+              // TODO match
             vars.extend(bind_irrefutable_pattern(pat, val, var_env));
           } else {
             // log error that no such field exists on the given struct
@@ -372,7 +372,7 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
 }
 
 pub fn apply_closure<'hir, 'ast, TA: Allocator + Clone>(
-  clos: Closure<'hir, 'ast, TA>,
+  clos: &Closure<'hir, 'ast, TA>,
   arg: Val<'hir, 'ast, TA>,
 ) -> Val<'hir, 'ast, TA> {
   // expand arg into the bound vars

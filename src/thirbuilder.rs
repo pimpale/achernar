@@ -3,6 +3,7 @@ use super::dlogger::DiagnosticLogger;
 use super::hir;
 use super::thir;
 use super::hireval::Val;
+use super::hireval::EvalError;
 use super::utils::clone_in;
 use bumpalo::Bump;
 use hashbrown::HashMap;
@@ -13,12 +14,12 @@ struct LabelScope<'thir, 'hir, 'ast, TA: Allocator + Clone, HA: Allocator + Clon
   declaration: Option<&'ast ast::Expr>,
   defers: Vec<&'hir hir::Expr<'hir, 'ast, HA>>,
   // used to typecheck any later returns
-  return_ty: Option<&'thir Val<'thir, 'ast, TA>>,
+  return_ty: Option<&'thir Val<'hir, 'ast, TA>>,
 }
 
-struct VarTyScope<'thir, 'ast, TA: Allocator + Clone> {
+struct VarTyScope<'thir, 'hir, 'ast, TA: Allocator + Clone> {
   declaration: Option<&'ast ast::Expr>,
-  ty: &'thir Val<'thir, 'ast, TA>,
+  ty: &'thir Val<'hir, 'ast, TA>,
 }
 
 fn lookup_maybe<'env, Scope, A: Allocator + Clone, TA: Allocator + Clone>(
@@ -83,13 +84,13 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     &'hir Vec<u8, HA>,
     LabelScope<'thir, 'hir, 'ast, &'thir Bump, HA>,
   )>,
-  var_env: &mut Vec<(&'hir Vec<u8, HA>, VarTyScope<'thir, 'ast, &'thir Bump>)>,
-) -> thir::Expr<'thir, 'ast, &'thir Bump> {
+  var_env: &mut Vec<(&'hir Vec<u8, HA>, VarTyScope<'thir, 'hir, 'ast, &'thir Bump>)>,
+) -> thir::Expr<'thir, 'hir, 'ast, &'thir Bump, HA> {
   match source.kind {
     hir::ExprKind::Error => thir::Expr {
       source: source.source,
       kind: thir::ExprKind::Error,
-      ty: allocator.alloc(Val::Error(thir::RuntimeError::InvalidSyntax)),
+      ty: allocator.alloc(Val::Error(EvalError::InvalidSyntax)),
     },
     hir::ExprKind::Loop(body) => {
       let ty = Val::Nil;
@@ -376,9 +377,9 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     &'hir Vec<u8, HA>,
     LabelScope<'thir, 'hir, 'ast, &'thir Bump, HA>,
   )>,
-  var_env: &mut Vec<(&'hir Vec<u8, HA>, VarTyScope<'thir, 'ast, &'thir Bump>)>,
-  ty: &Val<'thir, 'ast, &'thir Bump>,
-) -> thir::Expr<'thir, 'ast, &'thir Bump> {
+  var_env: &mut Vec<(&'hir Vec<u8, HA>, VarTyScope<'thir, 'hir, 'ast, &'thir Bump>)>,
+  ty: &Val<'hir, 'ast, HA>,
+) -> thir::Expr<'thir, 'hir, 'ast, &'thir Bump, HA> {
   match source.kind {
     hir::ExprKind::Error => thir::Expr {
       source: source.source,
@@ -409,6 +410,6 @@ pub fn construct_thir<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   hir: &'hir hir::Expr<'hir, 'ast, HA>,
   allocator: &'thir Bump,
   mut dlogger: DiagnosticLogger,
-) -> thir::Expr<'thir, 'ast, &'thir Bump> {
+) -> thir::Expr<'thir, 'hir, 'ast, &'thir Bump, HA> {
   tr_synth_expr(allocator, &mut dlogger, hir, &mut vec![], &mut vec![])
 }

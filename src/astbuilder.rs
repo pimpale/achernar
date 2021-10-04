@@ -233,37 +233,6 @@ fn parse_exact_struct_literal<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn parse_exact_infer_arg<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  let metadata = get_metadata(tkiter);
-  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::BracketLeft));
-  let Token { range: lrange, .. } = tkiter.next().unwrap();
-
-  let body = Box::new(parse_expr(tkiter, dlogger));
-
-  let Token {
-    range: rrange,
-    kind,
-  } = tkiter.next().unwrap();
-  match kind {
-    Some(TokenKind::BracketRight) => Expr {
-      range: union_of(lrange, rrange),
-      metadata,
-      kind: ExprKind::InferArg(body),
-    },
-    _ => {
-      dlogger.log_unexpected_token_specific(rrange, Some(TokenKind::BracketRight), kind);
-      Expr {
-        range: union_of(lrange, body.range),
-        metadata,
-        kind: ExprKind::InferArg(body),
-      }
-    }
-  }
-}
-
 fn parse_exact_group<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -546,25 +515,16 @@ fn parse_exact_simple<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn parse_exact_splat<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_exact_simple(TokenKind::Splat, ExprKind::BindSplat)(tkiter, dlogger)
-}
-
 fn decide_term<TkIter: Iterator<Item = Token>>(
   tkkind: &TokenKind,
 ) -> Option<fn(&mut PeekMoreIterator<TkIter>, &mut DiagnosticLogger) -> Expr> {
   match *tkkind {
-    TokenKind::Splat => Some(parse_exact_splat::<TkIter>),
     TokenKind::Bool(_) => Some(parse_exact_bool::<TkIter>),
     TokenKind::Int(_) => Some(parse_exact_int::<TkIter>),
     TokenKind::Float(_) => Some(parse_exact_rational::<TkIter>),
     TokenKind::String { .. } => Some(parse_exact_string::<TkIter>),
     TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),
-    TokenKind::BracketLeft => Some(parse_exact_infer_arg::<TkIter>),
     TokenKind::Ret => Some(parse_exact_ret::<TkIter>),
     TokenKind::Defer => Some(parse_exact_defer::<TkIter>),
     TokenKind::Case => Some(parse_exact_case::<TkIter>),
@@ -614,7 +574,6 @@ fn decide_prefix(tkkind: &TokenKind) -> Option<UnaryOpKind> {
     TokenKind::Deref => Some(UnaryOpKind::Deref),
     TokenKind::Struct => Some(UnaryOpKind::Struct),
     TokenKind::Enum => Some(UnaryOpKind::Enum),
-    TokenKind::New => Some(UnaryOpKind::New),
     TokenKind::Not => Some(UnaryOpKind::Not),
     TokenKind::Loop => Some(UnaryOpKind::Loop),
     TokenKind::Val => Some(UnaryOpKind::Val),
@@ -644,7 +603,6 @@ fn parse_suffix_operators<TkIter: Iterator<Item = Token>>(
     dlogger,
     parse_prefix_operators,
     simple_operator_fn(|x| match x {
-      TokenKind::NoInfer => Some(UnaryOpKind::NoInfer),
       TokenKind::ReturnOnError => Some(UnaryOpKind::ReturnOnError),
       _ => None,
     }),

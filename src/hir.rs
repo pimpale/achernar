@@ -19,8 +19,6 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
   Error,
   // Loops until a scope is returned
   Loop(&'hir Expr<'hir, 'ast, HA>),
-  // Does not infer types
-  NoInfer(&'hir Expr<'hir, 'ast, HA>),
   // applies a function
   Apply {
     fun: &'hir Expr<'hir, 'ast, HA>,
@@ -34,19 +32,19 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
     value: &'hir Expr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  StructLiteral(Vec<((&'ast Vec<u8>, &'ast ast::Expr) , Expr<'hir, 'ast, HA>), HA>),
+  StructLiteral(Vec<(&'ast Vec<u8> , (&'ast ast::Expr, Expr<'hir, 'ast, HA>)), HA>),
   // Accessing the module of a module object
   StructFieldTake {
     root: &'hir Expr<'hir, 'ast, HA>,
-    field: &'ast Vec<u8>,
+    field: (&'ast Vec<u8>, &'ast ast::Expr)
   },
   StructFieldBorrow {
     root: &'hir Expr<'hir, 'ast, HA>,
-    field: &'ast Vec<u8>,
+    field: (&'ast Vec<u8>, &'ast ast::Expr)
   },
   StructFieldMutBorrow {
     root: &'hir Expr<'hir, 'ast, HA>,
-    field: &'ast Vec<u8>,
+    field: (&'ast Vec<u8>, &'ast ast::Expr)
   },
 
   // A reference to a previously defined variable
@@ -85,8 +83,9 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   Nil,
   Bool(bool),
-  Int(BigInt),
-  Float(BigRational),
+  Char(u32),
+  Int(&'ast BigInt),
+  Float(&'ast BigRational),
 
   // Type stuff
   // creates a pub struct from an ad hoc compound object

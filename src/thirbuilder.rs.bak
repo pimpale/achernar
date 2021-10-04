@@ -6,85 +6,15 @@ use super::hireval::Val;
 use super::hireval::EvalError;
 use super::utils::clone_in;
 use bumpalo::Bump;
-use hashbrown::HashMap;
-use num_bigint::BigInt;
 use std::alloc::Allocator;
-
-struct LabelScope<'thir, 'hir, 'ast, TA: Allocator + Clone, HA: Allocator + Clone> {
-  declaration: Option<&'ast ast::Expr>,
-  defers: Vec<&'hir hir::Expr<'hir, 'ast, HA>>,
-  // used to typecheck any later returns
-  return_ty: Option<&'thir Val<'hir, 'ast, TA>>,
-}
-
-struct VarTyScope<'thir, 'hir, 'ast, TA: Allocator + Clone> {
-  declaration: Option<&'ast ast::Expr>,
-  ty: &'thir Val<'hir, 'ast, TA>,
-}
-
-fn lookup_maybe<'env, Scope, A: Allocator + Clone, TA: Allocator + Clone>(
-  env: &'env Vec<(&Vec<u8, A>, Scope), TA>,
-  label: &[u8],
-) -> Option<(&'env Scope, usize)> {
-  let mut count: usize = 1;
-  for (scopelabel, scope) in env.iter().rev() {
-    if &label == scopelabel {
-      return Some((scope, count));
-    } else {
-      count += 1;
-    }
-  }
-  return None;
-}
-
-fn lookup<'env, Scope, A: Allocator + Clone, TA: Allocator + Clone>(
-  env: &'env Vec<(&Vec<u8, A>, Scope), TA>,
-  label: &[u8],
-) -> &'env Scope {
-  lookup_maybe(env, label).unwrap().0
-}
-
-fn lookup_exists<'env, Scope, A: Allocator + Clone, TA: Allocator + Clone>(
-  env: &'env Vec<(&Vec<u8, A>, Scope), TA>,
-  label: &[u8],
-) -> bool {
-  lookup_maybe(env, label).is_some()
-}
-
-fn lookup_count_up<'env, Scope, A: Allocator + Clone, TA: Allocator + Clone>(
-  env: &'env Vec<(&Vec<u8, A>, Scope), TA>,
-  label: &[u8],
-) -> usize {
-  lookup_maybe(env, label).unwrap().1
-}
-
-fn update<'env, Scope, A: Allocator + Clone, TA: Allocator + Clone, F>(
-  env: &'env mut Vec<(&Vec<u8, A>, Scope), TA>,
-  label: &[u8],
-  update: F,
-) -> bool
-where
-  F: FnOnce(&'env mut Scope),
-{
-  for (scopelabel, scope) in env.iter_mut().rev() {
-    if label == scopelabel.as_slice() {
-      update(scope);
-      return true;
-    }
-  }
-  return false;
-}
 
 // this function will attempt to bestow types on all of the components recursing from bottom up
 fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'thir Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::Expr<'hir, 'ast, HA>,
-  label_env: &mut Vec<(
-    &'hir Vec<u8, HA>,
-    LabelScope<'thir, 'hir, 'ast, &'thir Bump, HA>,
-  )>,
-  var_env: &mut Vec<(&'hir Vec<u8, HA>, VarTyScope<'thir, 'hir, 'ast, &'thir Bump>)>,
+  label_env: &mut Vec<Option<Val<'hir, 'ast, HA>>>,
+  var_env: &mut Vec<Val<'hir, 'ast, HA>>,
 ) -> thir::Expr<'thir, 'hir, 'ast, &'thir Bump, HA> {
   match source.kind {
     hir::ExprKind::Error => thir::Expr {
@@ -103,12 +33,6 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         ty: allocator.alloc(ty),
       }
     }
-    // TODO how does noinfer work
-    hir::ExprKind::NoInfer(_) => thir::Expr {
-      source: source.source,
-      kind: thir::ExprKind::Error,
-      ty: allocator.alloc(Val::Error),
-    },
     hir::ExprKind::Apply { fun, arg } => {
       // bottom up synthesize the function
       let fun_tr = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
@@ -183,22 +107,6 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         }
       }
     }
-    hir::ExprKind::Defer { label, body } => {
-      // attempt to attach the translated body to the defers list
-      let updated = update(label_env, &label, |scope| scope.defers.push(body));
-
-      // if unable to update, then throw error that label is undefined
-      if !updated {
-        dlogger.log_cannot_find_label_in_scope(source.source.range, &label);
-      }
-
-      // all defers are replaced with a nil
-      thir::Expr {
-        source: source.source,
-        kind: thir::ExprKind::Nil,
-        ty: allocator.alloc(Val::Nil),
-      }
-    }
     hir::ExprKind::Ret { label, body } => {
       // check that the label exists
       if !lookup_exists(label_env, &label) {
@@ -231,59 +139,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         }
       };
 
-      // now make the defer-ret construct
-      // ret 'x 0
-      // to
-      // let toret = 0;
-      // (run defers);
-      // ret 'x toret
       thir::Expr {
-        source: source.source,
-        kind: thir::ExprKind::LetIn {
-          // introduce variable with value of ret
-          pat: allocator.alloc(thir::Pat {
-            source: source.source,
-            kind: thir::PatKind::BindVariable,
-            ty: body_tr.ty,
-          }),
-          val: allocator.alloc(body_tr),
-
-          // write body
-          body: lookup(label_env, &label).defers.iter().fold(
-            // the last thing to execute is the actual ret
-            allocator.alloc(thir::Expr {
-              source: source.source,
-              kind: thir::ExprKind::Ret {
-                labels_up: lookup_count_up(label_env, &label),
-                // lookup variable introduced earlier
-                value: allocator.alloc(thir::Expr {
-                  source: source.source,
-                  kind: thir::ExprKind::Reference(0), // we will grab the most recent bound one
-                  ty: body_tr.ty,
-                }),
-              },
-              ty: allocator.alloc(Val::NeverTy),
-            }),
-            // closure
-            |acc, x| {
-              // translate defer
-              let tr_x =
-                tr_check_expr(allocator, dlogger, x, label_env, var_env, &Val::NilTy);
-              // return sequenced defer
-              allocator.alloc(thir::Expr {
-                source: x.source,
-                // we want to sequence it in the reverse order we saw them
-                // so, later ones will be executed first
-                kind: thir::ExprKind::Sequence {
-                  fst: allocator.alloc(tr_x),
-                  snd: acc,
-                },
-                ty: tr_x.ty,
-              })
-            },
-          ),
-        },
-        ty: allocator.alloc(Val::NeverTy),
       }
     }
     hir::ExprKind::StructLiteral(fields) => {

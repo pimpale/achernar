@@ -108,9 +108,15 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   },
   Fun(Closure<'hir, 'ast, TA>),
 
-  // References refer to a variable's debruijn level
-  Ref(usize),
-  MutRef(usize),
+  // path of a level
+  Ref {
+    debruijn_level: usize,
+    fields: Vec<&'ast Vec<u8>>,
+  },
+  MutRef {
+    debruijn_level: usize,
+    fields: Vec<&'ast Vec<u8>>,
+  },
 
   Never {
     returned: Box<Val<'hir, 'ast, TA>>,
@@ -163,6 +169,8 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::I64Ty => "I64".to_owned(),
       Val::F32Ty => "F32".to_owned(),
       Val::F64Ty => "F64".to_owned(),
+      Val::RefTy(ty)=> format!("Ref({})", ty),
+      Val::MutRefTy(ty) => format!("MutRef({})", ty),
       Val::ConsTy { fst, snd } => format!("(Cons {} {})", fst, snd),
       Val::StructTy(h) => format!(
         "struct({{ {} }})",
@@ -232,6 +240,28 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
         format!("enum({}: {})", std::str::from_utf8(field).unwrap(), value)
       }
       Val::Fun(c) => c.to_string(),
+      Val::Ref {
+        debruijn_level,
+        fields,
+      } => {
+        let mut fieldstr = String::new();
+        for x in fields {
+          fieldstr.push('.');
+          fieldstr += std::str::from_utf8(x).unwrap();
+        }
+        format!("&(var {}{})", debruijn_level, fieldstr)
+      }
+      Val::MutRef {
+        debruijn_level,
+        fields,
+      } => {
+        let mut fieldstr = String::new();
+        for x in fields {
+          fieldstr.push('.');
+          fieldstr += std::str::from_utf8(x).unwrap();
+        }
+        format!("&mut(var {}{})", debruijn_level, fieldstr)
+      }
       Val::Never {
         returned,
         levels_up,
@@ -245,69 +275,6 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
 impl<TA: Allocator + Clone> fmt::Display for Closure<'_, '_, TA> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "<closure>")
-  }
-}
-
-// computes the alpha equivalence of two normal form exprs
-// since we use de bruijn indexes, this is easy
-pub fn alpha_equivalent<'hir, 'ast, TA: Allocator + Clone>(
-  a: &hir::Expr<'hir, 'ast, TA>,
-  b: &hir::Expr<'hir, 'ast, TA>,
-) -> bool {
-  // TODO: validate recursively on
-  true
-}
-
-// simply recursively perform the check
-pub fn check_typed_by<'hir, 'ast, TA: Allocator + Clone>(
-  val: &Val<'hir, 'ast, TA>,
-  ty: Val<'hir, 'ast, TA>,
-) -> bool {
-  match (val, ty) {
-    (Val::NilTy, Val::Universe(0)) => true,
-    (Val::NeverTy, Val::Universe(0)) => true,
-    (Val::BoolTy, Val::Universe(0)) => true,
-    (Val::U8Ty, Val::Universe(0)) => true,
-    (Val::U16Ty, Val::Universe(0)) => true,
-    (Val::U32Ty, Val::Universe(0)) => true,
-    (Val::U64Ty, Val::Universe(0)) => true,
-    (Val::I8Ty, Val::Universe(0)) => true,
-    (Val::I16Ty, Val::Universe(0)) => true,
-    (Val::I32Ty, Val::Universe(0)) => true,
-    (Val::I64Ty, Val::Universe(0)) => true,
-    (Val::F32Ty, Val::Universe(0)) => true,
-    (Val::F64Ty, Val::Universe(0)) => true,
-    (Val::ConsTy { .. }, Val::Universe(0)) => true,
-    (Val::StructTy(_), Val::Universe(0)) => true,
-    (Val::EnumTy(_), Val::Universe(0)) => true,
-    (Val::FunTy { .. }, Val::Universe(0)) => true,
-    (Val::Nil, Val::NilTy) => true,
-    (Val::Never { .. }, Val::NeverTy) => true,
-    (Val::Bool(_), Val::BoolTy) => true,
-    (Val::U8(_), Val::U8Ty) => true,
-    (Val::U16(_), Val::U16Ty) => true,
-    (Val::U32(_), Val::U32Ty) => true,
-    (Val::U64(_), Val::U64Ty) => true,
-    (Val::I8(_), Val::I8Ty) => true,
-    (Val::I16(_), Val::I16Ty) => true,
-    (Val::I32(_), Val::I32Ty) => true,
-    (Val::I64(_), Val::I64Ty) => true,
-    (Val::F32(_), Val::F32Ty) => true,
-    (Val::F64(_), Val::F64Ty) => true,
-    (
-      Val::Cons {
-        fst: fst_v,
-        snd: snd_v,
-      },
-      Val::ConsTy {
-        fst: fst_t,
-        snd: snd_t,
-      },
-      // TODO: figure out how to properly calculate sigma types
-    ) => {
-      check_typed_by(fst_v, *fst_t) && check_typed_by(snd_v, apply_closure(&mut snd_t, Val::Nil))
-    }
-    (Val::F64(_), Val::F64Ty) => true,
   }
 }
 
@@ -364,7 +331,7 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
         // build field hashmap
         let mut fields: HashMap<_, _> = fields_vec.into_iter().collect();
 
-        for (field_name, pat) in &patterns {
+        for (field_name, ref pat) in patterns {
           match fields.remove(field_name) {
             Some(Var {
               kind: VarKind::Unborrowed { val },
@@ -404,7 +371,7 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
   arg: Val<'hir, 'ast, TA>,
 ) -> Val<'hir, 'ast, TA> {
   match fun {
-    Val::Fun(closure) => apply_closure(&mut closure, arg),
+    Val::Fun(closure) => apply_closure(closure, arg),
     // this is the case where the function is an unresolved
     Val::Neutral {
       val: neutral_val,
@@ -417,7 +384,7 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
           // the function outputting the second type has (read) access to the variables bound from the first pattern
           // TODO: let the closure body make use of the first pattern
           // Ex:: Vec $n -> Vec $m -> Vec n + m
-          ty: Box::new(apply_closure(&mut out_ty, arg)),
+          ty: Box::new(apply_closure(*out_ty, arg)),
           //construct a new neutral app
           val: Box::new(Neutral::App {
             fun: neutral_val,
@@ -435,8 +402,8 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
 }
 
 // INVARIANT: closure is not altered, mutability is required for optimization purposes
-pub fn apply_closure<'hir, 'ast, TA: Allocator + Clone>(
-  clos: &mut Closure<'hir, 'ast, TA>,
+pub fn apply_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
+  clos: Closure<'hir, 'ast, TA>,
   arg: Val<'hir, 'ast, TA>,
 ) -> Val<'hir, 'ast, TA> {
   // expand arg into the bound vars
@@ -466,6 +433,118 @@ pub fn apply_closure<'hir, 'ast, TA: Allocator + Clone>(
   result
 }
 
+// returns the var of the ref, mostly for borrowing
+pub fn get_ref_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  debruijn_level: usize,
+  fields: &Vec<&'ast Vec<u8>>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> &'env mut Var<'hir, 'ast, TA> {
+  let mut cursor = &mut var_env[debruijn_level];
+  for field in fields {
+    let Var { source, kind } = cursor;
+    match kind {
+      VarKind::ImmutablyBorrowed { val, .. } => match val {
+        Val::Struct(fields) => {
+          match fields.get_mut(field) {
+            Some(var) => {
+              // progress further
+              cursor = var;
+            }
+            None => {
+              // this is an internal compiler error
+              // field doesn't exist
+              unimplemented!()
+            }
+          }
+        }
+        _ => {
+          // this is an internal compiler error
+          // object isn't struct
+          unimplemented!()
+        }
+      },
+      // all of these are internal compiler errors
+      // since we can only create ref if field is immutably borrowed
+      VarKind::Unborrowed { .. } => unimplemented!(),
+      VarKind::MutablyBorrowed { .. } => unimplemented!(),
+      VarKind::MovedOut { .. } => unimplemented!(),
+    }
+  }
+
+  cursor
+}
+
+// returns the var of the ref, mostly for borrowing
+pub fn follow_ref_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  debruijn_level: usize,
+  fields: &Vec<&'ast Vec<u8>>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> &'env mut Val<'hir, 'ast, TA> {
+  let Var { kind, .. } = get_ref_var(debruijn_level, fields, var_env);
+  match kind {
+    VarKind::ImmutablyBorrowed { val, .. } => val,
+    VarKind::Unborrowed { .. } => unimplemented!(),
+    VarKind::MutablyBorrowed { .. } => unimplemented!(),
+    VarKind::MovedOut { .. } => unimplemented!(),
+  }
+}
+
+// returns the var of the ref, mostly for borrowing
+pub fn get_mut_ref_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  debruijn_level: usize,
+  fields: &Vec<&'ast Vec<u8>>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> &'env mut Var<'hir, 'ast, TA> {
+  let mut cursor = &mut var_env[debruijn_level];
+  for field in fields {
+    let Var { source, kind } = cursor;
+    match kind {
+      VarKind::MutablyBorrowed { val, .. } => match val {
+        Val::Struct(fields) => {
+          match fields.get_mut(field) {
+            Some(var) => {
+              // progress further
+              cursor = var;
+            }
+            None => {
+              // this is an internal compiler error
+              // field doesn't exist
+              unimplemented!()
+            }
+          }
+        }
+        _ => {
+          // this is an internal compiler error
+          // object isn't struct
+          unimplemented!()
+        }
+      },
+      // all of these are internal compiler errors
+      // since we can only create ref if field is immutably borrowed
+      VarKind::Unborrowed { .. } => unimplemented!(),
+      VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+      VarKind::MovedOut { .. } => unimplemented!(),
+    }
+  }
+
+  cursor
+}
+
+// returns the var of the ref, mostly for borrowing
+pub fn follow_mut_ref_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  debruijn_level: usize,
+  fields: &Vec<&'ast Vec<u8>>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> &'env mut Val<'hir, 'ast, TA> {
+  let Var { kind, .. } = get_mut_ref_var(debruijn_level, fields, var_env);
+  match kind {
+    VarKind::MutablyBorrowed { val, .. } => val,
+    VarKind::Unborrowed { .. } => unimplemented!(),
+    VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+    VarKind::MovedOut { .. } => unimplemented!(),
+  }
+}
+
 // INVARIANT: the length of the vector will not change
 // INVARIANT: won't alter any variables with in var_env where i > var_env
 pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
@@ -481,21 +560,27 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
           break v;
         }
         Val::Nil => (),
+        // the body of a loop must evaluate to nil
         v => unimplemented!(),
       }
-      Val::Nil
     },
-    hir::ExprKind::Apply { fun, arg } => apply(fun, arg),
+    hir::ExprKind::Apply { fun, arg } => {
+      let fun = eval(fun, var_env, min_mut_level);
+      let arg = eval(arg, var_env, min_mut_level);
+
+      apply(fun, arg)
+    }
     hir::ExprKind::Label(expr) => match eval(expr, var_env, min_mut_level) {
+      // if we've reached zero labels
       Val::Never {
         levels_up: 0,
         returned,
-      } => returned,
+      } => *returned,
       Val::Never {
         levels_up,
         returned,
       } => Val::Never {
-        levels_up,
+        levels_up: levels_up - 1,
         returned,
       },
       v => unimplemented!(),
@@ -506,22 +591,27 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
     },
     hir::ExprKind::StructLiteral(fields) => Val::Struct(
       fields
-        .into_iter()
-        .map(|((f, source), expr)| {
+        .iter()
+        .map(|(f, (f_source, ref expr))| {
           (
-            f,
-            Var::Unborrowed {
-              val: eval(&expr, var_env, min_mut_level),
-              source,
+            *f,
+            Var {
+              source: f_source,
+              kind: VarKind::Unborrowed {
+                val: eval(&expr, var_env, min_mut_level),
+              },
             },
           )
         })
         .collect(),
     ),
-    hir::ExprKind::StructFieldTake { root: hir::Expr { root_kind, .. }, field } => match root_kind {
-      hir::ExprKind::Struct(fields) => {
+    hir::ExprKind::StructFieldTake {
+      root,
+      field: (field, field_source),
+    } => match eval(root, var_env, min_mut_level) {
+      Val::Struct(fields) => {
         if let Some(Var { kind, source }) = fields.get_mut(field) {
-          match std::mem::replace(var, Var::MovedOut { take: e.source }) {
+          match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
             VarKind::Unborrowed { val, .. } => val,
             VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
             VarKind::MutablyBorrowed { .. } => unimplemented!(),
@@ -532,9 +622,50 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
           unimplemented!()
         }
       }
-      // throw error that it's not a struct
       _ => unimplemented!(),
     },
+    hir::ExprKind::StructFieldMutBorrow {
+      root,
+      field: (field, field_source),
+    } => {
+      let fields = match eval(root, var_env, min_mut_level) {
+        Val::Struct(ref mut fields) => fields,
+        Val::MutRef {
+          debruijn_level,
+          fields,
+        } => {
+          let Var { ref mut kind, .. } = get_mut_ref_var(debruijn_level, &fields, var_env);
+          match kind {
+            VarKind::Unborrowed {
+              val: Val::Struct(ref mut fields),
+              ..
+            } => fields,
+            VarKind::MutablyBorrowed {
+              val: Val::Struct(fields),
+              ..
+            } => fields,
+            // can't mutably borrow if the base is immutably borrowed already
+            // or if it has been moved out
+            VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+            VarKind::MovedOut { .. } => unimplemented!(),
+            // means that the center wasn't a structo
+            _ => unimplemented!(),
+          }
+        }
+      };
+
+      if let Some(Var { kind, .. }) = fields.get_mut(field) {
+        match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
+          VarKind::Unborrowed { val, .. } => val,
+          VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+          VarKind::MutablyBorrowed { .. } => unimplemented!(),
+          VarKind::MovedOut { .. } => unimplemented!(),
+        }
+      } else {
+        // throw error that no such field exists
+        unimplemented!()
+      }
+    }
     hir::ExprKind::TakeVar(debruijn_index) => {
       let debruijn_level = var_env.len() - debruijn_index;
 
@@ -544,16 +675,10 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
         unimplemented!();
       }
 
-      // now take var out
-      match update(
-        &mut var_env[debruijn_level],
-        |Var { ref source, .. }| Var {
-          source,
-          kind: VarKind::MovedOut { take: e.source },
-        },
-      )
-      .kind
-      {
+      let Var { kind, .. } = &mut var_env[debruijn_level];
+
+      // now replace var
+      match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
         VarKind::Unborrowed { val, .. } => val,
         VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
         VarKind::MutablyBorrowed { .. } => unimplemented!(),
@@ -563,16 +688,18 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
     // TODO: how to deal with the typing being different for synth and check
     hir::ExprKind::Annotate { expr, ty } => {
       // calculate type
-      let ty = eval(ty, var_env);
+      let _ty = eval(ty, var_env, min_mut_level);
 
       // calculate var
-      let val = eval(expr, var_env);
+      let val = eval(expr, var_env, min_mut_level);
 
       // verify that `val` has type `ty`
-      if !check_typed_by(&val, ty) {
-        // log error that val doesn't have type ty
-        unimplemented!();
-      }
+      // TODO: need to read back
+
+      // if !check_typed_by(&val, ty, var_env) {
+      //   // log error that val doesn't have type ty
+      //   unimplemented!();
+      // }
 
       val
     }
@@ -580,6 +707,93 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       expr,
       case_options,
       source,
-    } => {}
+    } => Val::Nil,
   }
 }
+
+
+
+// // simply recursively perform the check
+// // INVARIANT: doesn't modify var_env
+// pub fn check_typed_by<'hir, 'ast, TA: Allocator + Clone>(
+//   val: &Val<'hir, 'ast, TA>,
+//   ty: Val<'hir, 'ast, TA>,
+//   var_env: &Vec<Var<'hir, 'ast, TA>>,
+// ) -> bool {
+//   match (val, ty) {
+//     (Val::Error(_), _) => false,
+//     (Val::Universe(a), Val::Universe(b)) => a + 1 == b,
+//     (Val::NilTy, Val::Universe(0)) => true,
+//     (Val::NeverTy, Val::Universe(0)) => true,
+//     (Val::BoolTy, Val::Universe(0)) => true,
+//     (Val::U8Ty, Val::Universe(0)) => true,
+//     (Val::U16Ty, Val::Universe(0)) => true,
+//     (Val::U32Ty, Val::Universe(0)) => true,
+//     (Val::U64Ty, Val::Universe(0)) => true,
+//     (Val::I8Ty, Val::Universe(0)) => true,
+//     (Val::I16Ty, Val::Universe(0)) => true,
+//     (Val::I32Ty, Val::Universe(0)) => true,
+//     (Val::I64Ty, Val::Universe(0)) => true,
+//     (Val::F32Ty, Val::Universe(0)) => true,
+//     (Val::F64Ty, Val::Universe(0)) => true,
+// 
+//     // These two aren't strictly correct...
+//     (Val::RefTy(_), Val::Universe(0)) => true,
+//     (Val::MutRefTy(_), Val::Universe(0)) => true,
+// 
+//     (Val::ConsTy { .. }, Val::Universe(0)) => true,
+//     (Val::StructTy(_), Val::Universe(0)) => true,
+//     (Val::EnumTy(_), Val::Universe(0)) => true,
+//     (Val::FunTy { .. }, Val::Universe(0)) => true,
+//     (Val::Nil, Val::NilTy) => true,
+//     (Val::Never { .. }, Val::NeverTy) => true,
+//     (Val::Bool(_), Val::BoolTy) => true,
+//     (Val::U8(_), Val::U8Ty) => true,
+//     (Val::U16(_), Val::U16Ty) => true,
+//     (Val::U32(_), Val::U32Ty) => true,
+//     (Val::U64(_), Val::U64Ty) => true,
+//     (Val::I8(_), Val::I8Ty) => true,
+//     (Val::I16(_), Val::I16Ty) => true,
+//     (Val::I32(_), Val::I32Ty) => true,
+//     (Val::I64(_), Val::I64Ty) => true,
+//     (Val::F32(_), Val::F32Ty) => true,
+//     (Val::F64(_), Val::F64Ty) => true,
+//     (
+//       Val::Ref {
+//         debruijn_level,
+//         fields,
+//       },
+//       Val::RefTy(ty),
+//     ) => check_typed_by(
+//       follow_ref_var(*debruijn_level, fields, var_env),
+//       *ty,
+//       var_env,
+//     ),
+//     (
+//       Val::MutRef {
+//         debruijn_level,
+//         fields,
+//       },
+//       Val::MutRefTy(ty),
+//     ) => check_typed_by(
+//       follow_mut_ref_var(*debruijn_level, fields, var_env),
+//       *ty,
+//       var_env,
+//     ),
+//     (
+//       Val::Cons {
+//         fst: fst_v,
+//         snd: snd_v,
+//       },
+//       Val::ConsTy {
+//         fst: fst_t,
+//         snd: snd_t,
+//       },
+//       // TODO: figure out how to properly calculate sigma types
+//     ) => {
+//       check_typed_by(fst_v, *fst_t, var_env)
+//         && check_typed_by(snd_v, apply_closure(*snd_t, Val::Nil), var_env)
+//     }
+//   }
+// }
+

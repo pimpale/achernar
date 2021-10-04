@@ -3,7 +3,6 @@ use super::dlogger::DiagnosticLogger;
 use super::hir;
 use super::utils::new_vec_from;
 use bumpalo::Bump;
-use num_bigint::BigInt;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
@@ -43,7 +42,7 @@ fn lookup_count_up<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) ->
   lookup_maybe(env, label).unwrap().1
 }
 
-fn update<'env, Scope, F>(env: &'env Vec<(&[u8], Scope)>, label: &[u8], update: F) -> bool
+fn update<'env, Scope, F>(env: &'env mut Vec<(&[u8], Scope)>, label: &[u8], update: F) -> bool
 where
   F: FnOnce(&'env mut Scope),
 {
@@ -93,10 +92,10 @@ fn gen_var<'hir, 'ast>(
 ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
   let lkup_val = lookup_maybe(var_env, &identifier);
 
-  if let Some((varscope, debruijin_index)) = lkup_val {
+  if let Some((_, debruijn_index)) = lkup_val {
     hir::Expr {
       source,
-      kind: hir::ExprKind::Var(debruijin_index),
+      kind: hir::ExprKind::TakeVar(debruijn_index),
     }
   } else {
     dlogger.log_variable_not_found(source.range, &identifier);
@@ -112,7 +111,7 @@ fn tr_pat<'hir, 'ast>(
   ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
-  var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
 ) -> hir::Pat<'hir, 'ast, &'hir Bump> {
   match source.kind {
     // propagate error
@@ -120,15 +119,11 @@ fn tr_pat<'hir, 'ast>(
       source,
       kind: hir::PatKind::Error,
     },
-    ast::ExprKind::Error => hir::Pat {
-      source,
-      kind: hir::PatKind::Hole,
-    },
     // transparent valueification
-    ast::ExprKind::Error
-    | ast::ExprKind::Nil
+    ast::ExprKind::Nil
     | ast::ExprKind::Bool(_)
     | ast::ExprKind::Int(_)
+    | ast::ExprKind::Float(_)
     | ast::ExprKind::String { .. } => hir::Pat {
       source,
       kind: hir::PatKind::Value(ha.alloc(tr_expr(ha, dlogger, source, var_env, &mut vec![]))),
@@ -143,13 +138,6 @@ fn tr_pat<'hir, 'ast>(
     | ast::ExprKind::Ret { .. }
     | ast::ExprKind::CaseOf { .. }) => {
       dlogger.log_unexpected_in_pattern(source.range, c);
-      hir::Pat {
-        source,
-        kind: hir::PatKind::Error,
-      }
-    }
-    ast::ExprKind::InferArg(_) => {
-      dlogger.log_unexpected_infer_arg(source.range);
       hir::Pat {
         source,
         kind: hir::PatKind::Error,
@@ -268,14 +256,6 @@ fn tr_pat<'hir, 'ast>(
           arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
         },
       },
-      ast::UnaryOpKind::NoInfer => hir::Pat {
-        source,
-        kind: hir::PatKind::ActivePattern {
-          // TODO what to do with this
-          fun: ha.alloc(gen_var(b"_noinfer", dlogger, source, var_env)),
-          arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
-        },
-      },
       ast::UnaryOpKind::Complement => hir::Pat {
         source,
         kind: hir::PatKind::ActivePattern {
@@ -290,7 +270,7 @@ fn tr_pat<'hir, 'ast>(
       ast::UnaryOpKind::Bind => match **operand {
         // binds a variable to an identifier
         ast::Expr {
-          kind: ast::ExprKind::Reference(ref identifier),
+          kind: ast::ExprKind::Reference(ref identifier), //TODO: we need to bind here
           ..
         } => hir::Pat {
           source,
@@ -313,7 +293,6 @@ fn tr_pat<'hir, 'ast>(
       (ast::UnaryOpKind::ReturnOnError
       | ast::UnaryOpKind::Struct
       | ast::UnaryOpKind::Enum
-      | ast::UnaryOpKind::New
       | ast::UnaryOpKind::Loop) => {
         dlogger.log_unexpected_unop_in_pattern(source.range, c);
         hir::Pat {
@@ -439,7 +418,7 @@ fn tr_expr<'hir, 'ast>(
   ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
-  var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
   label_env: &mut Vec<(&'ast [u8], LabelScope<'ast>)>,
 ) -> hir::Expr<'hir, 'ast, &'hir Bump> {
   match source.kind {
@@ -447,13 +426,6 @@ fn tr_expr<'hir, 'ast>(
       source,
       kind: hir::ExprKind::Error,
     },
-    ast::ExprKind::InferArg(_) => {
-      dlogger.log_unexpected_infer_arg(source.range);
-      hir::Expr {
-        source,
-        kind: hir::ExprKind::Error,
-      }
-    }
     ast::ExprKind::Nil => hir::Expr {
       source,
       kind: hir::ExprKind::Nil,
@@ -464,13 +436,11 @@ fn tr_expr<'hir, 'ast>(
     },
     ast::ExprKind::Int(ref i) => hir::Expr {
       source,
-      // TODO allocate this via bumpalo
-      kind: hir::ExprKind::Int(i.clone()),
+      kind: hir::ExprKind::Int(i),
     },
     ast::ExprKind::Float(ref i) => hir::Expr {
       source,
-      // TODO allocate this via bumpalo
-      kind: hir::ExprKind::Float(i.clone()),
+      kind: hir::ExprKind::Float(i),
     },
     ast::ExprKind::String { ref value, .. } => value.iter().rev().fold(
       // start with a null at the end of the list
@@ -486,7 +456,7 @@ fn tr_expr<'hir, 'ast>(
             // first arg is the new expr for the int
             fst: ha.alloc(hir::Expr {
               source,
-              kind: hir::ExprKind::Int(BigInt::from(*x)),
+              kind: hir::ExprKind::Char(*x as u32), // TODO: parse strings by pure unicode
             }),
             // second arg is the current tail of the list
             snd: ha.alloc(acc),
@@ -547,6 +517,7 @@ fn tr_expr<'hir, 'ast>(
         }
       }
     }
+
     ast::ExprKind::Ret {
       label: ref maybe_label,
       ref body,
@@ -562,6 +533,7 @@ fn tr_expr<'hir, 'ast>(
         // let toret = 0;
         // (run defers);
         // ret 'x toret
+
         hir::Expr {
           source,
           kind: hir::ExprKind::LetIn {
@@ -573,7 +545,7 @@ fn tr_expr<'hir, 'ast>(
             val: ha.alloc(body_tr),
 
             // write body
-            body: lookup(label_env, &label).defers.iter().fold(
+            body: lookup(&label_env, &label).defers.clone().iter().fold(
               // the last thing to execute is the actual ret
               ha.alloc(hir::Expr {
                 source,
@@ -582,7 +554,7 @@ fn tr_expr<'hir, 'ast>(
                   // lookup variable introduced earlier
                   value: ha.alloc(hir::Expr {
                     source,
-                    kind: hir::ExprKind::Var(0), // we will grab the most recent bound one
+                    kind: hir::ExprKind::TakeVar(0), // we will grab the most recent bound one
                   }),
                 },
               }),
@@ -649,11 +621,14 @@ fn tr_expr<'hir, 'ast>(
                 } => match fields.entry(identifier) {
                   Entry::Vacant(ve) => {
                     // identifier unique, translate rhs and insert into map
-                    ve.insert(tr_expr(ha, dlogger, right_operand, var_env, label_env));
+                    ve.insert((
+                      operand.as_ref(),
+                      tr_expr(ha, dlogger, right_operand, var_env, label_env),
+                    ));
                   }
                   Entry::Occupied(oe) => {
                     // identifier not unique, log error for using duplicate identifier in struct
-                    dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().source.range);
+                    dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().0.range);
                   }
                 },
 
@@ -784,10 +759,6 @@ fn tr_expr<'hir, 'ast>(
         source,
         kind: hir::ExprKind::Enum(ha.alloc(tr_expr(ha, dlogger, operand, var_env, label_env))),
       },
-      ast::UnaryOpKind::NoInfer => hir::Expr {
-        source,
-        kind: hir::ExprKind::NoInfer(ha.alloc(tr_expr(ha, dlogger, operand, var_env, label_env))),
-      },
       ast::UnaryOpKind::Loop => hir::Expr {
         source,
         kind: hir::ExprKind::Loop(ha.alloc(tr_expr(ha, dlogger, operand, var_env, label_env))),
@@ -828,26 +799,10 @@ fn tr_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::Defun => hir::Expr {
         source,
-        kind:
-        // if argument is boxed with brackets, attempt to infer
-        if let ast::Expr {
-             kind: ast::ExprKind::InferArg(ref inferrable),
-          ..
-        } = **left_operand
-        {
-          // if we found an inferrable param
-          hir::ExprKind::Defun {
-            pattern: ha.alloc(tr_pat(ha, dlogger, inferrable, var_env)),
-            result: ha.alloc(tr_expr(ha, dlogger, right_operand, var_env, label_env)),
-            infer_pattern: true,
-          }
-        } else {
-            // if concrete param
-          hir::ExprKind::Defun {
-            pattern: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-            result: ha.alloc(tr_expr(ha, dlogger, right_operand, var_env, label_env)),
-            infer_pattern: false,
-          }
+        kind: hir::ExprKind::Defun {
+          pattern: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
+          result: ha.alloc(tr_expr(ha, dlogger, right_operand, var_env, label_env)),
+          infer_pattern: false,
         },
       },
       ast::BinaryOpKind::CaseOption => {
@@ -859,32 +814,9 @@ fn tr_expr<'hir, 'ast>(
       }
       ast::BinaryOpKind::Apply => hir::Expr {
         source,
-        // whether to provide inference args or not
-        kind: if let ast::Expr {
-          kind: ast::ExprKind::InferArg(ref inferrable),
-          ..
-        } = **right_operand
-        {
-          // if argument is boxed with brackets, attempt to infer
-          hir::ExprKind::Apply {
-            fun: ha.alloc(hir::Expr {
-              source: left_operand,
-              kind: hir::ExprKind::NoInfer(ha.alloc(tr_expr(
-                ha,
-                dlogger,
-                left_operand,
-                var_env,
-                label_env,
-              ))),
-            }),
-            arg: ha.alloc(tr_expr(ha, dlogger, inferrable, var_env, label_env)),
-          }
-        } else {
-          // otherwise directly add
-          hir::ExprKind::Apply {
-            fun: ha.alloc(tr_expr(ha, dlogger, left_operand, var_env, label_env)),
-            arg: ha.alloc(tr_expr(ha, dlogger, right_operand, var_env, label_env)),
-          }
+        kind: hir::ExprKind::Apply {
+          fun: ha.alloc(tr_expr(ha, dlogger, left_operand, var_env, label_env)),
+          arg: ha.alloc(tr_expr(ha, dlogger, right_operand, var_env, label_env)),
         },
       },
       ast::BinaryOpKind::RevApply => hir::Expr {
@@ -1230,9 +1162,9 @@ fn tr_expr<'hir, 'ast>(
         {
           hir::Expr {
             source,
-            kind: hir::ExprKind::StructAccess {
+            kind: hir::ExprKind::StructFieldTake {
               root: ha.alloc(tr_expr(ha, dlogger, left_operand, var_env, label_env)),
-              field,
+              field: (field, right_operand),
             },
           }
         } else {

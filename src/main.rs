@@ -9,8 +9,8 @@ mod dlogger;
 mod hir;
 mod hirbuilder;
 mod hireval;
-mod thir;
-mod thirbuilder;
+//mod thir;
+//mod thirbuilder;
 mod token;
 mod tokenize;
 
@@ -21,7 +21,7 @@ use std::io::Read;
 use astbuilder::construct_ast;
 use dlogger::DiagnosticLog;
 use hirbuilder::construct_hir;
-use thirbuilder::construct_thir;
+//use thirbuilder::construct_thir;
 use tokenize::tokenize;
 
 fn main() {
@@ -37,11 +37,11 @@ fn main() {
     log.get_logger(Some(String::from("acnc-hir"))),
   );
 
-  let thir = construct_thir(
-    &hir,
-    &allocator,
-    log.get_logger(Some(String::from("acnc-thir"))),
-  );
+  // let thir = construct_thir(
+  //   &hir,
+  //   &allocator,
+  //   log.get_logger(Some(String::from("acnc-thir"))),
+  // );
 
-  dbg!(thir);
+  // dbg!(thir);
 }

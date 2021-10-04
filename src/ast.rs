@@ -72,7 +72,6 @@ pub enum BinaryOpKind {
 #[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]
 pub enum UnaryOpKind {
   // Function noninference
-  NoInfer,
   // Math
   Negate,
   Posit,
@@ -88,7 +87,6 @@ pub enum UnaryOpKind {
   // Compound type manipulation
   Struct,
   Enum,
-  New,
   // syntactic constructs
   Loop,
   // (PATTERN ONLY) computes a value in a pattern
@@ -146,8 +144,6 @@ pub enum ExprKind {
   },
   // Introduces new scope and label
   Group(Box<Expr>),
-  // Provides an argument to infer
-  InferArg(Box<Expr>),
   // A reference to a previously defined variable
   Reference(Vec<u8>),
 }

@@ -1,5 +1,5 @@
 use super::ast;
-use super::thir;
+//use super::thir;
 use super::token::TokenKind;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticRelatedInformation;
@@ -503,26 +503,26 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_not_callable<A: Allocator + Clone>(
-    &mut self,
-    range: Range,
-    got_type: &thir::Ty<'_, A>,
-  ) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::Error),
-      code: Some(NumberOrString::Number(28)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!(
-        "expected function type but found type {}, which is not callable",
-        got_type
-      ),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
+  // pub fn log_not_callable<A: Allocator + Clone>(
+  //   &mut self,
+  //   range: Range,
+  //   got_type: &thir::Ty<'_, A>,
+  // ) {
+  //   self.log(Diagnostic {
+  //     range,
+  //     severity: Some(DiagnosticSeverity::Error),
+  //     code: Some(NumberOrString::Number(28)),
+  //     code_description: None,
+  //     source: self.source.clone(),
+  //     message: format!(
+  //       "expected function type but found type {}, which is not callable",
+  //       got_type
+  //     ),
+  //     related_information: None,
+  //     tags: None,
+  //     data: None,
+  //   })
+  // }
 
   pub fn log_unused_label(&mut self, range: Range) {
     self.log(Diagnostic {

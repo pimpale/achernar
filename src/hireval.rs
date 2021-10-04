@@ -66,10 +66,6 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   F32Ty,
   F64Ty,
 
-  // Type of reference to a variable
-  RefTy(Box<Val<'hir, 'ast, TA>>),
-  MutRefTy(Box<Val<'hir, 'ast, TA>>),
-
   // This is also known as a sigma type
   ConsTy {
     fst: Box<Val<'hir, 'ast, TA>>,
@@ -111,11 +107,11 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   // path of a level
   Ref {
     debruijn_level: usize,
-    fields: Vec<&'ast Vec<u8>>,
+    path_elems: Vec<&'ast Vec<u8>>,
   },
   MutRef {
     debruijn_level: usize,
-    fields: Vec<&'ast Vec<u8>>,
+    path_elems: Vec<&'ast Vec<u8>>,
   },
 
   Never {
@@ -169,8 +165,6 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::I64Ty => "I64".to_owned(),
       Val::F32Ty => "F32".to_owned(),
       Val::F64Ty => "F64".to_owned(),
-      Val::RefTy(ty)=> format!("Ref({})", ty),
-      Val::MutRefTy(ty) => format!("MutRef({})", ty),
       Val::ConsTy { fst, snd } => format!("(Cons {} {})", fst, snd),
       Val::StructTy(h) => format!(
         "struct({{ {} }})",
@@ -242,10 +236,10 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::Fun(c) => c.to_string(),
       Val::Ref {
         debruijn_level,
-        fields,
+        path_elems,
       } => {
         let mut fieldstr = String::new();
-        for x in fields {
+        for x in path_elems{
           fieldstr.push('.');
           fieldstr += std::str::from_utf8(x).unwrap();
         }
@@ -253,10 +247,10 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       }
       Val::MutRef {
         debruijn_level,
-        fields,
+        path_elems,
       } => {
         let mut fieldstr = String::new();
-        for x in fields {
+        for x in path_elems{
           fieldstr.push('.');
           fieldstr += std::str::from_utf8(x).unwrap();
         }
@@ -608,7 +602,7 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
     hir::ExprKind::StructFieldTake {
       root,
       field: (field, field_source),
-    } => match eval(root, var_env, min_mut_level) {
+    } => match &mut eval(root, var_env, min_mut_level) {
       Val::Struct(fields) => {
         if let Some(Var { kind, source }) = fields.get_mut(field) {
           match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
@@ -628,19 +622,77 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       root,
       field: (field, field_source),
     } => {
-      let fields = match eval(root, var_env, min_mut_level) {
-        Val::Struct(ref mut fields) => fields,
+      let mut root_val = eval(root, var_env, min_mut_level);
+
+      // now we have to extract information that depends on the source
+      let (fields, debruijn_level, path_elems) = match root_val {
+        Val::TakeVar(debruijn_level) => (fields, ,
         Val::MutRef {
           debruijn_level,
-          fields,
+          path_elems,
         } => {
-          let Var { ref mut kind, .. } = get_mut_ref_var(debruijn_level, &fields, var_env);
+        }
+        // throw error that we can't mutably borrow from here
+        _ => unimplemented!(),
+      };
+
+
+     let Var { ref mut kind, .. } = get_mut_ref_var(debruijn_level, &path_elems, var_env);
+     let fields = match kind {
+       // here we deal with the potential status of the root struct
+       VarKind::Unborrowed {
+         val: Val::Struct(ref mut fields),
+         ..
+       } => fields,
+       VarKind::MutablyBorrowed {
+         val: Val::Struct(fields),
+         ..
+       } => fields,
+       // can't mutably borrow if the base is immutably borrowed already
+       // or if it has been moved out
+       VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+       VarKind::MovedOut { .. } => unimplemented!(),
+       // means that the center wasn't a structo
+       _ => unimplemented!(),
+     }
+
+
+      if let Some(Var { kind, .. }) = fields.get_mut(field) {
+          // now replace var
+          match kind {
+            VarKind::Unborrowed { val } => {
+                *kind = VarKind::MutablyBorrowed {val: *val, borrow: e.source};
+            },
+            VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+            VarKind::MutablyBorrowed { .. } => unimplemented!(),
+            VarKind::MovedOut { .. } => unimplemented!(),
+          }
+
+          // return the mutable ref
+          Val::MutRef{ debruijn_level, path_elems: vec![] }
+      } else {
+        // throw error that no such field exists
+        unimplemented!()
+      }
+    }
+    hir::ExprKind::StructFieldBorrow {
+      root,
+      field: (field, field_source),
+    } => {
+      let mut root_val = eval(root, var_env, min_mut_level);
+      let fields = match root_val {
+        Val::Struct(ref mut fields) => fields,
+        Val::Ref {
+          debruijn_level,
+          path_elems,
+        } => {
+          let Var { ref mut kind, .. } = get_ref_var(debruijn_level, &path_elems, var_env);
           match kind {
             VarKind::Unborrowed {
               val: Val::Struct(ref mut fields),
               ..
             } => fields,
-            VarKind::MutablyBorrowed {
+            VarKind::ImmutablyBorrowed {
               val: Val::Struct(fields),
               ..
             } => fields,
@@ -652,6 +704,8 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
             _ => unimplemented!(),
           }
         }
+        // throw error that we can't mutably borrow from here
+        _ => unimplemented!(),
       };
 
       if let Some(Var { kind, .. }) = fields.get_mut(field) {
@@ -665,7 +719,7 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
         // throw error that no such field exists
         unimplemented!()
       }
-    }
+    },
     hir::ExprKind::TakeVar(debruijn_index) => {
       let debruijn_level = var_env.len() - debruijn_index;
 
@@ -685,6 +739,30 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
         VarKind::MovedOut { .. } => unimplemented!(),
       }
     }
+    hir::ExprKind::MutBorrowVar(debruijn_index) => {
+      let debruijn_level = var_env.len() - debruijn_index;
+
+      if debruijn_level < min_mut_level {
+        // TODO: throw error that this variable may not be mutably since it
+        // is outside the mutable limit
+        unimplemented!();
+      }
+
+      let Var { kind, .. } = &mut var_env[debruijn_level];
+
+      // now replace var
+      match kind {
+        VarKind::Unborrowed { val } => {
+            *kind = VarKind::MutablyBorrowed {val: *val, borrow: e.source};
+        },
+        VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+        VarKind::MutablyBorrowed { .. } => unimplemented!(),
+        VarKind::MovedOut { .. } => unimplemented!(),
+      }
+      // return the mutable ref
+      Val::MutRef{ debruijn_level, fields: vec![] }
+    },
+    hir::ExprKind::BorrowVar(_) => todo!(),
     // TODO: how to deal with the typing being different for synth and check
     hir::ExprKind::Annotate { expr, ty } => {
       // calculate type
@@ -708,6 +786,31 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       case_options,
       source,
     } => Val::Nil,
+    hir::ExprKind::Universe(_) => todo!(),
+    hir::ExprKind::NilTy => todo!(),
+    hir::ExprKind::NeverTy => todo!(),
+    hir::ExprKind::BoolTy => todo!(),
+    hir::ExprKind::U8Ty => todo!(),
+    hir::ExprKind::U16Ty => todo!(),
+    hir::ExprKind::U32Ty => todo!(),
+    hir::ExprKind::U64Ty => todo!(),
+    hir::ExprKind::I8Ty => todo!(),
+    hir::ExprKind::I16Ty => todo!(),
+    hir::ExprKind::I32Ty => todo!(),
+    hir::ExprKind::I64Ty => todo!(),
+    hir::ExprKind::F32Ty => todo!(),
+    hir::ExprKind::F64Ty => todo!(),
+    hir::ExprKind::Nil => todo!(),
+    hir::ExprKind::Bool(_) => todo!(),
+    hir::ExprKind::Char(_) => todo!(),
+    hir::ExprKind::Int(_) => todo!(),
+    hir::ExprKind::Float(_) => todo!(),
+    hir::ExprKind::Struct(_) => todo!(),
+    hir::ExprKind::Enum(_) => todo!(),
+    hir::ExprKind::Cons { fst, snd } => todo!(),
+    hir::ExprKind::Defun { pattern, result, infer_pattern } => todo!(),
+    hir::ExprKind::Sequence { fst, snd } => todo!(),
+    hir::ExprKind::LetIn { pat, val, body } => todo!(),
   }
 }
 

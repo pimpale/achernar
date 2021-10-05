@@ -34,7 +34,6 @@ pub enum BinaryOpKind {
   Mul,
   Div,
   Rem,
-  Pow,
   // Booleans
   And,
   Or,
@@ -45,17 +44,8 @@ pub enum BinaryOpKind {
   LessEqual,
   Greater,
   GreaterEqual,
-  // Set Operations
-  RelativeComplement,
-  Union,
-  Intersection,
-  SymmetricDifference,
-  In,
-  // List Operations
-  Append,
   // Type Manipulation
   Cons,
-  SuchThat,
   // Range
   Range,
   RangeInclusive,
@@ -69,19 +59,15 @@ pub enum BinaryOpKind {
   ModuleAccess,
 }
 
+// none of these are overloadable "unary operators" in the traditional sense,
+// all of them are syntax
 #[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]
 pub enum UnaryOpKind {
-  // Function noninference
-  // Math
-  Negate,
-  Posit,
   // Memory Referencing
   Ref,
+  MutRef,
   Deref,
-  // Boolean
-  Not,
-  // Set Operations
-  Complement,
+
   // Optional Manipulation
   ReturnOnError,
   // Compound type manipulation
@@ -145,7 +131,7 @@ pub enum ExprKind {
   // Introduces new scope and label
   Group(Box<Expr>),
   // A reference to a previously defined variable
-  Reference(Vec<u8>),
+  Identifier(Vec<u8>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

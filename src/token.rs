@@ -32,22 +32,11 @@ pub enum TokenKind {
   Mul,   // *
   Div,   // /
   Rem,   // %
-  Pow,   // **
   // Boolean Operators
-  Not, // not
   And, // and
   Or,  // or
   // Error manipulation
   ReturnOnError, // ?
-  // Set Operators (also work on bitvectors)
-  Complement,          // ~
-  RelativeComplement,  // \
-  Union,               // \/
-  Intersection,        // /\
-  SymmetricDifference, // ^
-  In,                  // in
-  // List operators
-  Append, // ++ append
   // Type operators
   Cons,     // ,
   SuchThat, // |
@@ -65,6 +54,7 @@ pub enum TokenKind {
   Assign, // =
   // Reference
   Ref,   // &
+  MutRef,// &*
   Deref, // @
   // labels
   Label(Vec<u8>), // 'x

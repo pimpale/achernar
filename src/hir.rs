@@ -14,54 +14,48 @@ pub enum CaseSource {
 // HA -> HirAllocator
 
 #[derive(Debug)]
-pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
+pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Error in parsing
   Error,
   // Loops until a scope is returned
-  Loop(&'hir Expr<'hir, 'ast, HA>),
+  Loop(&'hir ValExpr<'hir, 'ast, HA>),
   // applies a function
   Apply {
-    fun: &'hir Expr<'hir, 'ast, HA>,
-    arg: &'hir Expr<'hir, 'ast, HA>,
+    fun: &'hir ValExpr<'hir, 'ast, HA>,
+    arg: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Wraps a term in a label that can be deferred or returned from
-  Label (&'hir Expr<'hir, 'ast, HA>),
+  Label (&'hir ValExpr<'hir, 'ast, HA>),
   // Returns from a scope with a value
   Ret {
     labels_up: usize,
-    value: &'hir Expr<'hir, 'ast, HA>,
+    value: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  StructLiteral(Vec<(&'ast Vec<u8> , (&'ast ast::Expr, Expr<'hir, 'ast, HA>)), HA>),
-  // Accessing the module of a module object
-  StructFieldTake {
-    root: &'hir Expr<'hir, 'ast, HA>,
-    field: (&'ast Vec<u8>, &'ast ast::Expr)
-  },
-  StructFieldBorrow {
-    root: &'hir Expr<'hir, 'ast, HA>,
-    field: (&'ast Vec<u8>, &'ast ast::Expr)
-  },
-  StructFieldMutBorrow {
-    root: &'hir Expr<'hir, 'ast, HA>,
-    field: (&'ast Vec<u8>, &'ast ast::Expr)
+  StructLiteral(Vec<(&'ast Vec<u8> , (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
+
+  // takes the value from a value struct
+  StructField {
+    root: &'hir PlaceExpr<'hir, 'ast, HA>,
+    field: &'ast ast::Expr,
+    field_source: &'ast Vec<u8>
   },
 
-  // A reference to a previously defined variable
-  // debruijin index
-  TakeVar(usize),
-  BorrowVar(usize),
-  MutBorrowVar(usize),
 
-  // Constrain the value
+  // discards the rest of the fields
+  Take(&'hir PlaceExpr<'hir, 'ast, HA>),
+  Borrow( &'hir PlaceExpr<'hir, 'ast, HA>),
+  MutBorrow( &'hir PlaceExpr<'hir, 'ast, HA>),
+
+  // Annotate the value with the type
   Annotate {
-    expr: &'hir Expr<'hir, 'ast, HA>,
-    ty: &'hir Expr<'hir, 'ast, HA>,
+    val_expr: &'hir ValExpr<'hir, 'ast, HA>,
+    ty_expr: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Switches on a pattern
   CaseOf {
-    expr: &'hir Expr<'hir, 'ast, HA>,
-    case_options: Vec<(Pat<'hir, 'ast, HA>, Expr<'hir, 'ast, HA>), HA>,
+    expr: &'hir PlaceExpr<'hir, 'ast, HA>,
+    case_options: Vec<(Pat<'hir, 'ast, HA>, ValExpr<'hir, 'ast, HA>), HA>,
     source: CaseSource,
   },
 
@@ -89,37 +83,61 @@ pub enum ExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   // Type stuff
   // creates a pub struct from an ad hoc compound object
-  Struct(&'hir Expr<'hir, 'ast, HA>),
+  Struct(&'hir ValExpr<'hir, 'ast, HA>),
   // creates a disjoint union from an ad hoc compound object
-  Enum(&'hir Expr<'hir, 'ast, HA>),
+  Enum(&'hir ValExpr<'hir, 'ast, HA>),
   // creates a tuple
   Cons {
-    fst: &'hir Expr<'hir, 'ast, HA>,
-    snd: &'hir Expr<'hir, 'ast, HA>,
+    fst: &'hir ValExpr<'hir, 'ast, HA>,
+    snd: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Create Function
   Defun {
     pattern: &'hir Pat<'hir, 'ast, HA>,
-    result: &'hir Expr<'hir, 'ast, HA>,
+    result: &'hir ValExpr<'hir, 'ast, HA>,
     infer_pattern: bool,
   },
   // Sequence
   Sequence {
-    fst: &'hir Expr<'hir, 'ast, HA>,
-    snd: &'hir Expr<'hir, 'ast, HA>,
+    fst: &'hir ValExpr<'hir, 'ast, HA>,
+    snd: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Assign value to place
   LetIn {
     pat: &'hir Pat<'hir, 'ast, HA>,
-    val: &'hir Expr<'hir, 'ast, HA>,
-    body: &'hir Expr<'hir, 'ast, HA>,
+    val: &'hir ValExpr<'hir, 'ast, HA>,
+    body: &'hir ValExpr<'hir, 'ast, HA>,
   },
 }
 
 #[derive(Debug)]
-pub struct Expr<'hir, 'ast, HA: Allocator + Clone> {
+pub struct ValExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
-  pub kind: ExprKind<'hir, 'ast, HA>,
+  pub kind: ValExprKind<'hir, 'ast, HA>,
+}
+
+#[derive(Debug)]
+pub enum PlaceExprKind<'hir, 'ast, HA: Allocator + Clone> {
+  Error,
+  // creates
+  StructField {
+    root: &'hir PlaceExpr<'hir, 'ast, HA>,
+    field: &'ast ast::Expr,
+    field_source: &'ast Vec<u8>
+  },
+
+  // dereferncing a pointer gives a place
+  Deref(&'hir ValExpr<'hir, 'ast, HA>),
+
+  // A reference to a previously defined variable
+  // debruijin index
+  Var(usize)
+}
+
+#[derive(Debug)]
+pub struct PlaceExpr<'hir, 'ast, HA: Allocator + Clone> {
+  pub source: &'ast ast::Expr,
+  pub kind: PlaceExprKind<'hir, 'ast, HA>,
 }
 
 #[derive(Debug)]
@@ -135,13 +153,13 @@ pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
   // match with a variety of types
   Range {
     inclusive: bool,
-    left_operand: &'hir Expr<'hir, 'ast, HA>,
-    right_operand: &'hir Expr<'hir, 'ast, HA>,
+    left_operand: &'hir ValExpr<'hir, 'ast, HA>,
+    right_operand: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // constrains the type of a value
   Annotate {
     pattern: &'hir Pat<'hir, 'ast, HA>,
-    ty: &'hir Expr<'hir, 'ast, HA>,
+    ty: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // destructure a tuple
   Cons {
@@ -152,11 +170,11 @@ pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
   // The result is then refutably matched with the argument provided
   // Example: Array($a, $b, $c) = someFunc();
   ActivePattern {
-    fun: &'hir Expr<'hir, 'ast, HA>,
+    fun: &'hir ValExpr<'hir, 'ast, HA>,
     arg: &'hir Pat<'hir, 'ast, HA>,
   },
   // Refutable pattern of a value
-  Value(&'hir Expr<'hir, 'ast, HA>),
+  Value(&'hir ValExpr<'hir, 'ast, HA>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables
   And {

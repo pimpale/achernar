@@ -82,8 +82,6 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"as" => TokenKind::As,
       b"inf" => TokenKind::Inf,
       b"nan" => TokenKind::Nan,
-      b"in" => TokenKind::In,
-      b"not" => TokenKind::Not,
       b"and" => TokenKind::And,
       b"or" => TokenKind::Or,
       b"struct" => TokenKind::Struct,
@@ -488,7 +486,6 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
           _ => return Some(self.lex_string()),
         },
         Some(b'+') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'+') => return Some(self.lex_simple_token(TokenKind::Append, 2)),
           Some(b'0'..=b'9') => return Some(self.lex_number()),
           _ => return Some(self.lex_simple_token(TokenKind::Plus, 1)),
         },
@@ -504,7 +501,10 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
           Some(b':') => return Some(self.lex_simple_token(TokenKind::ModuleAccess, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::Constrain, 1)),
         },
-        Some(b'&') => return Some(self.lex_simple_token(TokenKind::Ref, 1)),
+        Some(b'&') => match self.source.peek_nth(1).unwrap().0 {
+          Some(b'*') => return Some(self.lex_simple_token(TokenKind::MutRef, 2)),
+          _ => return Some(self.lex_simple_token(TokenKind::Ref, 1)),
+        },
         Some(b'@') => return Some(self.lex_simple_token(TokenKind::Deref, 1)),
         Some(b'|') => match self.source.peek_nth(1).unwrap().0 {
           Some(b'>') => return Some(self.lex_simple_token(TokenKind::PipeForward, 2)),
@@ -530,25 +530,12 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
           Some(b'=') => return Some(self.lex_simple_token(TokenKind::GreaterEqual, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::Greater, 1)),
         },
-        Some(b'~') => return Some(self.lex_simple_token(TokenKind::Complement, 1)),
-        Some(b'^') => return Some(self.lex_simple_token(TokenKind::SymmetricDifference, 1)),
-        Some(b'/') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'\\') => return Some(self.lex_simple_token(TokenKind::Intersection, 2)),
-          _ => return Some(self.lex_simple_token(TokenKind::Div, 1)),
-        },
-        Some(b'\\') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'/') => return Some(self.lex_simple_token(TokenKind::Union, 2)),
-          _ => return Some(self.lex_simple_token(TokenKind::RelativeComplement, 1)),
-        },
         Some(b'.') => match self.source.peek_nth(1).unwrap().0 {
           Some(b'.') => return Some(self.lex_simple_token(TokenKind::Range, 2)),
           Some(b'=') => return Some(self.lex_simple_token(TokenKind::RangeInclusive, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::RevApply, 1)),
         },
-        Some(b'*') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'*') => return Some(self.lex_simple_token(TokenKind::Pow, 2)),
-          _ => return Some(self.lex_simple_token(TokenKind::Mul, 1)),
-        },
+        Some(b'*') => return Some(self.lex_simple_token(TokenKind::Mul, 1)),
         Some(b'?') => return Some(self.lex_simple_token(TokenKind::ReturnOnError, 1)),
         Some(b'%') => return Some(self.lex_simple_token(TokenKind::Rem, 1)),
         Some(b'(') => return Some(self.lex_simple_token(TokenKind::ParenLeft, 1)),

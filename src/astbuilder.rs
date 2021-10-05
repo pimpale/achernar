@@ -279,7 +279,7 @@ fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
     Expr {
       metadata,
       range,
-      kind: ExprKind::Reference(identifier),
+      kind: ExprKind::Identifier(identifier),
     }
   } else {
     unimplemented!()
@@ -570,11 +570,8 @@ fn parse_term<TkIter: Iterator<Item = Token>>(
 
 fn decide_prefix(tkkind: &TokenKind) -> Option<UnaryOpKind> {
   match tkkind {
-    TokenKind::Ref => Some(UnaryOpKind::Ref),
-    TokenKind::Deref => Some(UnaryOpKind::Deref),
     TokenKind::Struct => Some(UnaryOpKind::Struct),
     TokenKind::Enum => Some(UnaryOpKind::Enum),
-    TokenKind::Not => Some(UnaryOpKind::Not),
     TokenKind::Loop => Some(UnaryOpKind::Loop),
     TokenKind::Val => Some(UnaryOpKind::Val),
     TokenKind::Bind => Some(UnaryOpKind::Bind),
@@ -603,6 +600,9 @@ fn parse_suffix_operators<TkIter: Iterator<Item = Token>>(
     dlogger,
     parse_prefix_operators,
     simple_operator_fn(|x| match x {
+      TokenKind::Ref => Some(UnaryOpKind::Ref),
+      TokenKind::MutRef => Some(UnaryOpKind::MutRef),
+      TokenKind::Deref => Some(UnaryOpKind::Deref),
       TokenKind::ReturnOnError => Some(UnaryOpKind::ReturnOnError),
       _ => None,
     }),
@@ -689,21 +689,6 @@ fn parse_constrain<TkIter: Iterator<Item = Token>>(
   )
 }
 
-fn parse_pow<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_r_binary_op(
-    tkiter,
-    dlogger,
-    parse_constrain,
-    simple_operator_fn(|x| match x {
-      TokenKind::Pow => Some(BinaryOpKind::Pow),
-      _ => None,
-    }),
-  )
-}
-
 fn parse_multiplication_operators<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -711,7 +696,7 @@ fn parse_multiplication_operators<TkIter: Iterator<Item = Token>>(
   parse_l_binary_op(
     tkiter,
     dlogger,
-    parse_pow,
+    parse_constrain,
     simple_operator_fn(|x| match x {
       TokenKind::Mul => Some(BinaryOpKind::Mul),
       TokenKind::Div => Some(BinaryOpKind::Div),
@@ -788,7 +773,7 @@ fn parse_compose<TkIter: Iterator<Item = Token>>(
   )
 }
 
-fn parse_binary_list_operators<TkIter: Iterator<Item = Token>>(
+fn parse_binary_type_operators<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
@@ -797,41 +782,7 @@ fn parse_binary_list_operators<TkIter: Iterator<Item = Token>>(
     dlogger,
     parse_compose,
     simple_operator_fn(|x| match x {
-      TokenKind::Append => Some(BinaryOpKind::Append),
-      _ => None,
-    }),
-  )
-}
-
-fn parse_binary_set_operators<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_l_binary_op(
-    tkiter,
-    dlogger,
-    parse_binary_list_operators,
-    simple_operator_fn(|x| match x {
-      TokenKind::RelativeComplement => Some(BinaryOpKind::RelativeComplement),
-      TokenKind::Union => Some(BinaryOpKind::Union),
-      TokenKind::Intersection => Some(BinaryOpKind::Intersection),
-      TokenKind::SymmetricDifference => Some(BinaryOpKind::SymmetricDifference),
-      _ => None,
-    }),
-  )
-}
-
-fn parse_binary_type_operators<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_l_binary_op(
-    tkiter,
-    dlogger,
-    parse_binary_set_operators,
-    simple_operator_fn(|x| match x {
       TokenKind::Cons => Some(BinaryOpKind::Cons),
-      TokenKind::SuchThat => Some(BinaryOpKind::SuchThat),
       _ => None,
     }),
   )

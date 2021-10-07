@@ -677,18 +677,16 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
 
       // now replace var
       let newkind = match kind {
-        VarKind::Unborrowed { val } => {
-          VarKind::ImmutablyBorrowed {
-            val: std::mem::replace(val, Val::Nil),
-            borrows: vec![e.source],
-          }
-        }
+        VarKind::Unborrowed { val } => VarKind::ImmutablyBorrowed {
+          val: std::mem::replace(val, Val::Nil),
+          borrows: vec![e.source],
+        },
         VarKind::ImmutablyBorrowed { val, borrows } => {
           let mut newborrows = vec![e.source];
           newborrows.append(borrows);
           VarKind::ImmutablyBorrowed {
             val: std::mem::replace(val, Val::Nil),
-            borrows: newborrows
+            borrows: newborrows,
           }
         }
         //
@@ -720,9 +718,9 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       Ok(val)
     }
     hir::ValExprKind::CaseOf {
-     ref expr,
-     ref case_options,
-     ref source,
+      ref expr,
+      ref case_options,
+      ref source,
     } => Ok(Val::Nil),
     hir::ValExprKind::Universe(n) => Ok(Val::Universe(n)),
     hir::ValExprKind::NilTy => Ok(Val::NilTy),

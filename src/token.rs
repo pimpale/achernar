@@ -53,9 +53,9 @@ pub enum TokenKind {
   // Assignment
   Assign, // =
   // Reference
-  Ref,   // &
-  MutRef,// &*
-  Deref, // @
+  Ref,    // &
+  MutRef, // &*
+  Deref,  // @
   // labels
   Label(Vec<u8>), // 'x
   // Arrows

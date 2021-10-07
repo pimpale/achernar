@@ -137,22 +137,32 @@ fn tr_pat<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-) -> hir::Pat<'hir, 'ast, &'hir Bump> {
+) -> (
+  hir::Pat<'hir, 'ast, &'hir Bump>,
+  Vec<(&'ast [u8], VarScope<'ast>)>,
+) {
   match source.kind {
     // propagate error
-    ast::ExprKind::Error => hir::Pat {
+    ast::ExprKind::Error =>
+        (
+        hir::Pat {
       source,
       kind: hir::PatKind::Error,
     },
+    vec![]
+    )
+    ,
     // transparent valueification
     ast::ExprKind::Nil
     | ast::ExprKind::Bool(_)
     | ast::ExprKind::Int(_)
     | ast::ExprKind::Float(_)
-    | ast::ExprKind::String { .. } => hir::Pat {
+    | ast::ExprKind::String { .. } => (
+    hir::Pat {
       source,
       kind: hir::PatKind::Value(ha.alloc(tr_val_expr(ha, dlogger, source, var_env, &mut vec![]))),
-    },
+    }, vec![])
+    ,
     // reject use in pattern without explicit `val`
     ref
     c
@@ -163,10 +173,13 @@ fn tr_pat<'hir, 'ast>(
     | ast::ExprKind::Ret { .. }
     | ast::ExprKind::CaseOf { .. }) => {
       dlogger.log_unexpected_in_pattern(source.range, c);
-      hir::Pat {
+      (
+          hir::Pat {
         source,
         kind: hir::PatKind::Error,
-      }
+      },
+      vec![]
+      )
     }
     // elide groups
     ast::ExprKind::Group(ref body) => tr_pat(ha, dlogger, body, var_env),
@@ -176,6 +189,7 @@ fn tr_pat<'hir, 'ast>(
 
       // depth first search of binary tree
       let mut sequences = vec![body];
+      let mut bindings = vec![];
 
       while let Some(current) = sequences.pop() {
         match current.kind {
@@ -206,7 +220,9 @@ fn tr_pat<'hir, 'ast>(
                 } => match patterns.entry(identifier) {
                   Entry::Vacant(ve) => {
                     // identifier unique, translate rhs and insert into map
-                    ve.insert(tr_pat(ha, dlogger, right_operand, var_env));
+                    let (field_pat, field_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
+                    ve.insert(field_pat);
+                    bindings.extend(field_bindings);
                   }
                   Entry::Occupied(oe) => {
                     // identifier not unique, log error for using duplicate identifier in struct
@@ -237,28 +253,41 @@ fn tr_pat<'hir, 'ast>(
         }
       }
       // return struct
-      hir::Pat {
+      (
+          hir::Pat {
         source,
-        kind: hir::PatKind::StructLiteral(new_vec_from(ha, patterns.drain())),
-      }
+        kind: hir::PatKind::StructLiteral(new_vec_from(ha, patterns.into_iter())),
+      },
+      bindings
+      )
     }
     ast::ExprKind::UnaryOp {
       ref op,
       ref operand,
     } => match op {
       // TODO: use the ref / deref laws to optimize this
-      ast::UnaryOpKind::Ref => hir::Pat {
-        source,
-        kind: hir::PatKind::ActivePattern {
-          fun: ha.alloc(gen_take(
-            source,
-            gen_var_place(source, b"_ref", dlogger, var_env),
-            ha,
-          )),
-          arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
-        },
+      ast::UnaryOpKind::Ref => {
+          let (arg_pat, arg_bindings) =tr_pat(ha, dlogger, operand, var_env);
+          (
+              hir::Pat {
+                source,
+                kind: hir::PatKind::ActivePattern {
+                  fun: ha.alloc(gen_take(
+                    source,
+                    gen_var_place(source, b"_ref", dlogger, var_env),
+                    ha,
+                  )),
+                  arg: ha.alloc(arg_pat),
+                },
+              },
+                arg_bindings
+          )
       },
-      ast::UnaryOpKind::MutRef => hir::Pat {
+      ast::UnaryOpKind::MutRef => {
+          let (arg_pat, arg_bindings) =tr_pat(ha, dlogger, operand, var_env);
+
+        (
+            hir::Pat {
         source,
         kind: hir::PatKind::ActivePattern {
           fun: ha.alloc(gen_take(
@@ -266,10 +295,17 @@ fn tr_pat<'hir, 'ast>(
             gen_var_place(source, b"_mut_ref", dlogger, var_env),
             ha,
           )),
-          arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
+          arg: ha.alloc(arg_pat),
         },
       },
-      ast::UnaryOpKind::Deref => hir::Pat {
+      arg_bindings
+        )
+      },
+      ast::UnaryOpKind::Deref => {
+          let (arg_pat, arg_bindings) =tr_pat(ha, dlogger, operand, var_env);
+
+        (
+            hir::Pat {
         source,
         kind: hir::PatKind::ActivePattern {
           fun: ha.alloc(gen_take(
@@ -277,10 +313,14 @@ fn tr_pat<'hir, 'ast>(
             gen_var_place(source, b"_deref", dlogger, var_env),
             ha,
           )),
-          arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
+          arg: ha.alloc(arg_pat),
         },
       },
-      ast::UnaryOpKind::Val => hir::Pat {
+      arg_bindings
+        )
+      },
+      ast::UnaryOpKind::Val => (
+          hir::Pat {
         source,
         kind: hir::PatKind::Value(ha.alloc(tr_val_expr(
           ha,
@@ -289,25 +329,20 @@ fn tr_pat<'hir, 'ast>(
           var_env,
           &mut vec![],
         ))),
-      },
+      }, vec![]
+      ),
       ast::UnaryOpKind::Bind => match **operand {
         // binds a variable to an identifier
         ast::Expr {
-          kind: ast::ExprKind::Identifier(ref identifier), //TODO: we need to bind here
+          kind: ast::ExprKind::Identifier(ref identifier),
           ..
-        } => hir::Pat {
-          source,
-          kind: hir::PatKind::BindVariable,
-        },
+        } => ( hir::Pat { source, kind: hir::PatKind::BindVariable, }, vec![(identifier, VarScope { declaration: Some(operand) })]),
         // handle error
         ast::Expr {
           range, ref kind, ..
         } => {
           dlogger.log_unexpected_bind_target(range, kind);
-          hir::Pat {
-            source,
-            kind: hir::PatKind::Error,
-          }
+        (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
         }
       },
       // these operators must be valified
@@ -318,10 +353,7 @@ fn tr_pat<'hir, 'ast>(
       | ast::UnaryOpKind::Enum
       | ast::UnaryOpKind::Loop) => {
         dlogger.log_unexpected_unop_in_pattern(source.range, c);
-        hir::Pat {
-          source,
-          kind: hir::PatKind::Error,
-        }
+        (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
       }
     },
     ast::ExprKind::BinaryOp {
@@ -329,35 +361,72 @@ fn tr_pat<'hir, 'ast>(
       ref left_operand,
       ref right_operand,
     } => match op {
-      ast::BinaryOpKind::Apply => hir::Pat {
+      ast::BinaryOpKind::Apply => {
+          let (arg_pat, arg_bindings) = tr_pat(ha, dlogger, right_operand, var_env);
+          (hir::Pat {
         source,
         kind: hir::PatKind::ActivePattern {
           fun: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
-          arg: ha.alloc(tr_pat(ha, dlogger, right_operand, var_env)),
-        },
+          arg: ha.alloc(arg_pat),
+        }
+      }, arg_bindings)
       },
-      ast::BinaryOpKind::And => hir::Pat {
-        source,
-        kind: hir::PatKind::And {
-          left_operand: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-          right_operand: ha.alloc(tr_pat(ha, dlogger, right_operand, var_env)),
-        },
+      ast::BinaryOpKind::And => {
+          let (left_pat, left_bindings) =tr_pat(ha, dlogger, left_operand, var_env);
+          let (right_pat, right_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
+
+          (
+              hir::Pat {
+           source,
+           kind: hir::PatKind::And{
+             left_operand: ha.alloc(left_pat),
+             right_operand: ha.alloc(right_pat),
+           }
+              },
+
+              // join them together
+              left_bindings.into_iter().chain(right_bindings.into_iter()).collect()
+
+           )
       },
-      ast::BinaryOpKind::Or => hir::Pat {
-        source,
-        kind: hir::PatKind::Or {
-          left_operand: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-          right_operand: ha.alloc(tr_pat(ha, dlogger, right_operand, var_env)),
-        },
+      ast::BinaryOpKind::Or => {
+          let (left_pat, left_bindings) =tr_pat(ha, dlogger, left_operand, var_env);
+          let (right_pat, right_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
+
+          (
+              hir::Pat {
+           source,
+           kind: hir::PatKind::Or {
+             left_operand: ha.alloc(left_pat),
+             right_operand: ha.alloc(right_pat),
+           }
+              },
+
+              // join them together
+              left_bindings.into_iter().chain(right_bindings.into_iter()).collect()
+
+           )
       },
-      ast::BinaryOpKind::Cons => hir::Pat {
-        source,
-        kind: hir::PatKind::Cons {
-          fst: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-          snd: ha.alloc(tr_pat(ha, dlogger, right_operand, var_env)),
-        },
+      ast::BinaryOpKind::Cons => {
+          let (fst_pat, fst_bindings) =tr_pat(ha, dlogger, left_operand, var_env);
+          let (snd_pat, snd_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
+
+          (
+              hir::Pat {
+           source,
+           kind: hir::PatKind::Cons {
+             fst: ha.alloc(fst_pat),
+             snd: ha.alloc(snd_pat),
+           }
+              },
+
+              // join them together
+              fst_bindings.into_iter().chain(snd_bindings.into_iter()).collect()
+
+           )
       },
-      ast::BinaryOpKind::Range => hir::Pat {
+      ast::BinaryOpKind::Range => (
+          hir::Pat {
         source,
         kind: hir::PatKind::Range {
           inclusive: false,
@@ -370,8 +439,9 @@ fn tr_pat<'hir, 'ast>(
             &mut vec![],
           )),
         },
-      },
-      ast::BinaryOpKind::RangeInclusive => hir::Pat {
+      },vec![]),
+      ast::BinaryOpKind::RangeInclusive =>
+          (hir::Pat {
         source,
         kind: hir::PatKind::Range {
           inclusive: true,
@@ -384,14 +454,18 @@ fn tr_pat<'hir, 'ast>(
             &mut vec![],
           )),
         },
-      },
+      }, vec![]
+      ),
       // Error
       c => {
         dlogger.log_unexpected_binop_in_pattern(source.range, c);
-        hir::Pat {
+        (
+            hir::Pat {
           source,
           kind: hir::PatKind::Error,
-        }
+        },
+         vec![]
+        )
       }
     },
   }
@@ -670,10 +744,13 @@ fn tr_val_expr<'hir, 'ast>(
               optstack.push(left_operand);
               optstack.push(right_operand);
             }
-            ast::BinaryOpKind::Defun => case_options.push((
-              tr_pat(ha, dlogger, left_operand, var_env),
+            ast::BinaryOpKind::Defun => {
+                let (pat, bindings) = tr_pat(ha, dlogger, left_operand, var_env);
+                var_env.ex
+                case_options.push((pat
               tr_val_expr(ha, dlogger, right_operand, var_env, label_env),
-            )),
+            ))
+            },
             bok => {
               dlogger.log_expected_case_option_binop(current.range, bok);
             }

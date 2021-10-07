@@ -25,19 +25,19 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Wraps a term in a label that can be deferred or returned from
-  Label (&'hir ValExpr<'hir, 'ast, HA>),
+  Label(&'hir ValExpr<'hir, 'ast, HA>),
   // Returns from a scope with a value
   Ret {
     labels_up: usize,
     value: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  StructLiteral(Vec<(&'ast Vec<u8> , (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
+  StructLiteral(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
 
   // discards the rest of the fields
   Take(&'hir PlaceExpr<'hir, 'ast, HA>),
-  Borrow( &'hir PlaceExpr<'hir, 'ast, HA>),
-  MutBorrow( &'hir PlaceExpr<'hir, 'ast, HA>),
+  Borrow(&'hir PlaceExpr<'hir, 'ast, HA>),
+  MutBorrow(&'hir PlaceExpr<'hir, 'ast, HA>),
 
   // Annotate the value with the type
   Annotate {
@@ -115,7 +115,7 @@ pub enum PlaceExprKind<'hir, 'ast, HA: Allocator + Clone> {
   StructField {
     root: &'hir PlaceExpr<'hir, 'ast, HA>,
     field_source: &'ast ast::Expr,
-    field: &'ast Vec<u8>
+    field: &'ast Vec<u8>,
   },
 
   // dereferncing a pointer gives a place
@@ -123,7 +123,7 @@ pub enum PlaceExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   // A reference to a previously defined variable
   // debruijin index
-  Var(usize)
+  Var(usize),
 }
 
 #[derive(Debug)]

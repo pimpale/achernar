@@ -1,7 +1,6 @@
 #![feature(iter_map_while)]
 #![feature(destructuring_assignment)]
 #![feature(allocator_api)]
-mod utils;
 mod ast;
 mod astbuilder;
 mod codereader;
@@ -9,6 +8,7 @@ mod dlogger;
 mod hir;
 mod hirbuilder;
 mod hireval;
+mod utils;
 //mod thir;
 //mod thirbuilder;
 mod token;

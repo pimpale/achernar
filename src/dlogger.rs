@@ -683,27 +683,25 @@ impl DiagnosticLogger {
       code: Some(NumberOrString::Number(38)),
       code_description: None,
       source: self.source.clone(),
-      message: format!(
-        "{} is an invalid place expression.",
-        kind.as_ref()
-      ),
+      message: format!("{} is an invalid place expression.", kind.as_ref()),
       related_information: None,
       tags: None,
       data: None,
     })
   }
 
-  pub fn log_unexpected_binop_in_place_expression(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+  pub fn log_unexpected_binop_in_place_expression(
+    &mut self,
+    range: Range,
+    kind: &ast::BinaryOpKind,
+  ) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::Error),
       code: Some(NumberOrString::Number(39)),
       code_description: None,
       source: self.source.clone(),
-      message: format!(
-        "{} is not permitted in a place expression.",
-        kind.as_ref()
-      ),
+      message: format!("{} is not permitted in a place expression.", kind.as_ref()),
       related_information: None,
       tags: None,
       data: None,
@@ -717,14 +715,10 @@ impl DiagnosticLogger {
       code: Some(NumberOrString::Number(40)),
       code_description: None,
       source: self.source.clone(),
-      message: format!(
-        "{} is not permitted in a place expression.",
-        kind.as_ref()
-      ),
+      message: format!("{} is not permitted in a place expression.", kind.as_ref()),
       related_information: None,
       tags: None,
       data: None,
     })
   }
-
 }

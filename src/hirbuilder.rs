@@ -89,7 +89,7 @@ fn gen_var_place<'hir, 'ast>(
   identifier: &[u8],
   dlogger: &mut DiagnosticLogger,
   var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
-) -> hir::PlaceExpr<'hir, 'ast> {
+) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
   let lkup_val = lookup_maybe(var_env, &identifier);
 
   if let Some((_, debruijn_index)) = lkup_val {
@@ -109,12 +109,27 @@ fn gen_var_place<'hir, 'ast>(
 
 fn gen_take<'hir, 'ast>(
   source: &'ast ast::Expr,
-  place: hir::PlaceExpr<'hir, 'ast>,
+  place: hir::PlaceExpr<'hir, 'ast, &'hir Bump>,
+  ha: &'hir Bump,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   hir::ValExpr {
     source,
-    kind: hir::ValExprKind::Take(place),
+    kind: hir::ValExprKind::Take(ha.alloc(place)),
   }
+}
+
+fn gen_var_take<'hir, 'ast>(
+  identifier: &[u8],
+  dlogger: &mut DiagnosticLogger,
+  source: &'ast ast::Expr,
+  var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  ha: &'hir Bump,
+) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
+  gen_take(
+    source,
+    gen_var_place(source, identifier, dlogger, var_env),
+    ha,
+  )
 }
 
 fn tr_pat<'hir, 'ast>(
@@ -143,7 +158,7 @@ fn tr_pat<'hir, 'ast>(
     c
     @
     (ast::ExprKind::Label { .. }
-    | ast::ExprKind::Reference(_)
+    | ast::ExprKind::Identifier(_)
     | ast::ExprKind::Defer { .. }
     | ast::ExprKind::Ret { .. }
     | ast::ExprKind::CaseOf { .. }) => {
@@ -185,7 +200,7 @@ fn tr_pat<'hir, 'ast>(
               } => match operand.as_ref() {
                 // this means that a bind was the target of the assign
                 ast::Expr {
-                  kind: ast::ExprKind::Reference(ref identifier),
+                  kind: ast::ExprKind::Identifier(ref identifier),
                   range,
                   ..
                 } => match patterns.entry(identifier) {
@@ -238,6 +253,7 @@ fn tr_pat<'hir, 'ast>(
           fun: ha.alloc(gen_take(
             source,
             gen_var_place(source, b"_ref", dlogger, var_env),
+            ha,
           )),
           arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
         },
@@ -248,18 +264,25 @@ fn tr_pat<'hir, 'ast>(
           fun: ha.alloc(gen_take(
             source,
             gen_var_place(source, b"_ref", dlogger, var_env),
+            ha,
           )),
           arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
         },
       },
       ast::UnaryOpKind::Val => hir::Pat {
         source,
-        kind: hir::PatKind::Value(ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, &mut vec![]))),
+        kind: hir::PatKind::Value(ha.alloc(tr_val_expr(
+          ha,
+          dlogger,
+          operand,
+          var_env,
+          &mut vec![],
+        ))),
       },
       ast::UnaryOpKind::Bind => match **operand {
         // binds a variable to an identifier
         ast::Expr {
-          kind: ast::ExprKind::Reference(ref identifier), //TODO: we need to bind here
+          kind: ast::ExprKind::Identifier(ref identifier), //TODO: we need to bind here
           ..
         } => hir::Pat {
           source,
@@ -295,63 +318,11 @@ fn tr_pat<'hir, 'ast>(
       ref left_operand,
       ref right_operand,
     } => match op {
-      c
-      @
-      (ast::BinaryOpKind::Defun
-      | ast::BinaryOpKind::CaseOption
-      | ast::BinaryOpKind::Compose
-      | ast::BinaryOpKind::PipeForward
-      | ast::BinaryOpKind::PipeBackward
-      | ast::BinaryOpKind::Add
-      | ast::BinaryOpKind::Sub
-      | ast::BinaryOpKind::Mul
-      | ast::BinaryOpKind::Div
-      | ast::BinaryOpKind::Rem
-      | ast::BinaryOpKind::Equal
-      | ast::BinaryOpKind::NotEqual
-      | ast::BinaryOpKind::Less
-      | ast::BinaryOpKind::LessEqual
-      | ast::BinaryOpKind::Greater
-      | ast::BinaryOpKind::GreaterEqual
-      | ast::BinaryOpKind::Assign
-      | ast::BinaryOpKind::Sequence
-      | ast::BinaryOpKind::As
-      | ast::BinaryOpKind::ModuleAccess) => {
-        dlogger.log_unexpected_binop_in_pattern(source.range, c);
-        hir::Pat {
-          source,
-          kind: hir::PatKind::Error,
-        }
-      }
-      ast::BinaryOpKind::Constrain => hir::Pat {
-        source,
-        kind: hir::PatKind::Annotate {
-          pattern: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-          ty: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, &mut vec![])),
-        },
-      },
-      // TODO warn style
-      ast::BinaryOpKind::RevConstrain => hir::Pat {
-        source,
-        kind: hir::PatKind::Annotate {
-          // swap the expressions
-          ty: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
-          pattern: ha.alloc(tr_pat(ha, dlogger, right_operand, var_env)),
-        },
-      },
       ast::BinaryOpKind::Apply => hir::Pat {
         source,
         kind: hir::PatKind::ActivePattern {
           fun: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
           arg: ha.alloc(tr_pat(ha, dlogger, right_operand, var_env)),
-        },
-      },
-      ast::BinaryOpKind::RevApply => hir::Pat {
-        source,
-        kind: hir::PatKind::ActivePattern {
-          // swap the expressions
-          arg: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-          fun: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, &mut vec![])),
         },
       },
       ast::BinaryOpKind::And => hir::Pat {
@@ -380,7 +351,13 @@ fn tr_pat<'hir, 'ast>(
         kind: hir::PatKind::Range {
           inclusive: false,
           left_operand: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
-          right_operand: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, &mut vec![])),
+          right_operand: ha.alloc(tr_val_expr(
+            ha,
+            dlogger,
+            right_operand,
+            var_env,
+            &mut vec![],
+          )),
         },
       },
       ast::BinaryOpKind::RangeInclusive => hir::Pat {
@@ -388,9 +365,23 @@ fn tr_pat<'hir, 'ast>(
         kind: hir::PatKind::Range {
           inclusive: true,
           left_operand: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
-          right_operand: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, &mut vec![])),
+          right_operand: ha.alloc(tr_val_expr(
+            ha,
+            dlogger,
+            right_operand,
+            var_env,
+            &mut vec![],
+          )),
         },
       },
+      // Error
+      c => {
+        dlogger.log_unexpected_binop_in_pattern(source.range, c);
+        hir::Pat {
+          source,
+          kind: hir::PatKind::Error,
+        }
+      }
     },
   }
 }
@@ -540,6 +531,7 @@ fn tr_val_expr<'hir, 'ast>(
                       source,
                       kind: hir::PlaceExprKind::Var(0),
                     },
+                    ha,
                   )),
                 },
               }),
@@ -646,7 +638,7 @@ fn tr_val_expr<'hir, 'ast>(
       }
     }
     ast::ExprKind::Identifier(ref identifier) => {
-      gen_take(source, gen_var_place(source, identifier, dlogger, var_env))
+      gen_var_take(identifier, dlogger, source, var_env, ha)
     }
     ast::ExprKind::CaseOf {
       ref expr,
@@ -686,7 +678,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         kind: hir::ValExprKind::CaseOf {
           source: hir::CaseSource::Case,
-          expr: ha.alloc(tr_val_expr(ha, dlogger, expr, var_env, label_env)),
+          expr: ha.alloc(tr_place_expr(ha, dlogger, expr, var_env, label_env)),
           case_options,
         },
       }
@@ -698,33 +690,39 @@ fn tr_val_expr<'hir, 'ast>(
       ast::UnaryOpKind::Ref => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_ref", dlogger, source, var_env),
+        gen_var_take(b"_ref", dlogger, source, var_env, ha),
         vec![ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))],
       ),
       ast::UnaryOpKind::Deref => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_deref", dlogger, source, var_env),
+        gen_var_take(b"_deref", dlogger, source, var_env, ha),
         vec![ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))],
       ),
       // TODO decompose
       ast::UnaryOpKind::ReturnOnError => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_return_on_error", dlogger, source, var_env),
+        gen_var_take(b"_return_on_error", dlogger, source, var_env, ha),
         vec![ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))],
       ),
       ast::UnaryOpKind::Struct => hir::ValExpr {
         source,
-        kind: hir::ValExprKind::Struct(ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))),
+        kind: hir::ValExprKind::Struct(
+          ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env)),
+        ),
       },
       ast::UnaryOpKind::Enum => hir::ValExpr {
         source,
-        kind: hir::ValExprKind::Enum(ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))),
+        kind: hir::ValExprKind::Enum(
+          ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env)),
+        ),
       },
       ast::UnaryOpKind::Loop => hir::ValExpr {
         source,
-        kind: hir::ValExprKind::Loop(ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))),
+        kind: hir::ValExprKind::Loop(
+          ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env)),
+        ),
       },
       c @ ast::UnaryOpKind::Val => {
         dlogger.log_unexpected_unop_in_expr(source.range, c);
@@ -782,18 +780,10 @@ fn tr_val_expr<'hir, 'ast>(
           arg: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
         },
       },
-      ast::BinaryOpKind::RevApply => hir::ValExpr {
-        source,
-        kind: hir::ValExprKind::Apply {
-          // swap the expressions
-          fun: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
-          arg: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
-        },
-      },
       ast::BinaryOpKind::Compose => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_compose", dlogger, source, var_env),
+        gen_var_take(b"_compose", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -802,7 +792,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::PipeForward => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_pipe_forward", dlogger, source, var_env),
+        gen_var_take(b"_pipe_forward", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -811,7 +801,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::PipeBackward => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_pipe_backward", dlogger, source, var_env),
+        gen_var_take(b"_pipe_backward", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -820,7 +810,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Add => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_add", dlogger, source, var_env),
+        gen_var_take(b"_add", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -829,7 +819,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Sub => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_sub", dlogger, source, var_env),
+        gen_var_take(b"_sub", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -838,7 +828,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Mul => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_mul", dlogger, source, var_env),
+        gen_var_take(b"_mul", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -847,7 +837,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Div => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_div", dlogger, source, var_env),
+        gen_var_take(b"_div", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -856,7 +846,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Rem => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_rem", dlogger, source, var_env),
+        gen_var_take(b"_rem", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -869,7 +859,7 @@ fn tr_val_expr<'hir, 'ast>(
         // || false = > false
         source,
         kind: hir::ValExprKind::CaseOf {
-          expr: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
+          expr: ha.alloc(tr_place_expr(ha, dlogger, left_operand, var_env, label_env)),
           source: hir::CaseSource::And,
           case_options: {
             let mut v = Vec::new_in(ha);
@@ -901,7 +891,7 @@ fn tr_val_expr<'hir, 'ast>(
         // of false => b
         source,
         kind: hir::ValExprKind::CaseOf {
-          expr: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
+          expr: ha.alloc(tr_place_expr(ha, dlogger, left_operand, var_env, label_env)),
           source: hir::CaseSource::Or,
           case_options: {
             let mut v = Vec::new_in(ha);
@@ -929,7 +919,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Equal => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_eq", dlogger, source, var_env),
+        gen_var_take(b"_eq", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -938,7 +928,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::NotEqual => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_neq", dlogger, source, var_env),
+        gen_var_take(b"_neq", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -947,7 +937,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Less => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_l", dlogger, source, var_env),
+        gen_var_take(b"_l", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -956,7 +946,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::LessEqual => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_le", dlogger, source, var_env),
+        gen_var_take(b"_le", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -965,7 +955,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Greater => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_g", dlogger, source, var_env),
+        gen_var_take(b"_g", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -974,7 +964,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::GreaterEqual => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_ge", dlogger, source, var_env),
+        gen_var_take(b"_ge", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
@@ -1043,33 +1033,17 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::As => gen_apply_fn(
         ha,
         source,
-        gen_var(b"_as", dlogger, source, var_env),
+        gen_var_take(b"_as", dlogger, source, var_env, ha),
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
           ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
         ],
       ),
-      ast::BinaryOpKind::ModuleAccess => {
-        if let ast::Expr {
-          kind: ast::ExprKind::Identifier(ref field),
-          ..
-        } = **right_operand
-        {
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::StructFieldTake {
-              root: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
-              field: (field, right_operand),
-            },
-          }
-        } else {
-          dlogger.log_field_not_identifier(right_operand.range, &right_operand.kind);
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Error,
-          }
-        }
-      }
+      ast::BinaryOpKind::ModuleAccess => gen_take(
+        source,
+        tr_place_expr(ha, dlogger, source, var_env, label_env),
+        ha,
+      ),
       ast::BinaryOpKind::Range => todo!(),
       ast::BinaryOpKind::RangeInclusive => todo!(),
     },
@@ -1081,9 +1055,41 @@ fn tr_place_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
+  label_env: &mut Vec<(&'ast [u8], LabelScope<'ast>)>,
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
-    match source {
+  match source.kind {
+    ast::ExprKind::Identifier(ref identifier) => {
+      gen_var_place(source, identifier, dlogger, var_env)
     }
+    ast::ExprKind::BinaryOp {
+      ref op,
+      ref left_operand,
+      ref right_operand,
+    } => match op {
+      ast::BinaryOpKind::ModuleAccess => {
+        if let ast::Expr {
+          kind: ast::ExprKind::Identifier(ref field),
+          ..
+        } = **right_operand
+        {
+          hir::PlaceExpr {
+            source,
+            kind: hir::PlaceExprKind::StructField {
+              root: ha.alloc(tr_place_expr(ha, dlogger, left_operand, var_env, label_env)),
+              field,
+              field_source: right_operand,
+            },
+          }
+        } else {
+          dlogger.log_field_not_identifier(right_operand.range, &right_operand.kind);
+          hir::PlaceExpr {
+            source,
+            kind: hir::PlaceExprKind::Error,
+          }
+        }
+      }
+    },
+  }
 }
 
 pub fn construct_hir<'hir, 'ast>(

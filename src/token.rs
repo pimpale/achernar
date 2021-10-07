@@ -75,9 +75,8 @@ pub enum TokenKind {
   BraceLeft,    // {
   BraceRight,   // }
   Constrain,    // :
-  RevConstrain, // :=
-  ModuleAccess, // ::
-  RevApply,     // .
+  RevConstrain, // ::
+  ModuleAccess, // .
   Sequence,     // ;
   // Comments, and Attributes
   Metadata { value: Vec<u8>, significant: bool }, // #!attribute and # comment

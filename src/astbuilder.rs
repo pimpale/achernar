@@ -618,7 +618,6 @@ fn parse_tight_operators<TkIter: Iterator<Item = Token>>(
     dlogger,
     parse_suffix_operators,
     simple_operator_fn(|x| match x {
-      TokenKind::RevApply => Some(BinaryOpKind::RevApply),
       TokenKind::ModuleAccess => Some(BinaryOpKind::ModuleAccess),
       _ => None,
     }),

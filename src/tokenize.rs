@@ -497,8 +497,7 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
         Some(b'$') => return Some(self.lex_simple_token(TokenKind::Bind, 1)),
         Some(b';') => return Some(self.lex_simple_token(TokenKind::Sequence, 1)),
         Some(b':') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'=') => return Some(self.lex_simple_token(TokenKind::RevConstrain, 2)),
-          Some(b':') => return Some(self.lex_simple_token(TokenKind::ModuleAccess, 2)),
+          Some(b':') => return Some(self.lex_simple_token(TokenKind::RevConstrain, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::Constrain, 1)),
         },
         Some(b'&') => match self.source.peek_nth(1).unwrap().0 {
@@ -533,7 +532,7 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
         Some(b'.') => match self.source.peek_nth(1).unwrap().0 {
           Some(b'.') => return Some(self.lex_simple_token(TokenKind::Range, 2)),
           Some(b'=') => return Some(self.lex_simple_token(TokenKind::RangeInclusive, 2)),
-          _ => return Some(self.lex_simple_token(TokenKind::RevApply, 1)),
+          _ => return Some(self.lex_simple_token(TokenKind::ModuleAccess, 1)),
         },
         Some(b'*') => return Some(self.lex_simple_token(TokenKind::Mul, 1)),
         Some(b'?') => return Some(self.lex_simple_token(TokenKind::ReturnOnError, 1)),

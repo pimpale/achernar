@@ -22,7 +22,6 @@ pub enum BinaryOpKind {
   CaseOption,
   // Function call
   Apply,
-  RevApply,
   // Function composition
   Compose,
   // Function Piping

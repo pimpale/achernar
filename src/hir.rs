@@ -34,14 +34,6 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // constructs a new compound ty
   StructLiteral(Vec<(&'ast Vec<u8> , (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
 
-  // takes the value from a value struct
-  StructField {
-    root: &'hir PlaceExpr<'hir, 'ast, HA>,
-    field: &'ast ast::Expr,
-    field_source: &'ast Vec<u8>
-  },
-
-
   // discards the rest of the fields
   Take(&'hir PlaceExpr<'hir, 'ast, HA>),
   Borrow( &'hir PlaceExpr<'hir, 'ast, HA>),
@@ -122,8 +114,8 @@ pub enum PlaceExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // creates
   StructField {
     root: &'hir PlaceExpr<'hir, 'ast, HA>,
-    field: &'ast ast::Expr,
-    field_source: &'ast Vec<u8>
+    field_source: &'ast ast::Expr,
+    field: &'ast Vec<u8>
   },
 
   // dereferncing a pointer gives a place
@@ -148,18 +140,11 @@ pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
   BindVariable,
   // Irrefutably discards a variable
   BindIgnore,
-  // Hole
-  Hole,
   // match with a variety of types
   Range {
     inclusive: bool,
     left_operand: &'hir ValExpr<'hir, 'ast, HA>,
     right_operand: &'hir ValExpr<'hir, 'ast, HA>,
-  },
-  // constrains the type of a value
-  Annotate {
-    pattern: &'hir Pat<'hir, 'ast, HA>,
-    ty: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // destructure a tuple
   Cons {

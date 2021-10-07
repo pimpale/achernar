@@ -258,12 +258,23 @@ fn tr_pat<'hir, 'ast>(
           arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
         },
       },
+      ast::UnaryOpKind::MutRef => hir::Pat {
+        source,
+        kind: hir::PatKind::ActivePattern {
+          fun: ha.alloc(gen_take(
+            source,
+            gen_var_place(source, b"_mut_ref", dlogger, var_env),
+            ha,
+          )),
+          arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
+        },
+      },
       ast::UnaryOpKind::Deref => hir::Pat {
         source,
         kind: hir::PatKind::ActivePattern {
           fun: ha.alloc(gen_take(
             source,
-            gen_var_place(source, b"_ref", dlogger, var_env),
+            gen_var_place(source, b"_deref", dlogger, var_env),
             ha,
           )),
           arg: ha.alloc(tr_pat(ha, dlogger, operand, var_env)),
@@ -687,12 +698,18 @@ fn tr_val_expr<'hir, 'ast>(
       ref op,
       ref operand,
     } => match op {
-      ast::UnaryOpKind::Ref => gen_apply_fn(
-        ha,
+      ast::UnaryOpKind::Ref => hir::ValExpr {
         source,
-        gen_var_take(b"_ref", dlogger, source, var_env, ha),
-        vec![ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))],
-      ),
+        kind: hir::ValExprKind::Borrow(
+          ha.alloc(tr_place_expr(ha, dlogger, operand, var_env, label_env)),
+        ),
+      },
+      ast::UnaryOpKind::MutRef => hir::ValExpr {
+        source,
+        kind: hir::ValExprKind::MutBorrow(
+          ha.alloc(tr_place_expr(ha, dlogger, operand, var_env, label_env)),
+        ),
+      },
       ast::UnaryOpKind::Deref => gen_apply_fn(
         ha,
         source,
@@ -977,14 +994,6 @@ fn tr_val_expr<'hir, 'ast>(
           snd: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
         },
       },
-      c @ (ast::BinaryOpKind::RangeInclusive | ast::BinaryOpKind::Range) => {
-        dlogger.log_unexpected_binop_in_expr(source.range, c);
-
-        hir::ValExpr {
-          source,
-          kind: hir::ValExprKind::Error,
-        }
-      }
       ast::BinaryOpKind::Assign => hir::ValExpr {
         source,
         kind: hir::ValExprKind::LetIn {
@@ -1057,7 +1066,7 @@ fn tr_place_expr<'hir, 'ast>(
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
   label_env: &mut Vec<(&'ast [u8], LabelScope<'ast>)>,
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
-  match source.kind {
+  match &source.kind {
     ast::ExprKind::Identifier(ref identifier) => {
       gen_var_place(source, identifier, dlogger, var_env)
     }
@@ -1088,7 +1097,44 @@ fn tr_place_expr<'hir, 'ast>(
           }
         }
       }
+      e => {
+        // throw error about unrecognized binary operation
+        dlogger.log_unexpected_binop_in_place_expression(source.range, e);
+        // then return error struct
+        hir::PlaceExpr {
+          source,
+          kind: hir::PlaceExprKind::Error,
+        }
+      }
     },
+    ast::ExprKind::UnaryOp {
+      ref op,
+      ref operand,
+    } => match op {
+      ast::UnaryOpKind::Deref => hir::PlaceExpr {
+        source: operand,
+        kind: hir::PlaceExprKind::Deref(
+          ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env)),
+        ),
+      },
+      e => {
+        // throw error about unrecognized unaryoperation
+        dlogger.log_unexpected_unop_in_place_expression(source.range, e);
+        // then return error struct
+        hir::PlaceExpr {
+          source,
+          kind: hir::PlaceExprKind::Error,
+        }
+      }
+    },
+    e => {
+      dlogger.log_invalid_place_expression(source.range, e);
+      // throw error then return error
+      hir::PlaceExpr {
+        source,
+        kind: hir::PlaceExprKind::Error,
+      }
+    }
   }
 }
 

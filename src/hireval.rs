@@ -1,12 +1,12 @@
 use super::ast;
 use super::hir;
-use super::utils::update;
 use std::alloc::Allocator;
 use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Debug)]
 pub enum EvalError {
+  Placeholder,
   InvalidSyntax,
   AppliedNonFunction,
   AppliedNonFunctionNeutral,
@@ -252,7 +252,7 @@ impl<TA: Allocator + Clone> fmt::Display for Closure<'_, '_, TA> {
 impl fmt::Display for Place<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut fieldstr = String::new();
-    for x in self.path_elems {
+    for x in self.path_elems.iter() {
       fieldstr.push(':');
       fieldstr.push(':');
       fieldstr += std::str::from_utf8(x).unwrap();
@@ -269,13 +269,13 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
   val: Val<'hir, 'ast, TA>,
   var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
 ) -> Result<Vec<Var<'hir, 'ast, TA>>, EvalError> {
-  match p.kind {
+  match &p.kind {
     hir::PatKind::Error => unimplemented!(),
-    hir::PatKind::BindVariable => vec![Var {
+    hir::PatKind::BindVariable => Ok(vec![Var {
       source: p.source,
       kind: VarKind::Unborrowed { val },
-    }],
-    hir::PatKind::BindIgnore => vec![],
+    }]),
+    hir::PatKind::BindIgnore => Ok(vec![]),
     hir::PatKind::Cons {
       fst: fst_p,
       snd: snd_p,
@@ -424,11 +424,10 @@ pub fn get_var_if_mutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
   place: &Place<'ast>,
   var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
 ) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
-
   // first we need to ensure that all parent structs are unborrowed
 
   let mut cursor = &mut var_env[place.debruijn_level];
-  for field in place.path_elems {
+  for field in place.path_elems.iter() {
     let Var { source, kind } = cursor;
     match kind {
       VarKind::Unborrowed { val } => match val {
@@ -458,18 +457,18 @@ pub fn get_var_if_mutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
 
   // now, we'll check that all child structs are unborrowed
   let mut child_fields = vec![&*cursor];
-  while let Some(Var {kind, ..}) = child_fields.pop() {
-      match kind {
-          VarKind::Unborrowed{ val} => {
-           if let Val::Struct(fields) = val {
-              child_fields.extend(fields.values());
-           }
-          },
-          // means that the struct is borrowed
-          VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
-          VarKind::MutablyBorrowed { .. } => unimplemented!(),
-          VarKind::MovedOut { .. } => unimplemented!(),
+  while let Some(Var { kind, .. }) = child_fields.pop() {
+    match kind {
+      VarKind::Unborrowed { val } => {
+        if let Val::Struct(fields) = val {
+          child_fields.extend(fields.values());
+        }
       }
+      // means that the struct is borrowed
+      VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+      VarKind::MutablyBorrowed { .. } => unimplemented!(),
+      VarKind::MovedOut { .. } => unimplemented!(),
+    }
   }
 
   Ok(cursor)
@@ -484,8 +483,8 @@ pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
   var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
 ) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
   let mut cursor = &mut var_env[place.debruijn_level];
-  for field in place.path_elems {
-    let Var { source, kind } = cursor;
+  for field in place.path_elems.iter() {
+    let Var { kind, .. } = cursor;
 
     // get list of struct fields
     let fields = match kind {
@@ -544,9 +543,9 @@ pub fn eval_place<'hir, 'ast, TA: Allocator + Clone>(
       Ok(place)
     }
     hir::PlaceExprKind::StructField { root, field, .. } => {
-      let mut place = eval_place(e, var_env, min_mut_level)?;
-      place.path_elems.push(field);
-      Ok(place)
+      let mut root_place = eval_place(root, var_env, min_mut_level)?;
+      root_place.path_elems.push(field);
+      Ok(root_place)
     }
     hir::PlaceExprKind::Deref(val_expr) => {
       match eval(val_expr, var_env, min_mut_level)? {
@@ -575,7 +574,7 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
         }
         Val::Nil => (),
         // the body of a loop must evaluate to nil
-        v => unimplemented!(),
+        _ => unimplemented!(),
       }
     },
     hir::ValExprKind::Apply { fun, arg } => {
@@ -597,14 +596,14 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
         levels_up: levels_up - 1,
         returned,
       }),
-      v => unimplemented!(),
+      _ => unimplemented!(),
     },
     hir::ValExprKind::Ret { labels_up, value } => Ok(Val::Never {
       returned: Box::new(eval(value, var_env, min_mut_level)?),
       levels_up: labels_up,
     }),
-    hir::ValExprKind::StructLiteral(fields) => {
-      let x = HashMap::new();
+    hir::ValExprKind::StructLiteral(ref fields) => {
+      let mut field_map = HashMap::new();
 
       for (f, (f_source, ref expr)) in fields.iter() {
         let var = Var {
@@ -613,10 +612,10 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
             val: eval(&expr, var_env, min_mut_level)?,
           },
         };
-        x.insert(*f, var);
+        field_map.insert(*f, var);
       }
 
-      Ok(Val::Struct(x))
+      Ok(Val::Struct(field_map))
     }
     hir::ValExprKind::Take(place_expr) => {
       let place = eval_place(place_expr, var_env, min_mut_level)?;
@@ -648,18 +647,19 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
 
       let Var { kind, .. } = get_var_if_mutably_borrowable(&place, var_env)?;
 
-      // now replace var
-      match kind {
-        VarKind::Unborrowed { val } => {
-          *kind = VarKind::MutablyBorrowed {
-            val: *val,
-            borrow: e.source,
-          };
-        }
+      // create new kind, stealing val
+      let newkind = match kind {
+        VarKind::Unborrowed { val } => VarKind::MutablyBorrowed {
+          val: std::mem::replace(val, Val::Nil),
+          borrow: e.source,
+        },
         VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
         VarKind::MutablyBorrowed { .. } => unimplemented!(),
         VarKind::MovedOut { .. } => unimplemented!(),
-      }
+      };
+
+      // overwrite with new kind
+      *kind = newkind;
 
       // return the mutable ref
       Ok(Val::MutRef(place))
@@ -676,24 +676,28 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       let Var { kind, .. } = get_var_if_immutably_borrowable(&place, var_env)?;
 
       // now replace var
-      match kind {
+      let newkind = match kind {
         VarKind::Unborrowed { val } => {
-          *kind = VarKind::ImmutablyBorrowed {
-            val: *val,
+          VarKind::ImmutablyBorrowed {
+            val: std::mem::replace(val, Val::Nil),
             borrows: vec![e.source],
-          };
+          }
         }
         VarKind::ImmutablyBorrowed { val, borrows } => {
-            borrows.push(e.source);
-            *kind = VarKind::ImmutablyBorrowed {
-                val: *val,
-                borrows: *borrows
-            };
-        },
+          let mut newborrows = vec![e.source];
+          newborrows.append(borrows);
+          VarKind::ImmutablyBorrowed {
+            val: std::mem::replace(val, Val::Nil),
+            borrows: newborrows
+          }
+        }
         //
         VarKind::MutablyBorrowed { .. } => unimplemented!(),
         VarKind::MovedOut { .. } => unimplemented!(),
-      }
+      };
+
+      // overwrite with new kind
+      *kind = newkind;
 
       // return the immutable ref
       Ok(Val::Ref(place))
@@ -714,11 +718,11 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       // }
 
       Ok(val)
-    },
+    }
     hir::ValExprKind::CaseOf {
-      expr,
-      case_options,
-      source,
+     ref expr,
+     ref case_options,
+     ref source,
     } => Ok(Val::Nil),
     hir::ValExprKind::Universe(n) => Ok(Val::Universe(n)),
     hir::ValExprKind::NilTy => Ok(Val::NilTy),

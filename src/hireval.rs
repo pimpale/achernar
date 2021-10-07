@@ -4,7 +4,7 @@ use std::alloc::Allocator;
 use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EvalError {
   Placeholder,
   InvalidSyntax,
@@ -14,13 +14,13 @@ pub enum EvalError {
 
 // represents the different states a variable can be in
 // source is where the variable was first defined
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Var<'hir, 'ast, TA: Allocator + Clone> {
   kind: VarKind<'hir, 'ast, TA>,
   source: &'ast ast::Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum VarKind<'hir, 'ast, TA: Allocator + Clone> {
   MovedOut {
     take: &'ast ast::Expr,
@@ -38,15 +38,15 @@ pub enum VarKind<'hir, 'ast, TA: Allocator + Clone> {
   },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Closure<'hir, 'ast, TA: Allocator + Clone> {
   pub ext_env: Vec<Var<'hir, 'ast, TA>>, // external environment
-  pub pat: hir::Pat<'hir, 'ast, TA>,
+  pub pat: &'hir hir::Pat<'hir, 'ast, TA>,
   pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
 }
 
 // These are terms that have normalized completely, to the fullest extent possible
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   // Types
   Universe(usize), // type of a type is Universe(0)
@@ -118,7 +118,7 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Neutral<'hir, 'ast, TA: Allocator + Clone> {
   // De Brujn level (not index)
   // this counts from the top of the stack
@@ -133,13 +133,13 @@ pub enum Neutral<'hir, 'ast, TA: Allocator + Clone> {
   },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NormalForm<'hir, 'ast, TA: Allocator + Clone> {
   term: Val<'hir, 'ast, TA>,
   ty: Val<'hir, 'ast, TA>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Place<'ast> {
   debruijn_level: usize,
   path_elems: Vec<&'ast Vec<u8>>,
@@ -368,7 +368,7 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
           // the function outputting the second type has (read) access to the variables bound from the first pattern
           // TODO: let the closure body make use of the first pattern
           // Ex:: Vec $n -> Vec $m -> Vec n + m
-          ty: Box::new(apply_closure(*out_ty, arg)?),
+          ty: Box::new(apply_closure(*out_ty, arg.clone())?),
           //construct a new neutral app
           val: Box::new(Neutral::App {
             fun: neutral_val,
@@ -387,11 +387,11 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
 
 // INVARIANT: closure is not altered, mutability is required for optimization purposes
 pub fn apply_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
-  clos: Closure<'hir, 'ast, TA>,
+  mut clos: Closure<'hir, 'ast, TA>,
   arg: Val<'hir, 'ast, TA>,
 ) -> Result<Val<'hir, 'ast, TA>, EvalError> {
   // expand arg into the bound vars
-  let bound_vars = bind_irrefutable_pattern(&clos.pat, arg, &mut clos.ext_env)?;
+  let bound_vars = bind_irrefutable_pattern(clos.pat, arg, &mut clos.ext_env)?;
 
   // get the min_mut_level (the level at which mutability is allowed)
   let min_mut_level = clos.ext_env.len();
@@ -519,6 +519,25 @@ pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
         // field doesn't exist
         unimplemented!()
       }
+    }
+  }
+
+  // now, we'll check that all child structs are unborrowed or immutably borrowed
+  let mut child_fields = vec![&*cursor];
+  while let Some(Var { kind, .. }) = child_fields.pop() {
+    match kind {
+      VarKind::Unborrowed { val } => {
+        if let Val::Struct(fields) = val {
+          child_fields.extend(fields.values());
+        }
+      }
+      VarKind::ImmutablyBorrowed { val, ..} => {
+        if let Val::Struct(fields) = val {
+          child_fields.extend(fields.values());
+        }
+      }
+      VarKind::MutablyBorrowed { .. } => unimplemented!(),
+      VarKind::MovedOut { .. } => unimplemented!(),
     }
   }
 
@@ -721,7 +740,11 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       ref expr,
       ref case_options,
       ref source,
-    } => Ok(Val::Nil),
+    } => {
+        // compare each function with 
+
+        todo!()
+    },
     hir::ValExprKind::Universe(n) => Ok(Val::Universe(n)),
     hir::ValExprKind::NilTy => Ok(Val::NilTy),
     hir::ValExprKind::NeverTy => Ok(Val::NeverTy),

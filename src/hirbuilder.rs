@@ -745,12 +745,24 @@ fn tr_val_expr<'hir, 'ast>(
               optstack.push(right_operand);
             }
             ast::BinaryOpKind::Defun => {
-                let (pat, bindings) = tr_pat(ha, dlogger, left_operand, var_env);
-                var_env.ex
-                case_options.push((pat
-              tr_val_expr(ha, dlogger, right_operand, var_env, label_env),
-            ))
-            },
+              // translate pattern
+              let (pat, bindings) = tr_pat(ha, dlogger, left_operand, var_env);
+
+              // find old len
+              let old_len = var_env.len();
+
+              // add new variables to var env
+              var_env.extend(bindings);
+
+              // translate body
+              let expr = tr_val_expr(ha, dlogger, right_operand, var_env, label_env);
+
+              // get rid of old variables
+              var_env.truncate(old_len);
+
+              // now add pair to case options
+              case_options.push((pat, expr));
+            }
             bok => {
               dlogger.log_expected_case_option_binop(current.range, bok);
             }
@@ -852,14 +864,27 @@ fn tr_val_expr<'hir, 'ast>(
           val_expr: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
         },
       },
-      ast::BinaryOpKind::Defun => hir::ValExpr {
-        source,
-        kind: hir::ValExprKind::Defun {
-          pattern: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-          result: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
-          infer_pattern: false,
-        },
-      },
+      ast::BinaryOpKind::Defun => {
+        // translate pattern
+        let (pat, bindings) = tr_pat(ha, dlogger, left_operand, var_env);
+        // capture old length of var_env
+        let old_len = var_env.len();
+        // push bindings into the new equation
+        var_env.extend(bindings);
+        // translate the body in the new context
+        let val = tr_val_expr(ha, dlogger, right_operand, var_env, label_env);
+        // get rid of the new variable bindings
+        var_env.truncate(old_len);
+        // return expr
+        hir::ValExpr {
+          source,
+          kind: hir::ValExprKind::Defun {
+            pattern: ha.alloc(pat),
+            result: ha.alloc(val),
+            infer_pattern: false,
+          },
+        }
+      }
       ast::BinaryOpKind::CaseOption => {
         dlogger.log_only_in_case(source.range);
         hir::ValExpr {
@@ -1071,19 +1096,174 @@ fn tr_val_expr<'hir, 'ast>(
           snd: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
         },
       },
-      ast::BinaryOpKind::Assign => hir::ValExpr {
-        source,
-        kind: hir::ValExprKind::LetIn {
-          pat: ha.alloc(tr_pat(ha, dlogger, left_operand, var_env)),
-          val: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
-          // this represents an assign at the tail end of an expression.
-          // such assigns will not be available outside, and should warn about unused vars
-          body: ha.alloc(hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Nil,
-          }),
-        },
-      },
+      ast::BinaryOpKind::PlusAssign => {
+        // x += 1
+        // x = x + 1
+        // find place, ignore bindings, since they will be unused
+        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+
+        // create val by adding together
+        let val = gen_apply_fn(
+          ha,
+          source,
+          gen_var_take(b"_add", dlogger, source, var_env, ha),
+          vec![
+            ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
+            ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
+          ],
+        );
+
+        hir::ValExpr {
+          source,
+          kind: hir::ValExprKind::LetIn {
+            pat: ha.alloc(pat),
+            val: ha.alloc(val),
+            body: ha.alloc(hir::ValExpr {
+              source,
+              kind: hir::ValExprKind::Nil,
+            }),
+          },
+        }
+      }
+      ast::BinaryOpKind::MinusAssign => {
+        // x += 1
+        // x = x + 1
+        // find place, ignore bindings, since they will be unused
+        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+
+        // create val by adding together
+        let val = gen_apply_fn(
+          ha,
+          source,
+          gen_var_take(b"_sub", dlogger, source, var_env, ha),
+          vec![
+            ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
+            ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
+          ],
+        );
+
+        hir::ValExpr {
+          source,
+          kind: hir::ValExprKind::LetIn {
+            pat: ha.alloc(pat),
+            val: ha.alloc(val),
+            body: ha.alloc(hir::ValExpr {
+              source,
+              kind: hir::ValExprKind::Nil,
+            }),
+          },
+        }
+      }
+      ast::BinaryOpKind::MulAssign => {
+        // x += 1
+        // x = x + 1
+        // find place, ignore bindings, since they will be unused
+        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+
+        // create val by adding together
+        let val = gen_apply_fn(
+          ha,
+          source,
+          gen_var_take(b"_mul", dlogger, source, var_env, ha),
+          vec![
+            ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
+            ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
+          ],
+        );
+
+        hir::ValExpr {
+          source,
+          kind: hir::ValExprKind::LetIn {
+            pat: ha.alloc(pat),
+            val: ha.alloc(val),
+            body: ha.alloc(hir::ValExpr {
+              source,
+              kind: hir::ValExprKind::Nil,
+            }),
+          },
+        }
+      }
+      ast::BinaryOpKind::DivAssign => {
+        // x += 1
+        // x = x + 1
+        // find place, ignore bindings, since they will be unused
+        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+
+        // create val by adding together
+        let val = gen_apply_fn(
+          ha,
+          source,
+          gen_var_take(b"_div", dlogger, source, var_env, ha),
+          vec![
+            ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
+            ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
+          ],
+        );
+
+        hir::ValExpr {
+          source,
+          kind: hir::ValExprKind::LetIn {
+            pat: ha.alloc(pat),
+            val: ha.alloc(val),
+            body: ha.alloc(hir::ValExpr {
+              source,
+              kind: hir::ValExprKind::Nil,
+            }),
+          },
+        }
+      }
+      ast::BinaryOpKind::RemAssign => {
+        // x += 1
+        // x = x + 1
+        // find place, ignore bindings, since they will be unused
+        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+
+        // create val by adding together
+        let val = gen_apply_fn(
+          ha,
+          source,
+          gen_var_take(b"_rem", dlogger, source, var_env, ha),
+          vec![
+            ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
+            ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
+          ],
+        );
+
+        hir::ValExpr {
+          source,
+          kind: hir::ValExprKind::LetIn {
+            pat: ha.alloc(pat),
+            val: ha.alloc(val),
+            body: ha.alloc(hir::ValExpr {
+              source,
+              kind: hir::ValExprKind::Nil,
+            }),
+          },
+        }
+      }
+      ast::BinaryOpKind::Assign => {
+        // this represents an assign at the tail end of an expression.
+        // variables created in such assigns will not be available outside, and should warn about unused vars
+
+        // translate the rhs
+        let val = tr_val_expr(ha, dlogger, right_operand, var_env, label_env);
+
+        // translate pattern (dropping vars, since they won't be used)
+        // later, a warning will be sent in liveness checking
+        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+
+        hir::ValExpr {
+          source,
+          kind: hir::ValExprKind::LetIn {
+            pat: ha.alloc(pat),
+            val: ha.alloc(val),
+            body: ha.alloc(hir::ValExpr {
+              source,
+              kind: hir::ValExprKind::Nil,
+            }),
+          },
+        }
+      }
       ast::BinaryOpKind::Sequence => {
         // if the lhs is an assign
         if let ast::Expr {
@@ -1096,13 +1276,32 @@ fn tr_val_expr<'hir, 'ast>(
           ..
         } = **left_operand
         {
+          // this represents an assign with a scope after it
+
+          // translate rhs
+          let val = tr_val_expr(ha, dlogger, assign_value, var_env, label_env);
+
+          // translate pattern and get bindings
+          let (pat, bindings) = tr_pat(ha, dlogger, assign_pat, var_env);
+
+          // get old length
+          let old_len = var_env.len();
+
+          // extend env with new bindings
+          var_env.extend(bindings);
+
+          // parse body in the amended environment
+          let body = tr_val_expr(ha, dlogger, right_operand, var_env, label_env);
+
+          // now drop bindings
+          var_env.truncate(old_len);
+
           hir::ValExpr {
             source,
             kind: hir::ValExprKind::LetIn {
-              pat: ha.alloc(tr_pat(ha, dlogger, assign_pat, var_env)),
-              val: ha.alloc(tr_val_expr(ha, dlogger, assign_value, var_env, label_env)),
-              // this represents an assign with a scope after it
-              body: ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
+              pat: ha.alloc(pat),
+              val: ha.alloc(val),
+              body: ha.alloc(body),
             },
           }
         } else {

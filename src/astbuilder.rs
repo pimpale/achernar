@@ -371,7 +371,7 @@ fn parse_exact_case<TkIter: Iterator<Item = Token>>(
   let metadata = get_metadata(tkiter);
   assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::Case));
   let case_tk = tkiter.next().unwrap();
-  let expr = Box::new(parse_term(tkiter, dlogger));
+  let expr = Box::new(parse_expr(tkiter, dlogger));
   let of_tk = tkiter.next().unwrap();
   if of_tk.kind != Some(TokenKind::Of) {
     dlogger.log_unexpected_token_specific(of_tk.range, Some(TokenKind::Of), of_tk.kind);
@@ -856,6 +856,11 @@ fn parse_assign<TkIter: Iterator<Item = Token>>(
     parse_defun,
     simple_operator_fn(|x| match x {
       TokenKind::Assign => Some(BinaryOpKind::Assign),
+      TokenKind::PlusAssign => Some(BinaryOpKind::PlusAssign),
+      TokenKind::MinusAssign => Some(BinaryOpKind::MinusAssign),
+      TokenKind::MulAssign => Some(BinaryOpKind::MulAssign),
+      TokenKind::DivAssign => Some(BinaryOpKind::DivAssign),
+      TokenKind::RemAssign => Some(BinaryOpKind::RemAssign),
       _ => None,
     }),
   )

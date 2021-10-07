@@ -17,7 +17,8 @@ pub enum TokenKind {
   Val,    // val
   Struct, // struct
   Enum,   // enum
-  New,    // new
+  Let,    // let
+  In,     // in
   // Literals and constants
   Inf,                                    // inf
   Nan,                                    // nan
@@ -51,10 +52,15 @@ pub enum TokenKind {
   Greater,      // >
   GreaterEqual, // >=
   // Assignment
-  Assign, // =
+  Assign,      // =
+  PlusAssign,  // +=
+  MinusAssign, // -=
+  MulAssign,   // *=
+  DivAssign,   // /=
+  RemAssign,   // %=
   // Reference
   Ref,    // &
-  MutRef, // &*
+  MutRef, // &!
   Deref,  // @
   // labels
   Label(Vec<u8>), // 'x

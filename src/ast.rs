@@ -50,6 +50,11 @@ pub enum BinaryOpKind {
   RangeInclusive,
   // Assign
   Assign,
+  PlusAssign,
+  MinusAssign,
+  MulAssign,
+  DivAssign,
+  RemAssign,
   // Sequence
   Sequence,
   // Pattern rename

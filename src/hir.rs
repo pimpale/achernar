@@ -140,6 +140,8 @@ pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
   BindVariable,
   // Irrefutably discards a variable
   BindIgnore,
+  // write the variable to a location
+  Assign(PlaceExpr<'hir, 'ast, HA>),
   // match with a variety of types
   Range {
     inclusive: bool,

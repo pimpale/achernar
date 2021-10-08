@@ -261,6 +261,53 @@ impl fmt::Display for Place<'_> {
   }
 }
 
+pub fn is_copy<'hir, 'ast, 'env, TA: Allocator + Clone>
+    (val: &Val<'hir, 'ast, TA>) -> bool {
+    match val {
+      Val::Universe(_) => true,
+      Val::NilTy => true,
+      Val::NeverTy => true,
+      Val::BoolTy => true,
+      Val::U8Ty => true,
+      Val::U16Ty => true,
+      Val::U32Ty => true,
+      Val::U64Ty => true,
+      Val::I8Ty => true,
+      Val::I16Ty => true,
+      Val::I32Ty => true,
+      Val::I64Ty => true,
+      Val::F32Ty => true,
+      Val::F64Ty => true,
+      Val::ConsTy { .. } => true,
+      Val::StructTy(h) => true,
+      Val::EnumTy(h) => true,
+      Val::FunTy { in_ty, out_ty } => true,
+      Val::Nil => true,
+      Val::Bool(v) => true,
+      Val::U8(v) => true,
+      Val::U16(v) =>true,
+      Val::U32(v) =>true,
+      Val::U64(v) =>true,
+      Val::I8(v) => true,
+      Val::I16(v) =>true,
+      Val::I32(v) =>true,
+      Val::I64(v) =>true,
+      Val::F32(v) =>true,
+      Val::F64(v) =>true,
+      Val::Cons { fst, snd } => false,
+      Val::Struct(h) => false,
+      Val::Enum { field, value } => false,
+      Val::Fun(c) => true, // TODO: help
+      Val::Ref(place) => format!("&{}", place),
+      Val::MutRef(place) => format!("&mut{}", place),
+      Val::Never {
+        returned,
+        levels_up,
+      } => format!("<never ^{} ({})>", levels_up, returned),
+      Val::Neutral { .. } => "<neutral>".to_owned(),
+    }
+}
+
 // binds irrefutable pattern, assigning vars to var_env
 // returns how many assignments were made
 // INVARIANT: does not alter var_env at all
@@ -268,6 +315,7 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
   p: &'hir hir::Pat<'hir, 'ast, TA>,
   val: Val<'hir, 'ast, TA>,
   var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+  mutation_allowed: bool,
 ) -> Result<Vec<Var<'hir, 'ast, TA>>, EvalError> {
   match &p.kind {
     hir::PatKind::Error => unimplemented!(),
@@ -275,7 +323,21 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
       source: p.source,
       kind: VarKind::Unborrowed { val },
     }]),
+    // TODO: we have to drop val here
     hir::PatKind::BindIgnore => Ok(vec![]),
+    hir::PatKind::BindPlace(ref place_expr) => {
+      if !mutation_allowed {
+          // return error how mutation isn't allowed
+          unimplemented!();
+      }
+      let place = eval_place(place_expr, var_env, var_env.len())?;
+      let var = get_var_if_overwritable(&place, var_env)?;
+
+      // now write to var
+      var.kind = VarKind::Unborrowed { val };
+
+      Ok(vec![])
+    }
     hir::PatKind::Cons {
       fst: fst_p,
       snd: snd_p,
@@ -287,8 +349,18 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
       } = val
       {
         // match first, then second side
-        vars.extend(bind_irrefutable_pattern(fst_p, *fst_val, var_env)?);
-        vars.extend(bind_irrefutable_pattern(fst_p, *snd_val, var_env)?);
+        vars.extend(bind_irrefutable_pattern(
+          fst_p,
+          *fst_val,
+          var_env,
+          mutation_allowed,
+        )?);
+        vars.extend(bind_irrefutable_pattern(
+          snd_p,
+          *snd_val,
+          var_env,
+          mutation_allowed,
+        )?);
       } else {
         unimplemented!();
       }
@@ -306,7 +378,7 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
       let transformed_val = apply(fun, val)?;
 
       //now match on the pattern
-      bind_irrefutable_pattern(pat, transformed_val, var_env)
+      bind_irrefutable_pattern(pat, transformed_val, var_env, mutation_allowed)
     }
     hir::PatKind::StructLiteral(patterns) => {
       if let Val::Struct(fields_vec) = val {
@@ -320,7 +392,12 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
             Some(Var {
               kind: VarKind::Unborrowed { val },
               ..
-            }) => vars.extend(bind_irrefutable_pattern(pat, val, var_env)?),
+            }) => vars.extend(bind_irrefutable_pattern(
+              pat,
+              val,
+              var_env,
+              mutation_allowed,
+            )?),
             // log that we can't unpack field when field is aready borrowed or moved out
             Some(Var {
               kind: VarKind::ImmutablyBorrowed { .. },
@@ -345,8 +422,14 @@ pub fn bind_irrefutable_pattern<'hir, 'ast, 'env, TA: Allocator + Clone>(
         unimplemented!();
       }
     }
-    // explain how these aren't able to be bound
-    _ => unimplemented!(),
+    // range is a refutable pattern
+    hir::PatKind::Value {..} => unimplemented!(),
+    // range is a refutable pattern
+    hir::PatKind::Range {..} => unimplemented!(),
+    // and is a refutable pattern
+    hir::PatKind::And {..} => unimplemented!(),
+    // or is a refutable pattern
+    hir::PatKind::Or {..} => unimplemented!(),
   }
 }
 
@@ -391,7 +474,7 @@ pub fn apply_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
   arg: Val<'hir, 'ast, TA>,
 ) -> Result<Val<'hir, 'ast, TA>, EvalError> {
   // expand arg into the bound vars
-  let bound_vars = bind_irrefutable_pattern(clos.pat, arg, &mut clos.ext_env)?;
+  let bound_vars = bind_irrefutable_pattern(clos.pat, arg, &mut clos.ext_env, false)?;
 
   // get the min_mut_level (the level at which mutability is allowed)
   let min_mut_level = clos.ext_env.len();
@@ -417,9 +500,69 @@ pub fn apply_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
   Ok(result)
 }
 
+// returns true if the place represented here can be overwritten without affecting memory safety
+// This means that the var must be writable and the target field must be moved out
+// NOTE: this function doesn't verify that the path enforces the 1 mutable borrow in path rule
+// TODO: incoprorate copy types
+pub fn get_var_if_overwritable<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  place: &Place<'ast>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
+  let mut cursor = &mut var_env[place.debruijn_level];
+  for field in place.path_elems.iter() {
+    let Var { kind, .. } = cursor;
+
+    // get list of struct fields
+    let fields = match kind {
+      VarKind::MutablyBorrowed { val, .. } => match val {
+        Val::Struct(fields) => fields,
+        _ => {
+          // this is an internal compiler error
+          // object isn't struct
+          unimplemented!()
+        }
+      },
+      VarKind::Unborrowed { val } => match val {
+        Val::Struct(fields) => fields,
+        _ => {
+          // this is an internal compiler error
+          // object isn't struct
+          unimplemented!()
+        }
+      },
+      // can't assign to immutably borrowed
+      VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+      VarKind::MovedOut { .. } => unimplemented!(),
+    };
+
+    // now get the value of field
+    match fields.get_mut(field) {
+      Some(var) => {
+        // progress further
+        cursor = var;
+      }
+      None => {
+        // this is an internal compiler error
+        // field doesn't exist
+        unimplemented!()
+      }
+    }
+  }
+
+  // now confirm that the cursor has type movedOut
+  match &cursor.kind {
+    VarKind::MovedOut { .. } => Ok(cursor),
+    // throw error about how we can't overwrite an existing value
+    VarKind::Unborrowed { .. } => unimplemented!(),
+    VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+    VarKind::MutablyBorrowed { .. } => unimplemented!(),
+  }
+}
+
 // traverses the path, returning an error if the path is invalid
 // It requires that all fields that it traverses must be unborrowed.
 // This is because this function is primarily used either to move out of a place or to mutably borrow it
+// In general, the rule that we are trying to enforce is that in any given place path, there can only be one mutable borrow along it.
 pub fn get_var_if_mutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
   place: &Place<'ast>,
   var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
@@ -531,7 +674,7 @@ pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
           child_fields.extend(fields.values());
         }
       }
-      VarKind::ImmutablyBorrowed { val, ..} => {
+      VarKind::ImmutablyBorrowed { val, .. } => {
         if let Val::Struct(fields) = val {
           child_fields.extend(fields.values());
         }
@@ -741,10 +884,10 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       ref case_options,
       ref source,
     } => {
-        // compare each function with 
+      // compare each function with
 
-        todo!()
-    },
+      todo!()
+    }
     hir::ValExprKind::Universe(n) => Ok(Val::Universe(n)),
     hir::ValExprKind::NilTy => Ok(Val::NilTy),
     hir::ValExprKind::NeverTy => Ok(Val::NeverTy),

@@ -83,6 +83,8 @@ pub enum UnaryOpKind {
   Val,
   // (PATTERN ONLY) matches a single element to new variable
   Bind,
+  // (PATTERN ONLY) prefix a place expression to assign to
+  Mutate,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]

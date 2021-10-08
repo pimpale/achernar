@@ -34,10 +34,6 @@ fn lookup<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) -> &'env Sc
   lookup_maybe(env, label).unwrap().0
 }
 
-fn lookup_exists<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) -> bool {
-  lookup_maybe(env, label).is_some()
-}
-
 fn lookup_count_up<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) -> usize {
   lookup_maybe(env, label).unwrap().1
 }
@@ -265,71 +261,18 @@ fn tr_pat<'hir, 'ast>(
       ref op,
       ref operand,
     } => match op {
-      // TODO: use the ref / deref laws to optimize this
-      ast::UnaryOpKind::Ref => {
-          let (arg_pat, arg_bindings) =tr_pat(ha, dlogger, operand, var_env);
-          (
-              hir::Pat {
-                source,
-                kind: hir::PatKind::ActivePattern {
-                  fun: ha.alloc(gen_take(
-                    source,
-                    gen_var_place(source, b"_ref", dlogger, var_env),
-                    ha,
-                  )),
-                  arg: ha.alloc(arg_pat),
-                },
-              },
-                arg_bindings
-          )
-      },
-      ast::UnaryOpKind::MutRef => {
-          let (arg_pat, arg_bindings) =tr_pat(ha, dlogger, operand, var_env);
-
-        (
-            hir::Pat {
-        source,
-        kind: hir::PatKind::ActivePattern {
-          fun: ha.alloc(gen_take(
-            source,
-            gen_var_place(source, b"_mut_ref", dlogger, var_env),
-            ha,
-          )),
-          arg: ha.alloc(arg_pat),
-        },
-      },
-      arg_bindings
-        )
-      },
-      ast::UnaryOpKind::Deref => {
-          let (arg_pat, arg_bindings) =tr_pat(ha, dlogger, operand, var_env);
-
-        (
-            hir::Pat {
-        source,
-        kind: hir::PatKind::ActivePattern {
-          fun: ha.alloc(gen_take(
-            source,
-            gen_var_place(source, b"_deref", dlogger, var_env),
-            ha,
-          )),
-          arg: ha.alloc(arg_pat),
-        },
-      },
-      arg_bindings
-        )
-      },
       ast::UnaryOpKind::Val => (
           hir::Pat {
-        source,
-        kind: hir::PatKind::Value(ha.alloc(tr_val_expr(
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          &mut vec![],
-        ))),
-      }, vec![]
+          source,
+          kind: hir::PatKind::Value(ha.alloc(tr_val_expr(
+            ha,
+            dlogger,
+            operand,
+            var_env,
+            &mut vec![],
+          ))),
+         },
+         vec![]
       ),
       ast::UnaryOpKind::Bind => match **operand {
         // binds a variable to an identifier
@@ -342,16 +285,23 @@ fn tr_pat<'hir, 'ast>(
           range, ref kind, ..
         } => {
           dlogger.log_unexpected_bind_target(range, kind);
-        (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
+          (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
         }
       },
-      // these operators must be valified
-      c
-      @
-      (ast::UnaryOpKind::ReturnOnError
-      | ast::UnaryOpKind::Struct
-      | ast::UnaryOpKind::Enum
-      | ast::UnaryOpKind::Loop) => {
+      // the remaining operators
+      c => {
+        dlogger.log_unexpected_unop_in_pattern(source.range, c);
+        (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
+      }
+      ast::UnaryOpKind::Mutate => (
+          hir::Pat {
+              source,
+              kind: hir::PatKind::BindPlace(tr_place_expr(ha, dlogger, operand, var_env, &mut vec![]))
+          },
+          vec![]
+      ),
+      // the remaining operators
+      c => {
         dlogger.log_unexpected_unop_in_pattern(source.range, c);
         (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
       }
@@ -805,7 +755,7 @@ fn tr_val_expr<'hir, 'ast>(
         gen_var_take(b"_deref", dlogger, source, var_env, ha),
         vec![ha.alloc(tr_val_expr(ha, dlogger, operand, var_env, label_env))],
       ),
-      // TODO decompose
+      // TODO: decompose
       ast::UnaryOpKind::ReturnOnError => gen_apply_fn(
         ha,
         source,
@@ -1346,6 +1296,7 @@ fn tr_place_expr<'hir, 'ast>(
     ast::ExprKind::Identifier(ref identifier) => {
       gen_var_place(source, identifier, dlogger, var_env)
     }
+    ast::ExprKind::Group(ref expr) => tr_place_expr(ha, dlogger, expr, var_env, label_env),
     ast::ExprKind::BinaryOp {
       ref op,
       ref left_operand,

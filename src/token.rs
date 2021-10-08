@@ -72,8 +72,8 @@ pub enum TokenKind {
   // CaseOptions
   CaseOption, // ||
   // Other Miscellaneous Operator Things
-  NoInfer,      // !
-  Bind,         // $
+  BindVar,      // $
+  MutateVar,    // !
   ParenLeft,    // (
   ParenRight,   // )
   BracketLeft,  // [

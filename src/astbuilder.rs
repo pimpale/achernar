@@ -568,29 +568,6 @@ fn parse_term<TkIter: Iterator<Item = Token>>(
   }
 }
 
-fn decide_prefix(tkkind: &TokenKind) -> Option<UnaryOpKind> {
-  match tkkind {
-    TokenKind::Struct => Some(UnaryOpKind::Struct),
-    TokenKind::Enum => Some(UnaryOpKind::Enum),
-    TokenKind::Loop => Some(UnaryOpKind::Loop),
-    TokenKind::Val => Some(UnaryOpKind::Val),
-    TokenKind::Bind => Some(UnaryOpKind::Bind),
-    _ => None,
-  }
-}
-
-fn parse_prefix_operators<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_prefix_op(
-    tkiter,
-    dlogger,
-    parse_term,
-    simple_operator_fn(decide_prefix),
-  )
-}
-
 fn parse_suffix_operators<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -598,7 +575,7 @@ fn parse_suffix_operators<TkIter: Iterator<Item = Token>>(
   parse_suffix_op(
     tkiter,
     dlogger,
-    parse_prefix_operators,
+    parse_term,
     simple_operator_fn(|x| match x {
       TokenKind::Ref => Some(UnaryOpKind::Ref),
       TokenKind::MutRef => Some(UnaryOpKind::MutRef),
@@ -613,7 +590,7 @@ fn parse_tight_operators<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_r_binary_op(
+  parse_l_binary_op(
     tkiter,
     dlogger,
     parse_suffix_operators,
@@ -624,11 +601,35 @@ fn parse_tight_operators<TkIter: Iterator<Item = Token>>(
   )
 }
 
+fn decide_prefix(tkkind: &TokenKind) -> Option<UnaryOpKind> {
+  match tkkind {
+    TokenKind::Struct => Some(UnaryOpKind::Struct),
+    TokenKind::Enum => Some(UnaryOpKind::Enum),
+    TokenKind::Loop => Some(UnaryOpKind::Loop),
+    TokenKind::Val => Some(UnaryOpKind::Val),
+    TokenKind::BindVar => Some(UnaryOpKind::Bind),
+    TokenKind::MutateVar => Some(UnaryOpKind::Mutate),
+    _ => None,
+  }
+}
+
+fn parse_prefix_operators<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  parse_prefix_op(
+    tkiter,
+    dlogger,
+    parse_tight_operators,
+    simple_operator_fn(decide_prefix),
+  )
+}
+
 fn parse_apply_operators<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_r_binary_op(tkiter, dlogger, parse_tight_operators, |tkiter, _| {
+  parse_l_binary_op(tkiter, dlogger, parse_tight_operators, |tkiter, _| {
     if let Token {
       kind: Some(kind),
       range,
@@ -646,7 +647,7 @@ fn parse_range_operators<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
-  parse_r_binary_op(
+  parse_l_binary_op(
     tkiter,
     dlogger,
     parse_apply_operators,

@@ -1,9 +1,9 @@
 use super::ast;
 use super::dlogger::DiagnosticLogger;
 use super::hir;
-use super::thir;
-use super::hireval::Val;
 use super::hireval::EvalError;
+use super::hireval::Val;
+use super::thir;
 use super::utils::clone_in;
 use bumpalo::Bump;
 use std::alloc::Allocator;
@@ -78,14 +78,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
 
       // now translate the body
       // the body must evaluate to nil
-      let body_tr = tr_check_expr(
-        allocator,
-        dlogger,
-        body,
-        label_env,
-        var_env,
-        &Val::Nil,
-      );
+      let body_tr = tr_check_expr(allocator, dlogger, body, label_env, var_env, &Val::Nil);
 
       // pop label
       let (_, LabelScope { return_ty, .. }) = label_env.pop().unwrap();
@@ -139,8 +132,7 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
         }
       };
 
-      thir::Expr {
-      }
+      thir::Expr {}
     }
     hir::ExprKind::StructLiteral(fields) => {
       let fields_tr = Vec::new_in(allocator);
@@ -233,7 +225,10 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     &'hir Vec<u8, HA>,
     LabelScope<'thir, 'hir, 'ast, &'thir Bump, HA>,
   )>,
-  var_env: &mut Vec<(&'hir Vec<u8, HA>, VarTyScope<'thir, 'hir, 'ast, &'thir Bump>)>,
+  var_env: &mut Vec<(
+    &'hir Vec<u8, HA>,
+    VarTyScope<'thir, 'hir, 'ast, &'thir Bump>,
+  )>,
   ty: &Val<'hir, 'ast, HA>,
 ) -> thir::Expr<'thir, 'hir, 'ast, &'thir Bump, HA> {
   match source.kind {
@@ -244,14 +239,7 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
     },
     hir::ExprKind::Loop(body) => {
       // Loop has type nil.
-      let body = tr_check_expr(
-        allocator,
-        dlogger,
-        body,
-        label_env,
-        var_env,
-        &Val::Nil,
-      );
+      let body = tr_check_expr(allocator, dlogger, body, label_env, var_env, &Val::Nil);
 
       thir::Expr {
         source: source.source,

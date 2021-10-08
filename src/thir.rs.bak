@@ -4,7 +4,7 @@ use std::alloc::Allocator;
 // TA-> ThirAllocator
 
 #[derive(Debug)]
-pub enum ExprKind<'thir, 'hir, 'ast, HA:Allocator + Clone, TA: Allocator + Clone> {
+pub enum ExprKind<'thir, 'hir, 'ast, HA: Allocator + Clone, TA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Loops until a scope is returned
@@ -35,7 +35,13 @@ pub enum ExprKind<'thir, 'hir, 'ast, HA:Allocator + Clone, TA: Allocator + Clone
   // Switches on a pattern
   CaseOf {
     expr: &'thir Expr<'thir, 'hir, 'ast, HA, TA>,
-    case_options: Vec<(Pat<'thir, 'hir, 'ast, HA, TA>, Expr<'thir, 'hir, 'ast, HA, TA>), TA>,
+    case_options: Vec<
+      (
+        Pat<'thir, 'hir, 'ast, HA, TA>,
+        Expr<'thir, 'hir, 'ast, HA, TA>,
+      ),
+      TA,
+    >,
   },
   // Quotes pattern
   Pat(&'thir Pat<'thir, 'hir, 'ast, HA, TA>),
@@ -79,14 +85,14 @@ pub enum ExprKind<'thir, 'hir, 'ast, HA:Allocator + Clone, TA: Allocator + Clone
 }
 
 #[derive(Debug)]
-pub struct Expr<'thir, 'hir, 'ast, HA:Allocator + Clone, TA: Allocator + Clone> {
+pub struct Expr<'thir, 'hir, 'ast, HA: Allocator + Clone, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: ExprKind<'thir, 'hir, 'ast, HA, TA>,
   pub ty: &'thir Val<'hir, 'ast, HA>,
 }
 
 #[derive(Debug)]
-pub enum PatKind<'thir, 'hir, 'ast, HA:Allocator + Clone, TA: Allocator + Clone> {
+pub enum PatKind<'thir, 'hir, 'ast, HA: Allocator + Clone, TA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Irrefutably matches a single element to new variable
@@ -128,7 +134,7 @@ pub enum PatKind<'thir, 'hir, 'ast, HA:Allocator + Clone, TA: Allocator + Clone>
 }
 
 #[derive(Debug)]
-pub struct Pat<'thir, 'hir, 'ast, HA:Allocator + Clone, TA: Allocator + Clone> {
+pub struct Pat<'thir, 'hir, 'ast, HA: Allocator + Clone, TA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: PatKind<'thir, 'hir, 'ast, HA, TA>,
   pub ty: &'thir Val<'hir, 'ast, HA>,

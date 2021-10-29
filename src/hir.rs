@@ -20,7 +20,7 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Loops until a scope is returned
   Loop(&'hir ValExpr<'hir, 'ast, HA>),
   // applies a function
-  Apply {
+  App {
     fun: &'hir ValExpr<'hir, 'ast, HA>,
     arg: &'hir ValExpr<'hir, 'ast, HA>,
   },
@@ -47,7 +47,7 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Switches on a pattern
   CaseOf {
     expr: &'hir PlaceExpr<'hir, 'ast, HA>,
-    case_options: Vec<(Pat<'hir, 'ast, HA>, ValExpr<'hir, 'ast, HA>), HA>,
+    case_options: Vec<(RefutablePatExpr<'hir, 'ast, HA>, ValExpr<'hir, 'ast, HA>), HA>,
     source: CaseSource,
   },
 
@@ -79,15 +79,18 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // creates a disjoint union from an ad hoc compound object
   Enum(&'hir ValExpr<'hir, 'ast, HA>),
   // creates a tuple
-  Cons {
+  Pair {
     fst: &'hir ValExpr<'hir, 'ast, HA>,
     snd: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Create Function
-  Defun {
-    pattern: &'hir Pat<'hir, 'ast, HA>,
+  Lam {
+    pattern: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
     result: &'hir ValExpr<'hir, 'ast, HA>,
-    infer_pattern: bool,
+  },
+  LamTy {
+    pattern: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
+    result: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Sequence
   Sequence {
@@ -96,7 +99,7 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   },
   // Assign value to place
   LetIn {
-    pat: &'hir Pat<'hir, 'ast, HA>,
+    pat: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
     val: &'hir ValExpr<'hir, 'ast, HA>,
     body: &'hir ValExpr<'hir, 'ast, HA>,
   },
@@ -132,56 +135,109 @@ pub struct PlaceExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub kind: PlaceExprKind<'hir, 'ast, HA>,
 }
 
+// A pattern that may not be rejected, and can bind variables
 #[derive(Debug)]
-pub enum PatKind<'hir, 'ast, HA: Allocator + Clone> {
+pub enum IrrefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // An error when parsing
   Error,
   // Irrefutably matches a single element to new variable
   BindVariable,
   // Irrefutably discards a variable
-  BindIgnore,
+  Ignore,
   // write the variable to a location
   BindPlace(PlaceExpr<'hir, 'ast, HA>),
-  // match with a variety of types
-  Range {
-    inclusive: bool,
-    left_operand: &'hir ValExpr<'hir, 'ast, HA>,
-    right_operand: &'hir ValExpr<'hir, 'ast, HA>,
-  },
   // destructure a tuple
   Cons {
-    fst: &'hir Pat<'hir, 'ast, HA>,
-    snd: &'hir Pat<'hir, 'ast, HA>,
+    fst: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
+    snd: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
   // Selects a function and calls it with the scrutinee.
   // The result is then refutably matched with the argument provided
   // Example: Array($a, $b, $c) = someFunc();
   ActivePattern {
     fun: &'hir ValExpr<'hir, 'ast, HA>,
-    arg: &'hir Pat<'hir, 'ast, HA>,
+    arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
-  // Refutable pattern of a value
-  Value(&'hir ValExpr<'hir, 'ast, HA>),
+  // Depub structures a field of a pub struct object
+  StructLiteral(Vec<(&'ast Vec<u8>, IrrefutablePatExpr<'hir, 'ast, HA>), HA>),
+}
+
+#[derive(Debug)]
+pub struct IrrefutablePatExpr<'hir, 'ast, HA: Allocator + Clone> {
+  pub source: &'ast ast::Expr,
+  pub kind: IrrefutablePatExprKind<'hir, 'ast, HA>,
+}
+
+// A pattern that may reject, and can bind variables
+#[derive(Debug)]
+pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
+  // An error when parsing
+  Error,
+  // Irrefutably match this expr
+  IrrefutablePat(&'hir IrrefutablePatExpr<'hir, 'ast, HA>),
+  // Match against a value or fail
+  ValPat(&'hir ValPatExpr<'hir, 'ast, HA>),
+  // destructure a tuple
+  Cons {
+    fst: &'hir RefutablePatExpr<'hir, 'ast, HA>,
+    snd: &'hir RefutablePatExpr<'hir, 'ast, HA>,
+  },
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables
   And {
-    left_operand: &'hir Pat<'hir, 'ast, HA>,
-    right_operand: &'hir Pat<'hir, 'ast, HA>,
+    left_operand: &'hir RefutablePatExpr<'hir, 'ast, HA>,
+    right_operand: &'hir ValPatExpr<'hir, 'ast, HA>,
+  },
+  // Depub structures a field of a pub struct object
+  StructLiteral(Vec<(&'ast Vec<u8>, RefutablePatExpr<'hir, 'ast, HA>), HA>),
+}
+
+#[derive(Debug)]
+pub struct RefutablePatExpr<'hir, 'ast, HA: Allocator + Clone> {
+  pub source: &'ast ast::Expr,
+  pub kind: RefutablePatExprKind<'hir, 'ast, HA>,
+}
+
+// a pattern that can reject, and can't bind any variables
+#[derive(Debug)]
+pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
+  // An error when parsing
+  Error,
+  // Irrefutably discards a variable
+  Ignore,
+  // match with a variety of types
+  Range {
+    inclusive: bool,
+    left_operand: &'hir ValExpr<'hir, 'ast, HA>,
+    right_operand: &'hir ValExpr<'hir, 'ast, HA>,
+  },
+  // Depub structures a field of a pub struct object
+  StructLiteral(Vec<(&'ast Vec<u8>, ValPatExpr<'hir, 'ast, HA>), HA>),
+  // destructure a tuple
+  Cons {
+    fst: &'hir ValPatExpr<'hir, 'ast, HA>,
+    snd: &'hir ValPatExpr<'hir, 'ast, HA>,
+  },
+  // Evaluates the second pattern iff the first pattern matches, matches if both are true
+  // none of these may bind any variables
+  And {
+    fst: &'hir ValPatExpr<'hir, 'ast, HA>,
+    snd: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
   // Evaluates the second pattern iff the first pattern doesn't match, matches if at least one is true
   // none of these may bind any variables
   Or {
-    left_operand: &'hir Pat<'hir, 'ast, HA>,
-    right_operand: &'hir Pat<'hir, 'ast, HA>,
+    fst: &'hir ValPatExpr<'hir, 'ast, HA>,
+    snd: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
-  // Depub structures a field of a pub struct object
-  StructLiteral(Vec<(&'ast Vec<u8>, Pat<'hir, 'ast, HA>), HA>),
+  // Refutable pattern of a value
+  Value(&'hir ValExpr<'hir, 'ast, HA>),
 }
 
 #[derive(Debug)]
-pub struct Pat<'hir, 'ast, HA: Allocator + Clone> {
+pub struct ValPatExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
-  pub kind: PatKind<'hir, 'ast, HA>,
+  pub kind: ValPatExprKind<'hir, 'ast, HA>,
 }
 
 //  // functions

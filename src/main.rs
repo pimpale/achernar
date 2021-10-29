@@ -7,10 +7,10 @@ mod codereader;
 mod dlogger;
 mod hir;
 mod hirbuilder;
-mod hireval;
+mod nbe;
 mod utils;
-//mod thir;
-//mod thirbuilder;
+mod thir;
+mod thirbuilder;
 mod token;
 mod tokenize;
 

@@ -12,7 +12,7 @@ There are several design goals for Achernar:
 
 * Fully public domain source code
   * Achernar is fully public domain, which means that you are free to embed it anywhere, without attribution.
-* 1:1 Correspondance with AST. 
+* 1:1 Correspondance between source code and AST. 
   * Means that the comments, macros, and code should all be representable from the AST with no data loss. 
   * This eases the implementation of code transforming tools such as formatters, static analyzers, and machine learning tools
 * Comment integration with code

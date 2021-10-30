@@ -1,54 +1,46 @@
 use super::dlogger::DiagnosticLogger;
 use super::hir;
-use super::ast;
 use super::nbe;
-use super::thir;
 use super::utils::clone_in;
 use bumpalo::Bump;
 use std::alloc::Allocator;
-
-fn gen_nil_ty<'hir, 'ast>(source: &'ast ast::Expr) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
-  hir::ValExpr {
-    source: source,
-    kind: hir::ValExprKind::NilTy,
-  }
-}
-
-fn gen_error<'hir, 'ast>(source: &'ast ast::Expr) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
-  hir::ValExpr {
-    source: source,
-    kind: hir::ValExprKind::Error,
-  }
-}
+use std::collections::HashMap;
 
 // this function will attempt to bestow types on all of the components recursing from bottom up
-fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
-  allocator: &'thir Bump,
+fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
+  allocator: &'types Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  label_env: &mut Vec<Option<nbe::Val<'hir, 'ast, &'thir Bump>>>,
-  var_env: &mut Vec<nbe::Val<'hir, 'ast, &'thir Bump>>,
-) -> thir::ValExpr<'thir, 'ast, &'thir Bump> {
+  label_env: &mut Vec<Option<nbe::Val<'hir, 'ast, &'types Bump>>>,
+  var_env: &mut Vec<nbe::Val<'hir, 'ast, &'types Bump>>,
+) -> HashMap<u64, hir::ValExpr<'hir, 'ast, &'types Bump>> {
   match source.kind {
-    hir::ValExprKind::Error => thir::ValExpr {
-      source: source.source,
-      kind: thir::ValExprKind::Error,
-      ty: allocator.alloc(gen_error(source.source))
-    },
+    hir::ValExprKind::Error => vec![],
     hir::ValExprKind::Loop(body) => {
-      let body = tr_check_expr(allocator, dlogger, body, label_env, var_env, &nbe::Val::NilTy);
+      let nilty  =nbe::Val::NilTy;
+      let mut tytable = tr_check_expr(
+        allocator,
+        dlogger,
+        body,
+        label_env,
+        var_env,
+        &nilty,
+      );
 
-      thir::ValExpr {
-        source: source.source,
-        kind: thir::ValExprKind::Loop(allocator.alloc(body)),
-        ty: allocator.alloc(gen_nil_ty(source.source))
-      }
+      tytable.insert(source.id, nbe::read_back(nilty));
+
+      tytable
     }
     hir::ValExprKind::Apply { fun, arg } => {
-      // bottom up synthesize the function
-      let fun_tr = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
+      //
+      let fun_tytable = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
 
-      if let hir::ValExprKind::Apply { fun, arg } = fun_tr.ty.kind {
+      if let Some(
+          hir:: ValExpr {
+            kind: hir::ValExprKind::LamTy { in_ty, out_ty },
+            ..
+          }
+      ) = fun_tytable.get(fun.id) {
         // typecheck the argument
         let arg_tr = tr_check_expr(allocator, dlogger, arg, label_env, var_env, in_ty);
 
@@ -228,14 +220,14 @@ fn tr_synth_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
 
 // this function will attempt to check types on all the components recursing top down.
 // the
-fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
-  allocator: &'thir Bump,
+fn tr_check_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
+  allocator: &'types Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  label_env: &mut Vec<Option<Val<'hir, 'ast, &'thir Bump>>>,
-  var_env: &mut Vec<Val<'hir, 'ast, &'thir Bump>>,
+  label_env: &mut Vec<Option<Val<'hir, 'ast, &'types Bump>>>,
+  var_env: &mut Vec<Val<'hir, 'ast, &'types Bump>>,
   ty: &Val<'hir, 'ast, HA>,
-) -> thir::ValExpr<'thir, 'ast, &'thir Bump> {
+) -> HashMap<u64, hir::ValExpr<'hir, 'ast, &'types Bump>> {
   match source.kind {
     hir::ValExprKind::Error => thir::ValExpr {
       source: source.source,
@@ -255,10 +247,10 @@ fn tr_check_expr<'thir, 'hir, 'ast, HA: Allocator + Clone>(
   }
 }
 
-pub fn construct_thir<'thir, 'hir, 'ast, HA: Allocator + Clone>(
+pub fn construct_thir<'types, 'hir, 'ast, HA: Allocator + Clone>(
   hir: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  allocator: &'thir Bump,
+  allocator: &'types Bump,
   mut dlogger: DiagnosticLogger,
-) -> thir::ValExpr<'thir, 'ast, &'thir Bump> {
+) -> thir::ValExpr<'types, 'ast, &'types Bump> {
   tr_synth_expr(allocator, &mut dlogger, hir, &mut vec![], &mut vec![])
 }

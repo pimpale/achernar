@@ -1,5 +1,4 @@
 use super::ast;
-use super::thir;
 use super::hir;
 use std::alloc::Allocator;
 use std::collections::HashMap;
@@ -16,39 +15,39 @@ pub enum EvalError {
 // represents the different states a variable can be in
 // source is where the variable was first defined
 #[derive(Debug, Clone)]
-pub struct Var<'thir, 'ast, TA: Allocator + Clone> {
-  kind: VarKind<'thir, 'ast, TA>,
+pub struct Var<'hir, 'ast, TA: Allocator + Clone> {
+  kind: VarKind<'hir, 'ast, TA>,
   source: &'ast ast::Expr,
 }
 
 #[derive(Debug, Clone)]
-pub enum VarKind<'thir, 'ast, TA: Allocator + Clone> {
+pub enum VarKind<'hir, 'ast, TA: Allocator + Clone> {
   MovedOut {
     take: &'ast ast::Expr,
   },
   MutablyBorrowed {
-    val: Val<'thir, 'ast, TA>,
+    val: Val<'hir, 'ast, TA>,
     borrow: &'ast ast::Expr,
   },
   ImmutablyBorrowed {
-    val: Val<'thir, 'ast, TA>,
+    val: Val<'hir, 'ast, TA>,
     borrows: Vec<&'ast ast::Expr>,
   },
   Unborrowed {
-    val: Val<'thir, 'ast, TA>,
+    val: Val<'hir, 'ast, TA>,
   },
 }
 
 #[derive(Debug, Clone)]
-pub struct Closure<'thir, 'ast, TA: Allocator + Clone> {
-  pub ext_env: Vec<Var<'thir, 'ast, TA>>, // external environment
-  pub pat: &'thir thir::Pat<'thir, 'ast, TA>,
-  pub expr: &'thir thir::ValExpr<'thir, 'ast, TA>,
+pub struct Closure<'hir, 'ast, TA: Allocator + Clone> {
+  pub ext_env: Vec<Var<'hir, 'ast, TA>>, // external environment
+  pub pat: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
+  pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
 }
 
 // These are terms that have normalized completely, to the fullest extent possible
 #[derive(Debug, Clone)]
-pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
+pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   // Types
   Universe(usize), // type of a type is Universe(0)
   NilTy,
@@ -64,21 +63,20 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   I64Ty,
   F32Ty,
   F64Ty,
-
-  // This is also known as a sigma type
-  ConsTy {
-    fst: Box<Val<'thir, 'ast, TA>>,
-    snd: Box<Closure<'thir, 'ast, TA>>,
+  // Also known as a Sigma type
+  // https://en.wikipedia.org/wiki/Dependent_type#%CE%A3_type
+  PairTy {
+    fst: Box<Val<'hir, 'ast, TA>>,
+    snd: Box<Closure<'hir, 'ast, TA>>,
   },
-  StructTy(Vec<(&'ast Vec<u8>, Val<'thir, 'ast, TA>), TA>),
-  EnumTy(Vec<(&'ast Vec<u8>, Val<'thir, 'ast, TA>), TA>),
-
-  // This is also known as a Pi Type
+  StructTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
+  EnumTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
+  // Also known as a Pi type
+  // https://en.wikipedia.org/wiki/Dependent_type#%CE%A0_type
   FunTy {
-    in_ty: Box<Val<'thir, 'ast, TA>>,
-    out_ty: Box<Closure<'thir, 'ast, TA>>,
+    in_ty: Box<Val<'hir, 'ast, TA>>,
+    out_ty: Box<Closure<'hir, 'ast, TA>>,
   },
-
   // Values
   Nil,
   Bool(bool),
@@ -92,52 +90,52 @@ pub enum Val<'thir, 'ast, TA: Allocator + Clone> {
   I64(i64),
   F32(f32),
   F64(f64),
-  Cons {
-    fst: Box<Val<'thir, 'ast, TA>>,
-    snd: Box<Val<'thir, 'ast, TA>>,
+  Pair {
+    fst: Box<Val<'hir, 'ast, TA>>,
+    snd: Box<Val<'hir, 'ast, TA>>,
   },
-  Struct(HashMap<&'ast Vec<u8>, Var<'thir, 'ast, TA>>),
+  Struct(HashMap<&'ast Vec<u8>, Var<'hir, 'ast, TA>>),
   Enum {
     field: &'ast Vec<u8>,
-    value: Box<Val<'thir, 'ast, TA>>,
+    value: Box<Val<'hir, 'ast, TA>>,
   },
-  Fun(Closure<'thir, 'ast, TA>),
+  Fun(Closure<'hir, 'ast, TA>),
 
   // path of a level
   Ref(Place<'ast>),
   MutRef(Place<'ast>),
 
   Never {
-    returned: Box<Val<'thir, 'ast, TA>>,
+    returned: Box<Val<'hir, 'ast, TA>>,
     levels_up: usize,
   },
 
   // Neutral represents a value that we can't evaluate since we're missing information
   Neutral {
-    val: Box<Neutral<'thir, 'ast, TA>>,
-    ty: Box<Val<'thir, 'ast, TA>>,
+    val: Box<Neutral<'hir, 'ast, TA>>,
+    ty: Box<Val<'hir, 'ast, TA>>,
   },
 }
 
 #[derive(Debug, Clone)]
-pub enum Neutral<'thir, 'ast, TA: Allocator + Clone> {
+pub enum Neutral<'hir, 'ast, TA: Allocator + Clone> {
   // De Brujn level (not index)
   // this counts from the top of the stack
   Var(u32),
   App {
-    fun: Box<Neutral<'thir, 'ast, TA>>,
-    arg: NormalForm<'thir, 'ast, TA>,
+    fun: Box<Neutral<'hir, 'ast, TA>>,
+    arg: NormalForm<'hir, 'ast, TA>,
   },
   StructAccess {
-    root: Box<Neutral<'thir, 'ast, TA>>,
+    root: Box<Neutral<'hir, 'ast, TA>>,
     field: &'ast Vec<u8>,
   },
 }
 
 #[derive(Debug, Clone)]
-pub struct NormalForm<'thir, 'ast, TA: Allocator + Clone> {
-  term: Val<'thir, 'ast, TA>,
-  ty: Val<'thir, 'ast, TA>,
+pub struct NormalForm<'hir, 'ast, TA: Allocator + Clone> {
+  term: Val<'hir, 'ast, TA>,
+  ty: Val<'hir, 'ast, TA>,
 }
 
 #[derive(Debug, Clone)]
@@ -163,7 +161,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::I64Ty => "I64".to_owned(),
       Val::F32Ty => "F32".to_owned(),
       Val::F64Ty => "F64".to_owned(),
-      Val::ConsTy { fst, snd } => format!("(Cons {} {})", fst, snd),
+      Val::PairTy { fst, snd } => format!("(Pair {} {})", fst, snd),
       Val::StructTy(h) => format!(
         "struct({{ {} }})",
         h.iter().fold(String::new(), |a, (key, val)| {
@@ -199,7 +197,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::I64(v) => format!("{}i64", v),
       Val::F32(v) => format!("{}f32", v),
       Val::F64(v) => format!("{}f64", v),
-      Val::Cons { fst, snd } => format!("{}, {}", fst, snd),
+      Val::Pair { fst, snd } => format!("{}, {}", fst, snd),
       Val::Struct(h) => format!(
         "{{ {} }}",
         h.iter().fold(String::new(), |a, (key, var)| {
@@ -262,7 +260,7 @@ impl fmt::Display for Place<'_> {
   }
 }
 
-pub fn is_copy<'thir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'thir, 'ast, TA>) -> bool {
+pub fn is_copy<'hir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'hir, 'ast, TA>) -> bool {
   match val {
     Val::Universe(_) => true,
     Val::NilTy => true,
@@ -278,7 +276,8 @@ pub fn is_copy<'thir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'thir, 'ast, 
     Val::I64Ty => true,
     Val::F32Ty => true,
     Val::F64Ty => true,
-    Val::ConsTy { .. } => true,
+    Val::PairTy { .. } => true,
+    Val::PairTy { .. } => true,
     Val::StructTy(h) => true,
     Val::EnumTy(h) => true,
     Val::FunTy { in_ty, out_ty } => true,
@@ -294,7 +293,7 @@ pub fn is_copy<'thir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'thir, 'ast, 
     Val::I64(_) => true,
     Val::F32(_) => true,
     Val::F64(_) => true,
-    Val::Cons { .. } => false,
+    Val::Pair { .. } => false,
     Val::Struct(_) => false,
     Val::Enum { .. } => false,
     Val::Fun(_) => false,
@@ -308,21 +307,20 @@ pub fn is_copy<'thir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'thir, 'ast, 
 // binds irrefutable pattern, assigning vars to var_env
 // returns how many assignments were made
 // INVARIANT: does not alter var_env at all
-pub fn bind_irrefutable_pat<'thir, 'ast, 'env, TA: Allocator + Clone>(
-  p: &'thir thir::Pat<'thir, 'ast, TA>,
-  val: Val<'thir, 'ast, TA>,
-  var_env: &'env mut Vec<Var<'thir, 'ast, TA>>,
+pub fn bind_irrefutable_pat<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  p: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
+  val: Val<'hir, 'ast, TA>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
   mutation_allowed: bool,
-) -> Result<Vec<Var<'thir, 'ast, TA>>, EvalError> {
+) -> Result<Vec<Var<'hir, 'ast, TA>>, EvalError> {
   match &p.kind {
-    thir::PatKind::Error => unimplemented!(),
-    thir::PatKind::BindVariable => Ok(vec![Var {
+    hir::IrrefutablePatExprKind::Error => unimplemented!(),
+    hir::IrrefutablePatExprKind::BindVariable => Ok(vec![Var {
       source: p.source,
       kind: VarKind::Unborrowed { val },
     }]),
-    // TODO: we have to drop val here
-    thir::PatKind::BindIgnore => Ok(vec![]),
-    thir::PatKind::BindPlace(ref place_expr) => {
+    hir::IrrefutablePatExprKind::Nil => Ok(vec![]),
+    hir::IrrefutablePatExprKind::BindPlace(ref place_expr) => {
       if !mutation_allowed {
         // return error how mutation isn't allowed
         unimplemented!();
@@ -335,12 +333,12 @@ pub fn bind_irrefutable_pat<'thir, 'ast, 'env, TA: Allocator + Clone>(
 
       Ok(vec![])
     }
-    thir::PatKind::Cons {
+    hir::IrrefutablePatExprKind::Pair {
       fst: fst_p,
       snd: snd_p,
     } => {
       let mut vars = vec![];
-      if let Val::Cons {
+      if let Val::Pair{
         fst: fst_val,
         snd: snd_val,
       } = val
@@ -354,7 +352,7 @@ pub fn bind_irrefutable_pat<'thir, 'ast, 'env, TA: Allocator + Clone>(
 
       Ok(vars)
     }
-    thir::PatKind::ActivePattern {
+    hir::IrrefutablePatExprKind::ActivePattern {
       fun: fun_expr,
       arg: pat,
     } => {
@@ -365,9 +363,9 @@ pub fn bind_irrefutable_pat<'thir, 'ast, 'env, TA: Allocator + Clone>(
       let transformed_val = apply(fun, val)?;
 
       //now match on the pattern
-      bind_pattern(pat, transformed_val, var_env, mutation_allowed)
+      bind_irrefutable_pat(pat, transformed_val, var_env, mutation_allowed)
     }
-    thir::PatKind::StructLiteral(patterns) => {
+    hir::IrrefutablePatExprKind::StructLiteral(patterns) => {
       if let Val::Struct(fields_vec) = val {
         let mut vars = vec![];
 
@@ -379,7 +377,7 @@ pub fn bind_irrefutable_pat<'thir, 'ast, 'env, TA: Allocator + Clone>(
             Some(Var {
               kind: VarKind::Unborrowed { val },
               ..
-            }) => vars.extend(bind_pattern(pat, val, var_env, mutation_allowed)?),
+            }) => vars.extend(bind_irrefutable_pat(pat, val, var_env, mutation_allowed)?),
             // log that we can't unpack field when field is aready borrowed or moved out
             Some(Var {
               kind: VarKind::ImmutablyBorrowed { .. },
@@ -404,21 +402,13 @@ pub fn bind_irrefutable_pat<'thir, 'ast, 'env, TA: Allocator + Clone>(
         unimplemented!();
       }
     }
-    // range is a refutable pattern
-    thir::PatKind::Value { .. } => unimplemented!(),
-    // range is a refutable pattern
-    thir::PatKind::Range { .. } => unimplemented!(),
-    // and is a refutable pattern
-    thir::PatKind::And { .. } => unimplemented!(),
-    // or is a refutable pattern
-    thir::PatKind::Or { .. } => unimplemented!(),
   }
 }
 
-pub fn apply<'thir, 'ast, TA: Allocator + Clone>(
-  fun: Val<'thir, 'ast, TA>,
-  arg: Val<'thir, 'ast, TA>,
-) -> Result<Val<'thir, 'ast, TA>, EvalError> {
+pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
+  fun: Val<'hir, 'ast, TA>,
+  arg: Val<'hir, 'ast, TA>,
+) -> Result<Val<'hir, 'ast, TA>, EvalError> {
   match fun {
     Val::Fun(closure) => apply_closure(closure, arg),
     // this is the case where the function is an unresolved
@@ -451,12 +441,12 @@ pub fn apply<'thir, 'ast, TA: Allocator + Clone>(
 }
 
 // INVARIANT: closure is not altered, mutability is required for optimization purposes
-pub fn apply_closure<'thir, 'ast, 'clos, TA: Allocator + Clone>(
-  mut clos: Closure<'thir, 'ast, TA>,
-  arg: Val<'thir, 'ast, TA>,
-) -> Result<Val<'thir, 'ast, TA>, EvalError> {
+pub fn apply_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
+  mut clos: Closure<'hir, 'ast, TA>,
+  arg: Val<'hir, 'ast, TA>,
+) -> Result<Val<'hir, 'ast, TA>, EvalError> {
   // expand arg into the bound vars
-  let bound_vars = bind_pattern(clos.pat, arg, &mut clos.ext_env, false)?;
+  let bound_vars = bind_irrefutable_pat(clos.pat, arg, &mut clos.ext_env, false)?;
 
   // get the min_mut_level (the level at which mutability is allowed)
   let min_mut_level = clos.ext_env.len();
@@ -486,10 +476,10 @@ pub fn apply_closure<'thir, 'ast, 'clos, TA: Allocator + Clone>(
 // This means that the var must be writable and the target field must be moved out
 // NOTE: this function doesn't verify that the path enforces the 1 mutable borrow in path rule
 // TODO: incoprorate copy types
-pub fn get_var_if_overwritable<'thir, 'ast, 'env, TA: Allocator + Clone>(
+pub fn get_var_if_overwritable<'hir, 'ast, 'env, TA: Allocator + Clone>(
   place: &Place<'ast>,
-  var_env: &'env mut Vec<Var<'thir, 'ast, TA>>,
-) -> Result<&'env mut Var<'thir, 'ast, TA>, EvalError> {
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
   let mut cursor = &mut var_env[place.debruijn_level];
   for field in place.path_elems.iter() {
     let Var { kind, .. } = cursor;
@@ -545,10 +535,10 @@ pub fn get_var_if_overwritable<'thir, 'ast, 'env, TA: Allocator + Clone>(
 // It requires that all fields that it traverses must be unborrowed.
 // This is because this function is primarily used either to move out of a place or to mutably borrow it
 // In general, the rule that we are trying to enforce is that in any given place path, there can only be one mutable borrow along it.
-pub fn get_var_if_mutably_borrowable<'thir, 'ast, 'env, TA: Allocator + Clone>(
+pub fn get_var_if_mutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
   place: &Place<'ast>,
-  var_env: &'env mut Vec<Var<'thir, 'ast, TA>>,
-) -> Result<&'env mut Var<'thir, 'ast, TA>, EvalError> {
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
   // first we need to ensure that all parent structs are unborrowed
 
   let mut cursor = &mut var_env[place.debruijn_level];
@@ -603,10 +593,10 @@ pub fn get_var_if_mutably_borrowable<'thir, 'ast, 'env, TA: Allocator + Clone>(
 // It requires that all of the components along the path be either unborrowed or immutably borrowed.
 // This function is typically used to create a immutable reference to the place that is specified
 // It returns a result, with an erro if it ocln't resolve the speicifed path
-pub fn get_var_if_immutably_borrowable<'thir, 'ast, 'env, TA: Allocator + Clone>(
+pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
   place: &Place<'ast>,
-  var_env: &'env mut Vec<Var<'thir, 'ast, TA>>,
-) -> Result<&'env mut Var<'thir, 'ast, TA>, EvalError> {
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
   let mut cursor = &mut var_env[place.debruijn_level];
   for field in place.path_elems.iter() {
     let Var { kind, .. } = cursor;
@@ -669,14 +659,14 @@ pub fn get_var_if_immutably_borrowable<'thir, 'ast, 'env, TA: Allocator + Clone>
   Ok(cursor)
 }
 
-pub fn eval_place<'thir, 'ast, TA: Allocator + Clone>(
-  e: &'thir thir::PlaceExpr<'thir, 'ast, TA>,
-  var_env: &mut Vec<Var<'thir, 'ast, TA>>,
+pub fn eval_place<'hir, 'ast, TA: Allocator + Clone>(
+  e: &'hir hir::PlaceExpr<'hir, 'ast, TA>,
+  var_env: &mut Vec<Var<'hir, 'ast, TA>>,
   min_mut_level: usize,
 ) -> Result<Place<'ast>, EvalError> {
   match e.kind {
-    thir::PlaceExprKind::Error => Err(EvalError::InvalidSyntax),
-    thir::PlaceExprKind::Var(debruijn_index) => {
+    hir::PlaceExprKind::Error => Err(EvalError::InvalidSyntax),
+    hir::PlaceExprKind::Var(debruijn_index) => {
       let debruijn_level = var_env.len() - debruijn_index;
 
       let place = Place {
@@ -686,12 +676,12 @@ pub fn eval_place<'thir, 'ast, TA: Allocator + Clone>(
 
       Ok(place)
     }
-    thir::PlaceExprKind::StructField { root, field, .. } => {
+    hir::PlaceExprKind::StructField { root, field, .. } => {
       let mut root_place = eval_place(root, var_env, min_mut_level)?;
       root_place.path_elems.push(field);
       Ok(root_place)
     }
-    thir::PlaceExprKind::Deref(val_expr) => {
+    hir::PlaceExprKind::Deref(val_expr) => {
       match eval(val_expr, var_env, min_mut_level)? {
         Val::Ref(place) => Ok(place),
         Val::MutRef(place) => Ok(place),
@@ -704,14 +694,14 @@ pub fn eval_place<'thir, 'ast, TA: Allocator + Clone>(
 
 // INVARIANT: the length of the vector will not change
 // INVARIANT: won't alter any variables with in var_env where i > var_env
-pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
-  e: &'thir thir::ValExpr<'thir, 'ast, TA>,
-  var_env: &mut Vec<Var<'thir, 'ast, TA>>,
+pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
+  e: &'hir hir::ValExpr<'hir, 'ast, TA>,
+  var_env: &mut Vec<Var<'hir, 'ast, TA>>,
   min_mut_level: usize,
-) -> Result<Val<'thir, 'ast, TA>, EvalError> {
+) -> Result<Val<'hir, 'ast, TA>, EvalError> {
   match e.kind {
-    thir::ValExprKind::Error => Err(EvalError::InvalidSyntax),
-    thir::ValExprKind::Loop(body) => loop {
+    hir::ValExprKind::Error => Err(EvalError::InvalidSyntax),
+    hir::ValExprKind::Loop(body) => loop {
       match eval(body, var_env, min_mut_level)? {
         v @ Val::Never { .. } => {
           break Ok(v);
@@ -721,13 +711,13 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
         _ => unimplemented!(),
       }
     },
-    thir::ValExprKind::Apply { fun, arg } => {
+    hir::ValExprKind::App { fun, arg } => {
       let fun = eval(fun, var_env, min_mut_level)?;
       let arg = eval(arg, var_env, min_mut_level)?;
 
       apply(fun, arg)
     }
-    thir::ValExprKind::Label(expr) => match eval(expr, var_env, min_mut_level)? {
+    hir::ValExprKind::Label(expr) => match eval(expr, var_env, min_mut_level)? {
       // if we've reached zero labels
       Val::Never {
         levels_up: 0,
@@ -743,11 +733,11 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
       // the body of a label must evaluate to never
       _ => unimplemented!(),
     },
-    thir::ValExprKind::Ret { labels_up, value } => Ok(Val::Never {
+    hir::ValExprKind::Ret { labels_up, value } => Ok(Val::Never {
       returned: Box::new(eval(value, var_env, min_mut_level)?),
       levels_up: labels_up,
     }),
-    thir::ValExprKind::StructLiteral(ref fields) => {
+    hir::ValExprKind::StructLiteral(ref fields) => {
       let mut field_map = HashMap::new();
 
       for (f, (f_source, ref expr)) in fields.iter() {
@@ -762,7 +752,7 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
 
       Ok(Val::Struct(field_map))
     }
-    thir::ValExprKind::Take(place_expr) => {
+    hir::ValExprKind::Take(place_expr) => {
       let place = eval_place(place_expr, var_env, min_mut_level)?;
 
       if place.debruijn_level < min_mut_level {
@@ -781,7 +771,7 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
         VarKind::MovedOut { .. } => unimplemented!(),
       }
     }
-    thir::ValExprKind::MutBorrow(place_expr) => {
+    hir::ValExprKind::MutBorrow(place_expr) => {
       let place = eval_place(place_expr, var_env, min_mut_level)?;
 
       if place.debruijn_level < min_mut_level {
@@ -809,7 +799,7 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
       // return the mutable ref
       Ok(Val::MutRef(place))
     }
-    thir::ValExprKind::Borrow(place_expr) => {
+    hir::ValExprKind::Borrow(place_expr) => {
       let place = eval_place(place_expr, var_env, min_mut_level)?;
 
       if place.debruijn_level < min_mut_level {
@@ -845,7 +835,7 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
       // return the immutable ref
       Ok(Val::Ref(place))
     }
-    thir::ValExprKind::Annotate { val_expr, ty_expr } => {
+    hir::ValExprKind::Annotate { val_expr, ty_expr } => {
       // calculate type
       let _ty = eval(ty_expr, var_env, min_mut_level)?;
 
@@ -862,7 +852,7 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
 
       Ok(val)
     }
-    thir::ValExprKind::CaseOf {
+    hir::ValExprKind::CaseOf {
       ref expr,
       ref case_options,
       ref source,
@@ -871,54 +861,52 @@ pub fn eval<'thir, 'ast, TA: Allocator + Clone>(
 
       todo!()
     }
-    thir::ValExprKind::Universe(n) => Ok(Val::Universe(n)),
-    thir::ValExprKind::NilTy => Ok(Val::NilTy),
-    thir::ValExprKind::NeverTy => Ok(Val::NeverTy),
-    thir::ValExprKind::BoolTy => Ok(Val::BoolTy),
-    thir::ValExprKind::U8Ty => Ok(Val::U8Ty),
-    thir::ValExprKind::U16Ty => Ok(Val::U16Ty),
-    thir::ValExprKind::U32Ty => Ok(Val::U32Ty),
-    thir::ValExprKind::U64Ty => Ok(Val::U64Ty),
-    thir::ValExprKind::I8Ty => Ok(Val::I8Ty),
-    thir::ValExprKind::I16Ty => Ok(Val::I16Ty),
-    thir::ValExprKind::I32Ty => Ok(Val::I32Ty),
-    thir::ValExprKind::I64Ty => Ok(Val::I64Ty),
-    thir::ValExprKind::F32Ty => Ok(Val::F32Ty),
-    thir::ValExprKind::F64Ty => Ok(Val::F64Ty),
-    thir::ValExprKind::Nil => Ok(Val::Nil),
-    thir::ValExprKind::Bool(b) => Ok(Val::Bool(b)),
-    thir::ValExprKind::Char(c) => Ok(Val::U32(c)),
-    thir::ValExprKind::Int(i) => todo!(),
-    thir::ValExprKind::Float(f) => todo!(),
-    thir::ValExprKind::Struct(s) => todo!(),
-    thir::ValExprKind::Enum(e) => todo!(),
-    thir::ValExprKind::Cons { fst, snd } => todo!(),
-    thir::ValExprKind::Defun { pattern, result } => todo!(),
-    thir::ValExprKind::Sequence { fst, snd } => todo!(),
-    thir::ValExprKind::LetIn { pat, val, body } => todo!(),
+    hir::ValExprKind::Universe(n) => Ok(Val::Universe(n)),
+    hir::ValExprKind::NilTy => Ok(Val::NilTy),
+    hir::ValExprKind::NeverTy => Ok(Val::NeverTy),
+    hir::ValExprKind::BoolTy => Ok(Val::BoolTy),
+    hir::ValExprKind::U8Ty => Ok(Val::U8Ty),
+    hir::ValExprKind::U16Ty => Ok(Val::U16Ty),
+    hir::ValExprKind::U32Ty => Ok(Val::U32Ty),
+    hir::ValExprKind::U64Ty => Ok(Val::U64Ty),
+    hir::ValExprKind::I8Ty => Ok(Val::I8Ty),
+    hir::ValExprKind::I16Ty => Ok(Val::I16Ty),
+    hir::ValExprKind::I32Ty => Ok(Val::I32Ty),
+    hir::ValExprKind::I64Ty => Ok(Val::I64Ty),
+    hir::ValExprKind::F32Ty => Ok(Val::F32Ty),
+    hir::ValExprKind::F64Ty => Ok(Val::F64Ty),
+    hir::ValExprKind::Nil => Ok(Val::Nil),
+    hir::ValExprKind::Bool(b) => Ok(Val::Bool(b)),
+    hir::ValExprKind::Char(c) => Ok(Val::U32(c)),
+    hir::ValExprKind::Int(i) => todo!(),
+    hir::ValExprKind::Float(f) => todo!(),
+    hir::ValExprKind::Struct(s) => todo!(),
+    hir::ValExprKind::Enum(e) => todo!(),
+    hir::ValExprKind::Pair { fst, snd } => todo!(),
+    hir::ValExprKind::Lam { pattern, result } => todo!(),
+    hir::ValExprKind::Sequence { fst, snd } => todo!(),
+    hir::ValExprKind::LetIn { pat, val, body } => todo!(),
   }
 }
 
 // turns a nbe value into canonical code that produces that value
-pub fn read_back<'thir, 'ast, TA: Allocator + Clone>(
-  val: Val<'thir, 'ast, TA>,
-  var_env: Vec<Var<'thir, 'ast, TA>>,
-) -> hir::ValExpr<'thir, 'ast, TA> {
+pub fn read_back<'hir, 'ast, TA: Allocator + Clone>(
+  val: Val<'hir, 'ast, TA>,
+) -> hir::ValExpr<'hir, 'ast, TA> {
   todo!();
 }
 
-pub fn normalize<'thir, 'ast, TA: Allocator + Clone> (
-  expr: &'thir thir::ValExpr<'thir, 'ast, TA>
-) -> Result<hir::ValExpr<'thir, 'ast, TA>,EvalError>
+pub fn normalize<'hir, 'ast, TA: Allocator + Clone> (
+  expr: &'hir hir::ValExpr<'hir, 'ast, TA>
+) -> Result<hir::ValExpr<'hir, 'ast, TA>,EvalError>
     {
-  let mut var_env = vec![];
-  let val = eval(expr, &mut var_env, 0)?;
+  let val = eval(expr, &mut vec![], 0)?;
 
-  Ok(read_back(val, var_env))
+  Ok(read_back(val))
 }
 
 //
-//     thir::ValExprKind::StructFieldTake {
+//     hir::ValExprKind::StructFieldTake {
 //       root,
 //       field: (field, field_source),
 //     } => match &mut eval(root, var_env, min_mut_level) {
@@ -937,7 +925,7 @@ pub fn normalize<'thir, 'ast, TA: Allocator + Clone> (
 //       }
 //       _ => unimplemented!(),
 //     },
-//     thir::ValExprKind::StructFieldMutBorrow {
+//     hir::ValExprKind::StructFieldMutBorrow {
 //       root,
 //       field: (field, field_source),
 //     } => {
@@ -994,7 +982,7 @@ pub fn normalize<'thir, 'ast, TA: Allocator + Clone> (
 //         unimplemented!()
 //       }
 //     }
-//     thir::ValExprKind::StructFieldBorrow {
+//     hir::ValExprKind::StructFieldBorrow {
 //       root,
 //       field: (field, field_source),
 //     } => {
@@ -1043,10 +1031,10 @@ pub fn normalize<'thir, 'ast, TA: Allocator + Clone> (
 
 // // simply recursively perform the check
 // // INVARIANT: doesn't modify var_env
-// pub fn check_typed_by<'thir, 'ast, TA: Allocator + Clone>(
-//   val: &Val<'thir, 'ast, TA>,
-//   ty: Val<'thir, 'ast, TA>,
-//   var_env: &Vec<Var<'thir, 'ast, TA>>,
+// pub fn check_typed_by<'hir, 'ast, TA: Allocator + Clone>(
+//   val: &Val<'hir, 'ast, TA>,
+//   ty: Val<'hir, 'ast, TA>,
+//   var_env: &Vec<Var<'hir, 'ast, TA>>,
 // ) -> bool {
 //   match (val, ty) {
 //     (Val::Error(_), _) => false,

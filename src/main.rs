@@ -9,8 +9,7 @@ mod hir;
 mod hirbuilder;
 mod nbe;
 mod utils;
-mod thir;
-mod thirbuilder;
+mod typecheck;
 mod token;
 mod tokenize;
 
@@ -21,7 +20,7 @@ use std::io::Read;
 use astbuilder::construct_ast;
 use dlogger::DiagnosticLog;
 use hirbuilder::construct_hir;
-//use thirbuilder::construct_thir;
+use typecheck::type_check;
 use tokenize::tokenize;
 
 fn main() {

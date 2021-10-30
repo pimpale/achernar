@@ -262,7 +262,23 @@ impl DiagnosticLogger {
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "{} is invalid in a irrefutable patterns.",
+        "{} is invalid in a irrefutable pattern.",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+  pub fn log_unexpected_in_val_pattern(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(12)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is invalid in a val pattern. If you wish to use the value yielded from this expression, consider using `val`",
         kind.as_ref()
       ),
       related_information: None,
@@ -305,6 +321,23 @@ impl DiagnosticLogger {
     })
   }
 
+  pub fn log_unexpected_unop_in_val_pattern(&mut self, range: Range, kind: &ast::UnaryOpKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(13)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is an invalid unary operator in a val pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
   pub fn log_unexpected_binop_in_irrefutable_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
       range,
@@ -331,6 +364,23 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!(
         "{} is an invalid binary operator in a refutable pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unexpected_binop_in_val_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(14)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is an invalid binary operator in a val pattern. If you wish to use the value yielded from this expression, consider using `val`",
         kind.as_ref()
       ),
       related_information: None,

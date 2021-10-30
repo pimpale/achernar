@@ -135,182 +135,185 @@ fn gen_var_take<'hir, 'ast>(
   )
 }
 
-fn tr_pat<'hir, 'ast>(
+fn struct_pattern_to_pat_vec<'hir, 'ast>(
+  ha: &'hir Bump,
+  dlogger: &mut DiagnosticLogger,
+  source: &'ast ast::Expr,
+) -> HashMap<&'ast Vec<u8>, &'ast ast::Expr> {
+  // this is what we return:
+  // a hashmap between identifier and whatever pattern
+  // create a struct of literals
+  let mut patterns = HashMap::new();
+
+  // depth first search of binary tree
+  let mut sequences = vec![source];
+
+  while let Some(current) = sequences.pop() {
+    match current.kind {
+      ast::ExprKind::BinaryOp {
+        ref left_operand,
+        ref right_operand,
+        ref op,
+      } => match op {
+        ast::BinaryOpKind::Sequence => {
+          sequences.push(left_operand);
+          sequences.push(right_operand);
+        }
+        ast::BinaryOpKind::Assign => match left_operand.as_ref() {
+          // match field
+          ast::Expr {
+            kind:
+              ast::ExprKind::UnaryOp {
+                op: ast::UnaryOpKind::Bind,
+                operand,
+              },
+            ..
+          } => match operand.as_ref() {
+            // this means that a bind was the target of the assign
+            ast::Expr {
+              kind: ast::ExprKind::Identifier(ref identifier),
+              range,
+              ..
+            } => match patterns.entry(identifier) {
+              Entry::Vacant(ve) => {
+                ve.insert(&**right_operand);
+              }
+              Entry::Occupied(oe) => {
+                // identifier not unique, log error for using duplicate identifier in struct
+                dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().range);
+              }
+            },
+            // means that something other than a identifier was the target of the bind
+            ast::Expr {
+              range, ref kind, ..
+            } => dlogger.log_unsupported_bind_target_in_pattern_struct_assign(*range, kind),
+          },
+          // error handle
+          ast::Expr {
+            range, ref kind, ..
+          } => {
+            // means that there was no single bind as a target of the assign
+            dlogger.log_unsupported_target_in_pattern_struct_assign(*range, kind);
+          }
+        },
+        _ => {
+          dlogger.log_unexpected_binop_in_pattern_struct(current.range, op);
+        }
+      },
+      ref kind => {
+        dlogger.log_unexpected_element_in_pattern_struct(current.range, kind);
+      }
+    }
+  }
+  patterns
+}
+
+fn tr_irrefutable_pat_expr<'hir, 'ast>(
   ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
 ) -> (
-  hir::Pat<'hir, 'ast, &'hir Bump>,
+  hir::IrrefutablePatExpr<'hir, 'ast, &'hir Bump>,
   Vec<(&'ast [u8], VarScope<'ast>)>,
 ) {
   match source.kind {
     // propagate error
-    ast::ExprKind::Error =>
-        (
-        hir::Pat {
-      source,
-      kind: hir::PatKind::Error,
-    },
-    vec![]
-    )
-    ,
-    // transparent valueification
-    ast::ExprKind::Nil
-    | ast::ExprKind::Bool(_)
-    | ast::ExprKind::Int(_)
-    | ast::ExprKind::Float(_)
-    | ast::ExprKind::String { .. } => (
-    hir::Pat {
-      source,
-      kind: hir::PatKind::Value(ha.alloc(tr_val_expr(ha, dlogger, source, var_env, &mut vec![]))),
-    }, vec![])
-    ,
-    // reject use in pattern without explicit `val`
-    ref
-    c
-    @
-    (ast::ExprKind::Label { .. }
-    | ast::ExprKind::Identifier(_)
-    | ast::ExprKind::Defer { .. }
-    | ast::ExprKind::Ret { .. }
-    | ast::ExprKind::CaseOf { .. }) => {
-      dlogger.log_unexpected_in_pattern(source.range, c);
-      (
-          hir::Pat {
+    ast::ExprKind::Error => (
+      hir::IrrefutablePatExpr {
         source,
-        kind: hir::PatKind::Error,
+        kind: hir::IrrefutablePatExprKind::Error,
       },
-      vec![]
-      )
-    }
+      vec![],
+    ),
+    // as long as it typechecks, nil will always match
+    ast::ExprKind::Nil => (
+      hir::IrrefutablePatExpr {
+        source,
+        kind: hir::IrrefutablePatExprKind::Nil,
+      },
+      vec![],
+    ),
     // elide groups
-    ast::ExprKind::Group(ref body) => tr_pat(ha, dlogger, body, var_env),
+    ast::ExprKind::Group(ref body) => tr_irrefutable_pat_expr(ha, dlogger, body, var_env),
     ast::ExprKind::StructLiteral(ref body) => {
-      // create a struct of literals
-      let mut patterns = HashMap::new();
+      let patterns = struct_pattern_to_pat_vec(ha, dlogger, source);
 
-      // depth first search of binary tree
-      let mut sequences = vec![body];
       let mut bindings = vec![];
+      let mut fields = Vec::new_in(ha);
 
-      while let Some(current) = sequences.pop() {
-        match current.kind {
-          ast::ExprKind::BinaryOp {
-            ref left_operand,
-            ref right_operand,
-            ref op,
-          } => match op {
-            ast::BinaryOpKind::Sequence => {
-              sequences.push(left_operand);
-              sequences.push(right_operand);
-            }
-            ast::BinaryOpKind::Assign => match left_operand.as_ref() {
-              // match field
-              ast::Expr {
-                kind:
-                  ast::ExprKind::UnaryOp {
-                    op: ast::UnaryOpKind::Bind,
-                    operand,
-                  },
-                ..
-              } => match operand.as_ref() {
-                // this means that a bind was the target of the assign
-                ast::Expr {
-                  kind: ast::ExprKind::Identifier(ref identifier),
-                  range,
-                  ..
-                } => match patterns.entry(identifier) {
-                  Entry::Vacant(ve) => {
-                    // identifier unique, translate rhs and insert into map
-                    let (field_pat, field_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
-                    ve.insert(field_pat);
-                    bindings.extend(field_bindings);
-                  }
-                  Entry::Occupied(oe) => {
-                    // identifier not unique, log error for using duplicate identifier in struct
-                    dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().source.range);
-                  }
-                },
-
-                // means that something other than a reference was the target of the bind
-                ast::Expr {
-                  range, ref kind, ..
-                } => dlogger.log_unsupported_bind_target_in_pattern_struct_assign(*range, kind),
-              },
-              // error handle
-              ast::Expr {
-                range, ref kind, ..
-              } => {
-                // means that there was no single bind as a target of the assign
-                dlogger.log_unsupported_target_in_pattern_struct_assign(*range, kind);
-              }
-            },
-            _ => {
-              dlogger.log_unexpected_binop_in_pattern_struct(current.range, op);
-            }
-          },
-          ref kind => {
-            dlogger.log_unexpected_element_in_pattern_struct(current.range, kind);
-          }
-        }
+      for (id, pat) in patterns.into_iter() {
+        let (field_pat, field_bindings) = tr_irrefutable_pat_expr(ha, dlogger, pat, var_env);
+        fields.push((id, field_pat));
+        bindings.extend(field_bindings);
       }
-      // return struct
+
       (
-          hir::Pat {
-        source,
-        kind: hir::PatKind::StructLiteral(new_vec_from(ha, patterns.into_iter())),
-      },
-      bindings
+        hir::IrrefutablePatExpr {
+          source,
+          kind: hir::IrrefutablePatExprKind::StructLiteral(fields),
+        },
+        bindings,
       )
     }
     ast::ExprKind::UnaryOp {
       ref op,
       ref operand,
     } => match op {
-      ast::UnaryOpKind::Val => (
-          hir::Pat {
-          source,
-          kind: hir::PatKind::Value(ha.alloc(tr_val_expr(
-            ha,
-            dlogger,
-            operand,
-            var_env,
-            &mut vec![],
-          ))),
-         },
-         vec![]
-      ),
       ast::UnaryOpKind::Bind => match **operand {
         // binds a variable to an identifier
         ast::Expr {
           kind: ast::ExprKind::Identifier(ref identifier),
           ..
-        } => ( hir::Pat { source, kind: hir::PatKind::BindVariable, }, vec![(identifier, VarScope { declaration: Some(operand) })]),
+        } => (
+          hir::IrrefutablePatExpr {
+            source,
+            kind: hir::IrrefutablePatExprKind::BindVariable,
+          },
+          vec![(
+            identifier,
+            VarScope {
+              declaration: Some(operand),
+            },
+          )],
+        ),
         // handle error
         ast::Expr {
           range, ref kind, ..
         } => {
           dlogger.log_unexpected_bind_target(range, kind);
-          (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
+          (
+            hir::IrrefutablePatExpr {
+              source,
+              kind: hir::IrrefutablePatExprKind::Error,
+            },
+            vec![],
+          )
         }
       },
-      // the remaining operators
-      c => {
-        dlogger.log_unexpected_unop_in_pattern(source.range, c);
-        (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
-      }
       ast::UnaryOpKind::Mutate => (
-          hir::Pat {
-              source,
-              kind: hir::PatKind::BindPlace(tr_place_expr(ha, dlogger, operand, var_env, &mut vec![]))
-          },
-          vec![]
+        hir::IrrefutablePatExpr {
+          source,
+          kind: hir::IrrefutablePatExprKind::BindPlace(tr_place_expr(
+            ha,
+            dlogger,
+            operand,
+            var_env,
+            &mut vec![],
+          )),
+        },
+        vec![],
       ),
       // the remaining operators
       c => {
-        dlogger.log_unexpected_unop_in_pattern(source.range, c);
-        (hir::Pat { source, kind: hir::PatKind::Error, }, vec![])
+        dlogger.log_unexpected_unop_in_irrefutable_pattern(source.range, c);
+        (
+          hir::IrrefutablePatExpr {
+            source,
+            kind: hir::IrrefutablePatExprKind::Error,
+          },
+          vec![],
+        )
       }
     },
     ast::ExprKind::BinaryOp {
@@ -319,114 +322,254 @@ fn tr_pat<'hir, 'ast>(
       ref right_operand,
     } => match op {
       ast::BinaryOpKind::Apply => {
-          let (arg_pat, arg_bindings) = tr_pat(ha, dlogger, right_operand, var_env);
-          (hir::Pat {
-        source,
-        kind: hir::PatKind::ActivePattern {
-          fun: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
-          arg: ha.alloc(arg_pat),
-        }
-      }, arg_bindings)
-      },
-      ast::BinaryOpKind::And => {
-          let (left_pat, left_bindings) =tr_pat(ha, dlogger, left_operand, var_env);
-          let (right_pat, right_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
-
-          (
-              hir::Pat {
-           source,
-           kind: hir::PatKind::And{
-             left_operand: ha.alloc(left_pat),
-             right_operand: ha.alloc(right_pat),
-           }
-              },
-
-              // join them together
-              left_bindings.into_iter().chain(right_bindings.into_iter()).collect()
-
-           )
-      },
-      ast::BinaryOpKind::Or => {
-          let (left_pat, left_bindings) =tr_pat(ha, dlogger, left_operand, var_env);
-          let (right_pat, right_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
-
-          (
-              hir::Pat {
-           source,
-           kind: hir::PatKind::Or {
-             left_operand: ha.alloc(left_pat),
-             right_operand: ha.alloc(right_pat),
-           }
-              },
-
-              // join them together
-              left_bindings.into_iter().chain(right_bindings.into_iter()).collect()
-
-           )
-      },
+        let (arg_pat, arg_bindings) = tr_irrefutable_pat_expr(ha, dlogger, right_operand, var_env);
+        (
+          hir::IrrefutablePatExpr {
+            source,
+            kind: hir::IrrefutablePatExprKind::ActivePattern {
+              fun: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
+              arg: ha.alloc(arg_pat),
+            },
+          },
+          arg_bindings,
+        )
+      }
       ast::BinaryOpKind::Cons => {
-          let (fst_pat, fst_bindings) =tr_pat(ha, dlogger, left_operand, var_env);
-          let (snd_pat, snd_bindings) =tr_pat(ha, dlogger, right_operand, var_env);
+        let (fst_pat, fst_bindings) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
+        let (snd_pat, snd_bindings) = tr_irrefutable_pat_expr(ha, dlogger, right_operand, var_env);
 
-          (
-              hir::Pat {
-           source,
-           kind: hir::PatKind::Cons {
-             fst: ha.alloc(fst_pat),
-             snd: ha.alloc(snd_pat),
-           }
-              },
-
-              // join them together
-              fst_bindings.into_iter().chain(snd_bindings.into_iter()).collect()
-
-           )
-      },
-      ast::BinaryOpKind::Range => (
-          hir::Pat {
-        source,
-        kind: hir::PatKind::Range {
-          inclusive: false,
-          left_operand: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
-          right_operand: ha.alloc(tr_val_expr(
-            ha,
-            dlogger,
-            right_operand,
-            var_env,
-            &mut vec![],
-          )),
-        },
-      },vec![]),
-      ast::BinaryOpKind::RangeInclusive =>
-          (hir::Pat {
-        source,
-        kind: hir::PatKind::Range {
-          inclusive: true,
-          left_operand: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
-          right_operand: ha.alloc(tr_val_expr(
-            ha,
-            dlogger,
-            right_operand,
-            var_env,
-            &mut vec![],
-          )),
-        },
-      }, vec![]
-      ),
+        (
+          hir::IrrefutablePatExpr {
+            source,
+            kind: hir::IrrefutablePatExprKind::Pair {
+              fst: ha.alloc(fst_pat),
+              snd: ha.alloc(snd_pat),
+            },
+          },
+          // join them together
+          fst_bindings
+            .into_iter()
+            .chain(snd_bindings.into_iter())
+            .collect(),
+        )
+      }
       // Error
       c => {
-        dlogger.log_unexpected_binop_in_pattern(source.range, c);
+        dlogger.log_unexpected_binop_in_irrefutable_pattern(source.range, c);
         (
-            hir::Pat {
-          source,
-          kind: hir::PatKind::Error,
-        },
-         vec![]
+          hir::IrrefutablePatExpr {
+            source,
+            kind: hir::IrrefutablePatExprKind::Error,
+          },
+          vec![],
         )
       }
     },
+    // pattern is an error
+    ref c => {
+      dlogger.log_unexpected_in_irrefutable_pattern(source.range, c);
+      (
+        hir::IrrefutablePatExpr {
+          source,
+          kind: hir::IrrefutablePatExprKind::Error,
+        },
+        vec![],
+      )
+    }
   }
 }
+
+fn tr_refutable_pat_expr<'hir, 'ast>(
+  ha: &'hir Bump,
+  dlogger: &mut DiagnosticLogger,
+  source: &'ast ast::Expr,
+  var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
+) -> (
+  hir::RefutablePatExpr<'hir, 'ast, &'hir Bump>,
+  Vec<(&'ast [u8], VarScope<'ast>)>,
+) {
+  match source.kind {
+    // propagate error
+    ast::ExprKind::Error => (
+      hir::RefutablePatExpr {
+        source,
+        kind: hir::RefutablePatExprKind::Error,
+      },
+      vec![],
+    ),
+    // send irrefutable patterns here
+    ast::ExprKind::Nil => {
+      let (pat, bindings) = tr_irrefutable_pat_expr(ha, dlogger, source, var_env);
+      (
+        hir::RefutablePatExpr {
+          source,
+          kind: hir::RefutablePatExprKind::IrrefutablePat(ha.alloc(pat)),
+        },
+        bindings,
+      )
+    }
+    // send refutable patterns here
+    ast::ExprKind::Bool(_)
+    | ast::ExprKind::Int(_)
+    | ast::ExprKind::Float(_)
+    | ast::ExprKind::String { .. } => {
+      let pat = tr_val_pat_expr(ha, dlogger, source, var_env);
+      (
+        hir::RefutablePatExpr {
+          source,
+          kind: hir::RefutablePatExprKind::ValPat(ha.alloc(pat)),
+        },
+        vec![],
+      )
+    }
+    // elide groups
+    ast::ExprKind::Group(ref body) => tr_refutable_pat_expr(ha, dlogger, body, var_env),
+    ast::ExprKind::StructLiteral(ref body) => {
+      let patterns = struct_pattern_to_pat_vec(ha, dlogger, source);
+
+      let mut bindings = vec![];
+      let mut fields = Vec::new_in(ha);
+
+      for (id, pat) in patterns.into_iter() {
+        let (field_pat, field_bindings) = tr_refutable_pat_expr(ha, dlogger, pat, var_env);
+        fields.push((id, field_pat));
+        bindings.extend(field_bindings);
+      }
+
+      (
+        hir::RefutablePatExpr {
+          source,
+          kind: hir::RefutablePatExprKind::StructLiteral(fields),
+        },
+        bindings,
+      )
+    }
+    ast::ExprKind::UnaryOp { ref op, .. } => match op {
+      // handle irrefutable ops
+      ast::UnaryOpKind::Bind | ast::UnaryOpKind::Mutate => {
+        let (pat, bindings) = tr_irrefutable_pat_expr(ha, dlogger, source, var_env);
+        (
+          hir::RefutablePatExpr {
+            source,
+            kind: hir::RefutablePatExprKind::IrrefutablePat(ha.alloc(pat)),
+          },
+          bindings,
+        )
+      }
+      // handle refutable ops
+      ast::UnaryOpKind::Val => (
+        hir::RefutablePatExpr {
+          source,
+          kind: hir::RefutablePatExprKind::ValPat(
+            ha.alloc(tr_val_pat_expr(ha, dlogger, source, var_env)),
+          ),
+        },
+        vec![],
+      ),
+      // the remaining operators
+      c => {
+        dlogger.log_unexpected_unop_in_refutable_pattern(source.range, c);
+        (
+          hir::RefutablePatExpr {
+            source,
+            kind: hir::RefutablePatExprKind::Error,
+          },
+          vec![],
+        )
+      }
+    },
+    ast::ExprKind::BinaryOp {
+      ref op,
+      ref left_operand,
+      ref right_operand,
+    } => match op {
+      // handle refutable ops
+      ast::BinaryOpKind::Range | ast::BinaryOpKind::RangeInclusive | ast::BinaryOpKind::Or => (
+        hir::RefutablePatExpr {
+          source,
+          kind: hir::RefutablePatExprKind::ValPat(
+            ha.alloc(tr_val_pat_expr(ha, dlogger, source, var_env)),
+          ),
+        },
+        vec![],
+      ),
+      ast::BinaryOpKind::Apply => {
+        let (arg_pat, arg_bindings) = tr_irrefutable_pat_expr(ha, dlogger, right_operand, var_env);
+        (
+          hir::RefutablePatExpr {
+            source,
+            kind: hir::RefutablePatExprKind::ActivePattern {
+              fun: ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, &mut vec![])),
+              arg: ha.alloc(arg_pat),
+            },
+          },
+          arg_bindings,
+        )
+      }
+      ast::BinaryOpKind::Cons => {
+        let (fst_pat, fst_bindings) = tr_refutable_pat_expr(ha, dlogger, left_operand, var_env);
+        let (snd_pat, snd_bindings) = tr_refutable_pat_expr(ha, dlogger, right_operand, var_env);
+
+        (
+          hir::RefutablePatExpr {
+            source,
+            kind: hir::RefutablePatExprKind::Pair {
+              fst: ha.alloc(fst_pat),
+              snd: ha.alloc(snd_pat),
+            },
+          },
+          // join them together
+          fst_bindings
+            .into_iter()
+            .chain(snd_bindings.into_iter())
+            .collect(),
+        )
+      }
+      ast::BinaryOpKind::And => {
+        let (fst_pat, fst_bindings) = tr_refutable_pat_expr(ha, dlogger, left_operand, var_env);
+        let (snd_pat, snd_bindings) = tr_refutable_pat_expr(ha, dlogger, right_operand, var_env);
+        (
+          hir::RefutablePatExpr {
+            source,
+            kind: hir::RefutablePatExprKind::And {
+              fst: ha.alloc(fst_pat),
+              snd: ha.alloc(snd_pat),
+            },
+          },
+          // join them together
+          fst_bindings
+            .into_iter()
+            .chain(snd_bindings.into_iter())
+            .collect(),
+        )
+      }
+      // Error
+      c => {
+        dlogger.log_unexpected_binop_in_refutable_pattern(source.range, c);
+        (
+          hir::RefutablePatExpr {
+            source,
+            kind: hir::RefutablePatExprKind::Error,
+          },
+          vec![],
+        )
+      }
+    },
+    // pattern is an error
+    ref c => {
+      dlogger.log_unexpected_in_refutable_pattern(source.range, c);
+      (
+        hir::RefutablePatExpr {
+          source,
+          kind: hir::RefutablePatExprKind::Error,
+        },
+        vec![],
+      )
+    }
+  }
+}
+
+//
 
 fn tr_val_expr<'hir, 'ast>(
   ha: &'hir Bump,
@@ -541,7 +684,7 @@ fn tr_val_expr<'hir, 'ast>(
         // translate body
         let body_tr = tr_val_expr(ha, dlogger, body, var_env, label_env);
 
-        // now make the defer-ret construct
+        // now make the defer-ret pairtruct
         // ret 'x 0
         // to
         // let toret = 0;
@@ -552,9 +695,9 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::LetIn {
             // introduce variable with value of ret
-            pat: ha.alloc(hir::Pat {
+            pat: ha.alloc(hir::IrrefutablePatExpr {
               source,
-              kind: hir::PatKind::BindVariable,
+              kind: hir::IrrefutablePatExprKind::BindVariable,
             }),
             val: ha.alloc(body_tr),
 
@@ -703,7 +846,7 @@ fn tr_val_expr<'hir, 'ast>(
             }
             ast::BinaryOpKind::Defun => {
               // translate pattern
-              let (pat, bindings) = tr_pat(ha, dlogger, left_operand, var_env);
+              let (pat, bindings) = tr_refutable_pat_expr(ha, dlogger, left_operand, var_env);
 
               // find old len
               let old_len = var_env.len();
@@ -823,7 +966,7 @@ fn tr_val_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::Defun => {
         // translate pattern
-        let (pat, bindings) = tr_pat(ha, dlogger, left_operand, var_env);
+        let (pat, bindings) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
         // capture old length of var_env
         let old_len = var_env.len();
         // push bindings into the new equation
@@ -940,18 +1083,24 @@ fn tr_val_expr<'hir, 'ast>(
             let mut v = Vec::new_in(ha);
             // true path
             v.push((
-              hir::Pat {
+              hir::RefutablePatExpr {
                 source,
-                kind: hir::PatKind::Value(ha.alloc(gen_bool(source, true))),
+                kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
+                  source,
+                  kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(source, true))),
+                })),
               },
               tr_val_expr(ha, dlogger, right_operand, var_env, label_env),
             ));
 
             // false path
             v.push((
-              hir::Pat {
+              hir::RefutablePatExpr {
                 source,
-                kind: hir::PatKind::Value(ha.alloc(gen_bool(source, false))),
+                kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
+                  source,
+                  kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(source, false))),
+                })),
               },
               gen_bool(source, false),
             ));
@@ -972,18 +1121,24 @@ fn tr_val_expr<'hir, 'ast>(
             let mut v = Vec::new_in(ha);
             // true path
             v.push((
-              hir::Pat {
+              hir::RefutablePatExpr {
                 source,
-                kind: hir::PatKind::Value(ha.alloc(gen_bool(source, true))),
+                kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
+                  source,
+                  kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(source, true))),
+                })),
               },
               gen_bool(source, true),
             ));
 
             // false path
             v.push((
-              hir::Pat {
+              hir::RefutablePatExpr {
                 source,
-                kind: hir::PatKind::Value(ha.alloc(gen_bool(source, false))),
+                kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
+                  source,
+                  kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(source, false))),
+                })),
               },
               tr_val_expr(ha, dlogger, right_operand, var_env, label_env),
             ));
@@ -1056,7 +1211,7 @@ fn tr_val_expr<'hir, 'ast>(
         // x += 1
         // x = x + 1
         // find place, ignore bindings, since they will be unused
-        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+        let (pat, _) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
 
         // create val by adding together
         let val = gen_app(
@@ -1085,7 +1240,7 @@ fn tr_val_expr<'hir, 'ast>(
         // x += 1
         // x = x + 1
         // find place, ignore bindings, since they will be unused
-        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+        let (pat, _) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
 
         // create val by adding together
         let val = gen_app(
@@ -1114,7 +1269,7 @@ fn tr_val_expr<'hir, 'ast>(
         // x += 1
         // x = x + 1
         // find place, ignore bindings, since they will be unused
-        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+        let (pat, _) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
 
         // create val by adding together
         let val = gen_app(
@@ -1143,7 +1298,7 @@ fn tr_val_expr<'hir, 'ast>(
         // x += 1
         // x = x + 1
         // find place, ignore bindings, since they will be unused
-        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+        let (pat, _) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
 
         // create val by adding together
         let val = gen_app(
@@ -1172,7 +1327,7 @@ fn tr_val_expr<'hir, 'ast>(
         // x += 1
         // x = x + 1
         // find place, ignore bindings, since they will be unused
-        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+        let (pat, _) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
 
         // create val by adding together
         let val = gen_app(
@@ -1206,7 +1361,7 @@ fn tr_val_expr<'hir, 'ast>(
 
         // translate pattern (dropping vars, since they won't be used)
         // later, a warning will be sent in liveness checking
-        let (pat, _) = tr_pat(ha, dlogger, left_operand, var_env);
+        let (pat, _) = tr_irrefutable_pat_expr(ha, dlogger, left_operand, var_env);
 
         hir::ValExpr {
           source,
@@ -1238,7 +1393,7 @@ fn tr_val_expr<'hir, 'ast>(
           let val = tr_val_expr(ha, dlogger, assign_value, var_env, label_env);
 
           // translate pattern and get bindings
-          let (pat, bindings) = tr_pat(ha, dlogger, assign_pat, var_env);
+          let (pat, bindings) = tr_irrefutable_pat_expr(ha, dlogger, assign_pat, var_env);
 
           // get old length
           let old_len = var_env.len();
@@ -1271,15 +1426,6 @@ fn tr_val_expr<'hir, 'ast>(
           }
         }
       }
-      ast::BinaryOpKind::As => gen_app(
-        ha,
-        source,
-        gen_var_take(b"_as", dlogger, source, var_env, ha),
-        vec![
-          ha.alloc(tr_val_expr(ha, dlogger, left_operand, var_env, label_env)),
-          ha.alloc(tr_val_expr(ha, dlogger, right_operand, var_env, label_env)),
-        ],
-      ),
       ast::BinaryOpKind::ModuleAccess => gen_take(
         source,
         tr_place_expr(ha, dlogger, source, var_env, label_env),
@@ -1371,7 +1517,7 @@ fn tr_place_expr<'hir, 'ast>(
   }
 }
 
-pub fn construct_hir<'hir, 'ast>(
+pub fn pairtruct_hir<'hir, 'ast>(
   ast: &'ast ast::Expr,
   ha: &'hir Bump,
   mut dlogger: DiagnosticLogger,

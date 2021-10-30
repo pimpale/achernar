@@ -308,7 +308,7 @@ pub fn is_copy<'thir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'thir, 'ast, 
 // binds irrefutable pattern, assigning vars to var_env
 // returns how many assignments were made
 // INVARIANT: does not alter var_env at all
-pub fn bind_pattern<'thir, 'ast, 'env, TA: Allocator + Clone>(
+pub fn bind_irrefutable_pat<'thir, 'ast, 'env, TA: Allocator + Clone>(
   p: &'thir thir::Pat<'thir, 'ast, TA>,
   val: Val<'thir, 'ast, TA>,
   var_env: &'env mut Vec<Var<'thir, 'ast, TA>>,
@@ -346,8 +346,8 @@ pub fn bind_pattern<'thir, 'ast, 'env, TA: Allocator + Clone>(
       } = val
       {
         // match first, then second side
-        vars.extend(bind_pattern(fst_p, *fst_val, var_env, mutation_allowed)?);
-        vars.extend(bind_pattern(snd_p, *snd_val, var_env, mutation_allowed)?);
+        vars.extend(bind_irrefutable_pat(fst_p, *fst_val, var_env, mutation_allowed)?);
+        vars.extend(bind_irrefutable_pat(snd_p, *snd_val, var_env, mutation_allowed)?);
       } else {
         unimplemented!();
       }

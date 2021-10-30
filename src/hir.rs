@@ -140,20 +140,22 @@ pub struct PlaceExpr<'hir, 'ast, HA: Allocator + Clone> {
 pub enum IrrefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // An error when parsing
   Error,
+  // Always matches with Nil, but doesn't bind anything
+  Nil,
   // Irrefutably matches a single element to new variable
   BindVariable,
-  // Irrefutably discards a variable
-  Ignore,
   // write the variable to a location
   BindPlace(PlaceExpr<'hir, 'ast, HA>),
   // destructure a tuple
-  Cons {
+  Pair {
     fst: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
     snd: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
   // Selects a function and calls it with the scrutinee.
   // The result is then refutably matched with the argument provided
+  // Also can be used to drop values during matching
   // Example: Array($a, $b, $c) = someFunc();
+  // Example: _ () = someFunc();
   ActivePattern {
     fun: &'hir ValExpr<'hir, 'ast, HA>,
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
@@ -178,18 +180,27 @@ pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Match against a value or fail
   ValPat(&'hir ValPatExpr<'hir, 'ast, HA>),
   // destructure a tuple
-  Cons {
+  Pair {
     fst: &'hir RefutablePatExpr<'hir, 'ast, HA>,
     snd: &'hir RefutablePatExpr<'hir, 'ast, HA>,
   },
-  // Evaluates the second pattern iff the first pattern matches, matches if both are true
-  // none of these may bind any variables
-  And {
-    left_operand: &'hir RefutablePatExpr<'hir, 'ast, HA>,
-    right_operand: &'hir ValPatExpr<'hir, 'ast, HA>,
+  // Selects a function and calls it with the scrutinee.
+  // The result is then refutably matched with the argument provided
+  // Also can be used to drop values during matching
+  // Example: Array($a, $b, $c) = someFunc();
+  // Example: _ () = someFunc();
+  ActivePattern {
+    fun: &'hir ValExpr<'hir, 'ast, HA>,
+    arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
   // Depub structures a field of a pub struct object
   StructLiteral(Vec<(&'ast Vec<u8>, RefutablePatExpr<'hir, 'ast, HA>), HA>),
+  // Evaluates the second pattern iff the first pattern matches, matches if both are true
+  // none of these may bind any variables
+  And {
+    fst: &'hir RefutablePatExpr<'hir, 'ast, HA>,
+    snd: &'hir RefutablePatExpr<'hir, 'ast, HA>,
+  },
 }
 
 #[derive(Debug)]
@@ -211,10 +222,19 @@ pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     left_operand: &'hir ValExpr<'hir, 'ast, HA>,
     right_operand: &'hir ValExpr<'hir, 'ast, HA>,
   },
-  // Depub structures a field of a pub struct object
+  // Selects a function and calls it with the scrutinee.
+  // The result is then refutably matched with the argument provided
+  // Also can be used to drop values during matching
+  // Example: Array($a, $b, $c) = someFunc();
+  // Example: _ () = someFunc();
+  ActivePattern {
+    fun: &'hir ValExpr<'hir, 'ast, HA>,
+    arg: &'hir ValPatExpr<'hir, 'ast, HA>,
+  },
+  // Destructures a field of a struct object
   StructLiteral(Vec<(&'ast Vec<u8>, ValPatExpr<'hir, 'ast, HA>), HA>),
   // destructure a tuple
-  Cons {
+  Pair {
     fst: &'hir ValPatExpr<'hir, 'ast, HA>,
     snd: &'hir ValPatExpr<'hir, 'ast, HA>,
   },

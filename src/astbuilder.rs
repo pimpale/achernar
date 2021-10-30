@@ -1,7 +1,7 @@
-use super::ast::*;
+use super::ast::{BinaryOpKind, Expr, ExprKind, Metadata, UnaryOpKind};
 use super::codereader::union_of;
 use super::dlogger::DiagnosticLogger;
-use super::token::*;
+use super::token::{Token, TokenKind};
 use lsp_types::Range;
 use peekmore::{PeekMore, PeekMoreIterator};
 
@@ -659,21 +659,6 @@ fn parse_range_operators<TkIter: Iterator<Item = Token>>(
   )
 }
 
-fn parse_as_operator<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_r_binary_op(
-    tkiter,
-    dlogger,
-    parse_range_operators,
-    simple_operator_fn(|x| match x {
-      TokenKind::As => Some(BinaryOpKind::As),
-      _ => None,
-    }),
-  )
-}
-
 fn parse_constrain<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -681,7 +666,7 @@ fn parse_constrain<TkIter: Iterator<Item = Token>>(
   parse_r_binary_op(
     tkiter,
     dlogger,
-    parse_as_operator,
+    parse_range_operators,
     simple_operator_fn(|x| match x {
       TokenKind::Constrain => Some(BinaryOpKind::Constrain),
       _ => None,

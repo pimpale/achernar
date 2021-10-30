@@ -41,7 +41,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_eof_in_string(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(1)),
       code_description: None,
       source: self.source.clone(),
@@ -55,7 +55,7 @@ impl DiagnosticLogger {
   pub fn log_unrecognized_escape_code(&mut self, range: Range, c: u8) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(2)),
       code_description: None,
       source: self.source.clone(),
@@ -69,7 +69,7 @@ impl DiagnosticLogger {
   pub fn log_invalid_unicode_code_point(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(3)),
       code_description: None,
       source: self.source.clone(),
@@ -83,7 +83,7 @@ impl DiagnosticLogger {
   pub fn log_digit_exceeds_radix(&mut self, range: Range, radix: u8, digit: u8) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(4)),
       code_description: None,
       source: self.source.clone(),
@@ -100,7 +100,7 @@ impl DiagnosticLogger {
   pub fn log_unrecognized_radix_code(&mut self, range: Range, code: u8) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(5)),
       code_description: None,
       source: self.source.clone(),
@@ -114,7 +114,7 @@ impl DiagnosticLogger {
   pub fn log_unrecognized_character(&mut self, range: Range, character: u8) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(6)),
       code_description: None,
       source: self.source.clone(),
@@ -128,7 +128,7 @@ impl DiagnosticLogger {
   pub fn log_incomplete_unicode_or_byte_escape(&mut self, range: Range, expected_len: u32) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(7)),
       code_description: None,
       source: self.source.clone(),
@@ -157,7 +157,7 @@ impl DiagnosticLogger {
   ) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(8)),
       code_description: None,
       source: self.source.clone(),
@@ -189,7 +189,7 @@ impl DiagnosticLogger {
   pub fn log_cannot_find_label_in_scope(&mut self, range: Range, label: &[u8]) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(9)),
       code_description: None,
       source: self.source.clone(),
@@ -206,7 +206,7 @@ impl DiagnosticLogger {
   pub fn log_expected_case_option_expr(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(10)),
       code_description: None,
       source: self.source.clone(),
@@ -223,7 +223,7 @@ impl DiagnosticLogger {
   pub fn log_expected_case_option_binop(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(11)),
       code_description: None,
       source: self.source.clone(),
@@ -237,15 +237,15 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_in_pattern(&mut self, range: Range, kind: &ast::ExprKind) {
+  pub fn log_unexpected_in_refutable_pattern(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(12)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "{} is invalid in a pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        "{} is invalid in a refutable pattern. If you wish to use the value yielded from this expression, consider using `val`",
         kind.as_ref()
       ),
       related_information: None,
@@ -254,15 +254,32 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_unop_in_pattern(&mut self, range: Range, kind: &ast::UnaryOpKind) {
+  pub fn log_unexpected_in_irrefutable_pattern(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(12)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is invalid in a irrefutable patterns.",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unexpected_unop_in_irrefutable_pattern(&mut self, range: Range, kind: &ast::UnaryOpKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(13)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "{} is an invalid unary operator in a pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        "{} is an invalid unary operator in an irrefutable pattern`",
         kind.as_ref()
       ),
       related_information: None,
@@ -271,15 +288,49 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_binop_in_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+  pub fn log_unexpected_unop_in_refutable_pattern(&mut self, range: Range, kind: &ast::UnaryOpKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(13)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is an invalid unary operator in a refutable pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unexpected_binop_in_irrefutable_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(14)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "{} is an invalid binary operator in a pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        "{} is an invalid binary operator in an irrefutable_pattern. If you wish to use the value yielded from this expression, consider using `val`",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_unexpected_binop_in_refutable_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(14)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "{} is an invalid binary operator in a refutable pattern. If you wish to use the value yielded from this expression, consider using `val`",
         kind.as_ref()
       ),
       related_information: None,
@@ -291,7 +342,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_element_in_pattern_struct(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(15)),
       code_description: None,
       source: self.source.clone(),
@@ -308,7 +359,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_binop_in_pattern_struct(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(16)),
       code_description: None,
       source: self.source.clone(),
@@ -329,7 +380,7 @@ impl DiagnosticLogger {
   ) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(17)),
       code_description: None,
       source: self.source.clone(),
@@ -349,25 +400,25 @@ impl DiagnosticLogger {
     kind: &ast::ExprKind,
   ) {
     self.log(Diagnostic {
-          range,
-          severity: Some(DiagnosticSeverity::Error),
-          code: Some(NumberOrString::Number(18)),
-          code_description: None,
-          source: self.source.clone(),
-          message: format!(
-            "$ may only be used to prefix an identifier. {} is not permitted as a target in a pattern struct literal.",
-            kind.as_ref()
-          ),
-          related_information: None,
-          tags: None,
-          data: None,
-        })
+        range,
+        severity: Some(DiagnosticSeverity::ERROR),
+        code: Some(NumberOrString::Number(18)),
+        code_description: None,
+        source: self.source.clone(),
+        message: format!(
+          "$ may only be used to prefix an identifier. {} is not permitted as a target in a pattern struct literal.",
+          kind.as_ref()
+        ),
+        related_information: None,
+        tags: None,
+        data: None,
+      })
   }
 
   pub fn log_unexpected_bind_target(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(19)),
       code_description: None,
       source: self.source.clone(),
@@ -381,7 +432,7 @@ impl DiagnosticLogger {
   pub fn log_only_in_pattern(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(20)),
       code_description: None,
       source: self.source.clone(),
@@ -395,7 +446,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_binop_in_expr(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(21)),
       code_description: None,
       source: self.source.clone(),
@@ -412,7 +463,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_unop_in_expr(&mut self, range: Range, kind: &ast::UnaryOpKind) {
     self.log(Diagnostic {
         range,
-        severity: Some(DiagnosticSeverity::Error),
+        severity: Some(DiagnosticSeverity::ERROR),
         code: Some(NumberOrString::Number(22)),
         code_description: None,
         source: self.source.clone(),
@@ -429,7 +480,7 @@ impl DiagnosticLogger {
   pub fn log_repeat_splat_in_pattern_struct(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(23)),
       code_description: None,
       source: self.source.clone(),
@@ -444,7 +495,7 @@ impl DiagnosticLogger {
   pub fn log_only_in_case(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(24)),
       code_description: None,
       source: self.source.clone(),
@@ -458,7 +509,7 @@ impl DiagnosticLogger {
   pub fn log_field_not_identifier(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(25)),
       code_description: None,
       source: self.source.clone(),
@@ -475,7 +526,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_infer_arg(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(26)),
       code_description: None,
       source: self.source.clone(),
@@ -489,7 +540,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_type(&mut self, range: Range, expected_type: &str, got_type: &str) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(27)),
       code_description: None,
       source: self.source.clone(),
@@ -510,7 +561,7 @@ impl DiagnosticLogger {
   // ) {
   //   self.log(Diagnostic {
   //     range,
-  //     severity: Some(DiagnosticSeverity::Error),
+  //     severity: Some(DiagnosticSeverity::ERROR),
   //     code: Some(NumberOrString::Number(28)),
   //     code_description: None,
   //     source: self.source.clone(),
@@ -527,7 +578,7 @@ impl DiagnosticLogger {
   pub fn log_unused_label(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(29)),
       code_description: None,
       source: self.source.clone(),
@@ -547,7 +598,7 @@ impl DiagnosticLogger {
   ) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(30)),
       code_description: None,
       source: self.source.clone(),
@@ -567,7 +618,7 @@ impl DiagnosticLogger {
   pub fn log_duplicate_field_name(&mut self, range: Range, name: &[u8], previous_range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(31)),
       code_description: None,
       source: self.source.clone(),
@@ -584,7 +635,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_element_in_struct(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(32)),
       code_description: None,
       source: self.source.clone(),
@@ -601,7 +652,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_binop_in_struct(&mut self, range: Range, kind: &ast::BinaryOpKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(33)),
       code_description: None,
       source: self.source.clone(),
@@ -618,7 +669,7 @@ impl DiagnosticLogger {
   pub fn log_unsupported_target_in_struct_assign(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(34)),
       code_description: None,
       source: self.source.clone(),
@@ -635,7 +686,7 @@ impl DiagnosticLogger {
   pub fn log_nonexistent_field(&mut self, range: Range, field: &[u8]) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(35)),
       code_description: None,
       source: self.source.clone(),
@@ -649,7 +700,7 @@ impl DiagnosticLogger {
   pub fn log_not_struct(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(36)),
       code_description: None,
       source: self.source.clone(),
@@ -663,7 +714,7 @@ impl DiagnosticLogger {
   pub fn log_variable_not_found(&mut self, range: Range, identifier: &[u8]) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(37)),
       code_description: None,
       source: self.source.clone(),
@@ -679,7 +730,7 @@ impl DiagnosticLogger {
   pub fn log_invalid_place_expression(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(38)),
       code_description: None,
       source: self.source.clone(),
@@ -697,7 +748,7 @@ impl DiagnosticLogger {
   ) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(39)),
       code_description: None,
       source: self.source.clone(),
@@ -711,7 +762,7 @@ impl DiagnosticLogger {
   pub fn log_unexpected_unop_in_place_expression(&mut self, range: Range, kind: &ast::UnaryOpKind) {
     self.log(Diagnostic {
       range,
-      severity: Some(DiagnosticSeverity::Error),
+      severity: Some(DiagnosticSeverity::ERROR),
       code: Some(NumberOrString::Number(40)),
       code_description: None,
       source: self.source.clone(),

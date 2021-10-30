@@ -57,8 +57,6 @@ pub enum BinaryOpKind {
   RemAssign,
   // Sequence
   Sequence,
-  // Pattern rename
-  As,
   // Module Access
   ModuleAccess,
 }

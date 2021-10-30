@@ -13,7 +13,6 @@ pub enum TokenKind {
   Defer,  // defer
   Case,   // case
   Of,     // of
-  As,     // as
   Val,    // val
   Struct, // struct
   Enum,   // enum

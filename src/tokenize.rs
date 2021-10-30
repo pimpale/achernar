@@ -79,7 +79,6 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"of" => TokenKind::Of,
       b"ret" => TokenKind::Ret,
       b"defer" => TokenKind::Defer,
-      b"as" => TokenKind::As,
       b"inf" => TokenKind::Inf,
       b"nan" => TokenKind::Nan,
       b"and" => TokenKind::And,

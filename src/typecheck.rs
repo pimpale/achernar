@@ -44,8 +44,20 @@ fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
         // typecheck the argument
         let arg_tytable = tr_check_expr(allocator, dlogger, arg, label_env, var_env, arg_ty);
 
-        // now let
+        // find the output type by providing the value of arg to body_dep_ty
 
+        // the big problem: We need to know the value of `arg` (not just the type!)
+
+        // this would be straightforward if we disallowed mutation:
+        // `arg` could be expressed as a simple function of the containing function's parameters
+        // This would make things simple, as we could just use alpha equivalence to compare
+
+        // however, since we're allowing mutation, i think we might have to deal with
+        // symbolic execution of some kind
+
+        nbe::eval();
+
+        todo!()
 
       } else {
         // log an error that this value isn't callable

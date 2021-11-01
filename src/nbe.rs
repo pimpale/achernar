@@ -65,17 +65,17 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   F64Ty,
   // Also known as a Sigma type
   // https://en.wikipedia.org/wiki/Dependent_type#%CE%A3_type
-  PairTy {
-    fst: Box<Val<'hir, 'ast, TA>>,
-    snd: Box<Closure<'hir, 'ast, TA>>,
+  SigmaTy {
+    fst_ty: Box<Val<'hir, 'ast, TA>>,
+    snd_dep_ty: Box<Closure<'hir, 'ast, TA>>,
   },
   StructTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
   EnumTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
   // Also known as a Pi type
   // https://en.wikipedia.org/wiki/Dependent_type#%CE%A0_type
-  FunTy {
-    in_ty: Box<Val<'hir, 'ast, TA>>,
-    out_ty: Box<Closure<'hir, 'ast, TA>>,
+  PiTy {
+    arg_ty: Box<Val<'hir, 'ast, TA>>,
+    body_dep_ty: Box<Closure<'hir, 'ast, TA>>,
   },
   // Values
   Nil,
@@ -161,7 +161,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::I64Ty => "I64".to_owned(),
       Val::F32Ty => "F32".to_owned(),
       Val::F64Ty => "F64".to_owned(),
-      Val::PairTy { fst, snd } => format!("(Pair {} {})", fst, snd),
+      Val::SigmaTy { fst_ty, snd_dep_ty } => format!("(Sigma {}, {})", fst_ty, snd_dep_ty),
       Val::StructTy(h) => format!(
         "struct({{ {} }})",
         h.iter().fold(String::new(), |a, (key, val)| {
@@ -184,7 +184,10 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
           )
         })
       ),
-      Val::FunTy { in_ty, out_ty } => format!("{} -> {}", in_ty, out_ty),
+      Val::PiTy {
+        arg_ty,
+        body_dep_ty,
+      } => format!("Pi {}, {}", arg_ty, body_dep_ty),
       Val::Nil => "()".to_owned(),
       Val::Bool(v) => format!("{}", v),
       Val::U8(v) => format!("{}u8", v),
@@ -276,11 +279,10 @@ pub fn is_copy<'hir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'hir, 'ast, TA
     Val::I64Ty => true,
     Val::F32Ty => true,
     Val::F64Ty => true,
-    Val::PairTy { .. } => true,
-    Val::PairTy { .. } => true,
-    Val::StructTy(h) => true,
-    Val::EnumTy(h) => true,
-    Val::FunTy { in_ty, out_ty } => true,
+    Val::SigmaTy { .. } => true,
+    Val::StructTy(_) => true,
+    Val::EnumTy(_) => true,
+    Val::PiTy { .. } => true,
     Val::Nil => true,
     Val::Bool(_) => true,
     Val::U8(_) => true,
@@ -338,14 +340,24 @@ pub fn bind_irrefutable_pat<'hir, 'ast, 'env, TA: Allocator + Clone>(
       snd: snd_p,
     } => {
       let mut vars = vec![];
-      if let Val::Pair{
+      if let Val::Pair {
         fst: fst_val,
         snd: snd_val,
       } = val
       {
         // match first, then second side
-        vars.extend(bind_irrefutable_pat(fst_p, *fst_val, var_env, mutation_allowed)?);
-        vars.extend(bind_irrefutable_pat(snd_p, *snd_val, var_env, mutation_allowed)?);
+        vars.extend(bind_irrefutable_pat(
+          fst_p,
+          *fst_val,
+          var_env,
+          mutation_allowed,
+        )?);
+        vars.extend(bind_irrefutable_pat(
+          snd_p,
+          *snd_val,
+          var_env,
+          mutation_allowed,
+        )?);
       } else {
         unimplemented!();
       }
@@ -417,19 +429,20 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
       ty,
     } => {
       match *ty {
-        Val::FunTy { in_ty, out_ty } => Ok(Val::Neutral {
-          // Remember, FunTy is a Pi type
-          // In Pi types, the second type depends on the value provided to the function
-          // the function outputting the second type has (read) access to the variables bound from the first pattern
-          // TODO: let the closure body make use of the first pattern
-          // Ex:: Vec $n -> Vec $m -> Vec n + m
-          ty: Box::new(apply_closure(*out_ty, arg.clone())?),
+        Val::PiTy {
+          arg_ty,
+          body_dep_ty,
+        } => Ok(Val::Neutral {
+          // In Pi types, the second type depends on the arg provided
+          // Ex:: {$n:Nat} -> {$m:Nat} -> Vec n -> Vec m -> Vec n + m
+          // So, our resultant type is
+          ty: Box::new(apply_closure(*body_dep_ty, arg.clone())?),
           //construct a new neutral app
           val: Box::new(Neutral::App {
             fun: neutral_val,
             arg: NormalForm {
               term: arg,
-              ty: *in_ty,
+              ty: *arg_ty,
             },
           }),
         }),
@@ -861,7 +874,8 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
 
       todo!()
     }
-    hir::ValExprKind::Universe(n) => Ok(Val::Universe(n)),
+    // TODO: don't crash when the user inputs a huge value
+    hir::ValExprKind::Universe(n) => Ok(Val::Universe(n.try_into().unwrap())),
     hir::ValExprKind::NilTy => Ok(Val::NilTy),
     hir::ValExprKind::NeverTy => Ok(Val::NeverTy),
     hir::ValExprKind::BoolTy => Ok(Val::BoolTy),
@@ -875,6 +889,7 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
     hir::ValExprKind::I64Ty => Ok(Val::I64Ty),
     hir::ValExprKind::F32Ty => Ok(Val::F32Ty),
     hir::ValExprKind::F64Ty => Ok(Val::F64Ty),
+    hir::ValExprKind::LamTy { arg_ty, body_dep_ty } => todo!(),
     hir::ValExprKind::Nil => Ok(Val::Nil),
     hir::ValExprKind::Bool(b) => Ok(Val::Bool(b)),
     hir::ValExprKind::Char(c) => Ok(Val::U32(c)),
@@ -883,7 +898,7 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
     hir::ValExprKind::Struct(s) => todo!(),
     hir::ValExprKind::Enum(e) => todo!(),
     hir::ValExprKind::Pair { fst, snd } => todo!(),
-    hir::ValExprKind::Lam { pattern, result } => todo!(),
+    hir::ValExprKind::Lam { arg, body } => todo!(),
     hir::ValExprKind::Sequence { fst, snd } => todo!(),
     hir::ValExprKind::LetIn { pat, val, body } => todo!(),
   }
@@ -896,10 +911,9 @@ pub fn read_back<'hir, 'ast, TA: Allocator + Clone>(
   todo!();
 }
 
-pub fn normalize<'hir, 'ast, TA: Allocator + Clone> (
-  expr: &'hir hir::ValExpr<'hir, 'ast, TA>
-) -> Result<hir::ValExpr<'hir, 'ast, TA>,EvalError>
-    {
+pub fn normalize<'hir, 'ast, TA: Allocator + Clone>(
+  expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
+) -> Result<hir::ValExpr<'hir, 'ast, TA>, EvalError> {
   let val = eval(expr, &mut vec![], 0)?;
 
   Ok(read_back(val))

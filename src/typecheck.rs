@@ -15,7 +15,7 @@ fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
   var_env: &mut Vec<nbe::Val<'hir, 'ast, &'types Bump>>,
 ) -> HashMap<u64, hir::ValExpr<'hir, 'ast, &'types Bump>> {
   match source.kind {
-    hir::ValExprKind::Error => vec![],
+    hir::ValExprKind::Error => HashMap::new(),
     hir::ValExprKind::Loop(body) => {
       let nilty  =nbe::Val::NilTy;
       let mut tytable = tr_check_expr(
@@ -31,28 +31,22 @@ fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
 
       tytable
     }
-    hir::ValExprKind::Apply { fun, arg } => {
+    hir::ValExprKind::App { fun, arg } => {
       //
       let fun_tytable = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
 
       if let Some(
           hir:: ValExpr {
-            kind: hir::ValExprKind::LamTy { in_ty, out_ty },
+            kind: hir::ValExprKind::LamTy { arg_ty, body_dep_ty },
             ..
           }
-      ) = fun_tytable.get(fun.id) {
+      ) = fun_tytable.get(&fun.id) {
         // typecheck the argument
-        let arg_tr = tr_check_expr(allocator, dlogger, arg, label_env, var_env, in_ty);
+        let arg_tytable = tr_check_expr(allocator, dlogger, arg, label_env, var_env, arg_ty);
 
-        // now return the applied function
-        thir::ValExpr {
-          source: source.source,
-          kind: thir::ValExprKind::Apply {
-            fun: &fun_tr,
-            arg: &arg_tr,
-          },
-          ty: out_ty,
-        }
+        // now let
+
+
       } else {
         // log an error that this value isn't callable
         dlogger.log_not_callable(fun_tr.source.range, fun_tr.ty);
@@ -63,7 +57,7 @@ fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
 
         thir::ValExpr {
           source: source.source,
-          kind: thir::ValExprKind::Error,
+          kind: hir::ValExprKind::Error,
           ty: allocator.alloc(Val::Error),
         }
       }

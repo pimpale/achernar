@@ -296,8 +296,8 @@ fn parse_exact_ret<TkIter: Iterator<Item = Token>>(
   let ret_tk = tkiter.next().unwrap();
   let label_tk = tkiter.next().unwrap();
   let label;
-  if let Some(TokenKind::Identifier(identifier)) = label_tk.kind {
-    label = Some(identifier);
+  if let Some(TokenKind::Label(label_id)) = label_tk.kind {
+    label = Some(label_id);
   } else {
     // log the expected label
     dlogger.log_unexpected_token_specific(
@@ -327,8 +327,8 @@ fn parse_exact_defer<TkIter: Iterator<Item = Token>>(
   let defer_tk = tkiter.next().unwrap();
   let label_tk = tkiter.next().unwrap();
   let label;
-  if let Some(TokenKind::Identifier(identifier)) = label_tk.kind {
-    label = Some(identifier);
+  if let Some(TokenKind::Label(label_id)) = label_tk.kind {
+    label = Some(label_id);
   } else {
     // log the expected label
     dlogger.log_unexpected_token_specific(
@@ -345,6 +345,34 @@ fn parse_exact_defer<TkIter: Iterator<Item = Token>>(
     metadata,
     range: union_of(defer_tk.range, body.range),
     kind: ExprKind::Defer { label, body },
+  }
+}
+
+// parses a type or panics
+fn parse_exact_type<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  let metadata = get_metadata(tkiter);
+  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::Type));
+  let type_tk = tkiter.next().unwrap();
+  let level_tk  = tkiter.next().unwrap();
+
+  let level;
+  let end_range;
+
+  if let Some(TokenKind::Int(int)) = level_tk.kind {
+    level = Some(int);
+    end_range = level_tk.range;
+  } else {
+    level = None;
+    end_range = type_tk.range;
+  }
+
+  Expr {
+    metadata,
+    range: union_of(type_tk.range, end_range),
+    kind: ExprKind::Type(level),
   }
 }
 
@@ -529,6 +557,7 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::Defer => Some(parse_exact_defer::<TkIter>),
     TokenKind::Case => Some(parse_exact_case::<TkIter>),
     TokenKind::Label(_) => Some(parse_exact_label::<TkIter>),
+    TokenKind::Type(_) => Some(parse_exact_type::<TkIter>),
     TokenKind::Identifier(_) => Some(parse_exact_reference::<TkIter>),
     _ => None,
   }

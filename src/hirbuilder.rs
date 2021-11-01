@@ -3,6 +3,7 @@ use super::dlogger::DiagnosticLogger;
 use super::hir;
 use super::utils::new_vec_from;
 use bumpalo::Bump;
+use num_bigint::BigUint;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -32,9 +33,14 @@ fn lookup_maybe<'env, Scope>(
 }
 
 fn lookup<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) -> &'env Scope {
+  let s = String::from("hi");
+
+  std::mem::forget(s);
+
   lookup_maybe(env, label).unwrap().0
 }
 
+// foo
 fn lookup_count_up<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) -> usize {
   lookup_maybe(env, label).unwrap().1
 }
@@ -863,6 +869,20 @@ fn tr_val_expr<'hir, 'ast>(
       id: next_id(idgen),
       kind: hir::ValExprKind::Float(i),
     },
+    ast::ExprKind::Type(ref maybe_signed_int) => hir::ValExpr {
+      source,
+      id: next_id(idgen),
+      kind: hir::ValExprKind::Universe(if let Some(signed_int) = maybe_signed_int {
+        if let Some(unsigned_int) = signed_int.to_biguint() {
+          unsigned_int
+        } else {
+          dlogger.log_universe_level_negative(source.range);
+          BigUint::from(0u32)
+        }
+      } else {
+        BigUint::from(0u32)
+      }),
+    },
     ast::ExprKind::String { ref value, .. } => value.iter().rev().fold(
       // start with a null at the end of the list
       hir::ValExpr {
@@ -1216,15 +1236,7 @@ fn tr_val_expr<'hir, 'ast>(
           ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
         ),
       },
-      c @ ast::UnaryOpKind::Val => {
-        dlogger.log_unexpected_unop_in_expr(source.range, c);
-        hir::ValExpr {
-          source,
-          id: next_id(idgen),
-          kind: hir::ValExprKind::Error,
-        }
-      }
-      c @ ast::UnaryOpKind::Bind => {
+      c => {
         dlogger.log_unexpected_unop_in_expr(source.range, c);
         hir::ValExpr {
           source,
@@ -1298,8 +1310,8 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           id: next_id(idgen),
           kind: hir::ValExprKind::Lam {
-            pattern: ha.alloc(pat),
-            result: ha.alloc(val),
+            arg: ha.alloc(pat),
+            body: ha.alloc(val),
           },
         }
       }

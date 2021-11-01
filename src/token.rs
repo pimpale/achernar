@@ -18,6 +18,7 @@ pub enum TokenKind {
   Enum,   // enum
   Let,    // let
   In,     // in
+  Type,   // type
   // Literals and constants
   Inf,                                    // inf
   Nan,                                    // nan

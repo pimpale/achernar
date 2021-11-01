@@ -94,6 +94,7 @@ pub enum ExprKind {
   Int(BigInt),
   Bool(bool),
   Float(BigRational),
+  Type(Option<BigInt>),
   String {
     value: Vec<u8>,
     block: bool,

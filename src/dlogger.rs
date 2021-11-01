@@ -822,4 +822,19 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
+
+  pub fn log_universe_level_negative(&mut self, range: Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(40)),
+      code_description: None,
+      source: self.source.clone(),
+      message: String::from("the given universe level must be positive"),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
 }

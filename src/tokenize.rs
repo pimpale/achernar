@@ -87,6 +87,7 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"enum" => TokenKind::Enum,
       b"let" => TokenKind::Let,
       b"in" => TokenKind::In,
+      b"type" => TokenKind::Type,
       _ => TokenKind::Identifier(word),
     };
 

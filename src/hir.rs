@@ -1,5 +1,5 @@
 use super::ast;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use num_rational::BigRational;
 use std::alloc::Allocator;
 
@@ -52,7 +52,7 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   },
 
   // Literals
-  Universe(usize), // type of a type is Universe(1)
+  Universe(BigUint), // type of a type is Universe(0)
   NilTy,
   NeverTy,
   BoolTy,
@@ -85,12 +85,14 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   },
   // Create Function
   Lam {
-    pattern: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
-    result: &'hir ValExpr<'hir, 'ast, HA>,
+    arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
+    body: &'hir ValExpr<'hir, 'ast, HA>,
   },
   LamTy {
-    pattern: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
-    result: &'hir ValExpr<'hir, 'ast, HA>,
+    // the type of the body
+    arg_ty:  &'hir ValExpr<'hir, 'ast, HA>,
+    // a function Type -> Type yielding the output type
+    body_dep_ty: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // Sequence
   Sequence {
@@ -254,6 +256,8 @@ pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     snd: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
   // Refutable pattern of a value
+  // TODO: this is not really correct, we want to have a pattern for int, bool, string, and tuple only
+  // everything else has to be done via transformer functions
   Value(&'hir ValExpr<'hir, 'ast, HA>),
 }
 

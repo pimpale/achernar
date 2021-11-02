@@ -111,7 +111,7 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
 pub struct ValExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: ValExprKind<'hir, 'ast, HA>,
-  pub id: u64,
+  pub id: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -171,7 +171,7 @@ pub enum IrrefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
 pub struct IrrefutablePatExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: IrrefutablePatExprKind<'hir, 'ast, HA>,
-  pub id: u64,
+  pub id: Option<u64>,
 }
 
 // A pattern that may reject, and can bind variables
@@ -211,7 +211,7 @@ pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
 pub struct RefutablePatExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: RefutablePatExprKind<'hir, 'ast, HA>,
-  pub id: u64,
+  pub id: Option<u64>,
 }
 
 // a pattern that can reject, and can't bind any variables
@@ -265,7 +265,7 @@ pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
 pub struct ValPatExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub source: &'ast ast::Expr,
   pub kind: ValPatExprKind<'hir, 'ast, HA>,
-  pub id: u64,
+  pub id: Option<u64>,
 }
 
 //  // functions

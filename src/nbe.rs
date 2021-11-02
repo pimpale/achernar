@@ -6,7 +6,6 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum EvalError {
-  Placeholder,
   InvalidSyntax,
   AppliedNonFunction,
   AppliedNonFunctionNeutral,

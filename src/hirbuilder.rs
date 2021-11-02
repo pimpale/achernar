@@ -71,7 +71,7 @@ fn gen_app<'hir, 'ast>(
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   args.iter().fold(fun, |acc, x| hir::ValExpr {
     source,
-    id: next_id(idgen),
+    id: Some(next_id(idgen)),
     kind: hir::ValExprKind::App {
       fun: ha.alloc(acc),
       arg: x,
@@ -81,37 +81,34 @@ fn gen_app<'hir, 'ast>(
 
 fn gen_bool<'hir, 'ast>(
   idgen: &RefCell<u64>,
-
   source: &'ast ast::Expr,
   b: bool,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   hir::ValExpr {
     source: source,
-    id: next_id(idgen),
+    id: Some(next_id(idgen)),
     kind: hir::ValExprKind::Bool(b),
   }
 }
 
 fn gen_nil<'hir, 'ast>(
   idgen: &RefCell<u64>,
-
   source: &'ast ast::Expr,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   hir::ValExpr {
     source: source,
-    id: next_id(idgen),
+    id: Some(next_id(idgen)),
     kind: hir::ValExprKind::Nil,
   }
 }
 
 fn gen_nil_ty<'hir, 'ast>(
   idgen: &RefCell<u64>,
-
   source: &'ast ast::Expr,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   hir::ValExpr {
     source: source,
-    id: next_id(idgen),
+    id: Some(next_id(idgen)),
     kind: hir::ValExprKind::NilTy,
   }
 }
@@ -147,7 +144,7 @@ fn gen_take<'hir, 'ast>(
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   hir::ValExpr {
     source,
-    id: next_id(idgen),
+    id: Some(next_id(idgen)),
     kind: hir::ValExprKind::Take(ha.alloc(place)),
   }
 }
@@ -256,7 +253,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
     ast::ExprKind::Error => (
       hir::IrrefutablePatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::IrrefutablePatExprKind::Error,
       },
       vec![],
@@ -265,7 +262,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
     ast::ExprKind::Nil => (
       hir::IrrefutablePatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::IrrefutablePatExprKind::Nil,
       },
       vec![],
@@ -287,7 +284,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
       (
         hir::IrrefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::IrrefutablePatExprKind::StructLiteral(fields),
         },
         bindings,
@@ -305,7 +302,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
         } => (
           hir::IrrefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::IrrefutablePatExprKind::BindVariable,
           },
           vec![(
@@ -323,7 +320,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
           (
             hir::IrrefutablePatExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::IrrefutablePatExprKind::Error,
             },
             vec![],
@@ -333,7 +330,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
       ast::UnaryOpKind::Mutate => (
         hir::IrrefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::IrrefutablePatExprKind::BindPlace(tr_place_expr(
             idgen,
             ha,
@@ -351,7 +348,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
         (
           hir::IrrefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::IrrefutablePatExprKind::Error,
           },
           vec![],
@@ -369,7 +366,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
         (
           hir::IrrefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::IrrefutablePatExprKind::ActivePattern {
               fun: ha.alloc(tr_val_expr(
                 idgen,
@@ -394,7 +391,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
         (
           hir::IrrefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::IrrefutablePatExprKind::Pair {
               fst: ha.alloc(fst_pat),
               snd: ha.alloc(snd_pat),
@@ -413,7 +410,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
         (
           hir::IrrefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::IrrefutablePatExprKind::Error,
           },
           vec![],
@@ -426,7 +423,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
       (
         hir::IrrefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::IrrefutablePatExprKind::Error,
         },
         vec![],
@@ -450,7 +447,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
     ast::ExprKind::Error => (
       hir::RefutablePatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::RefutablePatExprKind::Error,
       },
       vec![],
@@ -461,7 +458,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       (
         hir::RefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::RefutablePatExprKind::IrrefutablePat(ha.alloc(pat)),
         },
         bindings,
@@ -476,7 +473,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       (
         hir::RefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::RefutablePatExprKind::ValPat(ha.alloc(pat)),
         },
         vec![],
@@ -499,7 +496,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       (
         hir::RefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::RefutablePatExprKind::StructLiteral(fields),
         },
         bindings,
@@ -512,7 +509,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
         (
           hir::RefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::RefutablePatExprKind::IrrefutablePat(ha.alloc(pat)),
           },
           bindings,
@@ -522,7 +519,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       ast::UnaryOpKind::Val => (
         hir::RefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::RefutablePatExprKind::ValPat(
             ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, source, var_env)),
           ),
@@ -535,7 +532,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
         (
           hir::RefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::RefutablePatExprKind::Error,
           },
           vec![],
@@ -551,7 +548,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       ast::BinaryOpKind::Range | ast::BinaryOpKind::RangeInclusive | ast::BinaryOpKind::Or => (
         hir::RefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::RefutablePatExprKind::ValPat(
             ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, source, var_env)),
           ),
@@ -564,7 +561,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
         (
           hir::RefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::RefutablePatExprKind::ActivePattern {
               fun: ha.alloc(tr_val_expr(
                 idgen,
@@ -589,7 +586,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
         (
           hir::RefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::RefutablePatExprKind::Pair {
               fst: ha.alloc(fst_pat),
               snd: ha.alloc(snd_pat),
@@ -610,7 +607,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
         (
           hir::RefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::RefutablePatExprKind::And {
               fst: ha.alloc(fst_pat),
               snd: ha.alloc(snd_pat),
@@ -629,7 +626,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
         (
           hir::RefutablePatExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::RefutablePatExprKind::Error,
           },
           vec![],
@@ -642,7 +639,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       (
         hir::RefutablePatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::RefutablePatExprKind::Error,
         },
         vec![],
@@ -662,7 +659,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
     // propagate error
     ast::ExprKind::Error => hir::ValPatExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValPatExprKind::Error,
     },
     // match against values automatically
@@ -672,7 +669,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
     | ast::ExprKind::Float(_)
     | ast::ExprKind::String { .. } => hir::ValPatExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValPatExprKind::Value(ha.alloc(tr_val_expr(
         idgen,
         ha,
@@ -694,7 +691,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
 
       hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::StructLiteral(fields),
       }
     }
@@ -704,7 +701,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
     } => match op {
       ast::UnaryOpKind::Val => hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::Value(ha.alloc(tr_val_expr(
           idgen,
           ha,
@@ -719,7 +716,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
         dlogger.log_unexpected_unop_in_val_pattern(source.range, c);
         hir::ValPatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValPatExprKind::Error,
         }
       }
@@ -731,7 +728,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
     } => match op {
       ast::BinaryOpKind::Range => hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::Range {
           fst: ha.alloc(tr_val_expr(
             idgen,
@@ -754,7 +751,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::RangeInclusive => hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::Range {
           fst: ha.alloc(tr_val_expr(
             idgen,
@@ -777,7 +774,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::Apply => hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::ActivePattern {
           fun: ha.alloc(tr_val_expr(
             idgen,
@@ -792,7 +789,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::Cons => hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::Pair {
           fst: ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, left_operand, var_env)),
           snd: ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, right_operand, var_env)),
@@ -800,7 +797,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::And => hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::And {
           fst: ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, left_operand, var_env)),
           snd: ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, right_operand, var_env)),
@@ -808,7 +805,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::Or => hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::Or {
           fst: ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, left_operand, var_env)),
           snd: ha.alloc(tr_val_pat_expr(idgen, ha, dlogger, right_operand, var_env)),
@@ -819,7 +816,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
         dlogger.log_unexpected_binop_in_val_pattern(source.range, c);
         hir::ValPatExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValPatExprKind::Error,
         }
       }
@@ -829,7 +826,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
       dlogger.log_unexpected_in_val_pattern(source.range, c);
       hir::ValPatExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValPatExprKind::Error,
       }
     }
@@ -846,32 +843,32 @@ fn tr_val_expr<'hir, 'ast>(
   match source.kind {
     ast::ExprKind::Error => hir::ValExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Error,
     },
     ast::ExprKind::Nil => hir::ValExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Nil,
     },
     ast::ExprKind::Bool(b) => hir::ValExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Bool(b),
     },
     ast::ExprKind::Int(ref i) => hir::ValExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Int(i),
     },
     ast::ExprKind::Float(ref i) => hir::ValExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Float(i),
     },
     ast::ExprKind::Type(ref maybe_signed_int) => hir::ValExpr {
       source,
-      id: next_id(idgen),
+      id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Universe(if let Some(signed_int) = maybe_signed_int {
         if let Some(unsigned_int) = signed_int.to_biguint() {
           unsigned_int
@@ -887,19 +884,19 @@ fn tr_val_expr<'hir, 'ast>(
       // start with a null at the end of the list
       hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Nil,
       },
       // as we work our way backwards, we prepend the current char as an int to our list
       |acc, x| {
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Pair {
             // first arg is the new expr for the int
             fst: ha.alloc(hir::ValExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::ValExprKind::Char(*x as u32), // TODO: parse strings by pure unicode
             }),
             // second arg is the current tail of the list
@@ -930,7 +927,7 @@ fn tr_val_expr<'hir, 'ast>(
       // return label
       hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Label(ha.alloc(body_tr)),
       }
     }
@@ -951,7 +948,7 @@ fn tr_val_expr<'hir, 'ast>(
         // all defers are replaced with a nil
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Nil,
         }
       } else {
@@ -959,7 +956,7 @@ fn tr_val_expr<'hir, 'ast>(
         // an error should already have been thrown, so don't double report
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Error,
         }
       }
@@ -983,12 +980,12 @@ fn tr_val_expr<'hir, 'ast>(
 
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::LetIn {
             // introduce variable with value of ret
             pat: ha.alloc(hir::IrrefutablePatExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::IrrefutablePatExprKind::BindVariable,
             }),
             val: ha.alloc(body_tr),
@@ -998,7 +995,7 @@ fn tr_val_expr<'hir, 'ast>(
               // the last thing to execute is the actual ret
               ha.alloc(hir::ValExpr {
                 source,
-                id: next_id(idgen),
+                id: Some(next_id(idgen)),
                 kind: hir::ValExprKind::Ret {
                   labels_up: lookup_count_up(label_env, &label),
                   // lookup variable introduced earlier
@@ -1021,7 +1018,7 @@ fn tr_val_expr<'hir, 'ast>(
                 // return sequenced defer
                 ha.alloc(hir::ValExpr {
                   source: x,
-                  id: next_id(idgen),
+                  id: Some(next_id(idgen)),
                   // we want to sequence it in the reverse order we saw them
                   // so, later ones will be executed first
                   kind: hir::ValExprKind::Sequence {
@@ -1038,7 +1035,7 @@ fn tr_val_expr<'hir, 'ast>(
         // an error should already have been thrown, so don't double report
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Error,
         }
       }
@@ -1115,7 +1112,7 @@ fn tr_val_expr<'hir, 'ast>(
       // return struct
       hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::StructLiteral(new_vec_from(ha, fields.drain())),
       }
     }
@@ -1174,7 +1171,7 @@ fn tr_val_expr<'hir, 'ast>(
       // return case option
       hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::CaseOf {
           source: hir::CaseSource::Case,
           expr: ha.alloc(tr_place_expr(idgen, ha, dlogger, expr, var_env, label_env)),
@@ -1188,14 +1185,14 @@ fn tr_val_expr<'hir, 'ast>(
     } => match op {
       ast::UnaryOpKind::Ref => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Borrow(ha.alloc(tr_place_expr(
           idgen, ha, dlogger, operand, var_env, label_env,
         ))),
       },
       ast::UnaryOpKind::MutRef => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::MutBorrow(ha.alloc(tr_place_expr(
           idgen, ha, dlogger, operand, var_env, label_env,
         ))),
@@ -1217,21 +1214,21 @@ fn tr_val_expr<'hir, 'ast>(
       ),
       ast::UnaryOpKind::Struct => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Struct(
           ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
         ),
       },
       ast::UnaryOpKind::Enum => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Enum(
           ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
         ),
       },
       ast::UnaryOpKind::Loop => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Loop(
           ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
         ),
@@ -1240,7 +1237,7 @@ fn tr_val_expr<'hir, 'ast>(
         dlogger.log_unexpected_unop_in_expr(source.range, c);
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Error,
         }
       }
@@ -1252,7 +1249,7 @@ fn tr_val_expr<'hir, 'ast>(
     } => match op {
       ast::BinaryOpKind::Constrain => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Annotate {
           val_expr: ha.alloc(tr_val_expr(
             idgen,
@@ -1274,7 +1271,7 @@ fn tr_val_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::RevConstrain => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Annotate {
           ty_expr: ha.alloc(tr_val_expr(
             idgen,
@@ -1308,7 +1305,7 @@ fn tr_val_expr<'hir, 'ast>(
         // return expr
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Lam {
             arg: ha.alloc(pat),
             body: ha.alloc(val),
@@ -1319,13 +1316,13 @@ fn tr_val_expr<'hir, 'ast>(
         dlogger.log_only_in_case(source.range);
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Error,
         }
       }
       ast::BinaryOpKind::Apply => hir::ValExpr {
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::App {
           fun: ha.alloc(tr_val_expr(
             idgen,
@@ -1543,7 +1540,7 @@ fn tr_val_expr<'hir, 'ast>(
         // of true  = > b
         // || false = > false
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::CaseOf {
           expr: ha.alloc(tr_place_expr(
             idgen,
@@ -1560,10 +1557,10 @@ fn tr_val_expr<'hir, 'ast>(
             v.push((
               hir::RefutablePatExpr {
                 source,
-                id: next_id(idgen),
+                id: Some(next_id(idgen)),
                 kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
                   source,
-                  id: next_id(idgen),
+                  id: Some(next_id(idgen)),
                   kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(idgen, source, true))),
                 })),
               },
@@ -1574,10 +1571,10 @@ fn tr_val_expr<'hir, 'ast>(
             v.push((
               hir::RefutablePatExpr {
                 source,
-                id: next_id(idgen),
+                id: Some(next_id(idgen)),
                 kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
                   source,
-                  id: next_id(idgen),
+                  id: Some(next_id(idgen)),
                   kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(idgen, source, false))),
                 })),
               },
@@ -1593,7 +1590,7 @@ fn tr_val_expr<'hir, 'ast>(
         // of true => true
         // of false => b
         source,
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         kind: hir::ValExprKind::CaseOf {
           expr: ha.alloc(tr_place_expr(
             idgen,
@@ -1610,10 +1607,10 @@ fn tr_val_expr<'hir, 'ast>(
             v.push((
               hir::RefutablePatExpr {
                 source,
-                id: next_id(idgen),
+                id: Some(next_id(idgen)),
                 kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
                   source,
-                  id: next_id(idgen),
+                  id: Some(next_id(idgen)),
                   kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(idgen, source, true))),
                 })),
               },
@@ -1624,10 +1621,10 @@ fn tr_val_expr<'hir, 'ast>(
             v.push((
               hir::RefutablePatExpr {
                 source,
-                id: next_id(idgen),
+                id: Some(next_id(idgen)),
                 kind: hir::RefutablePatExprKind::ValPat(ha.alloc(hir::ValPatExpr {
                   source,
-                  id: next_id(idgen),
+                  id: Some(next_id(idgen)),
                   kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(idgen, source, false))),
                 })),
               },
@@ -1782,7 +1779,7 @@ fn tr_val_expr<'hir, 'ast>(
         ],
       ),
       ast::BinaryOpKind::Cons => hir::ValExpr {
-        id: next_id(idgen),
+        id: Some(next_id(idgen)),
         source,
         kind: hir::ValExprKind::Pair {
           fst: ha.alloc(tr_val_expr(
@@ -1837,13 +1834,13 @@ fn tr_val_expr<'hir, 'ast>(
 
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::LetIn {
             pat: ha.alloc(pat),
             val: ha.alloc(val),
             body: ha.alloc(hir::ValExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::ValExprKind::Nil,
             }),
           },
@@ -1883,13 +1880,13 @@ fn tr_val_expr<'hir, 'ast>(
 
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::LetIn {
             pat: ha.alloc(pat),
             val: ha.alloc(val),
             body: ha.alloc(hir::ValExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::ValExprKind::Nil,
             }),
           },
@@ -1929,13 +1926,13 @@ fn tr_val_expr<'hir, 'ast>(
 
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::LetIn {
             pat: ha.alloc(pat),
             val: ha.alloc(val),
             body: ha.alloc(hir::ValExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::ValExprKind::Nil,
             }),
           },
@@ -1975,13 +1972,13 @@ fn tr_val_expr<'hir, 'ast>(
 
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::LetIn {
             pat: ha.alloc(pat),
             val: ha.alloc(val),
             body: ha.alloc(hir::ValExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::ValExprKind::Nil,
             }),
           },
@@ -2021,13 +2018,13 @@ fn tr_val_expr<'hir, 'ast>(
 
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::LetIn {
             pat: ha.alloc(pat),
             val: ha.alloc(val),
             body: ha.alloc(hir::ValExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::ValExprKind::Nil,
             }),
           },
@@ -2046,13 +2043,13 @@ fn tr_val_expr<'hir, 'ast>(
 
         hir::ValExpr {
           source,
-          id: next_id(idgen),
+          id: Some(next_id(idgen)),
           kind: hir::ValExprKind::LetIn {
             pat: ha.alloc(pat),
             val: ha.alloc(val),
             body: ha.alloc(hir::ValExpr {
               source,
-              id: next_id(idgen),
+              id: Some(next_id(idgen)),
               kind: hir::ValExprKind::Nil,
             }),
           },
@@ -2092,7 +2089,7 @@ fn tr_val_expr<'hir, 'ast>(
 
           hir::ValExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::ValExprKind::LetIn {
               pat: ha.alloc(pat),
               val: ha.alloc(val),
@@ -2103,7 +2100,7 @@ fn tr_val_expr<'hir, 'ast>(
           // continue
           hir::ValExpr {
             source,
-            id: next_id(idgen),
+            id: Some(next_id(idgen)),
             kind: hir::ValExprKind::Sequence {
               fst: ha.alloc(tr_val_expr(
                 idgen,

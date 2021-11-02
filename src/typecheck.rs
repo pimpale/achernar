@@ -11,36 +11,38 @@ fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'types Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  label_env: &mut Vec<Option<nbe::Val<'hir, 'ast, &'types Bump>>>,
-  var_env: &mut Vec<nbe::Val<'hir, 'ast, &'types Bump>>,
+  label_env: &mut Vec<Option<hir::ValExpr<'hir, 'ast, &'types Bump>>>,
+  var_env: &mut Vec<hir::ValExpr<'hir, 'ast, &'types Bump>>,
 ) -> HashMap<u64, hir::ValExpr<'hir, 'ast, &'types Bump>> {
   match source.kind {
     hir::ValExprKind::Error => HashMap::new(),
     hir::ValExprKind::Loop(body) => {
-      let nilty  =nbe::Val::NilTy;
-      let mut tytable = tr_check_expr(
-        allocator,
-        dlogger,
-        body,
-        label_env,
-        var_env,
-        &nilty,
-      );
+      let nilty = hir::ValExpr {
+        source: source.source,
+        id: None,
+        kind: hir::ValExprKind::NilTy,
+      };
 
-      tytable.insert(source.id, nbe::read_back(nilty));
+      // body should evaluate to nil
+      let mut tytable = tr_check_expr(allocator, dlogger, body, label_env, var_env, &nilty);
+
+      // add wrapping loop's type
+      tytable.insert(source.id.unwrap(), nilty);
 
       tytable
     }
     hir::ValExprKind::App { fun, arg } => {
-      //
+      // get the type of the lower function
       let fun_tytable = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
 
-      if let Some(
-          hir:: ValExpr {
-            kind: hir::ValExprKind::LamTy { arg_ty, body_dep_ty },
-            ..
-          }
-      ) = fun_tytable.get(&fun.id) {
+      if let Some(hir::ValExpr {
+        kind: hir::ValExprKind::LamTy {
+          arg_ty,
+          body_dep_ty,
+        },
+        ..
+      }) = fun_tytable.get(&fun.id.unwrap())
+      {
         // typecheck the argument
         let arg_tytable = tr_check_expr(allocator, dlogger, arg, label_env, var_env, arg_ty);
 
@@ -55,10 +57,24 @@ fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
         // however, since we're allowing mutation, i think we might have to deal with
         // symbolic execution of some kind
 
-        nbe::eval();
+        let maybe_fun_val = nbe::eval(fun, &mut vec![], 0);
+        let maybe_arg_val = nbe::eval(arg, &mut vec![], 0);
+
+        let source_tytable = HashMap::new();
+
+        if let (Ok(fun_val), Ok(arg_val)) = (maybe_fun_val, maybe_arg_val) {
+          match nbe::apply(fun_val, arg_val) {
+            Ok(result_ty) => {
+              source_tytable.insert(source.id.unwrap(), nbe::read_back(result_ty));
+            }
+            Err(evalerr) => {
+              // report error
+              todo!();
+            }
+          }
+        }
 
         todo!()
-
       } else {
         // log an error that this value isn't callable
         dlogger.log_not_callable(fun_tr.source.range, fun_tr.ty);
@@ -230,9 +246,9 @@ fn tr_check_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'types Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  label_env: &mut Vec<Option<Val<'hir, 'ast, &'types Bump>>>,
-  var_env: &mut Vec<Val<'hir, 'ast, &'types Bump>>,
-  ty: &Val<'hir, 'ast, HA>,
+  label_env: &mut Vec<Option<hir::ValExpr<'hir, 'ast, &'types Bump>>>,
+  var_env: &mut Vec<hir::ValExpr<'hir, 'ast, &'types Bump>>,
+  ty: &hir::ValExpr<'hir, 'ast, &'types Bump>,
 ) -> HashMap<u64, hir::ValExpr<'hir, 'ast, &'types Bump>> {
   match source.kind {
     hir::ValExprKind::Error => thir::ValExpr {

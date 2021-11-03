@@ -37,11 +37,29 @@ pub enum VarKind<'hir, 'ast, TA: Allocator + Clone> {
   },
 }
 
+// internal implementation shared by all 3
 #[derive(Debug, Clone)]
 pub struct Closure<'hir, 'ast, TA: Allocator + Clone> {
-  pub ext_env: Vec<Var<'hir, 'ast, TA>>, // external environment
+  // This is a replacement of the var_env when the closure runs
+  pub captured_vars: Vec<Var<'hir, 'ast, TA>>, // external environment
   pub pat: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
   pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
+}
+
+// Closure can be cloned
+#[derive(Debug, Clone)]
+pub type ImmutableClosure<'hir, 'ast, TA: Allocator + Clone> = Closure<'hir, 'ast, TA>;
+
+#[derive(Debug, Clone)]
+pub enum MutableClosure<'hir, 'ast, TA: Allocator + Clone> {
+  ImmutableClosure(Closure<'hir, 'ast, TA>),
+  MutableClosure  (Closure<'hir, 'ast, TA>),
+}
+
+#[derive(Debug, Clone)]
+pub enum TakeClosure<'hir, 'ast, TA: Allocator + Clone> {
+  ImmutableClosure(Closure<'hir, 'ast, TA>),
+  MutableClosure  (Closure<'hir, 'ast, TA>),
 }
 
 // These are terms that have normalized completely, to the fullest extent possible
@@ -65,16 +83,20 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
   // Also known as a Sigma type
   // https://en.wikipedia.org/wiki/Dependent_type#%CE%A3_type
   SigmaTy {
+    // type of first
     fst_ty: Box<Val<'hir, 'ast, TA>>,
-    snd_dep_ty: Box<Closure<'hir, 'ast, TA>>,
+    // function mapping value of first to the second type
+    snd_dep_ty: Box<ImmutableClosure<'hir, 'ast, TA>>,
   },
   StructTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
   EnumTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
   // Also known as a Pi type
   // https://en.wikipedia.org/wiki/Dependent_type#%CE%A0_type
   PiTy {
+    // type of the agument
     arg_ty: Box<Val<'hir, 'ast, TA>>,
-    body_dep_ty: Box<Closure<'hir, 'ast, TA>>,
+    // function mapping argument's value to the result type
+    body_dep_ty: Box<ImmutableClosure<'hir, 'ast, TA>>,
   },
   // Values
   Nil,

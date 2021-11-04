@@ -327,21 +327,17 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
           )
         }
       },
-      ast::UnaryOpKind::Mutate => (
-        hir::IrrefutablePatExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::IrrefutablePatExprKind::BindPlace(tr_place_expr(
-            idgen,
-            ha,
-            dlogger,
-            operand,
-            var_env,
-            &mut vec![],
-          )),
-        },
-        vec![],
-      ),
+      ast::UnaryOpKind::Mutate => {
+        dlogger.log_mutability_disabled(source.range);
+        (
+          hir::IrrefutablePatExpr {
+            source,
+            id: Some(next_id(idgen)),
+            kind: hir::IrrefutablePatExprKind::Error,
+          },
+          vec![],
+        )
+      }
       // the remaining operators
       c => {
         dlogger.log_unexpected_unop_in_irrefutable_pattern(source.range, c);
@@ -1190,13 +1186,14 @@ fn tr_val_expr<'hir, 'ast>(
           idgen, ha, dlogger, operand, var_env, label_env,
         ))),
       },
-      ast::UnaryOpKind::MutRef => hir::ValExpr {
-        source,
-        id: Some(next_id(idgen)),
-        kind: hir::ValExprKind::MutBorrow(ha.alloc(tr_place_expr(
-          idgen, ha, dlogger, operand, var_env, label_env,
-        ))),
-      },
+      ast::UnaryOpKind::MutRef => {
+        dlogger.log_mutability_disabled(source.range);
+        hir::ValExpr {
+          source,
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Error,
+        }
+      }
       ast::UnaryOpKind::Deref => gen_app(
         idgen,
         ha,

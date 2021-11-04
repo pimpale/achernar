@@ -837,4 +837,19 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
+  pub fn log_mutability_disabled(&mut self, range: Range) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(40)),
+      code_description: None,
+      source: self.source.clone(),
+      message: String::from("mutability has been disabled in this branch, but it is intended later"),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
 }

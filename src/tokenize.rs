@@ -71,41 +71,40 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     let (word, range) = self.internal_lex_word();
 
     let tk = match word.as_slice() {
-      b"loop" => TokenKind::Loop,
       b"true" => TokenKind::Bool(true),
       b"false" => TokenKind::Bool(false),
       b"val" => TokenKind::Val,
       b"case" => TokenKind::Case,
       b"of" => TokenKind::Of,
-      b"ret" => TokenKind::Ret,
-      b"defer" => TokenKind::Defer,
       b"inf" => TokenKind::Inf,
       b"nan" => TokenKind::Nan,
       b"and" => TokenKind::And,
       b"or" => TokenKind::Or,
-      b"struct" => TokenKind::Struct,
-      b"enum" => TokenKind::Enum,
+      b"struct" => TokenKind::StructOp,
+      b"enum" => TokenKind::EnumOp,
       b"let" => TokenKind::Let,
       b"in" => TokenKind::In,
       b"type" => TokenKind::Type,
+      b"lt" => TokenKind::LifetimeType,
+      b"nil" => TokenKind::NilType,
       _ => TokenKind::Identifier(word),
     };
 
     Token::new(tk, range)
   }
 
-  // lexes a label
-  fn lex_label(&mut self) -> Token {
+  // lexes a lifetime
+  fn lex_lifetime(&mut self) -> Token {
     assert!(matches!(self.source.peek_nth(0), Some((Some(b'\''), _))));
 
     // handle initial apostrophe
     let (_, ar) = self.source.next().unwrap();
 
-    // parse label body
+    // parse lifetime body
     let (word, range) = self.internal_lex_word();
 
-    // return label
-    Token::new(TokenKind::Label(word), union_of(ar, range))
+    // return lifetime
+    Token::new(TokenKind::Lifetime(word), union_of(ar, range))
   }
 
   // requires at least one character exists...
@@ -481,7 +480,7 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
         Some(b'0'..=b'9') => return Some(self.lex_number()),
         Some(b'`') => return Some(self.lex_strop()),
         Some(b'#') => return Some(self.lex_metadata()),
-        Some(b'\'') => return Some(self.lex_label()),
+        Some(b'\'') => return Some(self.lex_lifetime()),
         Some(b'"') => match self.source.peek_nth(1).unwrap().0 {
           Some(b'"') => return Some(self.lex_block_string()),
           _ => return Some(self.lex_string()),
@@ -504,14 +503,13 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
           _ => return Some(self.lex_simple_token(TokenKind::Constrain, 1)),
         },
         Some(b'&') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'!') => return Some(self.lex_simple_token(TokenKind::MutRef, 2)),
+          Some(b'!') => return Some(self.lex_simple_token(TokenKind::UniqRef, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::Ref, 1)),
         },
         Some(b'@') => return Some(self.lex_simple_token(TokenKind::Deref, 1)),
         Some(b'|') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'>') => return Some(self.lex_simple_token(TokenKind::PipeForward, 2)),
           Some(b'|') => return Some(self.lex_simple_token(TokenKind::CaseOption, 2)),
-          _ => return Some(self.lex_simple_token(TokenKind::SuchThat, 1)),
+          _ => return Some(self.lex_simple_token(TokenKind::Pipe, 1)),
         },
         Some(b',') => return Some(self.lex_simple_token(TokenKind::Cons, 1)),
         Some(b'!') => match self.source.peek_nth(1).unwrap().0 {
@@ -523,7 +521,6 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
           _ => return Some(self.lex_simple_token(TokenKind::Assign, 1)),
         },
         Some(b'<') => match self.source.peek_nth(1).unwrap().0 {
-          Some(b'|') => return Some(self.lex_simple_token(TokenKind::PipeBackward, 2)),
           Some(b'=') => return Some(self.lex_simple_token(TokenKind::LessEqual, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::Less, 1)),
         },

@@ -8,21 +8,20 @@ pub enum TokenKind {
   // function, type, or variable
   Identifier(Vec<u8>),
   // Keywords
-  Loop,   // loop
-  Ret,    // ret
-  Defer,  // defer
-  Case,   // case
-  Of,     // of
-  Val,    // val
-  Struct, // struct
-  Enum,   // enum
-  Let,    // let
-  In,     // in
-  Type,   // type
+  Case,     // case
+  Of,       // of
+  Val,      // val
+  StructOp, // struct
+  EnumOp,   // enum
+  Let,      // let
+  In,       // in
+  Type,     // type
   // Literals and constants
   Inf,                                    // inf
   Nan,                                    // nan
-  Nil,                                    // nil
+  Nil,                                    // ()
+  NilType,                                // nil
+  LifetimeType,                           // lt
   Bool(bool),                             // true, false
   String { value: Vec<u8>, block: bool }, // "string"
   Int(BigInt),                            // 7
@@ -39,8 +38,7 @@ pub enum TokenKind {
   // Error manipulation
   ReturnOnError, // ?
   // Type operators
-  Cons,     // ,
-  SuchThat, // |
+  Cons, // ,
   // Range Operators
   Range,          // ..
   RangeInclusive, // ..=
@@ -59,16 +57,15 @@ pub enum TokenKind {
   DivAssign,   // /=
   RemAssign,   // %=
   // Reference
-  Ref,    // &
-  MutRef, // &!
-  Deref,  // @
-  // labels
-  Label(Vec<u8>), // 'x
+  Ref,     // &
+  UniqRef, // &!
+  Deref,   // @
+  // lifetimes
+  Lifetime(Vec<u8>), // 'x
   // Arrows
-  PipeForward,  // |>
-  PipeBackward, // <|
-  Compose,      // >>
-  Defun,        // ->
+  Pipe,    // |
+  Compose, // >>
+  Defun,   // ->
   // CaseOptions
   CaseOption, // ||
   // Other Miscellaneous Operator Things

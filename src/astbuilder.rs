@@ -286,68 +286,6 @@ fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
   }
 }
 
-// parses a ret or panics
-fn parse_exact_ret<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  let metadata = get_metadata(tkiter);
-  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::Ret));
-  let ret_tk = tkiter.next().unwrap();
-  let label_tk = tkiter.next().unwrap();
-  let label;
-  if let Some(TokenKind::Label(label_id)) = label_tk.kind {
-    label = Some(label_id);
-  } else {
-    // log the expected label
-    dlogger.log_unexpected_token_specific(
-      label_tk.range,
-      Some(TokenKind::Label(vec![])),
-      label_tk.kind,
-    );
-    label = None;
-  }
-
-  let body = Box::new(parse_expr(tkiter, dlogger));
-
-  Expr {
-    metadata,
-    range: union_of(ret_tk.range, body.range),
-    kind: ExprKind::Ret { label, body },
-  }
-}
-
-// parses a defer or panics
-fn parse_exact_defer<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  let metadata = get_metadata(tkiter);
-  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::Defer));
-  let defer_tk = tkiter.next().unwrap();
-  let label_tk = tkiter.next().unwrap();
-  let label;
-  if let Some(TokenKind::Label(label_id)) = label_tk.kind {
-    label = Some(label_id);
-  } else {
-    // log the expected label
-    dlogger.log_unexpected_token_specific(
-      label_tk.range,
-      Some(TokenKind::Label(vec![])),
-      label_tk.kind,
-    );
-    label = None;
-  }
-
-  let body = Box::new(parse_expr(tkiter, dlogger));
-
-  Expr {
-    metadata,
-    range: union_of(defer_tk.range, body.range),
-    kind: ExprKind::Defer { label, body },
-  }
-}
-
 // parses a type or panics
 fn parse_exact_type<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
@@ -356,7 +294,7 @@ fn parse_exact_type<TkIter: Iterator<Item = Token>>(
   let metadata = get_metadata(tkiter);
   assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::Type));
   let type_tk = tkiter.next().unwrap();
-  let level_tk  = tkiter.next().unwrap();
+  let level_tk = tkiter.next().unwrap();
 
   let level;
   let end_range;
@@ -413,28 +351,6 @@ fn parse_exact_case<TkIter: Iterator<Item = Token>>(
   }
 }
 
-// parses an exact label or panics
-fn parse_exact_label<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  let metadata = get_metadata(tkiter);
-  if let Token {
-    range,
-    kind: Some(TokenKind::Label(label)),
-  } = tkiter.next().unwrap()
-  {
-    let body = Box::new(parse_term(tkiter, dlogger));
-    Expr {
-      metadata,
-      range: union_of(range, body.range),
-      kind: ExprKind::Label { label, body },
-    }
-  } else {
-    unimplemented!()
-  }
-}
-
 // parses a bool
 fn parse_exact_bool<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
@@ -471,6 +387,27 @@ fn parse_exact_string<TkIter: Iterator<Item = Token>>(
       metadata,
       range,
       kind: ExprKind::String { value, block },
+    }
+  } else {
+    unreachable!();
+  }
+}
+
+// parses a lifetime
+fn parse_exact_lifetime<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  _: &mut DiagnosticLogger,
+) -> Expr {
+  let metadata = get_metadata(tkiter);
+  if let Token {
+    range,
+    kind: Some(TokenKind::Lifetime(lt)),
+  } = tkiter.next().unwrap()
+  {
+    Expr {
+      metadata,
+      range,
+      kind: ExprKind::Lifetime(lt),
     }
   } else {
     unreachable!();
@@ -533,8 +470,8 @@ fn parse_exact_simple<TkIter: Iterator<Item = Token>>(
     let expected_kind_opt = Some(expected_kind);
     if token_kind == expected_kind_opt {
       Expr {
-        metadata,
         range,
+        metadata,
         kind: result_kind,
       }
     } else {
@@ -553,11 +490,9 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::String { .. } => Some(parse_exact_string::<TkIter>),
     TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),
-    TokenKind::Ret => Some(parse_exact_ret::<TkIter>),
-    TokenKind::Defer => Some(parse_exact_defer::<TkIter>),
     TokenKind::Case => Some(parse_exact_case::<TkIter>),
-    TokenKind::Label(_) => Some(parse_exact_label::<TkIter>),
-    TokenKind::Type(_) => Some(parse_exact_type::<TkIter>),
+    TokenKind::Lifetime(_) => Some(parse_exact_lifetime::<TkIter>),
+    TokenKind::Type => Some(parse_exact_type::<TkIter>),
     TokenKind::Identifier(_) => Some(parse_exact_reference::<TkIter>),
     _ => None,
   }
@@ -607,7 +542,7 @@ fn parse_suffix_operators<TkIter: Iterator<Item = Token>>(
     parse_term,
     simple_operator_fn(|x| match x {
       TokenKind::Ref => Some(UnaryOpKind::Ref),
-      TokenKind::MutRef => Some(UnaryOpKind::MutRef),
+      TokenKind::UniqRef => Some(UnaryOpKind::UniqRef),
       TokenKind::Deref => Some(UnaryOpKind::Deref),
       TokenKind::ReturnOnError => Some(UnaryOpKind::ReturnOnError),
       _ => None,
@@ -632,12 +567,10 @@ fn parse_tight_operators<TkIter: Iterator<Item = Token>>(
 
 fn decide_prefix(tkkind: &TokenKind) -> Option<UnaryOpKind> {
   match tkkind {
-    TokenKind::Struct => Some(UnaryOpKind::Struct),
-    TokenKind::Enum => Some(UnaryOpKind::Enum),
-    TokenKind::Loop => Some(UnaryOpKind::Loop),
+    TokenKind::StructOp => Some(UnaryOpKind::Struct),
+    TokenKind::EnumOp => Some(UnaryOpKind::Enum),
     TokenKind::Val => Some(UnaryOpKind::Val),
     TokenKind::BindVar => Some(UnaryOpKind::Bind),
-    TokenKind::MutateVar => Some(UnaryOpKind::Mutate),
     _ => None,
   }
 }
@@ -802,30 +735,16 @@ fn parse_binary_type_operators<TkIter: Iterator<Item = Token>>(
   )
 }
 
-fn parse_pipe_backward<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_r_binary_op(
-    tkiter,
-    dlogger,
-    parse_binary_type_operators,
-    simple_operator_fn(|x| match x {
-      TokenKind::PipeBackward => Some(BinaryOpKind::PipeBackward),
-      _ => None,
-    }),
-  )
-}
-fn parse_pipe_forward<TkIter: Iterator<Item = Token>>(
+fn parse_pipe<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
   parse_l_binary_op(
     tkiter,
     dlogger,
-    parse_pipe_backward,
+    parse_binary_type_operators,
     simple_operator_fn(|x| match x {
-      TokenKind::PipeForward => Some(BinaryOpKind::PipeForward),
+      TokenKind::Pipe => Some(BinaryOpKind::Pipe),
       _ => None,
     }),
   )
@@ -838,7 +757,7 @@ fn parse_rev_constrain<TkIter: Iterator<Item = Token>>(
   parse_r_binary_op(
     tkiter,
     dlogger,
-    parse_pipe_forward,
+    parse_pipe,
     simple_operator_fn(|x| match x {
       TokenKind::RevConstrain => Some(BinaryOpKind::RevConstrain),
       _ => None,

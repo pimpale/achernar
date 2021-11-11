@@ -26,16 +26,12 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   },
   // Wraps a term in a label that can be deferred or returned from
   Label(&'hir ValExpr<'hir, 'ast, HA>),
-  // Returns from a scope with a value
-  Ret {
-    labels_up: usize,
-    value: &'hir ValExpr<'hir, 'ast, HA>,
-  },
   // constructs a new compound ty
   StructLiteral(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
 
   // discards the rest of the fields
   Take(&'hir PlaceExpr<'hir, 'ast, HA>),
+  UniqBorrow(&'hir PlaceExpr<'hir, 'ast, HA>),
   Borrow(&'hir PlaceExpr<'hir, 'ast, HA>),
 
   // Annotate the value with the type

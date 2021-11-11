@@ -22,11 +22,9 @@ pub enum BinaryOpKind {
   CaseOption,
   // Function call
   Apply,
+  Pipe,
   // Function composition
   Compose,
-  // Function Piping
-  PipeForward,
-  PipeBackward,
   // Math
   Add,
   Sub,
@@ -67,22 +65,17 @@ pub enum BinaryOpKind {
 pub enum UnaryOpKind {
   // Memory Referencing
   Ref,
-  MutRef,
+  UniqRef,
   Deref,
-
   // Optional Manipulation
   ReturnOnError,
   // Compound type manipulation
   Struct,
   Enum,
-  // syntactic constructs
-  Loop,
   // (PATTERN ONLY) computes a value in a pattern
   Val,
   // (PATTERN ONLY) matches a single element to new variable
   Bind,
-  // (PATTERN ONLY) prefix a place expression to assign to
-  Mutate,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]
@@ -99,22 +92,8 @@ pub enum ExprKind {
     value: Vec<u8>,
     block: bool,
   },
-
-  // Wraps a term in a label that can be deferred or returned from
-  Label {
-    label: Vec<u8>,
-    body: Box<Expr>,
-  },
-  // Defer until label
-  Defer {
-    label: Option<Vec<u8>>,
-    body: Box<Expr>,
-  },
-  // Returns from a scope with a value
-  Ret {
-    label: Option<Vec<u8>>,
-    body: Box<Expr>,
-  },
+  // a lifetime literal
+  Lifetime(Vec<u8>),
   // Constructs a new compound type
   StructLiteral(Box<Expr>),
   // Binary operation

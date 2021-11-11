@@ -327,17 +327,6 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
           )
         }
       },
-      ast::UnaryOpKind::Mutate => {
-        dlogger.log_mutability_disabled(source.range);
-        (
-          hir::IrrefutablePatExpr {
-            source,
-            id: Some(next_id(idgen)),
-            kind: hir::IrrefutablePatExprKind::Error,
-          },
-          vec![],
-        )
-      }
       // the remaining operators
       c => {
         dlogger.log_unexpected_unop_in_irrefutable_pattern(source.range, c);
@@ -500,7 +489,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
     }
     ast::ExprKind::UnaryOp { ref op, .. } => match op {
       // handle irrefutable ops
-      ast::UnaryOpKind::Bind | ast::UnaryOpKind::Mutate => {
+      ast::UnaryOpKind::Bind => {
         let (pat, bindings) = tr_irrefutable_pat_expr(idgen, ha, dlogger, source, var_env);
         (
           hir::RefutablePatExpr {
@@ -928,114 +917,6 @@ fn tr_val_expr<'hir, 'ast>(
       }
     }
     ast::ExprKind::Group(ref body) => tr_val_expr(idgen, ha, dlogger, body, var_env, label_env),
-    ast::ExprKind::Defer {
-      label: ref maybe_label,
-      ref body,
-    } => {
-      // fail if label wasn't specified none
-      if let Some(label) = maybe_label {
-        // try to push the syntax to
-        let updated = update(label_env, &label, |scope| scope.defers.push(body));
-
-        if !updated {
-          dlogger.log_cannot_find_label_in_scope(source.range, &label);
-        }
-
-        // all defers are replaced with a nil
-        hir::ValExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::ValExprKind::Nil,
-        }
-      } else {
-        // a label was never properly provided
-        // an error should already have been thrown, so don't double report
-        hir::ValExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::ValExprKind::Error,
-        }
-      }
-    }
-
-    ast::ExprKind::Ret {
-      label: ref maybe_label,
-      ref body,
-    } => {
-      // fail if label wasn't specified none
-      if let Some(label) = maybe_label {
-        // translate body
-        let body_tr = tr_val_expr(idgen, ha, dlogger, body, var_env, label_env);
-
-        // now make the defer-ret construct
-        // ret 'x 0
-        // to
-        // let toret = 0;
-        // (run defers);
-        // ret 'x toret
-
-        hir::ValExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::ValExprKind::LetIn {
-            // introduce variable with value of ret
-            pat: ha.alloc(hir::IrrefutablePatExpr {
-              source,
-              id: Some(next_id(idgen)),
-              kind: hir::IrrefutablePatExprKind::BindVariable,
-            }),
-            val: ha.alloc(body_tr),
-
-            // write body
-            body: lookup(&label_env, &label).defers.clone().iter().fold(
-              // the last thing to execute is the actual ret
-              ha.alloc(hir::ValExpr {
-                source,
-                id: Some(next_id(idgen)),
-                kind: hir::ValExprKind::Ret {
-                  labels_up: lookup_count_up(label_env, &label),
-                  // lookup variable introduced earlier
-                  value: ha.alloc(gen_take(
-                    idgen,
-                    source,
-                    // place expr
-                    hir::PlaceExpr {
-                      source,
-                      kind: hir::PlaceExprKind::Var(0),
-                    },
-                    ha,
-                  )),
-                },
-              }),
-              // closure
-              |acc, x| {
-                // translate defer
-                let tr_x = tr_val_expr(idgen, ha, dlogger, x, var_env, label_env);
-                // return sequenced defer
-                ha.alloc(hir::ValExpr {
-                  source: x,
-                  id: Some(next_id(idgen)),
-                  // we want to sequence it in the reverse order we saw them
-                  // so, later ones will be executed first
-                  kind: hir::ValExprKind::Sequence {
-                    fst: ha.alloc(tr_x),
-                    snd: acc,
-                  },
-                })
-              },
-            ),
-          },
-        }
-      } else {
-        // a label was never properly provided
-        // an error should already have been thrown, so don't double report
-        hir::ValExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::ValExprKind::Error,
-        }
-      }
-    }
     ast::ExprKind::StructLiteral(ref body) => {
       // create a struct of literals
       let mut fields = HashMap::new();
@@ -1186,14 +1067,13 @@ fn tr_val_expr<'hir, 'ast>(
           idgen, ha, dlogger, operand, var_env, label_env,
         ))),
       },
-      ast::UnaryOpKind::MutRef => {
-        dlogger.log_mutability_disabled(source.range);
-        hir::ValExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::ValExprKind::Error,
-        }
-      }
+      ast::UnaryOpKind::UniqRef => hir::ValExpr {
+        source,
+        id: Some(next_id(idgen)),
+        kind: hir::ValExprKind::UniqBorrow(ha.alloc(tr_place_expr(
+          idgen, ha, dlogger, operand, var_env, label_env,
+        ))),
+      },
       ast::UnaryOpKind::Deref => gen_app(
         idgen,
         ha,
@@ -1220,13 +1100,6 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Enum(
-          ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
-        ),
-      },
-      ast::UnaryOpKind::Loop => hir::ValExpr {
-        source,
-        id: Some(next_id(idgen)),
-        kind: hir::ValExprKind::Loop(
           ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
         ),
       },

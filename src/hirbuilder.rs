@@ -823,7 +823,6 @@ fn tr_val_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-  label_env: &mut Vec<(&'ast [u8], LabelScope<'ast>)>,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   match source.kind {
     ast::ExprKind::Error => hir::ValExpr {
@@ -904,7 +903,7 @@ fn tr_val_expr<'hir, 'ast>(
       ));
 
       // translate body
-      let body_tr = tr_val_expr(idgen, ha, dlogger, body, var_env, label_env);
+      let body_tr = tr_val_expr(idgen, ha, dlogger, body, var_env);
 
       // pop label
       let _ = label_env.pop().unwrap();
@@ -916,7 +915,7 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Label(ha.alloc(body_tr)),
       }
     }
-    ast::ExprKind::Group(ref body) => tr_val_expr(idgen, ha, dlogger, body, var_env, label_env),
+    ast::ExprKind::Group(ref body) => tr_val_expr(idgen, ha, dlogger, body, var_env),
     ast::ExprKind::StructLiteral(ref body) => {
       // create a struct of literals
       let mut fields = HashMap::new();
@@ -955,7 +954,7 @@ fn tr_val_expr<'hir, 'ast>(
                     // identifier unique, translate rhs and insert into map
                     ve.insert((
                       operand.as_ref(),
-                      tr_val_expr(idgen, ha, dlogger, right_operand, var_env, label_env),
+                      tr_val_expr(idgen, ha, dlogger, right_operand, var_env),
                     ));
                   }
                   Entry::Occupied(oe) => {
@@ -1027,7 +1026,7 @@ fn tr_val_expr<'hir, 'ast>(
               var_env.extend(bindings);
 
               // translate body
-              let expr = tr_val_expr(idgen, ha, dlogger, right_operand, var_env, label_env);
+              let expr = tr_val_expr(idgen, ha, dlogger, right_operand, var_env);
 
               // get rid of old variables
               var_env.truncate(old_len);
@@ -1051,7 +1050,7 @@ fn tr_val_expr<'hir, 'ast>(
         id: Some(next_id(idgen)),
         kind: hir::ValExprKind::CaseOf {
           source: hir::CaseSource::Case,
-          expr: ha.alloc(tr_place_expr(idgen, ha, dlogger, expr, var_env, label_env)),
+          expr: ha.alloc(tr_place_expr(idgen, ha, dlogger, expr, var_env)),
           case_options,
         },
       }
@@ -1064,14 +1063,14 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Borrow(ha.alloc(tr_place_expr(
-          idgen, ha, dlogger, operand, var_env, label_env,
+          idgen, ha, dlogger, operand, var_env,
         ))),
       },
       ast::UnaryOpKind::UniqRef => hir::ValExpr {
         source,
         id: Some(next_id(idgen)),
         kind: hir::ValExprKind::UniqBorrow(ha.alloc(tr_place_expr(
-          idgen, ha, dlogger, operand, var_env, label_env,
+          idgen, ha, dlogger, operand, var_env,
         ))),
       },
       ast::UnaryOpKind::Deref => gen_app(
@@ -1079,7 +1078,7 @@ fn tr_val_expr<'hir, 'ast>(
         ha,
         source,
         gen_var_take(idgen, b"_deref", dlogger, source, var_env, ha),
-        vec![ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env))],
+        vec![ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env))],
       ),
       // TODO: decompose
       ast::UnaryOpKind::ReturnOnError => gen_app(
@@ -1087,20 +1086,20 @@ fn tr_val_expr<'hir, 'ast>(
         ha,
         source,
         gen_var_take(idgen, b"_return_on_error", dlogger, source, var_env, ha),
-        vec![ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env))],
+        vec![ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env))],
       ),
       ast::UnaryOpKind::Struct => hir::ValExpr {
         source,
         id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Struct(
-          ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
+          ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env)),
         ),
       },
       ast::UnaryOpKind::Enum => hir::ValExpr {
         source,
         id: Some(next_id(idgen)),
         kind: hir::ValExprKind::Enum(
-          ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
+          ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env)),
         ),
       },
       c => {
@@ -1169,7 +1168,7 @@ fn tr_val_expr<'hir, 'ast>(
         // push bindings into the new equation
         var_env.extend(bindings);
         // translate the body in the new context
-        let val = tr_val_expr(idgen, ha, dlogger, right_operand, var_env, label_env);
+        let val = tr_val_expr(idgen, ha, dlogger, right_operand, var_env);
         // get rid of the new variable bindings
         var_env.truncate(old_len);
         // return expr
@@ -1434,7 +1433,7 @@ fn tr_val_expr<'hir, 'ast>(
                   kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(idgen, source, true))),
                 })),
               },
-              tr_val_expr(idgen, ha, dlogger, right_operand, var_env, label_env),
+              tr_val_expr(idgen, ha, dlogger, right_operand, var_env),
             ));
 
             // false path
@@ -1498,7 +1497,7 @@ fn tr_val_expr<'hir, 'ast>(
                   kind: hir::ValPatExprKind::Value(ha.alloc(gen_bool(idgen, source, false))),
                 })),
               },
-              tr_val_expr(idgen, ha, dlogger, right_operand, var_env, label_env),
+              tr_val_expr(idgen, ha, dlogger, right_operand, var_env),
             ));
             v
           },
@@ -1905,7 +1904,7 @@ fn tr_val_expr<'hir, 'ast>(
         // variables created in such assigns will not be available outside, and should warn about unused vars
 
         // translate the rhs
-        let val = tr_val_expr(idgen, ha, dlogger, right_operand, var_env, label_env);
+        let val = tr_val_expr(idgen, ha, dlogger, right_operand, var_env);
 
         // translate pattern (dropping vars, since they won't be used)
         // later, a warning will be sent in liveness checking
@@ -1940,7 +1939,7 @@ fn tr_val_expr<'hir, 'ast>(
           // this represents an assign with a scope after it
 
           // translate rhs
-          let val = tr_val_expr(idgen, ha, dlogger, assign_value, var_env, label_env);
+          let val = tr_val_expr(idgen, ha, dlogger, assign_value, var_env);
 
           // translate pattern and get bindings
           let (pat, bindings) = tr_irrefutable_pat_expr(idgen, ha, dlogger, assign_pat, var_env);
@@ -1952,7 +1951,7 @@ fn tr_val_expr<'hir, 'ast>(
           var_env.extend(bindings);
 
           // parse body in the amended environment
-          let body = tr_val_expr(idgen, ha, dlogger, right_operand, var_env, label_env);
+          let body = tr_val_expr(idgen, ha, dlogger, right_operand, var_env);
 
           // now drop bindings
           var_env.truncate(old_len);
@@ -1995,7 +1994,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::ModuleAccess => gen_take(
         idgen,
         source,
-        tr_place_expr(idgen, ha, dlogger, source, var_env, label_env),
+        tr_place_expr(idgen, ha, dlogger, source, var_env),
         ha,
       ),
       ast::BinaryOpKind::Range => todo!(),
@@ -2010,13 +2009,12 @@ fn tr_place_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-  label_env: &mut Vec<(&'ast [u8], LabelScope<'ast>)>,
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
   match &source.kind {
     ast::ExprKind::Identifier(ref identifier) => {
       gen_var_place(source, identifier, dlogger, var_env)
     }
-    ast::ExprKind::Group(ref expr) => tr_place_expr(idgen, ha, dlogger, expr, var_env, label_env),
+    ast::ExprKind::Group(ref expr) => tr_place_expr(idgen, ha, dlogger, expr, var_env),
     ast::ExprKind::BinaryOp {
       ref op,
       ref left_operand,
@@ -2068,7 +2066,7 @@ fn tr_place_expr<'hir, 'ast>(
       ast::UnaryOpKind::Deref => hir::PlaceExpr {
         source: operand,
         kind: hir::PlaceExprKind::Deref(
-          ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env, label_env)),
+          ha.alloc(tr_val_expr(idgen, ha, dlogger, operand, var_env)),
         ),
       },
       e => {

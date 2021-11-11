@@ -61,7 +61,6 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   I64Ty,
   F32Ty,
   F64Ty,
-
   Nil,
   Bool(bool),
   Char(u32),

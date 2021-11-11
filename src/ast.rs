@@ -82,18 +82,33 @@ pub enum UnaryOpKind {
 pub enum ExprKind {
   // An error when parsing
   Error,
-  // Literals
+  // Literals and Types
+  NilTy,
+  NeverTy,
+  BoolTy,
+  U8Ty,
+  U16Ty,
+  U32Ty,
+  U64Ty,
+  I8Ty,
+  I16Ty,
+  I32Ty,
+  I64Ty,
+  F32Ty,
+  F64Ty,
+  LifetimeTy,
+
   Nil,
   Int(BigInt),
   Bool(bool),
   Float(BigRational),
   Type(Option<BigInt>),
+  // a lifetime literal
+  Lifetime(Vec<u8>),
   String {
     value: Vec<u8>,
     block: bool,
   },
-  // a lifetime literal
-  Lifetime(Vec<u8>),
   // Constructs a new compound type
   StructLiteral(Box<Expr>),
   // Binary operation

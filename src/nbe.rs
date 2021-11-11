@@ -24,9 +24,13 @@ pub enum VarKind<'hir, 'ast, TA: Allocator + Clone> {
   MovedOut {
     take: &'ast ast::Expr,
   },
-  ImmutablyBorrowed {
+  Borrowed {
     val: Val<'hir, 'ast, TA>,
     borrows: Vec<&'ast ast::Expr>,
+  },
+  UniqBorrowed {
+    val: Val<'hir, 'ast, TA>,
+    borrows: &'ast ast::Expr,
   },
   Unborrowed {
     val: Val<'hir, 'ast, TA>,
@@ -212,7 +216,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
             std::str::from_utf8(key).unwrap(),
             match var {
               Var {
-                kind: VarKind::ImmutablyBorrowed { val, borrows, .. },
+                kind: VarKind::Borrowed { val, borrows, .. },
                 ..
               } => format!("{} <borrowed {}>", val, borrows.len()),
               Var {
@@ -375,7 +379,7 @@ pub fn bind_irrefutable_pat<'hir, 'ast, 'env, TA: Allocator + Clone>(
             }) => vars.extend(bind_irrefutable_pat(pat, val, var_env, mutation_allowed)?),
             // log that we can't unpack field when field is aready borrowed or moved out
             Some(Var {
-              kind: VarKind::ImmutablyBorrowed { .. },
+              kind: VarKind::Borrowed { .. },
               ..
             }) => unimplemented!(),
             Some(Var {
@@ -455,7 +459,7 @@ pub fn apply_taking_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
     match kind {
       VarKind::MovedOut { .. } => (),
       // throw error here why linear types require to be consumed
-      VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+      VarKind::Borrowed { .. } => unimplemented!(),
       VarKind::Unborrowed { .. } => unimplemented!(),
     }
   }
@@ -486,7 +490,7 @@ pub fn apply_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
     match kind {
       VarKind::MovedOut { .. } => (),
       // throw error here why linear types require to be consumed
-      VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+      VarKind::Borrowed { .. } => unimplemented!(),
       VarKind::Unborrowed { .. } => unimplemented!(),
     }
   }
@@ -507,7 +511,7 @@ pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
     let Var { kind, .. } = cursor;
     // get list of struct fields
     let fields = match kind {
-      VarKind::ImmutablyBorrowed { val, .. } => match val {
+      VarKind::Borrowed { val, .. } => match val {
         Val::Struct(fields) => fields,
         _ => {
           // this is an internal compiler error
@@ -547,7 +551,7 @@ pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
           child_fields.extend(fields.values());
         }
       }
-      VarKind::ImmutablyBorrowed { val, .. } => {
+      VarKind::Borrowed { val, .. } => {
         if let Val::Struct(fields) = val {
           child_fields.extend(fields.values());
         }
@@ -579,7 +583,7 @@ pub fn get_var_if_takable<'hir, 'ast, 'env, TA: Allocator + Clone>(
           unimplemented!()
         }
       },
-      VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+      VarKind::Borrowed { .. } => unimplemented!(),
       VarKind::MovedOut { .. } => unimplemented!(),
     };
     // now get the value of field
@@ -604,7 +608,7 @@ pub fn get_var_if_takable<'hir, 'ast, 'env, TA: Allocator + Clone>(
           child_fields.extend(fields.values());
         }
       }
-      VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+      VarKind::Borrowed { .. } => unimplemented!(),
       VarKind::MovedOut { .. } => unimplemented!(),
     }
   }
@@ -717,7 +721,7 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       // now replace var
       match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
         VarKind::Unborrowed { val, .. } => Ok(val),
-        VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+        VarKind::Borrowed { .. } => unimplemented!(),
         VarKind::MovedOut { .. } => unimplemented!(),
       }
     }
@@ -734,14 +738,14 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
 
       // now replace var
       let newkind = match kind {
-        VarKind::Unborrowed { val } => VarKind::ImmutablyBorrowed {
+        VarKind::Unborrowed { val } => VarKind::Borrowed {
           val: std::mem::replace(val, Val::Nil),
           borrows: vec![e.source],
         },
-        VarKind::ImmutablyBorrowed { val, borrows } => {
+        VarKind::Borrowed { val, borrows } => {
           let mut newborrows = vec![e.source];
           newborrows.append(borrows);
-          VarKind::ImmutablyBorrowed {
+          VarKind::Borrowed {
             val: std::mem::replace(val, Val::Nil),
             borrows: newborrows,
           }
@@ -836,7 +840,7 @@ pub fn normalize<'hir, 'ast, TA: Allocator + Clone>(
 //         if let Some(Var { kind, source }) = fields.get_mut(field) {
 //           match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
 //             VarKind::Unborrowed { val, .. } => val,
-//             VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+//             VarKind::Borrowed { .. } => unimplemented!(),
 //             VarKind::MutablyBorrowed { .. } => unimplemented!(),
 //             VarKind::MovedOut { .. } => unimplemented!(),
 //           }
@@ -879,7 +883,7 @@ pub fn normalize<'hir, 'ast, TA: Allocator + Clone>(
 //        } => fields,
 //        // can't mutably borrow if the base is immutably borrowed already
 //        // or if it has been moved out
-//        VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+//        VarKind::Borrowed { .. } => unimplemented!(),
 //        VarKind::MovedOut { .. } => unimplemented!(),
 //        // means that the center wasn't a structo
 //        _ => unimplemented!(),
@@ -892,7 +896,7 @@ pub fn normalize<'hir, 'ast, TA: Allocator + Clone>(
 //             VarKind::Unborrowed { val } => {
 //                 *kind = VarKind::MutablyBorrowed {val: *val, borrow: e.source};
 //             },
-//             VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+//             VarKind::Borrowed { .. } => unimplemented!(),
 //             VarKind::MutablyBorrowed { .. } => unimplemented!(),
 //             VarKind::MovedOut { .. } => unimplemented!(),
 //           }
@@ -921,13 +925,13 @@ pub fn normalize<'hir, 'ast, TA: Allocator + Clone>(
 //               val: Val::Struct(ref mut fields),
 //               ..
 //             } => fields,
-//             VarKind::ImmutablyBorrowed {
+//             VarKind::Borrowed {
 //               val: Val::Struct(fields),
 //               ..
 //             } => fields,
 //             // can't mutably borrow if the base is immutably borrowed already
 //             // or if it has been moved out
-//             VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+//             VarKind::Borrowed { .. } => unimplemented!(),
 //             VarKind::MovedOut { .. } => unimplemented!(),
 //             // means that the center wasn't a structo
 //             _ => unimplemented!(),
@@ -940,7 +944,7 @@ pub fn normalize<'hir, 'ast, TA: Allocator + Clone>(
 //       if let Some(Var { kind, .. }) = fields.get_mut(field) {
 //         match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
 //           VarKind::Unborrowed { val, .. } => val,
-//           VarKind::ImmutablyBorrowed { .. } => unimplemented!(),
+//           VarKind::Borrowed { .. } => unimplemented!(),
 //           VarKind::MutablyBorrowed { .. } => unimplemented!(),
 //           VarKind::MovedOut { .. } => unimplemented!(),
 //         }

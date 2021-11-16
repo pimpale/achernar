@@ -1056,10 +1056,10 @@ fn tr_val_expr<'hir, 'ast>(
               } => match operand.as_ref() {
                 // this means that a bind was the target of the assign
                 ast::Expr {
-                  kind: ast::ExprKind::Identifier(ref identifier),
+                  kind: ast::ExprKind::Identifier(identifier),
                   range,
                   ..
-                } => match fields.entry(identifier) {
+                } => match fields.entry(identifier.as_slice()) {
                   Entry::Vacant(ve) => {
                     // identifier unique, translate rhs and insert into map
                     ve.insert((
@@ -1337,9 +1337,19 @@ fn tr_val_expr<'hir, 'ast>(
         // Find free variables and their borrow levels from the body and arg expr
         let free_vars = find_free_vars(&[left_operand, right_operand]);
 
+
+        // we will now try to construct the captured variable scope that helps
+        let new_captured_vars = Vec::new();
+        for (&identifier, (field_source, _)) in free_vars.iter() {
+            new_captured_vars.push((identifier, VarScope {
+                declaration: field_source,
+            }));
+        }
+
+
         // we will now attempt to construct the captured var struct
         let captured_var_fields = Vec::new_in(ha);
-        for (identifier, (field_source, use_kind)) in free_vars.iter() {
+        for (identifier, (field_source, use_kind)) in free_vars.into_iter() {
           let place = gen_var_place(field_source, identifier, dlogger, var_env, captured_var_env);
           let rhs = hir::ValExpr {
             source: field_source,
@@ -1355,9 +1365,6 @@ fn tr_val_expr<'hir, 'ast>(
           kind: hir::ValExprKind::StructLiteral(captured_var_fields),
         };
 
-        // we will now try to construct the variable scope
-        let new_captured_vars = Vec::new();
-        for(i
 
         // translate binding pattern. there's no var_env yet,
         // but we can still get variables from captured_var_env
@@ -1367,7 +1374,7 @@ fn tr_val_expr<'hir, 'ast>(
           dlogger,
           left_operand,
           &mut vec![],
-          &captured_var_fields,
+          &new_captured_vars,
         );
 
         // translate body. use the bound variables from the pat as the var_env
@@ -1378,7 +1385,7 @@ fn tr_val_expr<'hir, 'ast>(
           dlogger,
           right_operand,
           &mut bindings,
-          &captured_var_fields,
+          &new_captured_vars,
         );
 
         // return expr
@@ -1388,7 +1395,7 @@ fn tr_val_expr<'hir, 'ast>(
           kind: hir::ValExprKind::Lam {
             captured_vars: ha.alloc(captured_vars),
             arg: ha.alloc(pat),
-            body: ha.alloc(val),
+            body: ha.alloc(body),
           },
         }
       }

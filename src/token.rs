@@ -11,8 +11,8 @@ pub enum TokenKind {
   Case,     // case
   Of,       // of
   Val,      // val
-  StructOp, // struct
-  EnumOp,   // enum
+  Struct, // struct
+  Enum,   // enum
   Let,      // let
   In,       // in
   // Literals and constants
@@ -48,8 +48,6 @@ pub enum TokenKind {
   // Boolean Operators
   And, // and
   Or,  // or
-  // Error manipulation
-  ReturnOnError, // ?
   // Type operators
   Cons, // ,
   // Range Operators

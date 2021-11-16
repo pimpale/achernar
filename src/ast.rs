@@ -59,25 +59,6 @@ pub enum BinaryOpKind {
   ModuleAccess,
 }
 
-// none of these are overloadable "unary operators" in the traditional sense,
-// all of them are syntax
-#[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]
-pub enum UnaryOpKind {
-  // Memory Referencing
-  Ref,
-  UniqRef,
-  Deref,
-  // Optional Manipulation
-  ReturnOnError,
-  // Compound type manipulation
-  Struct,
-  Enum,
-  // (PATTERN ONLY) computes a value in a pattern
-  Val,
-  // (PATTERN ONLY) matches a single element to new variable
-  Bind,
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, AsRefStr)]
 pub enum ExprKind {
   // An error when parsing
@@ -117,11 +98,12 @@ pub enum ExprKind {
     left_operand: Box<Expr>,
     right_operand: Box<Expr>,
   },
-  // Unary operation
-  UnaryOp {
-    op: UnaryOpKind,
-    operand: Box<Expr>,
-  },
+
+  // these fields can only be used with module access
+  // they signify a memory ref, uniqref, or deref
+  Ref,
+  UniqRef,
+  Deref,
   // Matches an expression to the first matching pattern and destructures it
   CaseOf {
     expr: Box<Expr>,
@@ -131,6 +113,16 @@ pub enum ExprKind {
   Group(Box<Expr>),
   // A reference to a previously defined variable
   Identifier(Vec<u8>),
+
+  // struct  and enumify
+  Struct(Box<Expr>),
+  Enum(Box<Expr>),
+
+  // (PATTERN ONLY) computes a value in a pattern
+  Val(Box<Expr>),
+
+  // (PATTERN ONLY) matches a single element to new variable
+  Bind(Vec<u8>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -80,8 +80,8 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
       b"nan" => TokenKind::Nan,
       b"and" => TokenKind::And,
       b"or" => TokenKind::Or,
-      b"struct" => TokenKind::StructOp,
-      b"enum" => TokenKind::EnumOp,
+      b"struct" => TokenKind::Struct,
+      b"enum" => TokenKind::Enum,
       b"let" => TokenKind::Let,
       b"in" => TokenKind::In,
       b"type" => TokenKind::Type,
@@ -549,7 +549,6 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
           Some(b'=') => return Some(self.lex_simple_token(TokenKind::MulAssign, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::Mul, 1)),
         },
-        Some(b'?') => return Some(self.lex_simple_token(TokenKind::ReturnOnError, 1)),
         Some(b'%') => match self.source.peek_nth(1).unwrap().0 {
           Some(b'=') => return Some(self.lex_simple_token(TokenKind::RemAssign, 2)),
           _ => return Some(self.lex_simple_token(TokenKind::Rem, 1)),

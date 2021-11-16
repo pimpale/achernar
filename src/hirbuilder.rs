@@ -105,10 +105,12 @@ fn gen_nil_ty<'hir, 'ast>(
   }
 }
 
-fn gen_var_place<'hir, 'ast>(
+// Generates a place referencing a var
+// It can handle if the var is captured
+fn gen_place_from_identifier<'hir, 'ast>(
   source: &'ast ast::Expr,
-  identifier: &[u8],
   dlogger: &mut DiagnosticLogger,
+  identifier: &[u8],
   var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
   captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
@@ -129,41 +131,50 @@ fn gen_var_place<'hir, 'ast>(
   }
 }
 
-fn gen_take<'hir, 'ast>(
+// Generates an expression using the variable identifier and the use kind from an identifier
+fn gen_valexpr_identifier_use<'hir, 'ast>(
   idgen: &RefCell<u64>,
-  source: &'ast ast::Expr,
-  place: hir::PlaceExpr<'hir, 'ast, &'hir Bump>,
   ha: &'hir Bump,
+  dlogger: &mut DiagnosticLogger,
+  source: &'ast ast::Expr,
+  identifier: &[u8],
+  use_kind: hir::UseKind,
+  var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   hir::ValExpr {
     source,
     id: Some(next_id(idgen)),
-    kind: hir::ValExprKind::Use(ha.alloc(place), hir::UseKind::Take),
+    kind: hir::ValExprKind::Use(
+      ha.alloc(gen_place_from_identifier(
+        source,
+        dlogger,
+        identifier,
+        var_env,
+        captured_var_env,
+      )),
+      use_kind,
+    ),
   }
 }
 
-fn gen_var_take<'hir, 'ast>(
+// Generates an expression using the place and the use kind from a place expression
+fn gen_valexpr_place_use<'hir, 'ast>(
   idgen: &RefCell<u64>,
-  identifier: &[u8],
+  ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
+  use_kind: hir::UseKind,
   var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
   captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
-  ha: &'hir Bump,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
-  gen_take(
-    idgen,
-    source,
-    gen_var_place(source, identifier, dlogger, var_env, captured_var_env),
-    ha,
-  )
 }
 
-fn struct_pattern_to_pat_vec<'hir, 'ast>(
+fn parse_struct_fields<'hir, 'ast>(
   ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
-) -> HashMap<&'ast Vec<u8>, &'ast ast::Expr> {
+) -> HashMap<&'ast [u8], &'ast ast::Expr> {
   // this is what we return:
   // a hashmap between identifier and whatever pattern
   // create a struct of literals
@@ -186,46 +197,32 @@ fn struct_pattern_to_pat_vec<'hir, 'ast>(
         ast::BinaryOpKind::Assign => match left_operand.as_ref() {
           // match field
           ast::Expr {
-            kind:
-              ast::ExprKind::UnaryOp {
-                op: ast::UnaryOpKind::Bind,
-                operand,
-              },
+            kind: ast::ExprKind::Bind(ref identifier),
+            range,
             ..
-          } => match operand.as_ref() {
-            // this means that a bind was the target of the assign
-            ast::Expr {
-              kind: ast::ExprKind::Identifier(ref identifier),
-              range,
-              ..
-            } => match patterns.entry(identifier) {
-              Entry::Vacant(ve) => {
-                ve.insert(&**right_operand);
-              }
-              Entry::Occupied(oe) => {
-                // identifier not unique, log error for using duplicate identifier in struct
-                dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().range);
-              }
-            },
-            // means that something other than a identifier was the target of the bind
-            ast::Expr {
-              range, ref kind, ..
-            } => dlogger.log_unsupported_bind_target_in_pattern_struct_assign(*range, kind),
+          } => match patterns.entry(identifier.as_slice()) {
+            Entry::Vacant(ve) => {
+              ve.insert(&**right_operand);
+            }
+            Entry::Occupied(oe) => {
+              // identifier not unique, log error for using duplicate identifier in struct
+              dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().range);
+            }
           },
           // error handle
           ast::Expr {
             range, ref kind, ..
           } => {
             // means that there was no single bind as a target of the assign
-            dlogger.log_unsupported_target_in_pattern_struct_assign(*range, kind);
+            dlogger.log_unsupported_target_in_struct_assign(*range, kind);
           }
         },
         _ => {
-          dlogger.log_unexpected_binop_in_pattern_struct(current.range, op);
+          dlogger.log_unexpected_binop_in_struct(current.range, op);
         }
       },
       ref kind => {
-        dlogger.log_unexpected_element_in_pattern_struct(current.range, kind);
+        dlogger.log_unexpected_element_in_struct(current.range, kind);
       }
     }
   }
@@ -267,15 +264,15 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
       tr_irrefutable_pat_expr(idgen, ha, dlogger, body, var_env, captured_var_env)
     }
     ast::ExprKind::StructLiteral(ref body) => {
-      let patterns = struct_pattern_to_pat_vec(ha, dlogger, source);
+      let patterns = parse_struct_fields(ha, dlogger, source);
 
       let mut bindings = vec![];
       let mut fields = Vec::new_in(ha);
 
-      for (id, pat) in patterns.into_iter() {
+      for (id, pat_src) in patterns.into_iter() {
         let (field_pat, field_bindings) =
-          tr_irrefutable_pat_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
-        fields.push((id, field_pat));
+          tr_irrefutable_pat_expr(idgen, ha, dlogger, pat_src, var_env, captured_var_env);
+        fields.push((id, (pat_src, field_pat)));
         bindings.extend(field_bindings);
       }
 
@@ -283,61 +280,24 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
         hir::IrrefutablePatExpr {
           source,
           id: Some(next_id(idgen)),
-          kind: hir::IrrefutablePatExprKind::StructLiteral(fields),
+          kind: hir::IrrefutablePatExprKind::Struct(fields),
         },
         bindings,
       )
     }
-    ast::ExprKind::UnaryOp {
-      ref op,
-      ref operand,
-    } => match op {
-      ast::UnaryOpKind::Bind => match **operand {
-        // binds a variable to an identifier
-        ast::Expr {
-          kind: ast::ExprKind::Identifier(ref identifier),
-          ..
-        } => (
-          hir::IrrefutablePatExpr {
-            source,
-            id: Some(next_id(idgen)),
-            kind: hir::IrrefutablePatExprKind::BindVariable,
-          },
-          vec![(
-            identifier,
-            VarScope {
-              declaration: operand,
-            },
-          )],
-        ),
-        // handle error
-        ast::Expr {
-          range, ref kind, ..
-        } => {
-          dlogger.log_unexpected_bind_target(range, kind);
-          (
-            hir::IrrefutablePatExpr {
-              source,
-              id: Some(next_id(idgen)),
-              kind: hir::IrrefutablePatExprKind::Error,
-            },
-            vec![],
-          )
-        }
+    ast::ExprKind::Bind(ref identifier) => (
+      hir::IrrefutablePatExpr {
+        source,
+        id: Some(next_id(idgen)),
+        kind: hir::IrrefutablePatExprKind::BindVariable,
       },
-      // the remaining operators
-      c => {
-        dlogger.log_unexpected_unop_in_irrefutable_pattern(source.range, c);
-        (
-          hir::IrrefutablePatExpr {
-            source,
-            id: Some(next_id(idgen)),
-            kind: hir::IrrefutablePatExprKind::Error,
-          },
-          vec![],
-        )
-      }
-    },
+      vec![(
+        identifier,
+        VarScope {
+          declaration: source,
+        },
+      )],
+    ),
     ast::ExprKind::BinaryOp {
       ref op,
       ref left_operand,
@@ -437,7 +397,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       vec![],
     ),
     // send irrefutable patterns here
-    ast::ExprKind::Nil => {
+    ast::ExprKind::Nil | ast::ExprKind::Bind(_) => {
       let (pat, bindings) =
         tr_irrefutable_pat_expr(idgen, ha, dlogger, source, var_env, captured_var_env);
       (
@@ -469,15 +429,15 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       tr_refutable_pat_expr(idgen, ha, dlogger, body, var_env, captured_var_env)
     }
     ast::ExprKind::StructLiteral(ref body) => {
-      let patterns = struct_pattern_to_pat_vec(ha, dlogger, source);
+      let patterns = parse_struct_fields(ha, dlogger, source);
 
       let mut bindings = vec![];
       let mut fields = Vec::new_in(ha);
 
-      for (id, pat) in patterns.into_iter() {
+      for (id, pat_src) in patterns.into_iter() {
         let (field_pat, field_bindings) =
-          tr_refutable_pat_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
-        fields.push((id, field_pat));
+          tr_refutable_pat_expr(idgen, ha, dlogger, pat_src, var_env, captured_var_env);
+        fields.push((id, (pat_src, field_pat)));
         bindings.extend(field_bindings);
       }
 
@@ -485,54 +445,27 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
         hir::RefutablePatExpr {
           source,
           id: Some(next_id(idgen)),
-          kind: hir::RefutablePatExprKind::StructLiteral(fields),
+          kind: hir::RefutablePatExprKind::Struct(fields),
         },
         bindings,
       )
     }
-    ast::ExprKind::UnaryOp { ref op, .. } => match op {
-      // handle irrefutable ops
-      ast::UnaryOpKind::Bind => {
-        let (pat, bindings) =
-          tr_irrefutable_pat_expr(idgen, ha, dlogger, source, var_env, captured_var_env);
-        (
-          hir::RefutablePatExpr {
-            source,
-            id: Some(next_id(idgen)),
-            kind: hir::RefutablePatExprKind::IrrefutablePat(ha.alloc(pat)),
-          },
-          bindings,
-        )
-      }
-      // handle refutable ops
-      ast::UnaryOpKind::Val => (
-        hir::RefutablePatExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::RefutablePatExprKind::ValPat(ha.alloc(tr_val_pat_expr(
-            idgen,
-            ha,
-            dlogger,
-            source,
-            var_env,
-            captured_var_env,
-          ))),
-        },
-        vec![],
-      ),
-      // the remaining operators
-      c => {
-        dlogger.log_unexpected_unop_in_refutable_pattern(source.range, c);
-        (
-          hir::RefutablePatExpr {
-            source,
-            id: Some(next_id(idgen)),
-            kind: hir::RefutablePatExprKind::Error,
-          },
-          vec![],
-        )
-      }
-    },
+    // handle refutable ops
+    ast::ExprKind::Val(ref body) => (
+      hir::RefutablePatExpr {
+        source,
+        id: Some(next_id(idgen)),
+        kind: hir::RefutablePatExprKind::ValPat(ha.alloc(tr_val_pat_expr(
+          idgen,
+          ha,
+          dlogger,
+          body,
+          var_env,
+          captured_var_env,
+        ))),
+      },
+      vec![],
+    ),
     ast::ExprKind::BinaryOp {
       ref op,
       ref left_operand,
@@ -686,42 +619,28 @@ fn tr_val_pat_expr<'hir, 'ast>(
     ast::ExprKind::StructLiteral(ref body) => {
       let mut fields = Vec::new_in(ha);
 
-      for (id, pat) in struct_pattern_to_pat_vec(ha, dlogger, source).into_iter() {
-        let field_pat = tr_val_pat_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
-        fields.push((id, field_pat));
+      for (id, pat_src) in parse_struct_fields(ha, dlogger, source).into_iter() {
+        let field_pat = tr_val_pat_expr(idgen, ha, dlogger, pat_src, var_env, captured_var_env);
+        fields.push((id, (pat_src, field_pat)));
       }
 
       hir::ValPatExpr {
         source,
         id: Some(next_id(idgen)),
-        kind: hir::ValPatExprKind::StructLiteral(fields),
+        kind: hir::ValPatExprKind::Struct(fields),
       }
     }
-    ast::ExprKind::UnaryOp {
-      ref op,
-      ref operand,
-    } => match op {
-      ast::UnaryOpKind::Val => hir::ValPatExpr {
-        source,
-        id: Some(next_id(idgen)),
-        kind: hir::ValPatExprKind::Value(ha.alloc(tr_val_expr(
-          idgen,
-          ha,
-          dlogger,
-          source,
-          var_env,
-          captured_var_env,
-        ))),
-      },
-      // the remaining operators
-      c => {
-        dlogger.log_unexpected_unop_in_val_pattern(source.range, c);
-        hir::ValPatExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::ValPatExprKind::Error,
-        }
-      }
+    ast::ExprKind::Val(ref body) => hir::ValPatExpr {
+      source,
+      id: Some(next_id(idgen)),
+      kind: hir::ValPatExprKind::Value(ha.alloc(tr_val_expr(
+        idgen,
+        ha,
+        dlogger,
+        body,
+        var_env,
+        captured_var_env,
+      ))),
     },
     ast::ExprKind::BinaryOp {
       ref op,
@@ -1027,89 +946,28 @@ fn tr_val_expr<'hir, 'ast>(
       tr_val_expr(idgen, ha, dlogger, body, var_env, captured_var_env)
     }
     ast::ExprKind::StructLiteral(ref body) => {
-      // create a struct of literals
-      let mut fields = HashMap::new();
+      let mut fields = Vec::new_in(ha);
 
-      // depth first search of binary tree
-      let mut sequences = vec![body];
-
-      while let Some(current) = sequences.pop() {
-        match current.kind {
-          ast::ExprKind::BinaryOp {
-            ref left_operand,
-            ref right_operand,
-            ref op,
-          } => match op {
-            ast::BinaryOpKind::Sequence => {
-              sequences.push(left_operand);
-              sequences.push(right_operand);
-            }
-            ast::BinaryOpKind::Assign => match left_operand.as_ref() {
-              // match field
-              ast::Expr {
-                kind:
-                  ast::ExprKind::UnaryOp {
-                    op: ast::UnaryOpKind::Bind,
-                    operand,
-                  },
-                ..
-              } => match operand.as_ref() {
-                // this means that a bind was the target of the assign
-                ast::Expr {
-                  kind: ast::ExprKind::Identifier(identifier),
-                  range,
-                  ..
-                } => match fields.entry(identifier.as_slice()) {
-                  Entry::Vacant(ve) => {
-                    // identifier unique, translate rhs and insert into map
-                    ve.insert((
-                      operand.as_ref(),
-                      tr_val_expr(idgen, ha, dlogger, right_operand, var_env, captured_var_env),
-                    ));
-                  }
-                  Entry::Occupied(oe) => {
-                    // identifier not unique, log error for using duplicate identifier in struct
-                    dlogger.log_duplicate_field_name(*range, &oe.key(), oe.get().0.range);
-                  }
-                },
-
-                // means that something other than a reference was the target of the bind
-                ast::Expr {
-                  range, ref kind, ..
-                } => dlogger.log_unsupported_target_in_struct_assign(*range, kind),
-              },
-              // error handle
-              ast::Expr {
-                range, ref kind, ..
-              } => {
-                // means that there was no single bind as a target of the assign
-                dlogger.log_unsupported_target_in_struct_assign(*range, kind);
-              }
-            },
-            _ => {
-              dlogger.log_unexpected_binop_in_struct(current.range, op);
-            }
-          },
-          ref kind => {
-            dlogger.log_unexpected_element_in_struct(current.range, kind);
-          }
-        }
+      for (id, pat) in parse_struct_fields(ha, dlogger, source).into_iter() {
+        let field_pat = tr_val_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
+        fields.push((id, (pat, field_pat)));
       }
-      // return struct
+
       hir::ValExpr {
         source,
         id: Some(next_id(idgen)),
-        kind: hir::ValExprKind::StructLiteral(new_vec_from(ha, fields.drain())),
+        kind: hir::ValExprKind::Struct(fields),
       }
     }
-    ast::ExprKind::Identifier(ref identifier) => gen_var_take(
+    ast::ExprKind::Identifier(ref identifier) => gen_var_use(
       idgen,
+      ha,
       identifier,
+      hir::UseKind::Take,
       dlogger,
       source,
       var_env,
       captured_var_env,
-      ha,
     ),
     ast::ExprKind::CaseOf {
       ref expr,
@@ -1178,105 +1036,47 @@ fn tr_val_expr<'hir, 'ast>(
         },
       }
     }
-    ast::ExprKind::UnaryOp {
-      ref op,
-      ref operand,
-    } => match op {
-      ast::UnaryOpKind::Ref => hir::ValExpr {
-        source,
-        id: Some(next_id(idgen)),
-        kind: hir::ValExprKind::Borrow(ha.alloc(tr_place_expr(
-          idgen,
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          captured_var_env,
-        ))),
-      },
-      ast::UnaryOpKind::UniqRef => hir::ValExpr {
-        source,
-        id: Some(next_id(idgen)),
-        kind: hir::ValExprKind::UniqBorrow(ha.alloc(tr_place_expr(
-          idgen,
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          captured_var_env,
-        ))),
-      },
-      ast::UnaryOpKind::Deref => gen_app(
-        idgen,
-        ha,
-        source,
-        gen_var_take(
-          idgen,
-          b"_deref",
-          dlogger,
+    ast::ExprKind::Struct(body) => match body.kind {
+      ast::ExprKind::StructLiteral(fields_src) => {
+        let mut fields = Vec::new_in(ha);
+
+        for (id, pat) in parse_struct_fields(ha, dlogger, source).into_iter() {
+          let field_pat = tr_val_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
+          fields.push((id, (pat, field_pat)));
+        }
+
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
-        vec![ha.alloc(tr_val_expr(
-          idgen,
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          captured_var_env,
-        ))],
-      ),
-      // TODO: decompose
-      ast::UnaryOpKind::ReturnOnError => gen_app(
-        idgen,
-        ha,
-        source,
-        gen_var_take(
-          idgen,
-          b"_return_on_error",
-          dlogger,
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::StructTy(fields),
+        }
+      }
+      kind => {
+        dlogger.log_expected_struct_literal_struct(body.range, &kind);
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
-        vec![ha.alloc(tr_val_expr(
-          idgen,
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          captured_var_env,
-        ))],
-      ),
-      ast::UnaryOpKind::Struct => hir::ValExpr {
-        source,
-        id: Some(next_id(idgen)),
-        kind: hir::ValExprKind::Struct(ha.alloc(tr_val_expr(
-          idgen,
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          captured_var_env,
-        ))),
-      },
-      ast::UnaryOpKind::Enum => hir::ValExpr {
-        source,
-        id: Some(next_id(idgen)),
-        kind: hir::ValExprKind::Enum(ha.alloc(tr_val_expr(
-          idgen,
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          captured_var_env,
-        ))),
-      },
-      c => {
-        dlogger.log_unexpected_unop_in_expr(source.range, c);
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Error,
+        }
+      }
+    },
+    ast::ExprKind::Enum(body) => match body.kind {
+      ast::ExprKind::StructLiteral(fields_src) => {
+        let mut fields = Vec::new_in(ha);
+
+        for (id, pat) in parse_struct_fields(ha, dlogger, source).into_iter() {
+          let field_pat = tr_val_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
+          fields.push((id, (pat, field_pat)));
+        }
+
+        hir::ValExpr {
+          source,
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::EnumTy(fields),
+        }
+      }
+      kind => {
+        dlogger.log_expected_struct_literal_enum(body.range, &kind);
         hir::ValExpr {
           source,
           id: Some(next_id(idgen)),
@@ -1337,15 +1137,16 @@ fn tr_val_expr<'hir, 'ast>(
         // Find free variables and their borrow levels from the body and arg expr
         let free_vars = find_free_vars(&[left_operand, right_operand]);
 
-
         // we will now try to construct the captured variable scope that helps
         let new_captured_vars = Vec::new();
         for (&identifier, (field_source, _)) in free_vars.iter() {
-            new_captured_vars.push((identifier, VarScope {
-                declaration: field_source,
-            }));
+          new_captured_vars.push((
+            identifier,
+            VarScope {
+              declaration: field_source,
+            },
+          ));
         }
-
 
         // we will now attempt to construct the captured var struct
         let captured_var_fields = Vec::new_in(ha);
@@ -1364,7 +1165,6 @@ fn tr_val_expr<'hir, 'ast>(
           id: Some(next_id(idgen)),
           kind: hir::ValExprKind::StructLiteral(captured_var_fields),
         };
-
 
         // translate binding pattern. there's no var_env yet,
         // but we can still get variables from captured_var_env
@@ -2343,63 +2143,37 @@ fn tr_place_expr<'hir, 'ast>(
       ref left_operand,
       ref right_operand,
     } => match op {
-      ast::BinaryOpKind::ModuleAccess => {
-        if let ast::Expr {
+      ast::BinaryOpKind::ModuleAccess => match **right_operand {
+        ast::Expr {
           kind: ast::ExprKind::Identifier(ref field),
           ..
-        } = **right_operand
-        {
-          hir::PlaceExpr {
-            source,
-            kind: hir::PlaceExprKind::StructField {
-              root: ha.alloc(tr_place_expr(
-                idgen,
-                ha,
-                dlogger,
-                left_operand,
-                var_env,
-                captured_var_env,
-              )),
-              field,
-              field_source: right_operand,
-            },
-          }
-        } else {
-          dlogger.log_field_not_identifier(right_operand.range, &right_operand.kind);
+        } => hir::PlaceExpr {
+          source,
+          kind: hir::PlaceExprKind::StructField {
+            root: ha.alloc(tr_place_expr(
+              idgen,
+              ha,
+              dlogger,
+              left_operand,
+              var_env,
+              captured_var_env,
+            )),
+            field,
+            field_source: right_operand,
+          },
+        },
+
+        _ => {
+          dlogger.log_field_not_valid(right_operand.range, &right_operand.kind);
           hir::PlaceExpr {
             source,
             kind: hir::PlaceExprKind::Error,
           }
         }
-      }
+      },
       e => {
         // throw error about unrecognized binary operation
         dlogger.log_unexpected_binop_in_place_expression(source.range, e);
-        // then return error struct
-        hir::PlaceExpr {
-          source,
-          kind: hir::PlaceExprKind::Error,
-        }
-      }
-    },
-    ast::ExprKind::UnaryOp {
-      ref op,
-      ref operand,
-    } => match op {
-      ast::UnaryOpKind::Deref => hir::PlaceExpr {
-        source: operand,
-        kind: hir::PlaceExprKind::Deref(ha.alloc(tr_val_expr(
-          idgen,
-          ha,
-          dlogger,
-          operand,
-          var_env,
-          captured_var_env,
-        ))),
-      },
-      e => {
-        // throw error about unrecognized unaryoperation
-        dlogger.log_unexpected_unop_in_place_expression(source.range, e);
         // then return error struct
         hir::PlaceExpr {
           source,

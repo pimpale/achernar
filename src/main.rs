@@ -12,6 +12,7 @@ mod utils;
 mod typecheck;
 mod token;
 mod tokenize;
+mod find_free_vars;
 
 use bumpalo::Bump;
 use std::io::stdin;

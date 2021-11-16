@@ -98,7 +98,6 @@ pub enum ExprKind {
     left_operand: Box<Expr>,
     right_operand: Box<Expr>,
   },
-
   // these fields can only be used with module access
   // they signify a memory ref, uniqref, or deref
   Ref,

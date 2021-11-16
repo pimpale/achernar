@@ -704,4 +704,19 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
+  pub fn log_only_in_field(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(20)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!("{} is invalid outside of a field.", kind.as_ref()),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
 }

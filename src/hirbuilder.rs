@@ -2,7 +2,6 @@ use super::ast;
 use super::dlogger::DiagnosticLogger;
 use super::find_free_vars::find_free_vars;
 use super::hir;
-use super::utils::new_vec_from;
 use bumpalo::Bump;
 use num_bigint::BigUint;
 use std::cell::RefCell;
@@ -802,6 +801,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
     }
   }
 }
+
 fn tr_val_expr<'hir, 'ast>(
   idgen: &RefCell<u64>,
   ha: &'hir Bump,
@@ -816,6 +816,24 @@ fn tr_val_expr<'hir, 'ast>(
       id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Error,
     },
+    c @ (ast::ExprKind::Ref | ast::ExprKind::UniqRef | ast::ExprKind::Deref) => {
+      dlogger.log_only_in_field(source.range, &c);
+
+      hir::ValExpr {
+        source,
+        id: Some(next_id(idgen)),
+        kind: hir::ValExprKind::Error,
+      }
+    }
+    c @ (ast::ExprKind::Val(_) | ast::ExprKind::Bind(_)) => {
+      dlogger.log_only_in_pattern(source.range, &c);
+
+      hir::ValExpr {
+        source,
+        id: Some(next_id(idgen)),
+        kind: hir::ValExprKind::Error,
+      }
+    }
     ast::ExprKind::NilTy => hir::ValExpr {
       source,
       id: Some(next_id(idgen)),
@@ -1163,7 +1181,7 @@ fn tr_val_expr<'hir, 'ast>(
         let captured_vars = hir::ValExpr {
           source,
           id: Some(next_id(idgen)),
-          kind: hir::ValExprKind::StructLiteral(captured_var_fields),
+          kind: hir::ValExprKind::Struct(captured_var_fields),
         };
 
         // translate binding pattern. there's no var_env yet,
@@ -2143,11 +2161,8 @@ fn tr_place_expr<'hir, 'ast>(
       ref left_operand,
       ref right_operand,
     } => match op {
-      ast::BinaryOpKind::ModuleAccess => match **right_operand {
-        ast::Expr {
-          kind: ast::ExprKind::Identifier(ref field),
-          ..
-        } => hir::PlaceExpr {
+      ast::BinaryOpKind::ModuleAccess => match right_operand.kind {
+        ast::ExprKind::Identifier(ref field) => hir::PlaceExpr {
           source,
           kind: hir::PlaceExprKind::StructField {
             root: ha.alloc(tr_place_expr(
@@ -2162,7 +2177,9 @@ fn tr_place_expr<'hir, 'ast>(
             field_source: right_operand,
           },
         },
-
+        ast::ExprKind::Ref => {},
+        ast::ExprKind::UniqRef => {},
+        ast::ExprKind::Deref=> {},
         _ => {
           dlogger.log_field_not_valid(right_operand.range, &right_operand.kind);
           hir::PlaceExpr {

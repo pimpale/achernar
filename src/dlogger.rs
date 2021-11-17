@@ -8,7 +8,6 @@ use lsp_types::Location;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
 use lsp_types::Url;
-use std::alloc::Allocator;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -261,10 +260,7 @@ impl DiagnosticLogger {
       code: Some(NumberOrString::Number(12)),
       code_description: None,
       source: self.source.clone(),
-      message: format!(
-        "{} is invalid in a irrefutable pattern.",
-        kind.as_ref()
-      ),
+      message: format!("{} is invalid in a irrefutable pattern.", kind.as_ref()),
       related_information: None,
       tags: None,
       data: None,
@@ -287,58 +283,11 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_unop_in_irrefutable_pattern(&mut self, range: Range, kind: &ast::UnaryOpKind) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(13)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!(
-        "{} is an invalid unary operator in an irrefutable pattern`",
-        kind.as_ref()
-      ),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
-  pub fn log_unexpected_unop_in_refutable_pattern(&mut self, range: Range, kind: &ast::UnaryOpKind) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(13)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!(
-        "{} is an invalid unary operator in a refutable pattern. If you wish to use the value yielded from this expression, consider using `val`",
-        kind.as_ref()
-      ),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
-  pub fn log_unexpected_unop_in_val_pattern(&mut self, range: Range, kind: &ast::UnaryOpKind) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(13)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!(
-        "{} is an invalid unary operator in a val pattern. If you wish to use the value yielded from this expression, consider using `val`",
-        kind.as_ref()
-      ),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
-  pub fn log_unexpected_binop_in_irrefutable_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+  pub fn log_unexpected_binop_in_irrefutable_pattern(
+    &mut self,
+    range: Range,
+    kind: &ast::BinaryOpKind,
+  ) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::ERROR),
@@ -355,7 +304,11 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_binop_in_refutable_pattern(&mut self, range: Range, kind: &ast::BinaryOpKind) {
+  pub fn log_unexpected_binop_in_refutable_pattern(
+    &mut self,
+    range: Range,
+    kind: &ast::BinaryOpKind,
+  ) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::ERROR),
@@ -389,90 +342,17 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_element_in_pattern_struct(&mut self, range: Range, kind: &ast::ExprKind) {
+  pub fn log_unexpected_bind_target(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(15)),
+      code: Some(NumberOrString::Number(18)),
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "{} is not permitted in a pattern struct literal. The body of the struct must contain only assigns seperated by semicolons.",
+        "`$` may only be used to prefix an identifier.",
         kind.as_ref()
       ),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
-  pub fn log_unexpected_binop_in_pattern_struct(&mut self, range: Range, kind: &ast::BinaryOpKind) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(16)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!(
-        "{} is not permitted in a pattern struct literal. The body of the struct must contain only assigns seperated by semicolons.",
-        kind.as_ref()
-      ),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
-  pub fn log_unsupported_target_in_pattern_struct_assign(
-    &mut self,
-    range: Range,
-    kind: &ast::ExprKind,
-  ) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(17)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!(
-        "{} is an invalid target in for an assign in a pattern struct literal. The left hand side may either be `$*` or a single variable binding.",
-        kind.as_ref()
-      ),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
-  pub fn log_unsupported_bind_target_in_pattern_struct_assign(
-    &mut self,
-    range: Range,
-    kind: &ast::ExprKind,
-  ) {
-    self.log(Diagnostic {
-        range,
-        severity: Some(DiagnosticSeverity::ERROR),
-        code: Some(NumberOrString::Number(18)),
-        code_description: None,
-        source: self.source.clone(),
-        message: format!(
-          "$ may only be used to prefix an identifier. {} is not permitted as a target in a pattern struct literal.",
-          kind.as_ref()
-        ),
-        related_information: None,
-        tags: None,
-        data: None,
-      })
-  }
-
-  pub fn log_unexpected_bind_target(&mut self, range: Range, kind: &ast::ExprKind) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(19)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!("Cannot bind variable to symbol of `{}`.", kind.as_ref()),
       related_information: None,
       tags: None,
       data: None,
@@ -487,6 +367,40 @@ impl DiagnosticLogger {
       code_description: None,
       source: self.source.clone(),
       message: format!("{} is invalid outside of a pattern.", kind.as_ref()),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_expected_struct_literal_struct(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(20)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "expected struct literal after `struct` keyword, but found {}",
+        kind.as_ref()
+      ),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
+  pub fn log_expected_struct_literal_enum(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(20)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!(
+        "expected struct literal after `enum` keyword, but found {}",
+        kind.as_ref()
+      ),
       related_information: None,
       tags: None,
       data: None,
@@ -510,38 +424,6 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_unop_in_expr(&mut self, range: Range, kind: &ast::UnaryOpKind) {
-    self.log(Diagnostic {
-        range,
-        severity: Some(DiagnosticSeverity::ERROR),
-        code: Some(NumberOrString::Number(22)),
-        code_description: None,
-        source: self.source.clone(),
-        message: format!(
-          "{} is invalid outside of a pattern. If you wish to use this pattern as a function, consider using `pat`",
-          kind.as_ref()
-        ),
-        related_information: None,
-        tags: None,
-        data: None,
-        })
-  }
-
-  pub fn log_repeat_splat_in_pattern_struct(&mut self, range: Range) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(23)),
-      code_description: None,
-      source: self.source.clone(),
-      message: String::from("Only one splat is allowed in a pattern struct."),
-      // Todo hint other splat
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
   pub fn log_only_in_case(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
@@ -556,7 +438,7 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_field_not_identifier(&mut self, range: Range, kind: &ast::ExprKind) {
+  pub fn log_field_not_valid(&mut self, range: Range, kind: &ast::ExprKind) {
     self.log(Diagnostic {
       range,
       severity: Some(DiagnosticSeverity::ERROR),
@@ -564,7 +446,7 @@ impl DiagnosticLogger {
       code_description: None,
       source: self.source.clone(),
       message: format!(
-        "expected identifier after module access operator, but found unexpected {}",
+        "expected identifier, Ref, UniqRef, or Deref after module access operator, but found unexpected {}",
         kind.as_ref()
       ),
       related_information: None,
@@ -809,21 +691,6 @@ impl DiagnosticLogger {
     })
   }
 
-  pub fn log_unexpected_unop_in_place_expression(&mut self, range: Range, kind: &ast::UnaryOpKind) {
-    self.log(Diagnostic {
-      range,
-      severity: Some(DiagnosticSeverity::ERROR),
-      code: Some(NumberOrString::Number(40)),
-      code_description: None,
-      source: self.source.clone(),
-      message: format!("{} is not permitted in a place expression.", kind.as_ref()),
-      related_information: None,
-      tags: None,
-      data: None,
-    })
-  }
-
-
   pub fn log_universe_level_negative(&mut self, range: Range) {
     self.log(Diagnostic {
       range,
@@ -837,4 +704,19 @@ impl DiagnosticLogger {
       data: None,
     })
   }
+
+  pub fn log_only_in_field(&mut self, range: Range, kind: &ast::ExprKind) {
+    self.log(Diagnostic {
+      range,
+      severity: Some(DiagnosticSeverity::ERROR),
+      code: Some(NumberOrString::Number(20)),
+      code_description: None,
+      source: self.source.clone(),
+      message: format!("{} is invalid outside of a field.", kind.as_ref()),
+      related_information: None,
+      tags: None,
+      data: None,
+    })
+  }
+
 }

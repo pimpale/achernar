@@ -8,25 +8,37 @@ pub enum TokenKind {
   // function, type, or variable
   Identifier(Vec<u8>),
   // Keywords
-  Loop,   // loop
-  Ret,    // ret
-  Defer,  // defer
-  Case,   // case
-  Of,     // of
-  Val,    // val
+  Case,     // case
+  Of,       // of
+  Val,      // val
   Struct, // struct
   Enum,   // enum
-  Let,    // let
-  In,     // in
-  Type,   // type
+  Let,      // let
+  In,       // in
   // Literals and constants
+  Type,                                   // type
+  NilTy,                                  // nil
+  NeverTy,                                // never
+  BoolTy,                                 // bool
+  U8Ty,                                   // u8
+  U16Ty,                                  // u16
+  U32Ty,                                  // u32
+  U64Ty,                                  // u64
+  I8Ty,                                   // u8
+  I16Ty,                                  // u16
+  I32Ty,                                  // u32
+  I64Ty,                                  // u64
+  F32Ty,                                  // f32
+  F64Ty,                                  // f64
+  Lifetime(Vec<u8>),                      // 'lifetime
   Inf,                                    // inf
   Nan,                                    // nan
-  Nil,                                    // nil
+  Nil,                                    // ()
   Bool(bool),                             // true, false
   String { value: Vec<u8>, block: bool }, // "string"
   Int(BigInt),                            // 7
   Float(BigRational),                     // 0.7
+  LifetimeTy,                             // lifetime
   // Math Operators
   Plus,  // +
   Minus, // -
@@ -36,11 +48,8 @@ pub enum TokenKind {
   // Boolean Operators
   And, // and
   Or,  // or
-  // Error manipulation
-  ReturnOnError, // ?
   // Type operators
-  Cons,     // ,
-  SuchThat, // |
+  Cons, // ,
   // Range Operators
   Range,          // ..
   RangeInclusive, // ..=
@@ -59,16 +68,13 @@ pub enum TokenKind {
   DivAssign,   // /=
   RemAssign,   // %=
   // Reference
-  Ref,    // &
-  MutRef, // &!
-  Deref,  // @
-  // labels
-  Label(Vec<u8>), // 'x
+  Ref,     // &
+  UniqRef, // &!
+  Deref,   // @
   // Arrows
-  PipeForward,  // |>
-  PipeBackward, // <|
-  Compose,      // >>
-  Defun,        // ->
+  Pipe,    // |
+  Compose, // >>
+  Defun,   // ->
   // CaseOptions
   CaseOption, // ||
   // Other Miscellaneous Operator Things

@@ -1,3 +1,7 @@
+# Mutable-2021 Branch
+
+* This branch doesn't compile or work. It's a snapshot from before mutable variables were removed
+
 # Achernar
 
 Achernar is a *WIP* multi paradigm programming language focusing on:

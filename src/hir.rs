@@ -32,7 +32,7 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir ValExpr<'hir, 'ast, HA>,
   },
   // constructs a new compound ty
-  Struct(Vec<(&'ast [u8], (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
+  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
 
   // use place
   Use(&'hir PlaceExpr<'hir, 'ast, HA>, UseKind),
@@ -72,9 +72,9 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   // Type stuff
   // creates a pub struct from an ad hoc compound object
-  StructTy(Vec<(&'ast [u8], (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
+  StructTy(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
   // creates a disjoint union from an ad hoc compound object
-  EnumTy(Vec<(&'ast [u8], (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
+  EnumTy(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
   // creates a tuple
   Pair {
     fst: &'hir ValExpr<'hir, 'ast, HA>,
@@ -89,9 +89,9 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
     // 2. A borrow in the body means that we borrow in the captured_vars struct, and replace with take from captured_vars
     // 3. A uniqborrow in the body means that we borrow in the captured_vars struct, and replace with take from captured_vars
 
-    // the captured vars struct is created when a lambda is defined
+    // the captured vars vec is created when a lambda is defined
     // it is put on the stack when the lambda is evaluated
-    captured_vars: &'hir ValExpr<'hir, 'ast, HA>,
+    captured_vars: Vec<(&'ast [u8], (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>,
     // after that, the args appear on the stack
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
     // finally, local variables may appear on the stack
@@ -137,6 +137,8 @@ pub enum PlaceExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // A reference to a previously defined variable
   // debruijin index
   Var(usize),
+  // A reference to the captured enviroment struct
+  CapturedVar(usize),
 }
 
 #[derive(Debug)]
@@ -169,7 +171,7 @@ pub enum IrrefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
   // Depub structures a field of a pub struct object
-  Struct(Vec<(&'ast [u8], (&'ast ast::Expr, IrrefutablePatExpr<'hir, 'ast, HA>)), HA>),
+  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, IrrefutablePatExpr<'hir, 'ast, HA>)), HA>),
 }
 
 #[derive(Debug)]
@@ -203,7 +205,7 @@ pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
   // Depub structures a field of a pub struct object
-  Struct(Vec<(&'ast [u8], (&'ast ast::Expr, RefutablePatExpr<'hir, 'ast, HA>)), HA>),
+  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, RefutablePatExpr<'hir, 'ast, HA>)), HA>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables
   And {
@@ -242,7 +244,7 @@ pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
   // Destructures a field of a struct object
-  Struct(Vec<(&'ast [u8], (&'ast ast::Expr, ValPatExpr<'hir, 'ast, HA>)), HA>),
+  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValPatExpr<'hir, 'ast, HA>)), HA>),
   // destructure a tuple
   Pair {
     fst: &'hir ValPatExpr<'hir, 'ast, HA>,

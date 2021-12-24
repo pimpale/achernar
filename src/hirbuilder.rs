@@ -27,15 +27,6 @@ fn lookup_maybe<'env, Scope>(
   return None;
 }
 
-fn lookup<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) -> &'env Scope {
-  lookup_maybe(env, label).unwrap().0
-}
-
-// foo
-fn lookup_count_up<'env, Scope>(env: &'env Vec<(&[u8], Scope)>, label: &[u8]) -> usize {
-  lookup_maybe(env, label).unwrap().1
-}
-
 fn update<'env, Scope, F>(env: &'env mut Vec<(&[u8], Scope)>, label: &[u8], update: F) -> bool
 where
   F: FnOnce(&'env mut Scope),
@@ -113,67 +104,37 @@ fn gen_place_from_identifier<'hir, 'ast>(
   var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
   captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
-  let lkup_val = lookup_maybe(var_env, &identifier);
-
-  if let Some((_, debruijn_index)) = lkup_val {
-    hir::PlaceExpr {
+  // first try to lookup the var in the local enviroment
+  if let Some((_, debruijn_index)) = lookup_maybe(var_env, &identifier) {
+    return hir::PlaceExpr {
       source,
       kind: hir::PlaceExprKind::Var(debruijn_index),
-    }
-  } else {
-    dlogger.log_variable_not_found(source.range, &identifier);
-    // return error if not exist
-    hir::PlaceExpr {
+    };
+  }
+
+  // if that failed then we try to look up inside the captured vars
+  // Captured vars are in a struct that gets passed along with the data
+  if let Some((_, debruijn_index)) = lookup_maybe(captured_var_env, &identifier) {
+    // we return a variable access to a field of the captured env struct
+    return hir::PlaceExpr {
       source,
-      kind: hir::PlaceExprKind::Error,
-    }
+      kind: hir::PlaceExprKind::CapturedVar(debruijn_index),
+    };
   }
-}
 
-// Generates an expression using the variable identifier and the use kind from an identifier
-fn gen_valexpr_identifier_use<'hir, 'ast>(
-  idgen: &RefCell<u64>,
-  ha: &'hir Bump,
-  dlogger: &mut DiagnosticLogger,
-  source: &'ast ast::Expr,
-  identifier: &[u8],
-  use_kind: hir::UseKind,
-  var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
-) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
-  hir::ValExpr {
+  // return error if the identifier doesn't exist in either the variable or the captured variable
+  dlogger.log_variable_not_found(source.range, &identifier);
+  hir::PlaceExpr {
     source,
-    id: Some(next_id(idgen)),
-    kind: hir::ValExprKind::Use(
-      ha.alloc(gen_place_from_identifier(
-        source,
-        dlogger,
-        identifier,
-        var_env,
-        captured_var_env,
-      )),
-      use_kind,
-    ),
+    kind: hir::PlaceExprKind::Error,
   }
-}
-
-// Generates an expression using the place and the use kind from a place expression
-fn gen_valexpr_place_use<'hir, 'ast>(
-  idgen: &RefCell<u64>,
-  ha: &'hir Bump,
-  dlogger: &mut DiagnosticLogger,
-  source: &'ast ast::Expr,
-  use_kind: hir::UseKind,
-  var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
-) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
 }
 
 fn parse_struct_fields<'hir, 'ast>(
   ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
-) -> HashMap<&'ast [u8], &'ast ast::Expr> {
+) -> HashMap<&'ast Vec<u8>, &'ast ast::Expr> {
   // this is what we return:
   // a hashmap between identifier and whatever pattern
   // create a struct of literals
@@ -199,7 +160,7 @@ fn parse_struct_fields<'hir, 'ast>(
             kind: ast::ExprKind::Bind(ref identifier),
             range,
             ..
-          } => match patterns.entry(identifier.as_slice()) {
+          } => match patterns.entry(identifier) {
             Entry::Vacant(ve) => {
               ve.insert(&**right_operand);
             }
@@ -977,16 +938,26 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Struct(fields),
       }
     }
-    ast::ExprKind::Identifier(ref identifier) => gen_var_use(
-      idgen,
-      ha,
-      identifier,
-      hir::UseKind::Take,
-      dlogger,
+    // this option will only ever be invoked if we have a
+    // bare identifier without a reference
+    // In this case we are using it
+    ast::ExprKind::Identifier(_) => hir::ValExpr {
       source,
-      var_env,
-      captured_var_env,
-    ),
+      id: Some(next_id(idgen)),
+      kind: hir::ValExprKind::Use(
+        // generate the place
+        ha.alloc(tr_place_expr(
+          idgen,
+          ha,
+          dlogger,
+          source,
+          var_env,
+          captured_var_env,
+        )),
+        // we take ownership of the value at this place
+        hir::UseKind::Take,
+      ),
+    },
     ast::ExprKind::CaseOf {
       ref expr,
       ref cases,
@@ -1152,37 +1123,35 @@ fn tr_val_expr<'hir, 'ast>(
         },
       },
       ast::BinaryOpKind::Defun => {
-        // Find free variables and their borrow levels from the body and arg expr
+        // Find free variables inside the arguments and the body of the function we have encountered
         let free_vars = find_free_vars(&[left_operand, right_operand]);
 
-        // we will now try to construct the captured variable scope that helps
-        let new_captured_vars = Vec::new();
-        for (&identifier, (field_source, _)) in free_vars.iter() {
-          new_captured_vars.push((
-            identifier,
-            VarScope {
-              declaration: field_source,
-            },
-          ));
-        }
-
-        // we will now attempt to construct the captured var struct
-        let captured_var_fields = Vec::new_in(ha);
+        // For every free variable found, see if we can capture it from our enviroment
+        let captured_vars = Vec::new_in(ha);
         for (identifier, (field_source, use_kind)) in free_vars.into_iter() {
-          let place = gen_var_place(field_source, identifier, dlogger, var_env, captured_var_env);
+          let place =
+            gen_place_from_identifier(field_source, dlogger, identifier, var_env, captured_var_env);
           let rhs = hir::ValExpr {
             source: field_source,
             id: Some(next_id(idgen)),
             kind: hir::ValExprKind::Use(ha.alloc(place), use_kind),
           };
-          captured_var_fields.push((identifier, (field_source, rhs)));
+          // TODO: the actual field source is this struct right here! we borrowed here
+          captured_vars.push((identifier, (field_source, rhs)));
         }
 
-        let captured_vars = hir::ValExpr {
-          source,
-          id: Some(next_id(idgen)),
-          kind: hir::ValExprKind::Struct(captured_var_fields),
-        };
+        // For all fields we could capture, we create a declaration for it so that the function's body knows which variables are in scope
+        let new_captured_vars = captured_vars
+          .iter()
+          .map(|(identifier, (field_source, _))| {
+            (
+              *identifier,
+              VarScope {
+                declaration: field_source,
+              },
+            )
+          })
+          .collect();
 
         // translate binding pattern. there's no var_env yet,
         // but we can still get variables from captured_var_env
@@ -1211,7 +1180,7 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Lam {
-            captured_vars: ha.alloc(captured_vars),
+            captured_vars,
             arg: ha.alloc(pat),
             body: ha.alloc(body),
           },
@@ -1251,15 +1220,22 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_compose",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            // generate the place
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_compose",
+              var_env,
+              captured_var_env,
+            )),
+            // we take ownership of the value at this place
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1305,15 +1281,22 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_add",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            // generate the place
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_add",
+              var_env,
+              captured_var_env,
+            )),
+            // we take ownership of the value at this place
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1337,15 +1320,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_sub",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_sub",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1369,15 +1357,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_mul",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_mul",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1401,15 +1394,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_div",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_div",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1433,15 +1431,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_rem",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_rem",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1565,15 +1568,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_eq",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_eq",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1597,15 +1605,21 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_neq",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              // TODO: apply logical law here
+              b"_neq",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1629,7 +1643,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(idgen, b"_l", dlogger, source, var_env, captured_var_env, ha),
+        hir::ValExpr {
+          source,
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_l",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1653,15 +1680,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_le",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_le",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1685,7 +1717,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(idgen, b"_g", dlogger, source, var_env, captured_var_env, ha),
+        hir::ValExpr {
+          source,
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_g",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1709,15 +1754,20 @@ fn tr_val_expr<'hir, 'ast>(
         idgen,
         ha,
         source,
-        gen_var_take(
-          idgen,
-          b"_ge",
-          dlogger,
+        hir::ValExpr {
           source,
-          var_env,
-          captured_var_env,
-          ha,
-        ),
+          id: Some(next_id(idgen)),
+          kind: hir::ValExprKind::Use(
+            ha.alloc(gen_place_from_identifier(
+              source,
+              dlogger,
+              b"_ge",
+              var_env,
+              captured_var_env,
+            )),
+            hir::UseKind::Take,
+          ),
+        },
         vec![
           ha.alloc(tr_val_expr(
             idgen,
@@ -1771,15 +1821,20 @@ fn tr_val_expr<'hir, 'ast>(
           idgen,
           ha,
           source,
-          gen_var_take(
-            idgen,
-            b"_add",
-            dlogger,
+          hir::ValExpr {
             source,
-            var_env,
-            captured_var_env,
-            ha,
-          ),
+            id: Some(next_id(idgen)),
+            kind: hir::ValExprKind::Use(
+              ha.alloc(gen_place_from_identifier(
+                source,
+                dlogger,
+                b"_add",
+                var_env,
+                captured_var_env,
+              )),
+              hir::UseKind::Take,
+            ),
+          },
           vec![
             ha.alloc(tr_val_expr(
               idgen,
@@ -1826,15 +1881,20 @@ fn tr_val_expr<'hir, 'ast>(
           idgen,
           ha,
           source,
-          gen_var_take(
-            idgen,
-            b"_sub",
-            dlogger,
+          hir::ValExpr {
             source,
-            var_env,
-            captured_var_env,
-            ha,
-          ),
+            id: Some(next_id(idgen)),
+            kind: hir::ValExprKind::Use(
+              ha.alloc(gen_place_from_identifier(
+                source,
+                dlogger,
+                b"_sub",
+                var_env,
+                captured_var_env,
+              )),
+              hir::UseKind::Take,
+            ),
+          },
           vec![
             ha.alloc(tr_val_expr(
               idgen,
@@ -1881,15 +1941,20 @@ fn tr_val_expr<'hir, 'ast>(
           idgen,
           ha,
           source,
-          gen_var_take(
-            idgen,
-            b"_mul",
-            dlogger,
+          hir::ValExpr {
             source,
-            var_env,
-            captured_var_env,
-            ha,
-          ),
+            id: Some(next_id(idgen)),
+            kind: hir::ValExprKind::Use(
+              ha.alloc(gen_place_from_identifier(
+                source,
+                dlogger,
+                b"_mul",
+                var_env,
+                captured_var_env,
+              )),
+              hir::UseKind::Take,
+            ),
+          },
           vec![
             ha.alloc(tr_val_expr(
               idgen,
@@ -1936,15 +2001,20 @@ fn tr_val_expr<'hir, 'ast>(
           idgen,
           ha,
           source,
-          gen_var_take(
-            idgen,
-            b"_div",
-            dlogger,
+          hir::ValExpr {
             source,
-            var_env,
-            captured_var_env,
-            ha,
-          ),
+            id: Some(next_id(idgen)),
+            kind: hir::ValExprKind::Use(
+              ha.alloc(gen_place_from_identifier(
+                source,
+                dlogger,
+                b"_div",
+                var_env,
+                captured_var_env,
+              )),
+              hir::UseKind::Take,
+            ),
+          },
           vec![
             ha.alloc(tr_val_expr(
               idgen,
@@ -1991,15 +2061,20 @@ fn tr_val_expr<'hir, 'ast>(
           idgen,
           ha,
           source,
-          gen_var_take(
-            idgen,
-            b"_rem",
-            dlogger,
+          hir::ValExpr {
             source,
-            var_env,
-            captured_var_env,
-            ha,
-          ),
+            id: Some(next_id(idgen)),
+            kind: hir::ValExprKind::Use(
+              ha.alloc(gen_place_from_identifier(
+                source,
+                dlogger,
+                b"_rem",
+                var_env,
+                captured_var_env,
+              )),
+              hir::UseKind::Take,
+            ),
+          },
           vec![
             ha.alloc(tr_val_expr(
               idgen,
@@ -2128,13 +2203,21 @@ fn tr_val_expr<'hir, 'ast>(
           }
         }
       }
-      // TODO: this should go to tr_place
-      ast::BinaryOpKind::ModuleAccess => gen_take(
-        idgen,
+      ast::BinaryOpKind::ModuleAccess => hir::ValExpr {
         source,
-        tr_place_expr(idgen, ha, dlogger, source, var_env, captured_var_env),
-        ha,
-      ),
+        id: Some(next_id(idgen)),
+        kind: hir::ValExprKind::Use(
+          ha.alloc(tr_place_expr(
+            idgen,
+            ha,
+            dlogger,
+            source,
+            var_env,
+            captured_var_env,
+          )),
+          hir::UseKind::Take,
+        ),
+      },
       ast::BinaryOpKind::Range => todo!(),
       ast::BinaryOpKind::RangeInclusive => todo!(),
     },
@@ -2151,7 +2234,7 @@ fn tr_place_expr<'hir, 'ast>(
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
   match &source.kind {
     ast::ExprKind::Identifier(ref identifier) => {
-      gen_var_place(source, identifier, dlogger, var_env, captured_var_env)
+      gen_place_from_identifier(source, dlogger, identifier, var_env, captured_var_env)
     }
     ast::ExprKind::Group(ref expr) => {
       tr_place_expr(idgen, ha, dlogger, expr, var_env, captured_var_env)
@@ -2177,9 +2260,19 @@ fn tr_place_expr<'hir, 'ast>(
             field_source: right_operand,
           },
         },
-        ast::ExprKind::Ref => {},
-        ast::ExprKind::UniqRef => {},
-        ast::ExprKind::Deref=> {},
+        ast::ExprKind::Deref => hir::PlaceExpr {
+          source,
+          // A place can be the dereference of a pointer.
+          // In that case we evaluate the struct_root and then dereference it
+          kind: hir::PlaceExprKind::Deref(ha.alloc(tr_val_expr(
+            idgen,
+            ha,
+            dlogger,
+            left_operand,
+            var_env,
+            captured_var_env,
+          ))),
+        },
         _ => {
           dlogger.log_field_not_valid(right_operand.range, &right_operand.kind);
           hir::PlaceExpr {

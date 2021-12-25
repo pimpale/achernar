@@ -893,19 +893,6 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
     }
     // TODO: don't crash when the user inputs a huge value
     hir::ValExprKind::Universe(n) => Ok(Val::Ty(Ty::Universe(n.try_into().unwrap()))),
-    hir::ValExprKind::NilTy => Ok(Val::Ty(Ty::Nil)),
-    hir::ValExprKind::NeverTy => Ok(Val::Ty(Ty::Never)),
-    hir::ValExprKind::BoolTy => Ok(Val::Ty(Ty::Bool)),
-    hir::ValExprKind::U8Ty => Ok(Val::Ty(Ty::U8)),
-    hir::ValExprKind::U16Ty => Ok(Val::Ty(Ty::U16)),
-    hir::ValExprKind::U32Ty => Ok(Val::Ty(Ty::U32)),
-    hir::ValExprKind::U64Ty => Ok(Val::Ty(Ty::U64)),
-    hir::ValExprKind::I8Ty => Ok(Val::Ty(Ty::I8)),
-    hir::ValExprKind::I16Ty => Ok(Val::Ty(Ty::I16)),
-    hir::ValExprKind::I32Ty => Ok(Val::Ty(Ty::I32)),
-    hir::ValExprKind::I64Ty => Ok(Val::Ty(Ty::I64)),
-    hir::ValExprKind::F32Ty => Ok(Val::Ty(Ty::F32)),
-    hir::ValExprKind::F64Ty => Ok(Val::Ty(Ty::F64)),
     hir::ValExprKind::LamTy {
       arg_ty,
       body_dep_ty,

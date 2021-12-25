@@ -2248,10 +2248,6 @@ pub fn construct_hir<'hir, 'ast>(
   mut dlogger: DiagnosticLogger,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   // first insert the necessary_builtins into the prelude
-
-
-
-
   tr_val_expr(
     &RefCell::new(0),
     ha,

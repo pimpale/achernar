@@ -11,25 +11,14 @@ fn tr_synth_expr<'types, 'hir, 'ast, HA: Allocator + Clone>(
   allocator: &'types Bump,
   mut dlogger: &mut DiagnosticLogger,
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  label_env: &mut Vec<Option<nbe::Val<'hir, 'ast, &'types Bump>>>,
   var_env: &mut Vec<nbe::Val<'hir, 'ast, &'types Bump>>,
-) -> HashMap<u64, nbe::Val<'hir, 'ast, &'types Bump>> {
+  ty_table: &mut HashMap<u64, nbe::Ty<'hir, 'ast, &'types Bump>>
+) {
   match source.kind {
-    hir::ValExprKind::Error => HashMap::new(),
-    hir::ValExprKind::Loop(body) => {
-      let nilty = nbe::Val::NilTy;
-
-      // body should evaluate to nil
-      let mut tytable = tr_check_expr(allocator, dlogger, body, label_env, var_env, &nilty);
-
-      // add wrapping loop's type
-      tytable.insert(source.id.unwrap(), nilty);
-
-      tytable
-    }
+    hir::ValExprKind::Error => (),
     hir::ValExprKind::App { fun, arg } => {
-      // get the type of the lower function
-      let fun_tytable = tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
+      // typecheck the function itself
+      tr_synth_expr(allocator, dlogger, fun, label_env, var_env);
 
       if let Some(nbe::Val::PiTy {
           arg_ty,

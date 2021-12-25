@@ -84,17 +84,6 @@ fn gen_nil<'hir, 'ast>(
   }
 }
 
-fn gen_nil_ty<'hir, 'ast>(
-  idgen: &RefCell<u64>,
-  source: &'ast ast::Expr,
-) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
-  hir::ValExpr {
-    source: source,
-    id: Some(next_id(idgen)),
-    kind: hir::ValExprKind::NilTy,
-  }
-}
-
 // Generates a place referencing a var
 // It can handle if the var is captured
 fn gen_place_from_identifier<'hir, 'ast>(
@@ -795,72 +784,6 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Error,
       }
     }
-    ast::ExprKind::NilTy => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::NilTy,
-    },
-    ast::ExprKind::NeverTy => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::NeverTy,
-    },
-    ast::ExprKind::BoolTy => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::BoolTy,
-    },
-    ast::ExprKind::U8Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::U8Ty,
-    },
-    ast::ExprKind::U16Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::U16Ty,
-    },
-    ast::ExprKind::U32Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::U32Ty,
-    },
-    ast::ExprKind::U64Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::U64Ty,
-    },
-    ast::ExprKind::I8Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::I8Ty,
-    },
-    ast::ExprKind::I16Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::I16Ty,
-    },
-    ast::ExprKind::I32Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::I32Ty,
-    },
-    ast::ExprKind::I64Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::I64Ty,
-    },
-    ast::ExprKind::F32Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::F32Ty,
-    },
-    ast::ExprKind::F64Ty => hir::ValExpr {
-      source,
-      id: Some(next_id(idgen)),
-      kind: hir::ValExprKind::F64Ty,
-    },
-    ast::ExprKind::LifetimeTy => todo!(),
     ast::ExprKind::Nil => hir::ValExpr {
       source,
       id: Some(next_id(idgen)),
@@ -942,6 +865,23 @@ fn tr_val_expr<'hir, 'ast>(
     // bare identifier without a reference
     // In this case we are using it
     ast::ExprKind::Identifier(_) => hir::ValExpr {
+      source,
+      id: Some(next_id(idgen)),
+      kind: hir::ValExprKind::Use(
+        // generate the place
+        ha.alloc(tr_place_expr(
+          idgen,
+          ha,
+          dlogger,
+          source,
+          var_env,
+          captured_var_env,
+        )),
+        // we take ownership of the value at this place
+        hir::UseKind::Take,
+      ),
+    },
+    ast::ExprKind::Builtin(_) => hir::ValExpr {
       source,
       id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Use(
@@ -2307,6 +2247,11 @@ pub fn construct_hir<'hir, 'ast>(
   ha: &'hir Bump,
   mut dlogger: DiagnosticLogger,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
+  // first insert the necessary_builtins into the prelude
+
+
+
+
   tr_val_expr(
     &RefCell::new(0),
     ha,

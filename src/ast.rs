@@ -63,22 +63,6 @@ pub enum BinaryOpKind {
 pub enum ExprKind {
   // An error when parsing
   Error,
-  // Literals and Types
-  NilTy,
-  NeverTy,
-  BoolTy,
-  U8Ty,
-  U16Ty,
-  U32Ty,
-  U64Ty,
-  I8Ty,
-  I16Ty,
-  I32Ty,
-  I64Ty,
-  F32Ty,
-  F64Ty,
-  LifetimeTy,
-
   Nil,
   Int(BigInt),
   Bool(bool),
@@ -112,7 +96,8 @@ pub enum ExprKind {
   Group(Box<Expr>),
   // A reference to a previously defined variable
   Identifier(Vec<u8>),
-
+  // Builtin thing
+  Builtin(Vec<u8>),
   // struct  and enumify
   Struct(Box<Expr>),
   Enum(Box<Expr>),

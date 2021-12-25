@@ -7,6 +7,8 @@ use strum::AsRefStr;
 pub enum TokenKind {
   // function, type, or variable
   Identifier(Vec<u8>),
+  // builtin method
+  Builtin(Vec<u8>),
   // Keywords
   Case,     // case
   Of,       // of
@@ -17,19 +19,6 @@ pub enum TokenKind {
   In,       // in
   // Literals and constants
   Type,                                   // type
-  NilTy,                                  // nil
-  NeverTy,                                // never
-  BoolTy,                                 // bool
-  U8Ty,                                   // u8
-  U16Ty,                                  // u16
-  U32Ty,                                  // u32
-  U64Ty,                                  // u64
-  I8Ty,                                   // u8
-  I16Ty,                                  // u16
-  I32Ty,                                  // u32
-  I64Ty,                                  // u64
-  F32Ty,                                  // f32
-  F64Ty,                                  // f64
   Lifetime(Vec<u8>),                      // 'lifetime
   Inf,                                    // inf
   Nan,                                    // nan

@@ -24,24 +24,29 @@ pub enum VarKind<'hir, 'ast, TA: Allocator + Clone> {
   MovedOut {
     take: &'ast ast::Expr,
   },
-  Borrowed {
+  Present {
     val: Val<'hir, 'ast, TA>,
-    borrows: Vec<&'ast ast::Expr>,
-  },
-  UniqBorrowed {
-    val: Val<'hir, 'ast, TA>,
-    borrows: &'ast ast::Expr,
-  },
-  Unborrowed {
-    val: Val<'hir, 'ast, TA>,
+    uniqborrow: Option<&'ast ast::Expr>,
+    borrows: HashMap<u64, &'ast ast::Expr>,
   },
 }
 
-// a closure is generated (but not executed!) when a Lam is evaluated.
-// During closure generation, we populate the captured_vars struct.
 #[derive(Debug, Clone)]
-pub struct Closure<'hir, 'ast, TA: Allocator + Clone> {
-  // it is generated from the captured_vars
+pub struct BorrowClosure<'hir, 'ast, TA: Allocator + Clone> {
+  pub captured_env: Vec<Var<'hir, 'ast, TA>>,
+  pub pat: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
+  pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UniqBorrowClosure<'hir, 'ast, TA: Allocator + Clone> {
+  pub captured_env: Vec<Var<'hir, 'ast, TA>>,
+  pub pat: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
+  pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TakeClosure<'hir, 'ast, TA: Allocator + Clone> {
   pub captured_env: Vec<Var<'hir, 'ast, TA>>,
   pub pat: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
   pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
@@ -49,40 +54,47 @@ pub struct Closure<'hir, 'ast, TA: Allocator + Clone> {
 
 // These are terms that have normalized completely, to the fullest extent possible
 #[derive(Debug, Clone)]
-pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
-  // Types
+pub enum Ty<'hir, 'ast, TA: Allocator + Clone> {
+  // pes
   Universe(usize), // type of a type is Universe(0)
-  NilTy,
-  NeverTy,
-  BoolTy,
-  U8Ty,
-  U16Ty,
-  U32Ty,
-  U64Ty,
-  I8Ty,
-  I16Ty,
-  I32Ty,
-  I64Ty,
-  F32Ty,
-  F64Ty,
+  Nil,
+  Never,
+  Bool,
+  U8,
+  U16,
+  U32,
+  U64,
+  I8,
+  I16,
+  I32,
+  I64,
+  F32,
+  F64,
+  Struct(Vec<(&'ast Vec<u8>, Ty<'hir, 'ast, TA>), TA>),
+  Enum(Vec<(&'ast Vec<u8>, Ty<'hir, 'ast, TA>), TA>),
   // Also known as a Sigma type
   // https://en.wikipedia.org/wiki/Dependent_type#%CE%A3_type
-  SigmaTy {
+  Sigma {
     // type of first
-    fst_ty: Box<Val<'hir, 'ast, TA>>,
+    fst_ty: Box<Ty<'hir, 'ast, TA>>,
     // function mapping value of first to the second type
-    snd_dep_ty: Box<Closure<'hir, 'ast, TA>>,
+    snd_dep_ty: BorrowClosure<'hir, 'ast, TA>,
   },
-  StructTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
-  EnumTy(Vec<(&'ast Vec<u8>, Val<'hir, 'ast, TA>), TA>),
   // Also known as a Pi type
   // https://en.wikipedia.org/wiki/Dependent_type#%CE%A0_type
-  PiTy {
+  Pi {
     // type of the agument
-    arg_ty: Box<Val<'hir, 'ast, TA>>,
+    arg_ty: Box<Ty<'hir, 'ast, TA>>,
     // function mapping argument's value to the result type
-    body_dep_ty: Box<Closure<'hir, 'ast, TA>>,
+    body_dep_ty: BorrowClosure<'hir, 'ast, TA>,
   },
+}
+
+// These are terms that have normalized completely, to the fullest extent possible
+#[derive(Debug, Clone)]
+pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
+  // Types are also values
+  Ty(Ty<'hir, 'ast, TA>),
   // Values
   Nil,
   Bool(bool),
@@ -105,20 +117,26 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
     field: &'ast Vec<u8>,
     value: Box<Val<'hir, 'ast, TA>>,
   },
-  Fun(Closure<'hir, 'ast, TA>),
+
+  // closures
+  BorrowFun(BorrowClosure<'hir, 'ast, TA>),
+  UniqBorrowFun(UniqBorrowClosure<'hir, 'ast, TA>),
+  TakeFun(TakeClosure<'hir, 'ast, TA>),
+
+  // these are values with no definitions that take in a lifetime
 
   // path of a level
   Ref(Place<'ast>),
+  UniqRef(Place<'ast>),
 
   Never {
     returned: Box<Val<'hir, 'ast, TA>>,
     levels_up: usize,
   },
-
   // Neutral represents a value that we can't evaluate since we're missing information
   Neutral {
     val: Box<Neutral<'hir, 'ast, TA>>,
-    ty: Box<Val<'hir, 'ast, TA>>,
+    ty: Ty<'hir, 'ast, TA>,
   },
 }
 
@@ -140,34 +158,35 @@ pub enum Neutral<'hir, 'ast, TA: Allocator + Clone> {
 #[derive(Debug, Clone)]
 pub struct NormalForm<'hir, 'ast, TA: Allocator + Clone> {
   term: Val<'hir, 'ast, TA>,
-  ty: Val<'hir, 'ast, TA>,
+  ty: Ty<'hir, 'ast, TA>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Place<'ast> {
+  captured: bool,
   debruijn_level: usize,
   path_elems: Vec<&'ast Vec<u8>>,
 }
 
-impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
+impl<TA: Allocator + Clone> fmt::Display for Ty<'_, '_, TA> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let val = match self {
-      Val::Universe(level) => format!("(Universe {})", level),
-      Val::NilTy => "Nil".to_owned(),
-      Val::NeverTy => "Never".to_owned(),
-      Val::BoolTy => "Bool".to_owned(),
-      Val::U8Ty => "U8".to_owned(),
-      Val::U16Ty => "U16".to_owned(),
-      Val::U32Ty => "U32".to_owned(),
-      Val::U64Ty => "U64".to_owned(),
-      Val::I8Ty => "I8".to_owned(),
-      Val::I16Ty => "I16".to_owned(),
-      Val::I32Ty => "I32".to_owned(),
-      Val::I64Ty => "I64".to_owned(),
-      Val::F32Ty => "F32".to_owned(),
-      Val::F64Ty => "F64".to_owned(),
-      Val::SigmaTy { fst_ty, snd_dep_ty } => format!("(Sigma {}, {})", fst_ty, snd_dep_ty),
-      Val::StructTy(h) => format!(
+      Ty::Universe(level) => format!("(Universe {})", level),
+      Ty::Nil => "Nil".to_owned(),
+      Ty::Never => "Never".to_owned(),
+      Ty::Bool => "Bool".to_owned(),
+      Ty::U8 => "U8".to_owned(),
+      Ty::U16 => "U16".to_owned(),
+      Ty::U32 => "U32".to_owned(),
+      Ty::U64 => "U64".to_owned(),
+      Ty::I8 => "I8".to_owned(),
+      Ty::I16 => "I16".to_owned(),
+      Ty::I32 => "I32".to_owned(),
+      Ty::I64 => "I64".to_owned(),
+      Ty::F32 => "F32".to_owned(),
+      Ty::F64 => "F64".to_owned(),
+      Ty::Sigma { fst_ty, snd_dep_ty } => format!("(Sigma {}, {})", fst_ty, snd_dep_ty),
+      Ty::Struct(h) => format!(
         "struct({{ {} }})",
         h.iter().fold(String::new(), |a, (key, val)| {
           format!(
@@ -178,7 +197,7 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
           )
         })
       ),
-      Val::EnumTy(h) => format!(
+      Ty::Enum(h) => format!(
         "enum({{ {} }})",
         h.iter().fold(String::new(), |a, (key, val)| {
           format!(
@@ -189,10 +208,20 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
           )
         })
       ),
-      Val::PiTy {
+      Ty::Pi {
         arg_ty,
         body_dep_ty,
       } => format!("Pi {}, {}", arg_ty, body_dep_ty),
+    };
+
+    write!(f, "{}", val)
+  }
+}
+
+impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let val = match self {
+      Val::Ty(ty) => format!("{}", ty),
       Val::Nil => "()".to_owned(),
       Val::Bool(v) => format!("{}", v),
       Val::U8(v) => format!("{}u8", v),
@@ -215,17 +244,20 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
             std::str::from_utf8(key).unwrap(),
             match var {
               Var {
-                kind: VarKind::Borrowed { val, borrows, .. },
+                kind:
+                  VarKind::Present {
+                    val,
+                    borrows,
+                    uniqborrow,
+                    ..
+                  },
                 ..
-              } => format!("{} <borrowed {}>", val, borrows.len()),
-              Var {
-                kind: VarKind::UniqBorrowed { val, .. },
-                ..
-              } => format!("{} <uniqborrowed>", val),
-              Var {
-                kind: VarKind::Unborrowed { val, .. },
-                ..
-              } => format!("{}", val),
+              } => format!(
+                "{} <borrowed {}, uniqborrowed {}>",
+                val,
+                borrows.len(),
+                uniqborrow.is_some()
+              ),
               Var {
                 kind: VarKind::MovedOut { .. },
                 ..
@@ -237,8 +269,11 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
       Val::Enum { field, value } => {
         format!("enum({}: {})", std::str::from_utf8(field).unwrap(), value)
       }
-      Val::Fun(c) => c.to_string(),
+      Val::BorrowFun(c) => c.to_string(),
+      Val::UniqBorrowFun(c) => c.to_string(),
+      Val::TakeFun(c) => c.to_string(),
       Val::Ref(place) => format!("&{}", place),
+      Val::UniqRef(place) => format!("&!{}", place),
       Val::Never {
         returned,
         levels_up,
@@ -249,9 +284,24 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
     write!(f, "{}", val)
   }
 }
-impl<TA: Allocator + Clone> fmt::Display for Closure<'_, '_, TA> {
+
+// TODO: be able to properly format code
+
+impl<TA: Allocator + Clone> fmt::Display for BorrowClosure<'_, '_, TA> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "<closure>")
+    write!(f, "<borrow closure>")
+  }
+}
+
+impl<TA: Allocator + Clone> fmt::Display for UniqBorrowClosure<'_, '_, TA> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "<uniqborrow closure>")
+  }
+}
+
+impl<TA: Allocator + Clone> fmt::Display for TakeClosure<'_, '_, TA> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "<take closure>")
   }
 }
 
@@ -267,26 +317,9 @@ impl fmt::Display for Place<'_> {
   }
 }
 
-pub fn is_copy<'hir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'hir, 'ast, TA>) -> bool {
+pub fn can_copy<'hir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'hir, 'ast, TA>) -> bool {
   match val {
-    Val::Universe(_) => true,
-    Val::NilTy => true,
-    Val::NeverTy => true,
-    Val::BoolTy => true,
-    Val::U8Ty => true,
-    Val::U16Ty => true,
-    Val::U32Ty => true,
-    Val::U64Ty => true,
-    Val::I8Ty => true,
-    Val::I16Ty => true,
-    Val::I32Ty => true,
-    Val::I64Ty => true,
-    Val::F32Ty => true,
-    Val::F64Ty => true,
-    Val::SigmaTy { .. } => true,
-    Val::StructTy(_) => true,
-    Val::EnumTy(_) => true,
-    Val::PiTy { .. } => true,
+    Val::Ty(_) => true,
     Val::Nil => true,
     Val::Bool(_) => true,
     Val::U8(_) => true,
@@ -302,8 +335,11 @@ pub fn is_copy<'hir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'hir, 'ast, TA
     Val::Pair { .. } => false,
     Val::Struct(_) => false,
     Val::Enum { .. } => false,
-    Val::Fun(_) => false,
+    Val::BorrowFun(_) => false,
+    Val::UniqBorrowFun(_) => false,
+    Val::TakeFun(_) => false,
     Val::Ref(_) => false,
+    Val::UniqRef(_) => false,
     Val::Never { .. } => false,
     Val::Neutral { .. } => false,
   }
@@ -322,7 +358,11 @@ pub fn bind_irrefutable_pat<'hir, 'ast, TA: Allocator + Clone>(
     hir::IrrefutablePatExprKind::Error => unimplemented!(),
     hir::IrrefutablePatExprKind::BindVariable => Ok(vec![Var {
       source: p.source,
-      kind: VarKind::Unborrowed { val },
+      kind: VarKind::Present {
+        val,
+        borrows: HashMap::new(),
+        uniqborrow: None,
+      },
     }]),
     hir::IrrefutablePatExprKind::Nil => Ok(vec![]),
     hir::IrrefutablePatExprKind::Pair {
@@ -373,19 +413,32 @@ pub fn bind_irrefutable_pat<'hir, 'ast, TA: Allocator + Clone>(
 
         for (field_name, (_, pat)) in patterns {
           match fields.remove(*field_name) {
-            Some(Var {
-              kind: VarKind::Unborrowed { val },
-              ..
-            }) => vars.extend(bind_irrefutable_pat(pat, val, var_env, captured_env)?),
             // log that we can't unpack field when field is aready borrowed or moved out
             Some(Var {
-              kind: VarKind::Borrowed { .. },
+              kind:
+                VarKind::Present {
+                  val,
+                  borrows,
+                  uniqborrow,
+                  ..
+                },
               ..
-            }) => unimplemented!(),
-            Some(Var {
-              kind: VarKind::UniqBorrowed { .. },
-              ..
-            }) => unimplemented!(),
+            }) => {
+              if borrows.len() > 0 {
+                // log error that there are still some active borrowso
+                // this is a problem because the pointer will become dangling
+                unimplemented!();
+              }
+
+              if uniqborrow.is_some() {
+                // log error that there are still an active uniqborrow
+                // this is a problem because the pointer will become dangling
+                unimplemented!();
+              }
+
+              vars.extend(bind_irrefutable_pat(pat, val, var_env, captured_env)?)
+            }
+            // log error that the value has already been moved out
             Some(Var {
               kind: VarKind::MovedOut { .. },
               ..
@@ -394,6 +447,8 @@ pub fn bind_irrefutable_pat<'hir, 'ast, TA: Allocator + Clone>(
             None => unimplemented!(),
           }
         }
+
+        // TODO: check that the rest of the fields are moved out or nonexistent
 
         Ok(vars)
       } else {
@@ -409,21 +464,27 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
   arg: Val<'hir, 'ast, TA>,
 ) -> Result<Val<'hir, 'ast, TA>, EvalError> {
   match fun {
-    Val::Fun(closure) => apply_closure(closure, arg),
+    Val::BorrowFun(closure) => apply_borrow_closure(&mut closure, arg),
+    Val::UniqBorrowFun(closure) => apply_uniqborrow_closure(&mut closure, arg),
+    Val::TakeFun(closure) => apply_take_closure(closure, arg),
     // this is the case where the function is an unresolved
     Val::Neutral {
       val: neutral_val,
       ty,
     } => {
-      match *ty {
-        Val::PiTy {
+      match ty {
+        Ty::Pi {
           arg_ty,
           body_dep_ty,
         } => Ok(Val::Neutral {
           // In Pi types, the second type depends on the arg provided
           // Ex:: {$n:Nat} -> {$m:Nat} -> Vec n -> Vec m -> Vec n + m
           // So, our resultant type is
-          ty: Box::new(apply_closure(*body_dep_ty, arg.clone())?),
+          ty: match apply_borrow_closure(&mut body_dep_ty, arg.clone())? {
+            Val::Ty(x) => x,
+            // this should have been typechecked out!
+            _ => unimplemented!(),
+          },
           //construct a new neutral app
           val: Box::new(Neutral::App {
             fun: neutral_val,
@@ -441,11 +502,10 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
 }
 
 // consumes the taking closure and the arg
-pub fn apply_taking_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
-  clos: Closure<'hir, 'ast, TA>,
+pub fn apply_take_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
+  clos: TakeClosure<'hir, 'ast, TA>,
   arg: Val<'hir, 'ast, TA>,
 ) -> Result<Val<'hir, 'ast, TA>, EvalError> {
-
   let mut captured_vars = clos.captured_env;
 
   let initial_captured_len = captured_vars.len();
@@ -467,9 +527,7 @@ pub fn apply_taking_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
     match kind {
       VarKind::MovedOut { .. } => (),
       // throw error here why linear types require to be consumed
-      VarKind::UniqBorrowed { .. } => unimplemented!(),
-      VarKind::Borrowed { .. } => unimplemented!(),
-      VarKind::Unborrowed { .. } => unimplemented!(),
+      VarKind::Present { .. } => unimplemented!(),
     }
   }
 
@@ -477,9 +535,56 @@ pub fn apply_taking_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
     match kind {
       VarKind::MovedOut { .. } => (),
       // throw error here why linear types require to be consumed
-      VarKind::UniqBorrowed { .. } => unimplemented!(),
-      VarKind::Borrowed { .. } => unimplemented!(),
-      VarKind::Unborrowed { .. } => unimplemented!(),
+      VarKind::Present { .. } => unimplemented!(),
+    }
+  }
+
+  Ok(result)
+}
+
+// doesn't consume the closure, only the arg
+pub fn apply_uniqborrow_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
+  clos: &mut UniqBorrowClosure<'hir, 'ast, TA>,
+  arg: Val<'hir, 'ast, TA>,
+) -> Result<Val<'hir, 'ast, TA>, EvalError> {
+  // this is low key a hack, we should just give the captured vars directly
+  let mut captured_vars = &mut clos.captured_env;
+
+  let initial_captured_len = captured_vars.len();
+
+  // expand arg with the captured env
+  let bound_vars = bind_irrefutable_pat(clos.pat, arg, &mut vec![], &mut *captured_vars)?;
+
+  let initial_bound_len = bound_vars.len();
+
+  // eval the closure with our new vars
+  let result = eval(clos.expr, &mut bound_vars, &mut *captured_vars)?;
+
+  // check for an internal compiler error
+  assert!(initial_bound_len == bound_vars.len());
+  assert!(initial_captured_len == captured_vars.len());
+
+  // since we have linear types, make sure that all types are consumed
+  for Var { source, kind } in bound_vars {
+    match kind {
+      VarKind::MovedOut { .. } => (),
+      // throw error here why linear types require to be consumed
+      VarKind::Present { .. } => unimplemented!(),
+    }
+  }
+
+  // assert that we didn't consume any of the captured vars
+  for Var { source, kind } in captured_vars {
+    match kind {
+      VarKind::MovedOut { .. } => unimplemented!(),
+      VarKind::Present { uniqborrow, .. } => {
+        // TODO: we need to figure out how lifetimes work
+
+        // validate that we don't have any unique borrows left over left over at the end
+        if uniqborrow.is_some() {
+          unimplemented!();
+        }
+      }
     }
   }
 
@@ -488,70 +593,125 @@ pub fn apply_taking_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
 
 // doesn't consume the closure, only the arg
 pub fn apply_borrow_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
-  clos: &Closure<'hir, 'ast, TA>,
+  clos: &mut BorrowClosure<'hir, 'ast, TA>,
   arg: Val<'hir, 'ast, TA>,
 ) -> Result<Val<'hir, 'ast, TA>, EvalError> {
-
-  let captured_vars = clos.captured_env;
+  // this is low key a hack, we should just give the captured vars directly
+  let mut captured_vars = &mut clos.captured_env;
 
   let initial_captured_len = captured_vars.len();
 
   // expand arg with the captured env
-  let bound_vars = bind_irrefutable_pat(clos.pat, arg, &mut vec![], &mut captured_vars)?;
+  let bound_vars = bind_irrefutable_pat(clos.pat, arg, &mut vec![], &mut *captured_vars)?;
 
   let initial_bound_len = bound_vars.len();
 
   // eval the closure with our new vars
-  let result = eval(clos.expr, &mut bound_vars, &mut captured_vars)?;
+  let result = eval(clos.expr, &mut bound_vars, &mut *captured_vars)?;
 
   // check for an internal compiler error
   assert!(initial_bound_len == bound_vars.len());
   assert!(initial_captured_len == captured_vars.len());
 
-  // unbind the bound_vars from the closure
   // since we have linear types, make sure that all types are consumed
-  for Var { source, kind } in clos.ext_env.split_off(min_mut_level) {
+  for Var { source, kind } in bound_vars {
     match kind {
       VarKind::MovedOut { .. } => (),
       // throw error here why linear types require to be consumed
-      VarKind::Borrowed { .. } => unimplemented!(),
-      VarKind::Unborrowed { .. } => unimplemented!(),
+      VarKind::Present { .. } => unimplemented!(),
+    }
+  }
+
+  // assert that we didn't consume any of the captured vars
+  for Var { source, kind } in captured_vars {
+    match kind {
+      VarKind::MovedOut { .. } => unimplemented!(),
+      VarKind::Present { uniqborrow, .. } => {
+        // TODO: we need to figure out how lifetimes work
+
+        // validate that we don't have any unique borrows left over left over at the end
+        if uniqborrow.is_some() {
+          unimplemented!();
+        }
+      }
     }
   }
 
   Ok(result)
 }
 
+pub fn eval_place<'hir, 'ast, TA: Allocator + Clone>(
+  e: &'hir hir::PlaceExpr<'hir, 'ast, TA>,
+  var_env: &mut Vec<Var<'hir, 'ast, TA>>,
+  captured_env: &mut Vec<Var<'hir, 'ast, TA>>,
+) -> Result<Place<'ast>, EvalError> {
+  match e.kind {
+    hir::PlaceExprKind::Error => Err(EvalError::InvalidSyntax),
+    hir::PlaceExprKind::Var(debruijn_index) => Ok(Place {
+      captured: false,
+      debruijn_level: var_env.len() - debruijn_index,
+      path_elems: vec![],
+    }),
+    hir::PlaceExprKind::CapturedVar(debruijn_index) => Ok(Place {
+      captured: true,
+      debruijn_level: captured_env.len() - debruijn_index,
+      path_elems: vec![],
+    }),
+    hir::PlaceExprKind::StructField { root, field, .. } => {
+      let mut root_place = eval_place(root, var_env, captured_env)?;
+      root_place.path_elems.push(field);
+      Ok(root_place)
+    }
+    hir::PlaceExprKind::Deref(val_expr) => {
+      match eval(val_expr, var_env, captured_env)? {
+        Val::Ref(place) => Ok(place),
+        // tried to dereference something that's not a reference
+        _ => unimplemented!(),
+      }
+    }
+  }
+}
+
 // traverses the path represented by the place, returning an error if the path is invalid
-// It requires that all of the components along the path be either unborrowed or immutably borrowed.
-// This function is typically used to create a immutable reference to the place that is specified
-// It returns a result, with an error if it couldn't resolve the speicifed path
-pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
-  place: &Place<'ast>,
-  var_env: Vec<Var<'hir, 'ast, TA>>,
-  captured_env: Vec<Var<'hir, 'ast, TA>>,
-) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
-  let mut cursor = &mut var_env[place.debruijn_level];
+// It requires that all of the components along the path be either unborrowed or borrowed.
+// We then check that all of the children fields are unborrowed
+pub fn borrow_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  e: &'hir hir::PlaceExpr<'hir, 'ast, TA>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+  captured_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> Result<Val<'hir, 'ast, TA>, EvalError> {
+  let place = eval_place(e, var_env, captured_env);
+
+  let mut cursor = if place.captured {
+      &mut captured_env[place.debruijn_level]
+  } else {
+      &mut var_env[place.debruijn_level]
+  };
+
   for field in place.path_elems.iter() {
     let Var { kind, .. } = cursor;
     // get list of struct fields
     let fields = match kind {
-      VarKind::Borrowed { val, .. } => match val {
-        Val::Struct(fields) => fields,
-        _ => {
-          // this is an internal compiler error
-          // object isn't struct
-          unimplemented!()
+      VarKind::Present {
+        val,
+        borrows,
+        uniqborrow,
+        ..
+      } => {
+        if uniqborrow.is_some() {
+          // can't borrow a uniqely borrowed struct
+          unimplemented!();
         }
-      },
-      VarKind::Unborrowed { val } => match val {
-        Val::Struct(fields) => fields,
-        _ => {
-          // this is an internal compiler error
-          // object isn't struct
-          unimplemented!()
+        match val {
+          Val::Struct(fields) => fields,
+          _ => {
+            // this is an internal compiler error
+            // object isn't struct
+            unimplemented!()
+          }
         }
-      },
+      }
+      // means that we already moved out of here
       VarKind::MovedOut { .. } => unimplemented!(),
     };
     // now get the value of field
@@ -567,36 +727,47 @@ pub fn get_var_if_immutably_borrowable<'hir, 'ast, 'env, TA: Allocator + Clone>(
       }
     }
   }
-  // now, we'll check that all child structs are unborrowed or immutably borrowed
-  let mut child_fields = vec![&*cursor];
+
+  // now, we'll borrow this and all child fields
+  let mut child_fields = vec![&mut *cursor];
   while let Some(Var { kind, .. }) = child_fields.pop() {
     match kind {
-      VarKind::Unborrowed { val } => {
+      VarKind::Present { val, borrows, uniqborrow, } => {
         if let Val::Struct(fields) = val {
-          child_fields.extend(fields.values());
+          child_fields.extend(fields.values_mut());
         }
-      }
-      VarKind::Borrowed { val, .. } => {
-        if let Val::Struct(fields) = val {
-          child_fields.extend(fields.values());
-        }
+        borrows.insert(*current_borrow_idx, source);
       }
       VarKind::MovedOut { .. } => unimplemented!(),
     }
   }
-  Ok(cursor)
+
+  // return ref
+  Ok(Val::Ref(place.clone()))
+}
+
+pub fn unborrow_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
+  place: &Place<'ast>,
+  var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+  captured_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
+) -> Result<(), EvalError> {
+  // remove the borrow fields
 }
 
 // traverses the path represented by the place, returning an error if the path is invalid
 // It requires that all of the components along the path be unborrowed.
-// This function is typically used to create a immutable reference to the place that is specified
-// It returns a result, with an error if it couldn't resolve the speicifed path
-pub fn get_var_if_takable<'hir, 'ast, 'env, TA: Allocator + Clone>(
+// Takes the struct out
+pub fn take_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
   place: &Place<'ast>,
   var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
   captured_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
-) -> Result<&'env mut Var<'hir, 'ast, TA>, EvalError> {
-  let mut cursor = &mut var_env[place.debruijn_level];
+) -> Result<Val<'hir, 'ast, TA>, EvalError> {
+  let mut cursor = if place.captured {
+      &mut captured_env[place.debruijn_level]
+  } else {
+      &mut var_env[place.debruijn_level]
+  };
+
   for field in place.path_elems.iter() {
     let Var { kind, .. } = cursor;
     // get list of struct fields
@@ -609,6 +780,7 @@ pub fn get_var_if_takable<'hir, 'ast, 'env, TA: Allocator + Clone>(
           unimplemented!()
         }
       },
+      VarKind::UniqBorrowed { .. } => unimplemented!(),
       VarKind::Borrowed { .. } => unimplemented!(),
       VarKind::MovedOut { .. } => unimplemented!(),
     };
@@ -641,38 +813,6 @@ pub fn get_var_if_takable<'hir, 'ast, 'env, TA: Allocator + Clone>(
     }
   }
   Ok(cursor)
-}
-
-pub fn eval_place<'hir, 'ast, TA: Allocator + Clone>(
-  e: &'hir hir::PlaceExpr<'hir, 'ast, TA>,
-  var_env: &RecursiveStack<Vec<Var<'hir, 'ast, TA>>>,
-  captured_env: &RecursiveStack<Var<'hir, 'ast, TA>>,
-) -> Result<Place<'ast>, EvalError> {
-  match e.kind {
-    hir::PlaceExprKind::Error => Err(EvalError::InvalidSyntax),
-    hir::PlaceExprKind::Var(debruijn_index) => {
-      let debruijn_level = var_env.len() - debruijn_index;
-
-      let place = Place {
-        debruijn_level,
-        path_elems: vec![],
-      };
-
-      Ok(place)
-    }
-    hir::PlaceExprKind::StructField { root, field, .. } => {
-      let mut root_place = eval_place(root, var_env, captured_env)?;
-      root_place.path_elems.push(field);
-      Ok(root_place)
-    }
-    hir::PlaceExprKind::Deref(val_expr) => {
-      match eval(val_expr, var_env, captured_env)? {
-        Val::Ref(place) => Ok(place),
-        // tried to dereference something that's not a reference
-        _ => unimplemented!(),
-      }
-    }
-  }
 }
 
 // INVARIANT: the length of the vector will not change
@@ -717,49 +857,13 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
     hir::ValExprKind::Use(place_expr, use_kind) => {
       let place = eval_place(place_expr, var_env, captured_env)?;
 
-      let Var { kind, .. } = get_var_if_takable(&place, var_env)?;
-
-      // now replace var
-      match std::mem::replace(kind, VarKind::MovedOut { take: e.source }) {
-        VarKind::Unborrowed { val, .. } => Ok(val),
-        VarKind::Borrowed { .. } => unimplemented!(),
-        VarKind::MovedOut { .. } => unimplemented!(),
-      }
-    }
-    hir::ValExprKind::Borrow(place_expr) => {
-      let place = eval_place(place_expr, var_env, captured_env)?;
-
-      if place.debruijn_level < captured_env {
-        // TODO: throw error that this variable may not be mutably since it
-        // is outside the mutable limit
-        unimplemented!();
-      }
-
-      let Var { kind, .. } = get_var_if_immutably_borrowable(&place, var_env)?;
-
-      // now replace var
-      let newkind = match kind {
-        VarKind::Unborrowed { val } => VarKind::Borrowed {
-          val: std::mem::replace(val, Val::Nil),
-          borrows: vec![e.source],
-        },
-        VarKind::Borrowed { val, borrows } => {
-          let mut newborrows = vec![e.source];
-          newborrows.append(borrows);
-          VarKind::Borrowed {
-            val: std::mem::replace(val, Val::Nil),
-            borrows: newborrows,
-          }
-        }
-        //
-        VarKind::MovedOut { .. } => unimplemented!(),
+      let val = match use_kind {
+        UseKind::Take => take_var(&place, var_env, captured_env)?,
+        UseKind::UniqBorrow => uniqborrow_var(&place, var_env, captured_env)?,
+        UseKind::Borrow => borrow_var(&place, var_env, captured_env)?,
       };
 
-      // overwrite with new kind
-      *kind = newkind;
-
-      // return the immutable ref
-      Ok(Val::Ref(place))
+      Ok(val)
     }
     hir::ValExprKind::Annotate { val_expr, ty_expr } => {
       // calculate type
@@ -788,24 +892,31 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       todo!()
     }
     // TODO: don't crash when the user inputs a huge value
-    hir::ValExprKind::Universe(n) => Ok(Val::Universe(n.try_into().unwrap())),
-    hir::ValExprKind::NilTy => Ok(Val::NilTy),
-    hir::ValExprKind::NeverTy => Ok(Val::NeverTy),
-    hir::ValExprKind::BoolTy => Ok(Val::BoolTy),
-    hir::ValExprKind::U8Ty => Ok(Val::U8Ty),
-    hir::ValExprKind::U16Ty => Ok(Val::U16Ty),
-    hir::ValExprKind::U32Ty => Ok(Val::U32Ty),
-    hir::ValExprKind::U64Ty => Ok(Val::U64Ty),
-    hir::ValExprKind::I8Ty => Ok(Val::I8Ty),
-    hir::ValExprKind::I16Ty => Ok(Val::I16Ty),
-    hir::ValExprKind::I32Ty => Ok(Val::I32Ty),
-    hir::ValExprKind::I64Ty => Ok(Val::I64Ty),
-    hir::ValExprKind::F32Ty => Ok(Val::F32Ty),
-    hir::ValExprKind::F64Ty => Ok(Val::F64Ty),
+    hir::ValExprKind::Universe(n) => Ok(Val::Ty(Ty::Universe(n.try_into().unwrap()))),
+    hir::ValExprKind::NilTy => Ok(Val::Ty(Ty::Nil)),
+    hir::ValExprKind::NeverTy => Ok(Val::Ty(Ty::Never)),
+    hir::ValExprKind::BoolTy => Ok(Val::Ty(Ty::Bool)),
+    hir::ValExprKind::U8Ty => Ok(Val::Ty(Ty::U8)),
+    hir::ValExprKind::U16Ty => Ok(Val::Ty(Ty::U16)),
+    hir::ValExprKind::U32Ty => Ok(Val::Ty(Ty::U32)),
+    hir::ValExprKind::U64Ty => Ok(Val::Ty(Ty::U64)),
+    hir::ValExprKind::I8Ty => Ok(Val::Ty(Ty::I8)),
+    hir::ValExprKind::I16Ty => Ok(Val::Ty(Ty::I16)),
+    hir::ValExprKind::I32Ty => Ok(Val::Ty(Ty::I32)),
+    hir::ValExprKind::I64Ty => Ok(Val::Ty(Ty::I64)),
+    hir::ValExprKind::F32Ty => Ok(Val::Ty(Ty::F32)),
+    hir::ValExprKind::F64Ty => Ok(Val::Ty(Ty::F64)),
     hir::ValExprKind::LamTy {
       arg_ty,
       body_dep_ty,
-    } => todo!(),
+      use_kind,
+    } => {
+      let arg_ty = eval(arg_ty, var_env, captured_env)?;
+      // we will have to construct an immutable
+      let body_dep_ty = eval(body_dep_ty, var_env, captured_env)?;
+
+      todo!();
+    }
     hir::ValExprKind::Nil => Ok(Val::Nil),
     hir::ValExprKind::Bool(b) => Ok(Val::Bool(b)),
     hir::ValExprKind::Char(c) => Ok(Val::U32(c)),
@@ -818,6 +929,7 @@ pub fn eval<'hir, 'ast, TA: Allocator + Clone>(
       arg,
       body,
       captured_vars,
+      use_kind,
     } => todo!(),
     hir::ValExprKind::Sequence { fst, snd } => todo!(),
     hir::ValExprKind::LetIn { pat, val, body } => todo!(),

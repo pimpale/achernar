@@ -51,19 +51,6 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   // Literals
   Universe(BigUint), // type of a type is Universe(0)
-  NilTy,
-  NeverTy,
-  BoolTy,
-  U8Ty,
-  U16Ty,
-  U32Ty,
-  U64Ty,
-  I8Ty,
-  I16Ty,
-  I32Ty,
-  I64Ty,
-  F32Ty,
-  F64Ty,
   Nil,
   Bool(bool),
   Char(u32),
@@ -90,18 +77,22 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
     // 3. A uniqborrow in the body means that we borrow in the captured_vars struct, and replace with take from captured_vars
 
     // the captured vars vec is created when a lambda is defined
-    // it is put on the stack when the lambda is evaluated
     captured_vars: Vec<(&'ast [u8], (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>,
-    // after that, the args appear on the stack
+    // when a lambda is applied,
+    // the use_kind determines whether running the lambda will borrow, uniqborrow, or take it
+    use_kind: UseKind,
+    // The args are evaluated with access to the captured vars
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
-    // finally, local variables may appear on the stack
+    // the code body is evaluated once the args and the captured vars both exist
     body: &'hir ValExpr<'hir, 'ast, HA>,
   },
   LamTy {
     // the type of the body
     arg_ty: &'hir ValExpr<'hir, 'ast, HA>,
-    // a function Type -> Type yielding the output type
+    // a function from arg_ty -> Type yielding the output type
     body_dep_ty: &'hir ValExpr<'hir, 'ast, HA>,
+    // how many times it may be evaluated
+    use_kind: UseKind,
   },
   // Sequence
   Sequence {
@@ -139,6 +130,7 @@ pub enum PlaceExprKind<'hir, 'ast, HA: Allocator + Clone> {
   Var(usize),
   // A reference to the captured enviroment struct
   CapturedVar(usize),
+  Builtin(Builtin),
 }
 
 #[derive(Debug)]
@@ -171,7 +163,15 @@ pub enum IrrefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
   // Depub structures a field of a pub struct object
-  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, IrrefutablePatExpr<'hir, 'ast, HA>)), HA>),
+  Struct(
+    Vec<
+      (
+        &'ast Vec<u8>,
+        (&'ast ast::Expr, IrrefutablePatExpr<'hir, 'ast, HA>),
+      ),
+      HA,
+    >,
+  ),
 }
 
 #[derive(Debug)]
@@ -205,7 +205,15 @@ pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
   // Depub structures a field of a pub struct object
-  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, RefutablePatExpr<'hir, 'ast, HA>)), HA>),
+  Struct(
+    Vec<
+      (
+        &'ast Vec<u8>,
+        (&'ast ast::Expr, RefutablePatExpr<'hir, 'ast, HA>),
+      ),
+      HA,
+    >,
+  ),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables
   And {
@@ -275,81 +283,97 @@ pub struct ValPatExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub id: Option<u64>,
 }
 
-//  // functions
-//  // Math with bools
-//  BoolNotFn,
-//  // Math with integers
-//  IntAddFn,
-//  IntSubFn,
-//  IntMulFn,
-//  IntDivFn,
-//  IntRemFn,
-//  // Math with rationals
-//  RationalAddFn,
-//  RationalSubFn,
-//  RationalMulFn,
-//  RationalDivFn,
-//  RationalRemFn,
-//  // Conversion between integers and rationals
-//  IntToRationalFn,    // promote int to rational
-//  RationalToIntRNEFn, // round to nearest even
-//  RationalToIntRTZFn, // round to zero
-//  RationalToIntRDNFn, // round down
-//  RationalToIntRUPFn, // round up
-//  // Bit Vectors
-//  // Unsigned Operations
-//  UnsignedBitVecFn, // creates a bitvector from an integer
-//  UnsignedBitVecAddFn,
-//  UnsignedBitVecAddOverflowFn,
-//  UnsignedBitVecSubFn,
-//  UnsignedBitVecSubOverflowFn,
-//  UnsignedBitVecMulFn,
-//  UnsignedBitVecMulOverflowFn,
-//  UnsignedBitVecDivFn,
-//  UnsignedBitVecRemFn,
-//  UnsignedBitVecDivRemFn,
-//  UnsignedBitVecShrFn, // logical shift right
-//  UnsignedBitVecShlFn, // shift left
-//  UnsignedBitVecRolFn, // rotate left
-//  UnsignedBitVecRorFn, // rotate right
-//  UnsignedBitVecAndFn,
-//  UnsignedBitVecOrFn,
-//  UnsignedBitVecXorFn,
-//  UnsignedBitVecNotFn,
-//  // Signed Operations
-//  SignedBitVecFn, // creates a bitvector from an integer
-//  SignedBitVecAddFn,
-//  SignedBitVecAddOverflowFn,
-//  SignedBitVecSubFn,
-//  SignedBitVecSubOverflowFn,
-//  SignedBitVecMulFn,
-//  SignedBitVecMulOverflowFn,
-//  SignedBitVecDivFn,
-//  SignedBitVecRemFn,
-//  SignedBitVecDivRemFn,
-//  SignedBitVecShrFn, // arithmetic shift right
-//  SignedBitVecShlFn, // shift left
-//  SignedBitVecAndFn,
-//  SignedBitVecOrFn,
-//  SignedBitVecXorFn,
-//  SignedBitVecNotFn,
-//  SignedBitVecNegateFn,
-//
-//  // Math with floats
-//  FloatFn,
-//  FloatAddFn,
-//  FloatSubFn,
-//  FloatMulFn,
-//  FloatDivFn,
-//  FloatRemFn,
-//  FloatDivRemFn,
-//  // Conversion between bitvecs and floats
-//  BitVecToFloatFn,    // promote bitVec to float
-//  FloatToBitVecRNEFn, // round to nearest even
-//  FloatToBitVecRTZFn, // round to zero
-//  FloatToBitVecRDNFn, // round down
-//  FloatToBitVecRUPFn, // round up
-//
-//  // Handle Memory addresses
-//  RefFn,
-//  DerefFn,
+#[derive(Debug)]
+pub enum IntOp {
+  Add,           // u -> u -> u
+  AddOverflow,   // u -> u -> (u, u)
+  Sub,           // u -> u -> u
+  SubOverflow,   // u -> u -> (u, u)
+  Mul,           // u -> u -> u
+  MulOverflow,   // u -> u -> (u, u)
+  Div,           // u -> u -> u
+  Rem,           // u -> u -> u
+  DivRem,        // u -> u -> (u, u)
+  ShlLogical,    // u -> u -> u
+  ShrLogical,    // u -> u -> u
+  ShrArithmetic, // u -> u -> u
+  Rol,           // u -> u -> u
+  Ror,           // u -> u -> u
+  And,           // u -> u -> u
+  Or,            // u -> u -> u
+  Xor,           // u -> u -> u
+  Inv,           // u -> u
+  Neg,           // u -> u
+}
+
+#[derive(Debug)]
+pub enum FloatOp {
+  Add, // f -> f -> f
+  Sub, // f -> f -> f
+  Mul, // f -> f -> f
+  Div, // f -> f -> f
+  Rem, // f -> f -> f
+  DivRem, // f -> f -> (f, f)
+}
+
+#[derive(Debug)]
+pub enum RoundingMode {
+  RNE, // round to nearest even
+  RTZ, // round to zero
+  RDN, // round down
+  RUP, // round up
+}
+
+#[derive(Debug)]
+pub enum Builtin {
+  NilTy,
+  NeverTy,
+  BoolTy,
+  U8Ty,
+  U16Ty,
+  U32Ty,
+  U64Ty,
+  I8Ty,
+  I16Ty,
+  I32Ty,
+  I64Ty,
+  F32Ty,
+  F64Ty,
+  // Math with bools
+  BoolNot,
+  // Math with ints
+  IntOps {
+      signed:bool,
+      size:u8,
+      op:IntOp
+  },
+  // Math with floats
+  FloatOps {
+      size: u8,
+      op:FloatOp
+  },
+  // Convert one kind of int to another
+  IntToIntConvOp {
+    src_signed: bool,
+    dest_signed: bool,
+    in_size: u8,
+    out_size: u8
+  },
+  // 
+  FloatToIntConvOp {
+     mode: RoundingMode,
+     in_size: u8,
+     // always translates to a signed integer
+     out_size: u8,
+  },
+  IntToFloatConvOp {
+      in_signed: bool,
+      in_size: u8,
+      out_size: u8
+  },
+  // Handle Memory addresses
+  Ref,
+  Deref,
+  // Forget memory
+  Forget,
+}

@@ -213,7 +213,6 @@ fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
   _dlogger: &mut DiagnosticLogger,
 ) -> Expr {
   let metadata = get_metadata(tkiter);
-
   if let Token {
     range,
     kind: Some(TokenKind::Identifier(identifier)),
@@ -228,6 +227,28 @@ fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
     unimplemented!()
   }
 }
+
+// parses an exact builtin or panics
+fn parse_exact_builtin<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  _dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  let metadata = get_metadata(tkiter);
+  if let Token {
+    range,
+    kind: Some(TokenKind::Builtin(builtin)),
+  } = tkiter.next().unwrap()
+  {
+    Expr {
+      metadata,
+      range,
+      kind: ExprKind::Builtin(builtin),
+    }
+  } else {
+    unimplemented!()
+  }
+}
+
 
 // parses an exact bind or panics
 fn parse_exact_bind<TkIter: Iterator<Item = Token>>(
@@ -491,22 +512,7 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::Lifetime(_) => Some(parse_exact_lifetime::<TkIter>),
     TokenKind::Type => Some(parse_exact_type::<TkIter>),
     TokenKind::Identifier(_) => Some(parse_exact_reference::<TkIter>),
-    TokenKind::NilTy => Some(|a, b| parse_simple(TokenKind::NilTy, ExprKind::NilTy)(a, b)),
-    TokenKind::BoolTy => Some(|a, b| parse_simple(TokenKind::BoolTy, ExprKind::BoolTy)(a, b)),
-    TokenKind::U8Ty => Some(|a, b| parse_simple(TokenKind::U8Ty, ExprKind::U8Ty)(a, b)),
-    TokenKind::U16Ty => Some(|a, b| parse_simple(TokenKind::U16Ty, ExprKind::U16Ty)(a, b)),
-    TokenKind::U32Ty => Some(|a, b| parse_simple(TokenKind::U32Ty, ExprKind::U32Ty)(a, b)),
-    TokenKind::U64Ty => Some(|a, b| parse_simple(TokenKind::U64Ty, ExprKind::U64Ty)(a, b)),
-    TokenKind::I8Ty => Some(|a, b| parse_simple(TokenKind::I8Ty, ExprKind::I8Ty)(a, b)),
-    TokenKind::I16Ty => Some(|a, b| parse_simple(TokenKind::I16Ty, ExprKind::I16Ty)(a, b)),
-    TokenKind::I32Ty => Some(|a, b| parse_simple(TokenKind::I32Ty, ExprKind::I32Ty)(a, b)),
-    TokenKind::I64Ty => Some(|a, b| parse_simple(TokenKind::I64Ty, ExprKind::I64Ty)(a, b)),
-    TokenKind::F32Ty => Some(|a, b| parse_simple(TokenKind::F32Ty, ExprKind::F32Ty)(a, b)),
-    TokenKind::F64Ty => Some(|a, b| parse_simple(TokenKind::F64Ty, ExprKind::F64Ty)(a, b)),
-    TokenKind::NeverTy => Some(|a, b| parse_simple(TokenKind::NeverTy, ExprKind::NeverTy)(a, b)),
-    TokenKind::LifetimeTy => {
-      Some(|a, b| parse_simple(TokenKind::LifetimeTy, ExprKind::LifetimeTy)(a, b))
-    }
+    TokenKind::Builtin(_) => Some(parse_exact_builtin::<TkIter>),
     TokenKind::Ref => Some(|a, b| parse_simple(TokenKind::Ref, ExprKind::Ref)(a, b)),
     TokenKind::UniqRef => Some(|a, b| parse_simple(TokenKind::UniqRef, ExprKind::UniqRef)(a, b)),
     TokenKind::Deref => Some(|a, b| parse_simple(TokenKind::Deref, ExprKind::Deref)(a, b)),

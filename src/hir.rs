@@ -285,35 +285,36 @@ pub struct ValPatExpr<'hir, 'ast, HA: Allocator + Clone> {
 
 #[derive(Debug)]
 pub enum IntOp {
-  Add,           // u -> u -> u
-  AddOverflow,   // u -> u -> (u, u)
-  Sub,           // u -> u -> u
-  SubOverflow,   // u -> u -> (u, u)
-  Mul,           // u -> u -> u
-  MulOverflow,   // u -> u -> (u, u)
-  Div,           // u -> u -> u
-  Rem,           // u -> u -> u
-  DivRem,        // u -> u -> (u, u)
-  ShlLogical,    // u -> u -> u
-  ShrLogical,    // u -> u -> u
-  ShrArithmetic, // u -> u -> u
-  Rol,           // u -> u -> u
-  Ror,           // u -> u -> u
-  And,           // u -> u -> u
-  Or,            // u -> u -> u
-  Xor,           // u -> u -> u
-  Inv,           // u -> u
-  Neg,           // u -> u
+  Add,         // u -> u -> u
+  AddOverflow, // u -> u -> (u, u)
+  Sub,         // u -> u -> u
+  SubOverflow, // u -> u -> (u, u)
+  Mul,         // u -> u -> u
+  MulOverflow, // u -> u -> (u, u)
+  Div,         // u -> u -> u
+  Rem,         // u -> u -> u
+  DivRem,      // u -> u -> (u, u)
+  ShlL,        // u -> u -> u
+  ShrL,        // u -> u -> u
+  ShrA,        // u -> u -> u
+  Rol,         // u -> u -> u
+  Ror,         // u -> u -> u
+  And,         // u -> u -> u
+  Or,          // u -> u -> u
+  Xor,         // u -> u -> u
+  Inv,         // u -> u
+  Neg,         // u -> u
 }
 
 #[derive(Debug)]
 pub enum FloatOp {
-  Add, // f -> f -> f
-  Sub, // f -> f -> f
-  Mul, // f -> f -> f
-  Div, // f -> f -> f
-  Rem, // f -> f -> f
+  Add,    // f -> f -> f
+  Sub,    // f -> f -> f
+  Mul,    // f -> f -> f
+  Div,    // f -> f -> f
+  Rem,    // f -> f -> f
   DivRem, // f -> f -> (f, f)
+  Neg,    // f -> f
 }
 
 #[derive(Debug)]
@@ -325,52 +326,36 @@ pub enum RoundingMode {
 }
 
 #[derive(Debug)]
+pub struct IntTy {
+  signed: bool,
+  size: u8,
+}
+
+#[derive(Debug)]
+pub struct FloatTy {
+  size: u8,
+}
+
+#[derive(Debug)]
 pub enum Builtin {
   NilTy,
   NeverTy,
   BoolTy,
-  U8Ty,
-  U16Ty,
-  U32Ty,
-  U64Ty,
-  I8Ty,
-  I16Ty,
-  I32Ty,
-  I64Ty,
-  F32Ty,
-  F64Ty,
   // Math with bools
   BoolNot,
+  // Ints
+  IntTy(IntTy),
+  // Floats
+  FloatTy(FloatTy),
   // Math with ints
-  IntOps {
-      signed:bool,
-      size:u8,
-      op:IntOp
-  },
+  IntOp { ty: IntTy, op: IntOp },
   // Math with floats
-  FloatOps {
-      size: u8,
-      op:FloatOp
-  },
-  // Convert one kind of int to another
-  IntToIntConvOp {
-    src_signed: bool,
-    dest_signed: bool,
-    in_size: u8,
-    out_size: u8
-  },
-  // 
-  FloatToIntConvOp {
-     mode: RoundingMode,
-     in_size: u8,
-     // always translates to a signed integer
-     out_size: u8,
-  },
-  IntToFloatConvOp {
-      in_signed: bool,
-      in_size: u8,
-      out_size: u8
-  },
+  FloatOp { ty: FloatTy, op: FloatOp },
+  // Convert one kind of type to another
+  ConvIntIntOp { src: IntTy, dest: IntTy },
+  ConvIntFloatOp { src: IntTy, dest: FloatTy },
+  ConvFloatIntOp { src: FloatTy, dest: IntTy },
+  ConvFloatFloatOp { src: FloatTy, dest: FloatTy },
   // Handle Memory addresses
   Ref,
   Deref,

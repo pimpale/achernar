@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 struct VarScope<'ast> {
   declaration: &'ast ast::Expr,
+  
 }
 
 fn lookup_maybe<'env, Scope>(
@@ -2179,22 +2180,22 @@ fn tr_place_expr<'hir, 'ast>(
     ast::ExprKind::Builtin(ref builtin) => {
       fn is_valid_int_ty(s: &[u8]) -> bool {
         match s {
-          b"U8" => true,
-          b"U16" => true,
-          b"U32" => true,
-          b"U64" => true,
-          b"I8" => true,
-          b"I16" => true,
-          b"I32" => true,
-          b"I64" => true,
+          b"u8" => true,
+          b"u16" => true,
+          b"u32" => true,
+          b"u64" => true,
+          b"i8" => true,
+          b"i16" => true,
+          b"i32" => true,
+          b"i64" => true,
           _ => false,
         }
       }
 
       fn is_valid_float_ty(s: &[u8]) -> bool {
         match s {
-          b"F32" => true,
-          b"F64" => true,
+          b"f32" => true,
+          b"f64" => true,
           _ => false,
         }
       }

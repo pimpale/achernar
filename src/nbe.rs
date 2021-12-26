@@ -26,20 +26,12 @@ pub enum VarKind<'hir, 'ast, TA: Allocator + Clone> {
   },
   Present {
     val: Val<'hir, 'ast, TA>,
-    uniqborrow: Option<&'ast ast::Expr>,
     borrows: HashMap<u64, &'ast ast::Expr>,
   },
 }
 
 #[derive(Debug, Clone)]
 pub struct BorrowClosure<'hir, 'ast, TA: Allocator + Clone> {
-  pub captured_env: Vec<Var<'hir, 'ast, TA>>,
-  pub pat: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
-  pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
-}
-
-#[derive(Debug, Clone)]
-pub struct UniqBorrowClosure<'hir, 'ast, TA: Allocator + Clone> {
   pub captured_env: Vec<Var<'hir, 'ast, TA>>,
   pub pat: &'hir hir::IrrefutablePatExpr<'hir, 'ast, TA>,
   pub expr: &'hir hir::ValExpr<'hir, 'ast, TA>,
@@ -120,7 +112,6 @@ pub enum Val<'hir, 'ast, TA: Allocator + Clone> {
 
   // closures
   BorrowFun(BorrowClosure<'hir, 'ast, TA>),
-  UniqBorrowFun(UniqBorrowClosure<'hir, 'ast, TA>),
   TakeFun(TakeClosure<'hir, 'ast, TA>),
 
   // these are values with no definitions that take in a lifetime
@@ -248,15 +239,13 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
                   VarKind::Present {
                     val,
                     borrows,
-                    uniqborrow,
                     ..
                   },
                 ..
               } => format!(
-                "{} <borrowed {}, uniqborrowed {}>",
+                "{} <borrowed {}>",
                 val,
                 borrows.len(),
-                uniqborrow.is_some()
               ),
               Var {
                 kind: VarKind::MovedOut { .. },
@@ -270,7 +259,6 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
         format!("enum({}: {})", std::str::from_utf8(field).unwrap(), value)
       }
       Val::BorrowFun(c) => c.to_string(),
-      Val::UniqBorrowFun(c) => c.to_string(),
       Val::TakeFun(c) => c.to_string(),
       Val::Ref(place) => format!("&{}", place),
       Val::UniqRef(place) => format!("&!{}", place),
@@ -290,12 +278,6 @@ impl<TA: Allocator + Clone> fmt::Display for Val<'_, '_, TA> {
 impl<TA: Allocator + Clone> fmt::Display for BorrowClosure<'_, '_, TA> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "<borrow closure>")
-  }
-}
-
-impl<TA: Allocator + Clone> fmt::Display for UniqBorrowClosure<'_, '_, TA> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "<uniqborrow closure>")
   }
 }
 
@@ -336,7 +318,6 @@ pub fn can_copy<'hir, 'ast, 'env, TA: Allocator + Clone>(val: &Val<'hir, 'ast, T
     Val::Struct(_) => false,
     Val::Enum { .. } => false,
     Val::BorrowFun(_) => false,
-    Val::UniqBorrowFun(_) => false,
     Val::TakeFun(_) => false,
     Val::Ref(_) => false,
     Val::UniqRef(_) => false,
@@ -361,7 +342,6 @@ pub fn bind_irrefutable_pat<'hir, 'ast, TA: Allocator + Clone>(
       kind: VarKind::Present {
         val,
         borrows: HashMap::new(),
-        uniqborrow: None,
       },
     }]),
     hir::IrrefutablePatExprKind::Nil => Ok(vec![]),
@@ -419,19 +399,12 @@ pub fn bind_irrefutable_pat<'hir, 'ast, TA: Allocator + Clone>(
                 VarKind::Present {
                   val,
                   borrows,
-                  uniqborrow,
                   ..
                 },
               ..
             }) => {
               if borrows.len() > 0 {
                 // log error that there are still some active borrowso
-                // this is a problem because the pointer will become dangling
-                unimplemented!();
-              }
-
-              if uniqborrow.is_some() {
-                // log error that there are still an active uniqborrow
                 // this is a problem because the pointer will become dangling
                 unimplemented!();
               }
@@ -465,7 +438,6 @@ pub fn apply<'hir, 'ast, TA: Allocator + Clone>(
 ) -> Result<Val<'hir, 'ast, TA>, EvalError> {
   match fun {
     Val::BorrowFun(closure) => apply_borrow_closure(&mut closure, arg),
-    Val::UniqBorrowFun(closure) => apply_uniqborrow_closure(&mut closure, arg),
     Val::TakeFun(closure) => apply_take_closure(closure, arg),
     // this is the case where the function is an unresolved
     Val::Neutral {
@@ -543,55 +515,6 @@ pub fn apply_take_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
 }
 
 // doesn't consume the closure, only the arg
-pub fn apply_uniqborrow_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
-  clos: &mut UniqBorrowClosure<'hir, 'ast, TA>,
-  arg: Val<'hir, 'ast, TA>,
-) -> Result<Val<'hir, 'ast, TA>, EvalError> {
-  // this is low key a hack, we should just give the captured vars directly
-  let mut captured_vars = &mut clos.captured_env;
-
-  let initial_captured_len = captured_vars.len();
-
-  // expand arg with the captured env
-  let bound_vars = bind_irrefutable_pat(clos.pat, arg, &mut vec![], &mut *captured_vars)?;
-
-  let initial_bound_len = bound_vars.len();
-
-  // eval the closure with our new vars
-  let result = eval(clos.expr, &mut bound_vars, &mut *captured_vars)?;
-
-  // check for an internal compiler error
-  assert!(initial_bound_len == bound_vars.len());
-  assert!(initial_captured_len == captured_vars.len());
-
-  // since we have linear types, make sure that all types are consumed
-  for Var { source, kind } in bound_vars {
-    match kind {
-      VarKind::MovedOut { .. } => (),
-      // throw error here why linear types require to be consumed
-      VarKind::Present { .. } => unimplemented!(),
-    }
-  }
-
-  // assert that we didn't consume any of the captured vars
-  for Var { source, kind } in captured_vars {
-    match kind {
-      VarKind::MovedOut { .. } => unimplemented!(),
-      VarKind::Present { uniqborrow, .. } => {
-        // TODO: we need to figure out how lifetimes work
-
-        // validate that we don't have any unique borrows left over left over at the end
-        if uniqborrow.is_some() {
-          unimplemented!();
-        }
-      }
-    }
-  }
-
-  Ok(result)
-}
-
-// doesn't consume the closure, only the arg
 pub fn apply_borrow_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
   clos: &mut BorrowClosure<'hir, 'ast, TA>,
   arg: Val<'hir, 'ast, TA>,
@@ -626,14 +549,8 @@ pub fn apply_borrow_closure<'hir, 'ast, 'clos, TA: Allocator + Clone>(
   for Var { source, kind } in captured_vars {
     match kind {
       VarKind::MovedOut { .. } => unimplemented!(),
-      VarKind::Present { uniqborrow, .. } => {
-        // TODO: we need to figure out how lifetimes work
-
-        // validate that we don't have any unique borrows left over left over at the end
-        if uniqborrow.is_some() {
-          unimplemented!();
-        }
-      }
+      // TODO: add lifetimes
+      VarKind::Present { .. } => ()
     }
   }
 
@@ -680,7 +597,7 @@ pub fn borrow_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
   var_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
   captured_env: &'env mut Vec<Var<'hir, 'ast, TA>>,
 ) -> Result<Val<'hir, 'ast, TA>, EvalError> {
-  let place = eval_place(e, var_env, captured_env);
+  let place = eval_place(e, var_env, captured_env)?;
 
   let mut cursor = if place.captured {
       &mut captured_env[place.debruijn_level]
@@ -695,13 +612,8 @@ pub fn borrow_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
       VarKind::Present {
         val,
         borrows,
-        uniqborrow,
         ..
       } => {
-        if uniqborrow.is_some() {
-          // can't borrow a uniqely borrowed struct
-          unimplemented!();
-        }
         match val {
           Val::Struct(fields) => fields,
           _ => {
@@ -732,7 +644,7 @@ pub fn borrow_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
   let mut child_fields = vec![&mut *cursor];
   while let Some(Var { kind, .. }) = child_fields.pop() {
     match kind {
-      VarKind::Present { val, borrows, uniqborrow, } => {
+      VarKind::Present { val, borrows, } => {
         if let Val::Struct(fields) = val {
           child_fields.extend(fields.values_mut());
         }
@@ -780,7 +692,6 @@ pub fn take_var<'hir, 'ast, 'env, TA: Allocator + Clone>(
           unimplemented!()
         }
       },
-      VarKind::UniqBorrowed { .. } => unimplemented!(),
       VarKind::Borrowed { .. } => unimplemented!(),
       VarKind::MovedOut { .. } => unimplemented!(),
     };

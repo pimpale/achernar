@@ -14,7 +14,6 @@ pub enum CaseSource {
 #[derive(Debug)]
 pub enum UseKind {
   Take,
-  UniqBorrow,
   Borrow,
 }
 

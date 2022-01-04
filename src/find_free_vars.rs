@@ -10,6 +10,6 @@ use std::collections::HashMap;
 // Free variables are ordered by their order of appearance
 pub fn find_free_vars<'hir, 'ast>(
   source: &[&'ast ast::Expr],
-) -> Vec<(&'ast [u8], (&'ast ast::Expr, hir::UseKind))> {
+) -> Vec<(&'ast [u8], hir::UseKind)> {
   todo!();
 }

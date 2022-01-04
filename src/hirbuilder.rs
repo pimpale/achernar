@@ -10,7 +10,12 @@ use std::collections::HashMap;
 
 struct VarScope<'ast> {
   declaration: &'ast ast::Expr,
-  
+}
+
+struct CapturedVarScope<'ast> {
+  original_declaration: &'ast ast::Expr,
+  captured_at: &'ast ast::Expr,
+  capture_kind: hir::UseKind,
 }
 
 fn lookup_maybe<'env, Scope>(
@@ -74,15 +79,44 @@ fn gen_bool<'hir, 'ast>(
   }
 }
 
-fn gen_nil<'hir, 'ast>(
-  idgen: &RefCell<u64>,
+fn try_get_declaration_place_from_identifier<'hir, 'ast>(
   source: &'ast ast::Expr,
-) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
-  hir::ValExpr {
-    source: source,
-    id: Some(next_id(idgen)),
-    kind: hir::ValExprKind::Nil,
+  identifier: &[u8],
+  var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], CapturedVarScope<'ast>)>,
+) -> Option<(&'ast ast::Expr, hir::PlaceExpr<'hir, 'ast, &'hir Bump>)> {
+  // first try to lookup the var in the local enviroment
+  if let Some((VarScope { declaration }, debruijn_index)) = lookup_maybe(var_env, &identifier) {
+    return Some((
+      declaration,
+      hir::PlaceExpr {
+        source,
+        kind: hir::PlaceExprKind::Var(debruijn_index),
+      },
+    ));
   }
+
+  // if that failed then we try to look up inside the captured vars
+  // Captured vars are in a struct that gets passed along with the data
+  if let Some((
+    CapturedVarScope {
+      original_declaration,
+      ..
+    },
+    debruijn_index,
+  )) = lookup_maybe(captured_var_env, &identifier)
+  {
+    // we return a variable access to a field of the captured env struct
+    return Some((
+      original_declaration,
+      hir::PlaceExpr {
+        source,
+        kind: hir::PlaceExprKind::CapturedVar(debruijn_index),
+      },
+    ));
+  }
+
+  return None;
 }
 
 // Generates a place referencing a var
@@ -92,31 +126,18 @@ fn gen_place_from_identifier<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   identifier: &[u8],
   var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], CapturedVarScope<'ast>)>,
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
-  // first try to lookup the var in the local enviroment
-  if let Some((_, debruijn_index)) = lookup_maybe(var_env, &identifier) {
-    return hir::PlaceExpr {
-      source,
-      kind: hir::PlaceExprKind::Var(debruijn_index),
-    };
-  }
-
-  // if that failed then we try to look up inside the captured vars
-  // Captured vars are in a struct that gets passed along with the data
-  if let Some((_, debruijn_index)) = lookup_maybe(captured_var_env, &identifier) {
-    // we return a variable access to a field of the captured env struct
-    return hir::PlaceExpr {
-      source,
-      kind: hir::PlaceExprKind::CapturedVar(debruijn_index),
-    };
-  }
-
-  // return error if the identifier doesn't exist in either the variable or the captured variable
-  dlogger.log_variable_not_found(source.range, &identifier);
-  hir::PlaceExpr {
-    source,
-    kind: hir::PlaceExprKind::Error,
+  match try_get_declaration_place_from_identifier(source, identifier, var_env, captured_var_env) {
+    Some((_, place)) => place,
+    None => {
+      // return error if the identifier doesn't exist in either the variable or the captured variable
+      dlogger.log_variable_not_found(source.range, &identifier);
+      hir::PlaceExpr {
+        source,
+        kind: hir::PlaceExprKind::Error,
+      }
+    }
   }
 }
 
@@ -185,7 +206,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], CapturedVarScope<'ast>)>,
 ) -> (
   hir::IrrefutablePatExpr<'hir, 'ast, &'hir Bump>,
   Vec<(&'ast [u8], VarScope<'ast>)>,
@@ -331,7 +352,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], CapturedVarScope<'ast>)>,
 ) -> (
   hir::RefutablePatExpr<'hir, 'ast, &'hir Bump>,
   Vec<(&'ast [u8], VarScope<'ast>)>,
@@ -536,7 +557,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], CapturedVarScope<'ast>)>,
 ) -> hir::ValPatExpr<'hir, 'ast, &'hir Bump> {
   match source.kind {
     // propagate error
@@ -759,7 +780,7 @@ fn tr_val_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], CapturedVarScope<'ast>)>,
 ) -> hir::ValExpr<'hir, 'ast, &'hir Bump> {
   match source.kind {
     ast::ExprKind::Error => hir::ValExpr {
@@ -1067,32 +1088,39 @@ fn tr_val_expr<'hir, 'ast>(
         // Find free variables inside the arguments and the body of the function we have encountered
         let free_vars = find_free_vars(&[left_operand, right_operand]);
 
+        // the variables we will provide to the lambda
+        let lam_captured_vars = Vec::new_in(ha);
+        // the captured variables enviroment we will provide to the lower structs
+        let new_captured_vars_env = Vec::new();
+
         // For every free variable found, see if we can capture it from our enviroment
-        let captured_vars = Vec::new_in(ha);
-        for (identifier, (field_source, use_kind)) in free_vars.into_iter() {
-          let place =
-            gen_place_from_identifier(field_source, dlogger, identifier, var_env, captured_var_env);
-          let rhs = hir::ValExpr {
-            source: field_source,
-            id: Some(next_id(idgen)),
-            kind: hir::ValExprKind::Use(ha.alloc(place), use_kind),
-          };
-          // TODO: the actual field source is this struct right here! we borrowed here
-          captured_vars.push((identifier, (field_source, rhs)));
+        for (identifier, max_use_kind) in free_vars.into_iter() {
+          if let Some((original_declaration, place)) = try_get_declaration_place_from_identifier(
+            source,
+            identifier,
+            var_env,
+            captured_var_env,
+          ) {
+            let rhs = hir::ValExpr {
+              source: source,
+              id: Some(next_id(idgen)),
+              kind: hir::ValExprKind::Use(ha.alloc(place), max_use_kind),
+            };
+
+            lam_captured_vars.push((identifier, (source, rhs)));
+
+            new_captured_vars_env.push((
+              identifier,
+              CapturedVarScope {
+                original_declaration,
+                captured_at: source,
+                capture_kind: max_use_kind,
+              },
+            ));
+          }
         }
 
         // For all fields we could capture, we create a declaration for it so that the function's body knows which variables are in scope
-        let new_captured_vars = captured_vars
-          .iter()
-          .map(|(identifier, (field_source, _))| {
-            (
-              *identifier,
-              VarScope {
-                declaration: field_source,
-              },
-            )
-          })
-          .collect();
 
         // translate binding pattern. there's no var_env yet,
         // but we can still get variables from captured_var_env
@@ -1102,7 +1130,7 @@ fn tr_val_expr<'hir, 'ast>(
           dlogger,
           left_operand,
           &mut vec![],
-          &new_captured_vars,
+          &new_captured_vars_env,
         );
 
         // translate body. use the bound variables from the pat as the var_env
@@ -1113,7 +1141,7 @@ fn tr_val_expr<'hir, 'ast>(
           dlogger,
           right_operand,
           &mut bindings,
-          &new_captured_vars,
+          &new_captured_vars_env,
         );
 
         // return expr
@@ -1121,7 +1149,7 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           id: Some(next_id(idgen)),
           kind: hir::ValExprKind::Lam {
-            captured_vars,
+            captured_vars: lam_captured_vars,
             arg: ha.alloc(pat),
             body: ha.alloc(body),
           },
@@ -2171,7 +2199,7 @@ fn tr_place_expr<'hir, 'ast>(
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
   var_env: &mut Vec<(&'ast [u8], VarScope<'ast>)>,
-  captured_var_env: &Vec<(&'ast [u8], VarScope<'ast>)>,
+  captured_var_env: &Vec<(&'ast [u8], CapturedVarScope<'ast>)>,
 ) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
   match &source.kind {
     ast::ExprKind::Identifier(ref identifier) => {

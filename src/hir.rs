@@ -77,9 +77,6 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
     // the captured vars vec is created when a lambda is defined
     captured_vars: Vec<(&'ast [u8], (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>,
-    // when a lambda is applied,
-    // the use_kind determines whether running the lambda will borrow, uniqborrow, or take it
-    use_kind: UseKind,
     // The args are evaluated with access to the captured vars
     arg: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
     // the code body is evaluated once the args and the captured vars both exist

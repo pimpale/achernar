@@ -1,5 +1,3 @@
-#![feature(iter_map_while)]
-#![feature(destructuring_assignment)]
 #![feature(allocator_api)]
 mod ast;
 mod astbuilder;
@@ -7,12 +5,12 @@ mod codereader;
 mod dlogger;
 mod hir;
 mod hirbuilder;
-mod nbe;
 mod utils;
-mod typecheck;
 mod token;
 mod tokenize;
 mod find_free_vars;
+mod mir;
+mod mirbuilder;
 
 use bumpalo::Bump;
 use std::io::stdin;
@@ -21,7 +19,6 @@ use std::io::Read;
 use astbuilder::construct_ast;
 use dlogger::DiagnosticLog;
 use hirbuilder::construct_hir;
-use typecheck::type_check;
 use tokenize::tokenize;
 
 fn main() {

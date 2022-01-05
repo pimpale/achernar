@@ -142,7 +142,6 @@ fn gen_place_from_identifier<'hir, 'ast>(
 }
 
 fn parse_struct_fields<'hir, 'ast>(
-  ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
 ) -> HashMap<&'ast Vec<u8>, &'ast ast::Expr> {
@@ -235,7 +234,7 @@ fn tr_irrefutable_pat_expr<'hir, 'ast>(
       tr_irrefutable_pat_expr(idgen, ha, dlogger, body, var_env, captured_var_env)
     }
     ast::ExprKind::StructLiteral(ref body) => {
-      let patterns = parse_struct_fields(ha, dlogger, source);
+      let patterns = parse_struct_fields(dlogger, body);
 
       let mut bindings = vec![];
       let mut fields = Vec::new_in(ha);
@@ -400,7 +399,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       tr_refutable_pat_expr(idgen, ha, dlogger, body, var_env, captured_var_env)
     }
     ast::ExprKind::StructLiteral(ref body) => {
-      let patterns = parse_struct_fields(ha, dlogger, source);
+      let patterns = parse_struct_fields(dlogger, body);
 
       let mut bindings = vec![];
       let mut fields = Vec::new_in(ha);
@@ -590,7 +589,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
     ast::ExprKind::StructLiteral(ref body) => {
       let mut fields = Vec::new_in(ha);
 
-      for (id, pat_src) in parse_struct_fields(ha, dlogger, source).into_iter() {
+      for (id, pat_src) in parse_struct_fields(dlogger, body).into_iter() {
         let field_pat = tr_val_pat_expr(idgen, ha, dlogger, pat_src, var_env, captured_var_env);
         fields.push((id, (pat_src, field_pat)));
       }
@@ -788,8 +787,8 @@ fn tr_val_expr<'hir, 'ast>(
       id: Some(next_id(idgen)),
       kind: hir::ValExprKind::Error,
     },
-    c @ (ast::ExprKind::Ref | ast::ExprKind::UniqRef | ast::ExprKind::Deref) => {
-      dlogger.log_only_in_field(source.range, &c);
+    ref c @ (ast::ExprKind::Ref | ast::ExprKind::UniqRef | ast::ExprKind::Deref) => {
+      dlogger.log_only_in_field(source.range, c);
 
       hir::ValExpr {
         source,
@@ -797,8 +796,8 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Error,
       }
     }
-    c @ (ast::ExprKind::Val(_) | ast::ExprKind::Bind(_)) => {
-      dlogger.log_only_in_pattern(source.range, &c);
+    ref c @ (ast::ExprKind::Val(_) | ast::ExprKind::Bind(_)) => {
+      dlogger.log_only_in_pattern(source.range, c);
 
       hir::ValExpr {
         source,
@@ -872,7 +871,7 @@ fn tr_val_expr<'hir, 'ast>(
     ast::ExprKind::StructLiteral(ref body) => {
       let mut fields = Vec::new_in(ha);
 
-      for (id, pat) in parse_struct_fields(ha, dlogger, source).into_iter() {
+      for (id, pat) in parse_struct_fields(dlogger, body).into_iter() {
         let field_pat = tr_val_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
         fields.push((id, (pat, field_pat)));
       }
@@ -987,11 +986,11 @@ fn tr_val_expr<'hir, 'ast>(
         },
       }
     }
-    ast::ExprKind::Struct(body) => match body.kind {
-      ast::ExprKind::StructLiteral(fields_src) => {
+    ast::ExprKind::Struct(ref body) => match body.kind {
+      ast::ExprKind::StructLiteral(ref fields_src) => {
         let mut fields = Vec::new_in(ha);
 
-        for (id, pat) in parse_struct_fields(ha, dlogger, source).into_iter() {
+        for (id, pat) in parse_struct_fields(dlogger, fields_src).into_iter() {
           let field_pat = tr_val_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
           fields.push((id, (pat, field_pat)));
         }
@@ -1002,8 +1001,8 @@ fn tr_val_expr<'hir, 'ast>(
           kind: hir::ValExprKind::StructTy(fields),
         }
       }
-      kind => {
-        dlogger.log_expected_struct_literal_struct(body.range, &kind);
+      ref kind => {
+        dlogger.log_expected_struct_literal_struct(body.range, kind);
         hir::ValExpr {
           source,
           id: Some(next_id(idgen)),
@@ -1011,11 +1010,11 @@ fn tr_val_expr<'hir, 'ast>(
         }
       }
     },
-    ast::ExprKind::Enum(body) => match body.kind {
-      ast::ExprKind::StructLiteral(fields_src) => {
+    ast::ExprKind::Enum(ref body) => match body.kind {
+      ast::ExprKind::StructLiteral(ref fields_src) => {
         let mut fields = Vec::new_in(ha);
 
-        for (id, pat) in parse_struct_fields(ha, dlogger, source).into_iter() {
+        for (id, pat) in parse_struct_fields(dlogger, fields_src).into_iter() {
           let field_pat = tr_val_expr(idgen, ha, dlogger, pat, var_env, captured_var_env);
           fields.push((id, (pat, field_pat)));
         }
@@ -1026,7 +1025,7 @@ fn tr_val_expr<'hir, 'ast>(
           kind: hir::ValExprKind::EnumTy(fields),
         }
       }
-      kind => {
+      ref kind => {
         dlogger.log_expected_struct_literal_enum(body.range, &kind);
         hir::ValExpr {
           source,
@@ -1089,9 +1088,9 @@ fn tr_val_expr<'hir, 'ast>(
         let free_vars = find_free_vars(&[left_operand, right_operand]);
 
         // the variables we will provide to the lambda
-        let lam_captured_vars = Vec::new_in(ha);
+        let mut lam_captured_vars = Vec::new_in(ha);
         // the captured variables enviroment we will provide to the lower structs
-        let new_captured_vars_env = Vec::new();
+        let mut new_captured_vars_env = Vec::new();
 
         // For every free variable found, see if we can capture it from our enviroment
         for (identifier, max_use_kind) in free_vars.into_iter() {
@@ -1124,7 +1123,7 @@ fn tr_val_expr<'hir, 'ast>(
 
         // translate binding pattern. there's no var_env yet,
         // but we can still get variables from captured_var_env
-        let (pat, bindings) = tr_irrefutable_pat_expr(
+        let (pat, mut bindings) = tr_irrefutable_pat_expr(
           idgen,
           ha,
           dlogger,

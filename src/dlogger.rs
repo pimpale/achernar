@@ -349,10 +349,7 @@ impl DiagnosticLogger {
       code: Some(NumberOrString::Number(18)),
       code_description: None,
       source: self.source.clone(),
-      message: format!(
-        "`$` may only be used to prefix an identifier.",
-        kind.as_ref()
-      ),
+      message: format!("`$` may only be used to prefix an identifier."),
       related_information: None,
       tags: None,
       data: None,
@@ -718,5 +715,4 @@ impl DiagnosticLogger {
       data: None,
     })
   }
-
 }

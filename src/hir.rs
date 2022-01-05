@@ -11,7 +11,7 @@ pub enum CaseSource {
   Or,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum UseKind {
   Take,
   Borrow,
@@ -323,13 +323,13 @@ pub enum RoundingMode {
 
 #[derive(Debug)]
 pub struct IntTy {
-  signed: bool,
-  size: u8,
+  pub signed: bool,
+  pub size: u8,
 }
 
 #[derive(Debug)]
 pub struct FloatTy {
-  size: u8,
+  pub size: u8,
 }
 
 #[derive(Debug)]

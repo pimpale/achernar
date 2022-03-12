@@ -1094,12 +1094,9 @@ fn tr_val_expr<'hir, 'ast>(
 
         // For every free variable found, see if we can capture it from our enviroment
         for (identifier, max_use_kind) in free_vars.into_iter() {
-          if let Some((original_declaration, place)) = try_get_declaration_place_from_identifier(
-            source,
-            identifier,
-            var_env,
-            captured_var_env,
-          ) {
+          if let Some((original_declaration, place)) =
+            try_get_declaration_place_from_identifier(source, identifier, var_env, captured_var_env)
+          {
             let rhs = hir::ValExpr {
               source: source,
               id: Some(next_id(idgen)),

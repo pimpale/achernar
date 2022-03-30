@@ -63,11 +63,10 @@ pub enum BinaryOpKind {
 pub enum ExprKind {
   // An error when parsing
   Error,
-  Nil,
+  Unit,
   Int(BigInt),
   Bool(bool),
   Float(BigRational),
-  Type(Option<BigInt>),
   // a lifetime literal
   Lifetime(Vec<u8>),
   String {
@@ -98,15 +97,18 @@ pub enum ExprKind {
   Identifier(Vec<u8>),
   // Builtin thing
   Builtin(Vec<u8>),
-  // struct  and enumify
+  // struct and enumify
   Struct(Box<Expr>),
   Enum(Box<Expr>),
-
+  // a let
+  Let {
+    is_const: bool,
+    pattern: Box<Expr>,
+    value: Box<Expr>,
+    body: Box<Expr>
+  },
   // (PATTERN ONLY) computes a value in a pattern
   Val(Box<Expr>),
-
-  // (PATTERN ONLY) matches a single element to new variable
-  Bind(Vec<u8>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

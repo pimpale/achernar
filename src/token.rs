@@ -10,19 +10,19 @@ pub enum TokenKind {
   // builtin method
   Builtin(Vec<u8>),
   // Keywords
-  Case,     // case
-  Of,       // of
-  Val,      // val
+  Case,   // case
+  Of,     // of
+  Val,    // val
   Struct, // struct
   Enum,   // enum
-  Let,      // let
-  In,       // in
+  Const,  // const
+  Let,    // let
+  Mut,    // mut
+  In,     // in
   // Literals and constants
-  Type,                                   // type
   Lifetime(Vec<u8>),                      // 'lifetime
   Inf,                                    // inf
   Nan,                                    // nan
-  Nil,                                    // ()
   Bool(bool),                             // true, false
   String { value: Vec<u8>, block: bool }, // "string"
   Int(BigInt),                            // 7
@@ -51,14 +51,9 @@ pub enum TokenKind {
   GreaterEqual, // >=
   // Assignment
   Assign,      // =
-  PlusAssign,  // +=
-  MinusAssign, // -=
-  MulAssign,   // *=
-  DivAssign,   // /=
-  RemAssign,   // %=
   // Reference
   Ref,     // &
-  UniqRef, // &!
+  UniqRef, // !
   Deref,   // @
   // Arrows
   Pipe,    // |
@@ -67,8 +62,6 @@ pub enum TokenKind {
   // CaseOptions
   CaseOption, // ||
   // Other Miscellaneous Operator Things
-  BindVar,      // $
-  MutateVar,    // !
   ParenLeft,    // (
   ParenRight,   // )
   BracketLeft,  // [

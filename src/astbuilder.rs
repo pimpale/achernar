@@ -208,7 +208,7 @@ fn parse_exact_group<TkIter: Iterator<Item = Token>>(
 }
 
 // parses an exact reference or panics
-fn parse_exact_reference<TkIter: Iterator<Item = Token>>(
+fn parse_exact_identifier<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   _dlogger: &mut DiagnosticLogger,
 ) -> Expr {
@@ -249,63 +249,6 @@ fn parse_exact_builtin<TkIter: Iterator<Item = Token>>(
   }
 }
 
-
-// parses an exact bind or panics
-fn parse_exact_bind<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  let metadata = get_metadata(tkiter);
-  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::BindVar));
-
-  let bind_tk = tkiter.next().unwrap();
-  let identifier_tk = tkiter.next().unwrap();
-
-  match identifier_tk.kind {
-    Some(TokenKind::Identifier(identifier)) => Expr {
-      metadata,
-      range: union_of(bind_tk.range, identifier_tk.range),
-      kind: ExprKind::Bind(identifier),
-    },
-    _ => {
-      dlogger.log_unexpected_bind_target(identifier_tk.range);
-      Expr {
-        metadata,
-        range: union_of(bind_tk.range, identifier_tk.range),
-        kind: ExprKind::Error,
-      }
-    }
-  }
-}
-
-// parses a type or panics
-fn parse_exact_type<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  let metadata = get_metadata(tkiter);
-  assert!(tkiter.peek_nth(0).unwrap().kind == Some(TokenKind::Type));
-  let type_tk = tkiter.next().unwrap();
-  let level_tk = tkiter.next().unwrap();
-
-  let level;
-  let end_range;
-
-  if let Some(TokenKind::Int(int)) = level_tk.kind {
-    level = Some(int);
-    end_range = level_tk.range;
-  } else {
-    level = None;
-    end_range = type_tk.range;
-  }
-
-  Expr {
-    metadata,
-    range: union_of(type_tk.range, end_range),
-    kind: ExprKind::Type(level),
-  }
-}
-
 fn parse_case_options<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -313,9 +256,9 @@ fn parse_case_options<TkIter: Iterator<Item = Token>>(
   parse_l_binary_op(
     tkiter,
     dlogger,
-    parse_assign,
+    parse_defun,
     simple_operator_fn(|x| match x {
-      TokenKind::CaseOption => Some(BinaryOpKind::Sequence),
+      TokenKind::CaseOption => Some(BinaryOpKind::CaseOption),
       _ => None,
     }),
   )
@@ -340,6 +283,48 @@ fn parse_exact_case<TkIter: Iterator<Item = Token>>(
     metadata,
     range: union_of(case_tk.range, cases.range),
     kind: ExprKind::CaseOf { expr, cases },
+  }
+}
+
+// parses a let or panics
+fn parse_exact_let<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  let metadata = get_metadata(tkiter);
+  assert!(matches!(
+    tkiter.peek_nth(0).unwrap().kind,
+    Some(TokenKind::Let | TokenKind::Const)
+  ));
+  let let_tk = tkiter.next().unwrap();
+  let pattern = Box::new(parse_expr(tkiter, dlogger));
+  let assign_tk = tkiter.next().unwrap();
+  if assign_tk.kind != Some(TokenKind::Assign) {
+    dlogger.log_unexpected_token_specific(assign_tk.range, Some(TokenKind::Assign), assign_tk.kind);
+  }
+
+  let value = Box::new(parse_expr(tkiter, dlogger));
+
+  let sequence_tk = tkiter.next().unwrap();
+  if sequence_tk.kind != Some(TokenKind::Sequence) {
+    dlogger.log_unexpected_token_specific(
+      sequence_tk.range,
+      Some(TokenKind::Sequence),
+      sequence_tk.kind,
+    );
+  }
+
+  let body = Box::new(parse_expr(tkiter, dlogger));
+
+  Expr {
+    metadata,
+    range: union_of(let_tk.range, body.range),
+    kind: ExprKind::Let {
+      is_const: let_tk.kind == Some(TokenKind::Let),
+      pattern,
+      value,
+      body,
+    },
   }
 }
 
@@ -509,14 +494,14 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::BraceLeft => Some(parse_exact_struct_literal::<TkIter>),
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),
     TokenKind::Case => Some(parse_exact_case::<TkIter>),
+    TokenKind::Let => Some(parse_exact_let::<TkIter>),
+    TokenKind::Const => Some(parse_exact_let::<TkIter>),
     TokenKind::Lifetime(_) => Some(parse_exact_lifetime::<TkIter>),
-    TokenKind::Type => Some(parse_exact_type::<TkIter>),
-    TokenKind::Identifier(_) => Some(parse_exact_reference::<TkIter>),
+    TokenKind::Identifier(_) => Some(parse_exact_identifier::<TkIter>),
     TokenKind::Builtin(_) => Some(parse_exact_builtin::<TkIter>),
     TokenKind::Ref => Some(|a, b| parse_simple(TokenKind::Ref, ExprKind::Ref)(a, b)),
     TokenKind::UniqRef => Some(|a, b| parse_simple(TokenKind::UniqRef, ExprKind::UniqRef)(a, b)),
     TokenKind::Deref => Some(|a, b| parse_simple(TokenKind::Deref, ExprKind::Deref)(a, b)),
-    TokenKind::BindVar => Some(parse_exact_bind::<TkIter>),
     TokenKind::Val => Some(|a, b| parse_unop(TokenKind::Val, |t| ExprKind::Val(t))(a, b)),
     TokenKind::Struct => Some(|a, b| parse_unop(TokenKind::Struct, |t| ExprKind::Struct(t))(a, b)),
     TokenKind::Enum => Some(|a, b| parse_unop(TokenKind::Enum, |t| ExprKind::Enum(t))(a, b)),
@@ -766,26 +751,6 @@ fn parse_defun<TkIter: Iterator<Item = Token>>(
   )
 }
 
-fn parse_assign<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  parse_l_binary_op(
-    tkiter,
-    dlogger,
-    parse_defun,
-    simple_operator_fn(|x| match x {
-      TokenKind::Assign => Some(BinaryOpKind::Assign),
-      TokenKind::PlusAssign => Some(BinaryOpKind::PlusAssign),
-      TokenKind::MinusAssign => Some(BinaryOpKind::MinusAssign),
-      TokenKind::MulAssign => Some(BinaryOpKind::MulAssign),
-      TokenKind::DivAssign => Some(BinaryOpKind::DivAssign),
-      TokenKind::RemAssign => Some(BinaryOpKind::RemAssign),
-      _ => None,
-    }),
-  )
-}
-
 fn parse_sequence<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -793,7 +758,7 @@ fn parse_sequence<TkIter: Iterator<Item = Token>>(
   parse_l_binary_op(
     tkiter,
     dlogger,
-    parse_assign,
+    parse_defun,
     simple_operator_fn(|x| match x {
       TokenKind::Sequence => Some(BinaryOpKind::Sequence),
       _ => None,

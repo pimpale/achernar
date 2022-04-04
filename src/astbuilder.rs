@@ -328,6 +328,31 @@ fn parse_exact_let<TkIter: Iterator<Item = Token>>(
   }
 }
 
+// parses a mut or panics
+fn parse_exact_mut<TkIter: Iterator<Item = Token>>(
+  tkiter: &mut PeekMoreIterator<TkIter>,
+  dlogger: &mut DiagnosticLogger,
+) -> Expr {
+  let metadata = get_metadata(tkiter);
+  assert!(matches!(
+    tkiter.peek_nth(0).unwrap().kind,
+    Some(TokenKind::Mut)
+  ));
+  let mut_tk = tkiter.next().unwrap();
+  let pattern = Box::new(parse_expr(tkiter, dlogger));
+  let assign_tk = tkiter.next().unwrap();
+  if assign_tk.kind != Some(TokenKind::Assign) {
+    dlogger.log_unexpected_token_specific(assign_tk.range, Some(TokenKind::Assign), assign_tk.kind);
+  }
+
+  let value = Box::new(parse_defun(tkiter, dlogger));
+
+  Expr {
+    metadata,
+    range: union_of(mut_tk.range, value.range),
+    kind: ExprKind::Mut { pattern, value },
+  }
+}
 // parses a bool
 fn parse_exact_bool<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
@@ -495,6 +520,7 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::ParenLeft => Some(parse_exact_group::<TkIter>),
     TokenKind::Case => Some(parse_exact_case::<TkIter>),
     TokenKind::Let => Some(parse_exact_let::<TkIter>),
+    TokenKind::Mut => Some(parse_exact_mut::<TkIter>),
     TokenKind::Const => Some(parse_exact_let::<TkIter>),
     TokenKind::Lifetime(_) => Some(parse_exact_lifetime::<TkIter>),
     TokenKind::Identifier(_) => Some(parse_exact_identifier::<TkIter>),

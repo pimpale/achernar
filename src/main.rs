@@ -3,14 +3,14 @@ mod ast;
 mod astbuilder;
 mod codereader;
 mod dlogger;
+mod find_free_vars;
 mod hir;
 mod hirbuilder;
-mod utils;
-mod token;
-mod tokenize;
-mod find_free_vars;
 mod mir;
 mod mirbuilder;
+mod token;
+mod tokenize;
+mod utils;
 
 use bumpalo::Bump;
 use std::io::stdin;

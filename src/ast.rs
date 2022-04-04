@@ -46,13 +46,6 @@ pub enum BinaryOpKind {
   // Range
   Range,
   RangeInclusive,
-  // Assign
-  Assign,
-  PlusAssign,
-  MinusAssign,
-  MulAssign,
-  DivAssign,
-  RemAssign,
   // Sequence
   Sequence,
   // Module Access
@@ -105,7 +98,11 @@ pub enum ExprKind {
     is_const: bool,
     pattern: Box<Expr>,
     value: Box<Expr>,
-    body: Box<Expr>
+    body: Box<Expr>,
+  },
+  Mut {
+    pattern: Box<Expr>,
+    value: Box<Expr>,
   },
   // (PATTERN ONLY) computes a value in a pattern
   Val(Box<Expr>),

@@ -114,7 +114,6 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     Token::new(TokenKind::Builtin(word), union_of(ar, range))
   }
 
-
   // requires at least one character exists...
   fn internal_lex_base_number(&mut self, radix: u8, max_len: Option<u32>) -> (BigUint, Range, u32) {
     let mut range = self.source.peek_nth(0).unwrap().1;

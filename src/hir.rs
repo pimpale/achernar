@@ -1,5 +1,5 @@
 use super::ast;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigInt;
 use num_rational::BigRational;
 use std::alloc::Allocator;
 
@@ -9,13 +9,6 @@ pub enum CaseSource {
   IfElse,
   And,
   Or,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum UseKind {
-  Take,
-  UniqBorrow,
-  Borrow,
 }
 
 // HA -> HirAllocator
@@ -35,7 +28,7 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValExpr<'hir, 'ast, HA>)), HA>),
 
   // use place
-  Use(&'hir PlaceExpr<'hir, 'ast, HA>, UseKind),
+  Use(&'hir PlaceExpr<'hir, 'ast>),
 
   // Annotate the value with the type
   Annotate {
@@ -44,13 +37,12 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
   },
   // Switches on a pattern
   CaseOf {
-    expr: &'hir PlaceExpr<'hir, 'ast, HA>,
+    expr: &'hir PlaceExpr<'hir, 'ast>,
     case_options: Vec<(RefutablePatExpr<'hir, 'ast, HA>, ValExpr<'hir, 'ast, HA>), HA>,
     source: CaseSource,
   },
 
   // Literals
-  Universe(BigUint), // type of a type is Universe(0)
   Unit,
   Bool(bool),
   Char(u32),
@@ -91,6 +83,11 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
     val: &'hir ValExpr<'hir, 'ast, HA>,
     body: &'hir ValExpr<'hir, 'ast, HA>,
   },
+  // Assign value to place
+  Assign {
+    pat: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
+    val: &'hir ValExpr<'hir, 'ast, HA>,
+  },
 }
 
 #[derive(Debug)]
@@ -99,26 +96,32 @@ pub struct ValExpr<'hir, 'ast, HA: Allocator + Clone> {
   pub kind: ValExprKind<'hir, 'ast, HA>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum PlaceExprOpKind {
+  Ref,
+  UniqRef,
+  Deref,
+}
+
 #[derive(Debug)]
-pub enum PlaceExprKind<'hir, 'ast, HA: Allocator + Clone> {
+pub enum PlaceExprKind<'hir, 'ast> {
   Error,
   // creates
   StructField {
-    root: &'hir PlaceExpr<'hir, 'ast, HA>,
+    root: &'hir PlaceExpr<'hir, 'ast>,
     field_source: &'ast ast::Expr,
     field: &'ast Vec<u8>,
   },
-  // dereferncing a pointer gives a place
-  Deref(&'hir ValExpr<'hir, 'ast, HA>),
+  Op(&'hir PlaceExpr<'hir, 'ast>, UseKind),
   // A reference to a previously defined variable
   Var(&'ast [u8]),
   Builtin(Builtin),
 }
 
 #[derive(Debug)]
-pub struct PlaceExpr<'hir, 'ast, HA: Allocator + Clone> {
+pub struct PlaceExpr<'hir, 'ast> {
   pub source: &'ast ast::Expr,
-  pub kind: PlaceExprKind<'hir, 'ast, HA>,
+  pub kind: PlaceExprKind<'hir, 'ast>,
 }
 
 // A pattern that may not be rejected, and can bind variables
@@ -171,8 +174,8 @@ pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   Struct(
     Vec<
       (
-        &'ast Vec<u8>,
-        (&'ast ast::Expr, RefutablePatExpr<'hir, 'ast, HA>),
+        &'ast ast::Expr,
+        (&'ast Vec<u8>, RefutablePatExpr<'hir, 'ast, HA>),
       ),
       HA,
     >,

@@ -50,7 +50,7 @@ pub enum TokenKind {
   Greater,      // >
   GreaterEqual, // >=
   // Assignment
-  Assign,      // =
+  Assign, // =
   // Reference
   Ref,     // &
   UniqRef, // !

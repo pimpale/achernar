@@ -2,7 +2,6 @@ use super::ast;
 use super::dlogger::DiagnosticLogger;
 use super::hir;
 use bumpalo::Bump;
-use num_bigint::BigUint;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
@@ -34,7 +33,7 @@ fn gen_place_from_identifier<'hir, 'ast>(
   source: &'ast ast::Expr,
   dlogger: &mut DiagnosticLogger,
   identifier: &'ast [u8],
-) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
+) -> hir::PlaceExpr<'hir, 'ast> {
   hir::PlaceExpr {
     source,
     kind: hir::PlaceExprKind::Var(identifier),
@@ -459,7 +458,6 @@ fn tr_val_expr<'hir, 'ast>(
         // generate the place
         ha.alloc(tr_place_expr(ha, dlogger, source)),
         // we take ownership of the value at this place
-        hir::UseKind::Take,
       ),
     },
     ast::ExprKind::Builtin(_) => hir::ValExpr {
@@ -468,7 +466,6 @@ fn tr_val_expr<'hir, 'ast>(
         // generate the place
         ha.alloc(tr_place_expr(ha, dlogger, source)),
         // we take ownership of the value at this place
-        hir::UseKind::Take,
       ),
     },
     ast::ExprKind::CaseOf {
@@ -607,8 +604,6 @@ fn tr_val_expr<'hir, 'ast>(
           kind: hir::ValExprKind::Use(
             // generate the place
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_compose")),
-            // we take ownership of the value at this place
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -631,8 +626,6 @@ fn tr_val_expr<'hir, 'ast>(
           kind: hir::ValExprKind::Use(
             // generate the place
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_add")),
-            // we take ownership of the value at this place
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -647,7 +640,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_sub")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -662,7 +654,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_mul")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -677,7 +668,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_div")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -692,7 +682,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_rem")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -783,7 +772,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_eq")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -801,7 +789,6 @@ fn tr_val_expr<'hir, 'ast>(
               source, dlogger, // TODO: apply logical law here
               b"_neq",
             )),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -816,7 +803,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_l")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -831,7 +817,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_le")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -846,7 +831,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_g")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -861,7 +845,6 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             ha.alloc(gen_place_from_identifier(source, dlogger, b"_ge")),
-            hir::UseKind::Take,
           ),
         },
         vec![
@@ -890,7 +873,6 @@ fn tr_val_expr<'hir, 'ast>(
             source,
             kind: hir::ValExprKind::Use(
               ha.alloc(gen_place_from_identifier(source, dlogger, b"_add")),
-              hir::UseKind::Take,
             ),
           },
           vec![
@@ -925,7 +907,6 @@ fn tr_val_expr<'hir, 'ast>(
             source,
             kind: hir::ValExprKind::Use(
               ha.alloc(gen_place_from_identifier(source, dlogger, b"_sub")),
-              hir::UseKind::Take,
             ),
           },
           vec![
@@ -960,7 +941,6 @@ fn tr_val_expr<'hir, 'ast>(
             source,
             kind: hir::ValExprKind::Use(
               ha.alloc(gen_place_from_identifier(source, dlogger, b"_mul")),
-              hir::UseKind::Take,
             ),
           },
           vec![
@@ -995,7 +975,6 @@ fn tr_val_expr<'hir, 'ast>(
             source,
             kind: hir::ValExprKind::Use(
               ha.alloc(gen_place_from_identifier(source, dlogger, b"_div")),
-              hir::UseKind::Take,
             ),
           },
           vec![
@@ -1030,7 +1009,6 @@ fn tr_val_expr<'hir, 'ast>(
             source,
             kind: hir::ValExprKind::Use(
               ha.alloc(gen_place_from_identifier(source, dlogger, b"_rem")),
-              hir::UseKind::Take,
             ),
           },
           vec![
@@ -1120,7 +1098,6 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         kind: hir::ValExprKind::Use(
           ha.alloc(tr_place_expr(ha, dlogger, source)),
-          hir::UseKind::Take,
         ),
       },
       ast::BinaryOpKind::Range => todo!(),

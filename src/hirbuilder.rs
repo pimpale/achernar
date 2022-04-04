@@ -63,7 +63,7 @@ fn parse_struct_fields<'ast>(
           sequences.push(left_operand);
           sequences.push(right_operand);
         }
-        ast::BinaryOpKind::Assign => match left_operand.as_ref() {
+        ast::BinaryOpKind::Constrain=> match left_operand.as_ref() {
           // match field
           ast::Expr {
             kind: ast::ExprKind::Identifier(ref identifier),
@@ -202,7 +202,7 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
 
       for (id, pat_src) in patterns.into_iter() {
         let field_pat = tr_refutable_pat_expr(ha, dlogger, pat_src);
-        fields.push((id, (pat_src, field_pat)));
+        fields.push((pat_src, (id, field_pat)));
       }
 
       hir::RefutablePatExpr {
@@ -770,9 +770,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_eq")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_eq"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -784,12 +782,10 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(
-              source, dlogger, // TODO: apply logical law here
-              b"_neq",
-            )),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(
+            source, dlogger, // TODO: apply logical law here
+            b"_neq",
+          ))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -801,9 +797,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_l")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_l"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -815,9 +809,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_le")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_le"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -829,9 +821,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_g")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_g"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -843,9 +833,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_ge")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_ge"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -859,250 +847,35 @@ fn tr_val_expr<'hir, 'ast>(
           snd: ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
         },
       },
-      ast::BinaryOpKind::PlusAssign => {
-        // x += 1
-        // x = x + 1
-        // find place, ignore bindings, since they will be unused
-        let pat = tr_irrefutable_pat_expr(ha, dlogger, left_operand);
-
-        // create val by adding together
-        let val = gen_app(
-          ha,
-          source,
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Use(
-              ha.alloc(gen_place_from_identifier(source, dlogger, b"_add")),
-            ),
-          },
-          vec![
-            ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
-            ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
-          ],
-        );
-
-        hir::ValExpr {
-          source,
-          kind: hir::ValExprKind::LetIn {
-            pat: ha.alloc(pat),
-            val: ha.alloc(val),
-            body: ha.alloc(hir::ValExpr {
-              source,
-              kind: hir::ValExprKind::Unit,
-            }),
-          },
-        }
-      }
-      ast::BinaryOpKind::MinusAssign => {
-        // x += 1
-        // x = x + 1
-        // find place, ignore bindings, since they will be unused
-        let pat = tr_irrefutable_pat_expr(ha, dlogger, left_operand);
-
-        // create val by adding together
-        let val = gen_app(
-          ha,
-          source,
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Use(
-              ha.alloc(gen_place_from_identifier(source, dlogger, b"_sub")),
-            ),
-          },
-          vec![
-            ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
-            ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
-          ],
-        );
-
-        hir::ValExpr {
-          source,
-          kind: hir::ValExprKind::LetIn {
-            pat: ha.alloc(pat),
-            val: ha.alloc(val),
-            body: ha.alloc(hir::ValExpr {
-              source,
-              kind: hir::ValExprKind::Unit,
-            }),
-          },
-        }
-      }
-      ast::BinaryOpKind::MulAssign => {
-        // x += 1
-        // x = x + 1
-        // find place, ignore bindings, since they will be unused
-        let pat = tr_irrefutable_pat_expr(ha, dlogger, left_operand);
-
-        // create val by adding together
-        let val = gen_app(
-          ha,
-          source,
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Use(
-              ha.alloc(gen_place_from_identifier(source, dlogger, b"_mul")),
-            ),
-          },
-          vec![
-            ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
-            ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
-          ],
-        );
-
-        hir::ValExpr {
-          source,
-          kind: hir::ValExprKind::LetIn {
-            pat: ha.alloc(pat),
-            val: ha.alloc(val),
-            body: ha.alloc(hir::ValExpr {
-              source,
-              kind: hir::ValExprKind::Unit,
-            }),
-          },
-        }
-      }
-      ast::BinaryOpKind::DivAssign => {
-        // x += 1
-        // x = x + 1
-        // find place, ignore bindings, since they will be unused
-        let pat = tr_irrefutable_pat_expr(ha, dlogger, left_operand);
-
-        // create val by adding together
-        let val = gen_app(
-          ha,
-          source,
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Use(
-              ha.alloc(gen_place_from_identifier(source, dlogger, b"_div")),
-            ),
-          },
-          vec![
-            ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
-            ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
-          ],
-        );
-
-        hir::ValExpr {
-          source,
-          kind: hir::ValExprKind::LetIn {
-            pat: ha.alloc(pat),
-            val: ha.alloc(val),
-            body: ha.alloc(hir::ValExpr {
-              source,
-              kind: hir::ValExprKind::Unit,
-            }),
-          },
-        }
-      }
-      ast::BinaryOpKind::RemAssign => {
-        // x += 1
-        // x = x + 1
-        // find place, ignore bindings, since they will be unused
-        let pat = tr_irrefutable_pat_expr(ha, dlogger, left_operand);
-
-        // create val by adding together
-        let val = gen_app(
-          ha,
-          source,
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Use(
-              ha.alloc(gen_place_from_identifier(source, dlogger, b"_rem")),
-            ),
-          },
-          vec![
-            ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
-            ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
-          ],
-        );
-
-        hir::ValExpr {
-          source,
-          kind: hir::ValExprKind::LetIn {
-            pat: ha.alloc(pat),
-            val: ha.alloc(val),
-            body: ha.alloc(hir::ValExpr {
-              source,
-              kind: hir::ValExprKind::Unit,
-            }),
-          },
-        }
-      }
-      ast::BinaryOpKind::Assign => {
-        // this represents an assign at the tail end of an expression.
-        // variables created in such assigns will not be available outside, and should warn about unused vars
-
-        // translate the rhs
-        let val = tr_val_expr(ha, dlogger, right_operand);
-
-        // translate pattern (dropping vars, since they won't be used)
-        // later, a warning will be sent in liveness checking
-        let pat = tr_irrefutable_pat_expr(ha, dlogger, left_operand);
-
-        hir::ValExpr {
-          source,
-          kind: hir::ValExprKind::LetIn {
-            pat: ha.alloc(pat),
-            val: ha.alloc(val),
-            body: ha.alloc(hir::ValExpr {
-              source,
-              kind: hir::ValExprKind::Unit,
-            }),
-          },
-        }
-      }
-      ast::BinaryOpKind::Sequence => {
-        // if the lhs is an assign
-        if let ast::Expr {
-          kind:
-            ast::ExprKind::BinaryOp {
-              op: ast::BinaryOpKind::Assign,
-              left_operand: ref assign_pat,
-              right_operand: ref assign_value,
-            },
-          ..
-        } = **left_operand
-        {
-          // this represents an assign with a scope after it
-
-          // translate rhs
-          let val = tr_val_expr(ha, dlogger, assign_value);
-
-          // translate the lhs
-          let pat = tr_irrefutable_pat_expr(ha, dlogger, assign_pat);
-
-          // parse body in this context
-          let body = tr_val_expr(ha, dlogger, right_operand);
-
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::LetIn {
-              pat: ha.alloc(pat),
-              val: ha.alloc(val),
-              body: ha.alloc(body),
-            },
-          }
-        } else {
-          // continue
-          hir::ValExpr {
-            source,
-            kind: hir::ValExprKind::Sequence {
-              fst: ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
-              snd: ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
-            },
-          }
-        }
-      }
+      ast::BinaryOpKind::Sequence => hir::ValExpr {
+        source,
+        kind: hir::ValExprKind::Sequence {
+          fst: ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
+          snd: ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
+        },
+      },
       ast::BinaryOpKind::ModuleAccess => hir::ValExpr {
         source,
-        kind: hir::ValExprKind::Use(
-          ha.alloc(tr_place_expr(ha, dlogger, source)),
-        ),
+        kind: hir::ValExprKind::Use(ha.alloc(tr_place_expr(ha, dlogger, source))),
       },
       ast::BinaryOpKind::Range => todo!(),
       ast::BinaryOpKind::RangeInclusive => todo!(),
     },
+      ast::ExprKind::Let{ref pattern, ref value, ref body, ..}=> hir::ValExpr {
+        source,
+        kind: hir::ValExprKind::LetIn {
+          pat: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, pattern)),
+          val: ha.alloc(tr_val_expr(ha, dlogger, value)),
+          body: ha.alloc(tr_val_expr(ha, dlogger, body)),
+        },
+      },
+      ast::ExprKind::Mut{ref pattern, ref value, }=> hir::ValExpr {
+        source,
+        kind: hir::ValExprKind::Assign {
+          pat: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, pattern)),
+          val: ha.alloc(tr_val_expr(ha, dlogger, value)),
+        },
+      },
   }
 }
 
@@ -1110,7 +883,7 @@ fn tr_place_expr<'hir, 'ast>(
   ha: &'hir Bump,
   dlogger: &mut DiagnosticLogger,
   source: &'ast ast::Expr,
-) -> hir::PlaceExpr<'hir, 'ast, &'hir Bump> {
+) -> hir::PlaceExpr<'hir, 'ast> {
   match &source.kind {
     ast::ExprKind::Identifier(ref identifier) => {
       gen_place_from_identifier(source, dlogger, identifier)
@@ -1329,11 +1102,26 @@ fn tr_place_expr<'hir, 'ast>(
             field_source: right_operand,
           },
         },
+        ast::ExprKind::Ref => hir::PlaceExpr {
+          source,
+          kind: hir::PlaceExprKind::Op(
+            ha.alloc(tr_place_expr(ha, dlogger, left_operand)),
+            hir::PlaceExprOpKind::Ref,
+          ),
+        },
+        ast::ExprKind::UniqRef => hir::PlaceExpr {
+          source,
+          kind: hir::PlaceExprKind::Op(
+            ha.alloc(tr_place_expr(ha, dlogger, left_operand)),
+            hir::PlaceExprOpKind::UniqRef,
+          ),
+        },
         ast::ExprKind::Deref => hir::PlaceExpr {
           source,
-          // A place can be the dereference of a pointer.
-          // In that case we evaluate the struct_root and then dereference it
-          kind: hir::PlaceExprKind::Deref(ha.alloc(tr_val_expr(ha, dlogger, left_operand))),
+          kind: hir::PlaceExprKind::Op(
+            ha.alloc(tr_place_expr(ha, dlogger, left_operand)),
+            hir::PlaceExprOpKind::Deref,
+          ),
         },
         _ => {
           dlogger.log_field_not_valid(right_operand.range, &right_operand.kind);

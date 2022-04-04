@@ -69,8 +69,6 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
     arg_ty: &'hir ValExpr<'hir, 'ast, HA>,
     // a function from arg_ty -> Type yielding the output type
     body_dep_ty: &'hir ValExpr<'hir, 'ast, HA>,
-    // how many times it may be evaluated
-    use_kind: UseKind,
   },
   // Sequence
   Sequence {
@@ -112,7 +110,7 @@ pub enum PlaceExprKind<'hir, 'ast> {
     field_source: &'ast ast::Expr,
     field: &'ast Vec<u8>,
   },
-  Op(&'hir PlaceExpr<'hir, 'ast>, UseKind),
+  Op(&'hir PlaceExpr<'hir, 'ast>, PlaceExprOpKind),
   // A reference to a previously defined variable
   Var(&'ast [u8]),
   Builtin(Builtin),

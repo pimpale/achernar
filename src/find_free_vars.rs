@@ -80,7 +80,9 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
       parse_val_expr(ty_expr, bound_vars, free_vars);
     }
     hir::ValExprKind::CaseOf {
-      expr, ref case_options, ..
+      expr,
+      ref case_options,
+      ..
     } => {
       // parse scrutinee
       if let Some((var, varuse)) = parse_place_expr(expr, bound_vars) {

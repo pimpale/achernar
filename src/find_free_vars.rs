@@ -2,6 +2,8 @@ use std::alloc::Allocator;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
+use crate::hir::{PlaceExprKind, PlaceExprOpKind};
+
 use super::hir;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -105,24 +107,37 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
         parse_val_expr(field_initializer, bound_vars, free_vars);
       }
     }
-    hir::ValExprKind::EnumTy(_) => todo!(),
+    hir::ValExprKind::EnumTy(ref fields) => {
+      for (_, (_, field_initializer)) in fields {
+        parse_val_expr(field_initializer, bound_vars, free_vars);
+      }
+    }
     hir::ValExprKind::Pair { fst, snd } => {
       parse_val_expr(fst, bound_vars, free_vars);
       parse_val_expr(snd, bound_vars, free_vars);
     }
-    hir::ValExprKind::Lam { arg, body } => todo!(),
+    hir::ValExprKind::Lam { arg, body } => {
+      let original_len = bound_vars.len();
+      bound_vars.append(parse_irrefutable_expr(arg, bound_vars, free_vars));
+      parse_val_expr(body, bound_vars, free_vars);
+      bound_vars.truncate(original_len);
+    }
     hir::ValExprKind::LamTy {
       arg_ty,
       body_dep_ty,
-      use_kind,
-    } => todo!(),
+    } => {
+      let original_len = bound_vars.len();
+      bound_vars.append(parse_refutable_expr(arg_ty, bound_vars, free_vars));
+      parse_val_expr(body_dep_ty, bound_vars, free_vars);
+      bound_vars.truncate(original_len);
+    }
     hir::ValExprKind::Sequence { fst, snd } => {
       parse_val_expr(fst, bound_vars, free_vars);
       parse_val_expr(snd, bound_vars, free_vars);
     }
     hir::ValExprKind::LetIn { pat, val, body } => {
-      let original_len = bound_vars.len();
       parse_val_expr(val, bound_vars, free_vars);
+      let original_len = bound_vars.len();
       bound_vars.append(parse_irrefutable_expr(pat, bound_vars, free_vars));
       parse_val_expr(body, bound_vars, free_vars);
       bound_vars.truncate(original_len);
@@ -139,10 +154,12 @@ fn parse_place_expr<'hir, 'ast>(
 
   let mut current_root = source;
 
-  loop {
+  let var_name = loop {
     match current_root.kind {
-      hir::PlaceExprKind::Error => break,
-      hir::PlaceExprKind::StructField { root, .. } => current_root = root,
+      hir::PlaceExprKind::Error => return None,
+      hir::PlaceExprKind::StructField { root, field, .. } => {
+          current_root = root;
+              },
       hir::PlaceExprKind::Op(root, kind) => {
         parts.push(kind);
         current_root = root;
@@ -153,11 +170,40 @@ fn parse_place_expr<'hir, 'ast>(
         if exists(bound_vars, var_name) {
           return None;
         } else {
-          break;
+          break var_name;
         }
       }
       // no need to do any calculation, builtins are not variables
       hir::PlaceExprKind::Builtin(root) => return None,
     }
+  };
+
+  let mut uniq = false;
+  let mut layers_of_indirection = 0;
+  for x in parts.into_iter().rev() {
+    match x {
+      PlaceExprOpKind::Deref => {
+        layers_of_indirection += -1;
+        uniq = false;
+      }
+      PlaceExprOpKind::Ref => {
+        layers_of_indirection += 1;
+      }
+      PlaceExprOpKind::UniqRef => {
+        layers_of_indirection += 1;
+        uniq = true;
+      }
+    }
+    if layers_of_indirection < 0 {
+        return Some((var_name, UseKind::Take));
+    }
+  }
+
+  if layers_of_indirection == 0 {
+        return Some((var_name, UseKind::Take));
+  } else if uniq {
+        return Some((var_name, UseKind::UniqRef));
+  } else {
+        return Some((var_name, UseKind::Ref));
   }
 }

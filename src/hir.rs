@@ -65,8 +65,8 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
     body: &'hir ValExpr<'hir, 'ast, HA>,
   },
   LamTy {
-    // the type of the body
-    arg_ty: &'hir ValExpr<'hir, 'ast, HA>,
+    // a pattern the type of the argument
+    arg_ty: &'hir RefutablePatExpr<'hir, 'ast, HA>,
     // a function from arg_ty -> Type yielding the output type
     body_dep_ty: &'hir ValExpr<'hir, 'ast, HA>,
   },

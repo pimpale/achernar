@@ -118,7 +118,7 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
     }
     hir::ValExprKind::Lam { arg, body } => {
       let original_len = bound_vars.len();
-      bound_vars.append(parse_irrefutable_expr(arg, bound_vars, free_vars));
+      bound_vars.extend(parse_irrefutable_expr(arg, bound_vars));
       parse_val_expr(body, bound_vars, free_vars);
       bound_vars.truncate(original_len);
     }
@@ -138,11 +138,33 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
     hir::ValExprKind::LetIn { pat, val, body } => {
       parse_val_expr(val, bound_vars, free_vars);
       let original_len = bound_vars.len();
-      bound_vars.append(parse_irrefutable_expr(pat, bound_vars, free_vars));
+      bound_vars.extend(parse_irrefutable_expr(pat, bound_vars));
       parse_val_expr(body, bound_vars, free_vars);
       bound_vars.truncate(original_len);
     }
     hir::ValExprKind::Assign { val, .. } => parse_val_expr(val, bound_vars, free_vars),
+  }
+}
+
+fn parse_irrefutable_expr<'hir, 'ast, HA: Allocator + Clone>(
+  source: &'hir hir::IrrefutablePatExpr<'hir, 'ast, HA>,
+  bound_vars: &mut Vec<&'ast [u8]>,
+) -> Vec<&'ast [u8]> {
+  match source.kind {
+    hir::IrrefutablePatExprKind::Error => vec![],
+    hir::IrrefutablePatExprKind::Unit => vec![],
+    hir::IrrefutablePatExprKind::BindVariable(_) => todo!(),
+    hir::IrrefutablePatExprKind::Pair { fst, snd } => {
+      let fst_vars = parse_irrefutable_expr(fst, bound_vars);
+      let snd_vars = parse_irrefutable_expr(snd, bound_vars);
+      let ret = vec![];
+      ret.extend(fst_vars);
+      ret.extend(snd_vars);
+      ret
+    }
+    hir::IrrefutablePatExprKind::Struct(fields) => {
+        for (field,
+        },
   }
 }
 
@@ -158,8 +180,8 @@ fn parse_place_expr<'hir, 'ast>(
     match current_root.kind {
       hir::PlaceExprKind::Error => return None,
       hir::PlaceExprKind::StructField { root, field, .. } => {
-          current_root = root;
-              },
+        current_root = root;
+      }
       hir::PlaceExprKind::Op(root, kind) => {
         parts.push(kind);
         current_root = root;
@@ -178,6 +200,8 @@ fn parse_place_expr<'hir, 'ast>(
     }
   };
 
+  // TODO
+
   let mut uniq = false;
   let mut layers_of_indirection = 0;
   for x in parts.into_iter().rev() {
@@ -195,15 +219,15 @@ fn parse_place_expr<'hir, 'ast>(
       }
     }
     if layers_of_indirection < 0 {
-        return Some((var_name, UseKind::Take));
+      return Some((var_name, UseKind::Take));
     }
   }
 
   if layers_of_indirection == 0 {
-        return Some((var_name, UseKind::Take));
+    return Some((var_name, UseKind::Take));
   } else if uniq {
-        return Some((var_name, UseKind::UniqRef));
+    return Some((var_name, UseKind::UniqRef));
   } else {
-        return Some((var_name, UseKind::Ref));
+    return Some((var_name, UseKind::Ref));
   }
 }

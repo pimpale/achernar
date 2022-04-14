@@ -2,7 +2,7 @@ use std::alloc::Allocator;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-use crate::hir::{PlaceExprKind, PlaceExprOpKind};
+use crate::hir::PlaceExprOpKind;
 
 use super::hir;
 
@@ -27,7 +27,7 @@ fn add_entry<'ast>(env: &mut HashMap<&'ast [u8], UseKind>, var: &'ast [u8], varu
     Entry::Vacant(ve) => {
       ve.insert(varuse);
     }
-    Entry::Occupied(oe) => match varuse {
+    Entry::Occupied(mut oe) => match varuse {
       UseKind::Take => {
         oe.insert(varuse);
       }
@@ -59,7 +59,7 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
   bound_vars: &mut Vec<&'ast [u8]>,
   free_vars: &mut HashMap<&'ast [u8], UseKind>,
 ) {
-  match source.kind {
+  match &source.kind {
     hir::ValExprKind::Error => (),
     hir::ValExprKind::Loop(body) => parse_val_expr(body, bound_vars, free_vars),
     hir::ValExprKind::App { fun, arg } => {
@@ -93,7 +93,8 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
       // parse each branch of the case
       let original_len = bound_vars.len();
       for (case_pat, case_body) in case_options {
-        bound_vars.append(parse_refutable_expr(case_pat, bound_vars, free_vars));
+        let new_bound_vars = parse_refutable_expr(case_pat, bound_vars, free_vars);
+        bound_vars.extend(new_bound_vars);
         parse_val_expr(case_body, bound_vars, free_vars);
         bound_vars.truncate(original_len);
       }
@@ -118,7 +119,8 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
     }
     hir::ValExprKind::Lam { arg, body } => {
       let original_len = bound_vars.len();
-      bound_vars.extend(parse_irrefutable_expr(arg, bound_vars));
+      let new_bound_vars = parse_irrefutable_expr(arg, bound_vars);
+      bound_vars.extend(new_bound_vars);
       parse_val_expr(body, bound_vars, free_vars);
       bound_vars.truncate(original_len);
     }
@@ -127,7 +129,8 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
       body_dep_ty,
     } => {
       let original_len = bound_vars.len();
-      bound_vars.append(parse_refutable_expr(arg_ty, bound_vars, free_vars));
+      let new_bound_vars = parse_refutable_expr(arg_ty, bound_vars, free_vars);
+      bound_vars.extend(new_bound_vars);
       parse_val_expr(body_dep_ty, bound_vars, free_vars);
       bound_vars.truncate(original_len);
     }
@@ -138,11 +141,47 @@ fn parse_val_expr<'hir, 'ast, HA: Allocator + Clone>(
     hir::ValExprKind::LetIn { pat, val, body } => {
       parse_val_expr(val, bound_vars, free_vars);
       let original_len = bound_vars.len();
-      bound_vars.extend(parse_irrefutable_expr(pat, bound_vars));
+      let new_bound_vars = parse_irrefutable_expr(pat, bound_vars);
+      bound_vars.extend(new_bound_vars);
       parse_val_expr(body, bound_vars, free_vars);
       bound_vars.truncate(original_len);
     }
     hir::ValExprKind::Assign { val, .. } => parse_val_expr(val, bound_vars, free_vars),
+  }
+}
+
+fn parse_refutable_expr<'hir, 'ast, HA: Allocator + Clone>(
+  source: &'hir hir::RefutablePatExpr<'hir, 'ast, HA>,
+  bound_vars: &mut Vec<&'ast [u8]>,
+  free_vars: &mut HashMap<&'ast [u8], UseKind>,
+) -> Vec<&'ast [u8]> {
+  match source.kind {
+    hir::RefutablePatExprKind::Error => vec![],
+    hir::RefutablePatExprKind::IrrefutablePat(pat) => parse_irrefutable_expr(pat, bound_vars),
+    hir::RefutablePatExprKind::ValPat(pat) => {
+      parse_valpat_expr(pat, bound_vars, free_vars);
+      vec![]
+    }
+    hir::RefutablePatExprKind::Pair { fst, snd } => {
+      let fst_vars = parse_refutable_expr(fst, bound_vars, free_vars);
+      let snd_vars = parse_refutable_expr(snd, bound_vars, free_vars);
+      let mut ret = vec![];
+      ret.extend(fst_vars);
+      ret.extend(snd_vars);
+      ret
+    }
+    hir::RefutablePatExprKind::Struct(ref fields) => {
+      let mut ret = vec![];
+      for (_, (_, field_pat)) in fields {
+        ret.extend(parse_refutable_expr(field_pat, bound_vars, free_vars));
+      }
+      ret
+    }
+    hir::RefutablePatExprKind::And { fst, snd } => {
+      let fst_vars = parse_irrefutable_expr(fst, bound_vars);
+      parse_valpat_expr(snd, bound_vars, free_vars);
+      fst_vars
+    }
   }
 }
 
@@ -153,18 +192,59 @@ fn parse_irrefutable_expr<'hir, 'ast, HA: Allocator + Clone>(
   match source.kind {
     hir::IrrefutablePatExprKind::Error => vec![],
     hir::IrrefutablePatExprKind::Unit => vec![],
-    hir::IrrefutablePatExprKind::BindVariable(_) => todo!(),
+    hir::IrrefutablePatExprKind::BindVariable(var) => vec![var],
     hir::IrrefutablePatExprKind::Pair { fst, snd } => {
       let fst_vars = parse_irrefutable_expr(fst, bound_vars);
       let snd_vars = parse_irrefutable_expr(snd, bound_vars);
-      let ret = vec![];
+      let mut ret = vec![];
       ret.extend(fst_vars);
       ret.extend(snd_vars);
       ret
     }
-    hir::IrrefutablePatExprKind::Struct(fields) => {
-        for (field,
-        },
+    hir::IrrefutablePatExprKind::Struct(ref fields) => {
+      let mut ret = vec![];
+      for (_, (_, field_pat)) in fields {
+        ret.extend(parse_irrefutable_expr(field_pat, bound_vars));
+      }
+      ret
+    }
+  }
+}
+
+fn parse_valpat_expr<'hir, 'ast, HA: Allocator + Clone>(
+  source: &'hir hir::ValPatExpr<'hir, 'ast, HA>,
+  bound_vars: &mut Vec<&'ast [u8]>,
+  free_vars: &mut HashMap<&'ast [u8], UseKind>,
+) {
+  match source.kind {
+    hir::ValPatExprKind::Error => (),
+    hir::ValPatExprKind::Ignore => (),
+    hir::ValPatExprKind::Range { fst, snd, .. } => {
+      parse_val_expr(fst, bound_vars, free_vars);
+      parse_val_expr(snd, bound_vars, free_vars);
+    }
+    hir::ValPatExprKind::Constructor { fun, arg } => {
+      parse_val_expr(fun, bound_vars, free_vars);
+      parse_valpat_expr(arg, bound_vars, free_vars);
+    }
+    hir::ValPatExprKind::Pair { fst, snd } => {
+      parse_valpat_expr(fst, bound_vars, free_vars);
+      parse_valpat_expr(snd, bound_vars, free_vars);
+    }
+    hir::ValPatExprKind::Struct(ref fields) => {
+      for (_, (_, field_pat)) in fields {
+        parse_valpat_expr(field_pat, bound_vars, free_vars);
+      }
+    }
+    hir::ValPatExprKind::And { fst, snd } => {
+      parse_valpat_expr(fst, bound_vars, free_vars);
+      parse_valpat_expr(snd, bound_vars, free_vars);
+    }
+    hir::ValPatExprKind::Or { fst, snd } => {
+      parse_valpat_expr(fst, bound_vars, free_vars);
+      parse_valpat_expr(snd, bound_vars, free_vars);
+    }
+    hir::ValPatExprKind::Value(val) => parse_val_expr(val, bound_vars, free_vars),
   }
 }
 
@@ -177,7 +257,7 @@ fn parse_place_expr<'hir, 'ast>(
   let mut current_root = source;
 
   let var_name = loop {
-    match current_root.kind {
+    match &current_root.kind {
       hir::PlaceExprKind::Error => return None,
       hir::PlaceExprKind::StructField { root, field, .. } => {
         current_root = root;

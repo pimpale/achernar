@@ -181,8 +181,8 @@ pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables
   And {
-    fst: &'hir RefutablePatExpr<'hir, 'ast, HA>,
-    snd: &'hir RefutablePatExpr<'hir, 'ast, HA>,
+    fst: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
+    snd: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
 }
 
@@ -210,17 +210,17 @@ pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Also can be used to drop values during matching
   // Example: Array($a, $b, $c) = someFunc();
   // Example: _ () = someFunc();
-  ActivePattern {
+  Constructor {
     fun: &'hir ValExpr<'hir, 'ast, HA>,
     arg: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
-  // Destructures a field of a struct object
-  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValPatExpr<'hir, 'ast, HA>)), HA>),
   // destructure a tuple
   Pair {
     fst: &'hir ValPatExpr<'hir, 'ast, HA>,
     snd: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
+  // Destructures a field of a struct object
+  Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValPatExpr<'hir, 'ast, HA>)), HA>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables
   And {
@@ -235,7 +235,7 @@ pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   },
   // Refutable pattern of a value
   // TODO: this is not really correct, we want to have a pattern for int, bool, string, and tuple only
-  // everything else has to be done via transformer functions
+  // everything else has to be done via constructor functions
   Value(&'hir ValExpr<'hir, 'ast, HA>),
 }
 

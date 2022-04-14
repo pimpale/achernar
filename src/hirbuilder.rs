@@ -31,7 +31,6 @@ fn gen_bool<'hir, 'ast>(source: &'ast ast::Expr, b: bool) -> hir::ValExpr<'hir, 
 // It can handle if the var is captured
 fn gen_place_from_identifier<'hir, 'ast>(
   source: &'ast ast::Expr,
-  dlogger: &mut DiagnosticLogger,
   identifier: &'ast [u8],
 ) -> hir::PlaceExpr<'hir, 'ast> {
   hir::PlaceExpr {
@@ -63,7 +62,7 @@ fn parse_struct_fields<'ast>(
           sequences.push(left_operand);
           sequences.push(right_operand);
         }
-        ast::BinaryOpKind::Constrain=> match left_operand.as_ref() {
+        ast::BinaryOpKind::Constrain => match left_operand.as_ref() {
           // match field
           ast::Expr {
             kind: ast::ExprKind::Identifier(ref identifier),
@@ -238,8 +237,8 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       ast::BinaryOpKind::And => hir::RefutablePatExpr {
         source,
         kind: hir::RefutablePatExprKind::And {
-          fst: ha.alloc(tr_refutable_pat_expr(ha, dlogger, left_operand)),
-          snd: ha.alloc(tr_refutable_pat_expr(ha, dlogger, right_operand)),
+          fst: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, left_operand)),
+          snd: ha.alloc(tr_val_pat_expr(ha, dlogger, right_operand)),
         },
       },
       // Error
@@ -324,7 +323,7 @@ fn tr_val_pat_expr<'hir, 'ast>(
       },
       ast::BinaryOpKind::Apply => hir::ValPatExpr {
         source,
-        kind: hir::ValPatExprKind::ActivePattern {
+        kind: hir::ValPatExprKind::Constructor {
           fun: ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
           arg: ha.alloc(tr_val_pat_expr(ha, dlogger, right_operand)),
         },
@@ -449,17 +448,6 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Struct(fields),
       }
     }
-    // this option will only ever be invoked if we have a
-    // bare identifier without a reference
-    // In this case we are using it
-    ast::ExprKind::Identifier(_) => hir::ValExpr {
-      source,
-      kind: hir::ValExprKind::Use(
-        // generate the place
-        ha.alloc(tr_place_expr(ha, dlogger, source)),
-        // we take ownership of the value at this place
-      ),
-    },
     ast::ExprKind::Builtin(_) => hir::ValExpr {
       source,
       kind: hir::ValExprKind::Use(
@@ -603,7 +591,7 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             // generate the place
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_compose")),
+            ha.alloc(gen_place_from_identifier(source, b"_compose")),
           ),
         },
         vec![
@@ -625,7 +613,7 @@ fn tr_val_expr<'hir, 'ast>(
           source,
           kind: hir::ValExprKind::Use(
             // generate the place
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_add")),
+            ha.alloc(gen_place_from_identifier(source, b"_add")),
           ),
         },
         vec![
@@ -638,9 +626,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_sub")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_sub"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -652,9 +638,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_mul")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_mul"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -666,9 +650,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_div")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_div"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -680,9 +662,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(
-            ha.alloc(gen_place_from_identifier(source, dlogger, b"_rem")),
-          ),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_rem"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -770,7 +750,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_eq"))),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_eq"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -782,10 +762,8 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(
-            source, dlogger, // TODO: apply logical law here
-            b"_neq",
-          ))),
+          // TODO: apply logical law here
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_neq"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -797,7 +775,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_l"))),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_l"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -809,7 +787,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_le"))),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_le"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -821,7 +799,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_g"))),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_g"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -833,7 +811,7 @@ fn tr_val_expr<'hir, 'ast>(
         source,
         hir::ValExpr {
           source,
-          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, dlogger, b"_ge"))),
+          kind: hir::ValExprKind::Use(ha.alloc(gen_place_from_identifier(source, b"_ge"))),
         },
         vec![
           ha.alloc(tr_val_expr(ha, dlogger, left_operand)),
@@ -861,21 +839,29 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Range => todo!(),
       ast::BinaryOpKind::RangeInclusive => todo!(),
     },
-      ast::ExprKind::Let{ref pattern, ref value, ref body, ..}=> hir::ValExpr {
-        source,
-        kind: hir::ValExprKind::LetIn {
-          pat: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, pattern)),
-          val: ha.alloc(tr_val_expr(ha, dlogger, value)),
-          body: ha.alloc(tr_val_expr(ha, dlogger, body)),
-        },
+    ast::ExprKind::Let {
+      ref pattern,
+      ref value,
+      ref body,
+      ..
+    } => hir::ValExpr {
+      source,
+      kind: hir::ValExprKind::LetIn {
+        pat: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, pattern)),
+        val: ha.alloc(tr_val_expr(ha, dlogger, value)),
+        body: ha.alloc(tr_val_expr(ha, dlogger, body)),
       },
-      ast::ExprKind::Mut{ref pattern, ref value, }=> hir::ValExpr {
-        source,
-        kind: hir::ValExprKind::Assign {
-          pat: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, pattern)),
-          val: ha.alloc(tr_val_expr(ha, dlogger, value)),
-        },
+    },
+    ast::ExprKind::Mut {
+      ref pattern,
+      ref value,
+    } => hir::ValExpr {
+      source,
+      kind: hir::ValExprKind::Assign {
+        pat: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, pattern)),
+        val: ha.alloc(tr_val_expr(ha, dlogger, value)),
       },
+    },
   }
 }
 
@@ -885,9 +871,7 @@ fn tr_place_expr<'hir, 'ast>(
   source: &'ast ast::Expr,
 ) -> hir::PlaceExpr<'hir, 'ast> {
   match &source.kind {
-    ast::ExprKind::Identifier(ref identifier) => {
-      gen_place_from_identifier(source, dlogger, identifier)
-    }
+    ast::ExprKind::Identifier(ref identifier) => gen_place_from_identifier(source, identifier),
     ast::ExprKind::Builtin(ref builtin) => {
       fn is_valid_int_ty(s: &[u8]) -> bool {
         match s {

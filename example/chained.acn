@@ -5,9 +5,7 @@
 # On the right hand side of the arrow a function call is required
 # the left hand side of the argument is subsituted in as the first argument of the function on the right
 
-#!attribute
 somethings
-  .filter(x:int -> x > 10)
-  .sort(a:int -> b:int #!func -> a - b)
-  #! this operation maps to a string
-  .map(x -> x.toString)
+  | filter (x:int -> x > 10)
+  | sort (a:int -> b:int -> a - b)
+  | map (x -> x.toString)

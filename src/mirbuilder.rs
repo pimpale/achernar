@@ -12,7 +12,6 @@ pub fn construct_mir<'ast, 'hir, 'mir, HirAllocator: Clone + Allocator>(
   hir: &'hir hir::ValExpr<'hir, 'ast, HirAllocator>,
   allocator: &'mir Bump,
   mut dlogger: DiagnosticLogger,
-) -> mir::BasicBlock {
-  match hir {
-  }
+) -> mir::BasicBlock<'ast, 'mir, 'hir, &'mir Bump, HirAllocator> {
+    todo!();
 }

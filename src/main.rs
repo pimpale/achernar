@@ -27,12 +27,15 @@ fn main() {
   let tokenstream = tokenize(charstream, log.get_logger(Some(String::from("acnc-lex"))));
   let ast = construct_ast(tokenstream, log.get_logger(Some(String::from("acnc-ast"))));
 
-  let allocator = Bump::new();
-  let hir = construct_hir(
-    &ast,
-    &allocator,
-    log.get_logger(Some(String::from("acnc-hir"))),
-  );
+  dbg!(ast);
+
+  //let allocator = Bump::new();
+  //let hir = construct_hir(
+  //  &ast,
+  //  &allocator,
+  //  log.get_logger(Some(String::from("acnc-hir"))),
+  //);
+
 
   // let thir = construct_thir(
   //   &hir,

@@ -6,31 +6,14 @@ use lsp_types::Range;
 use peekmore::{PeekMore, PeekMoreIterator};
 
 // clobbers the cursor
-fn peek_past_metadata<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-) -> &Token {
-  tkiter
-    .advance_cursor_while(|tk| {
-      matches!(
-        tk,
-        Some(&Token {
-          kind: Some(TokenKind::Metadata { .. }),
-          ..
-        })
-      )
-    })
-    .peek()
-    .unwrap()
-}
-
 fn get_metadata<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
 ) -> Vec<Metadata> {
   let mut metadata = vec![];
-  while let Some(Token {
+  while let Token {
     kind: Some(TokenKind::Metadata { significant, value }),
     range,
-  }) = tkiter.peek_nth(0).cloned()
+  } = tkiter.peek_nth(0).unwrap().clone()
   {
     metadata.push(Metadata {
       range,
@@ -52,14 +35,14 @@ fn parse_l_binary_op<TkIter: Iterator<Item = Token>>(
   operator_fn: impl Fn(
     &mut PeekMoreIterator<TkIter>,
     &mut DiagnosticLogger,
-  ) -> Option<(BinaryOpKind, Range, Vec<Metadata>)>,
+  ) -> Option<(BinaryOpKind, Range)>,
 ) -> Expr {
   // parse lower expr
   let mut expr = lower_fn(tkiter, dlogger);
 
   loop {
     // operator function consumes operator, returning binop
-    if let Some((op, _, metadata)) = operator_fn(tkiter, dlogger) {
+    if let Some((op, _)) = operator_fn(tkiter, dlogger) {
       // define the old expr as our left side
       let left_operand = Box::new(expr);
 
@@ -74,7 +57,7 @@ fn parse_l_binary_op<TkIter: Iterator<Item = Token>>(
           left_operand,
           right_operand,
         },
-        metadata,
+        metadata: vec![],
       }
     } else {
       // if we dont have a definition just return the current expr
@@ -90,13 +73,13 @@ fn parse_r_binary_op<TkIter: Iterator<Item = Token>>(
   operator_fn: impl Fn(
     &mut PeekMoreIterator<TkIter>,
     &mut DiagnosticLogger,
-  ) -> Option<(BinaryOpKind, Range, Vec<Metadata>)>,
+  ) -> Option<(BinaryOpKind, Range)>,
 ) -> Expr {
   // parse lower expr
   let expr = lower_fn(tkiter, dlogger);
 
   // operator function consumes operator, returning binop
-  if let Some((op, _, metadata)) = operator_fn(tkiter, dlogger) {
+  if let Some((op, _)) = operator_fn(tkiter, dlogger) {
     // define the old expr as our left side
     let left_operand = Box::new(expr);
 
@@ -111,7 +94,7 @@ fn parse_r_binary_op<TkIter: Iterator<Item = Token>>(
         left_operand,
         right_operand,
       },
-      metadata,
+      metadata: vec![],
     }
   } else {
     // if token is invalid we can just return the current expr
@@ -122,23 +105,18 @@ fn parse_r_binary_op<TkIter: Iterator<Item = Token>>(
 // a simple operator that checks if the next token is valid, and then advances
 fn simple_operator_fn<'a, TkIter: Iterator<Item = Token>, OpKind>(
   decide_fn: impl Fn(&TokenKind) -> Option<OpKind> + 'a,
-) -> impl Fn(
-  &mut PeekMoreIterator<TkIter>,
-  &mut DiagnosticLogger,
-) -> Option<(OpKind, Range, Vec<Metadata>)>
-     + 'a {
+) -> impl Fn(&mut PeekMoreIterator<TkIter>, &mut DiagnosticLogger) -> Option<(OpKind, Range)> + 'a {
   move |tkiter: &mut PeekMoreIterator<TkIter>, _: &mut DiagnosticLogger| {
     if let Token {
       kind: Some(kind),
       range,
-    } = peek_past_metadata(tkiter)
+    } = tkiter.peek_nth(0).unwrap()
     {
       if let Some(binop) = decide_fn(kind) {
         let range = *range;
-        let metadata = get_metadata(tkiter);
         // drop peeked operator
         tkiter.next();
-        return Some((binop, range, metadata));
+        return Some((binop, range));
       }
     }
     None
@@ -540,10 +518,20 @@ fn parse_term<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
 ) -> Expr {
+  tkiter.reset_cursor();
+
   let Token {
     kind: maybe_kind,
     range,
-  } = peek_past_metadata(tkiter).clone();
+  } = loop {
+      let token = tkiter.peek().unwrap();
+      if let Token { kind: Some(TokenKind::Metadata {..}), .. } = token {
+         tkiter.advance_cursor();
+      } else {
+          break token;
+      }
+  }.clone();
+
   if let Some(kind) = maybe_kind {
     if let Some(parser) = decide_term(&kind) {
       parser(tkiter, dlogger)
@@ -560,11 +548,13 @@ fn parse_term<TkIter: Iterator<Item = Token>>(
       }
     }
   } else {
-    dlogger.log_unexpected_token(range, "term", maybe_kind);
+    // grab metadata
+    let metadata = get_metadata(tkiter);
+    dlogger.log_unexpected_token(range, "term", None);
     Expr {
       range,
       kind: ExprKind::Error,
-      metadata: get_metadata(tkiter),
+      metadata,
     }
   }
 }
@@ -592,10 +582,10 @@ fn parse_apply_operators<TkIter: Iterator<Item = Token>>(
     if let Token {
       kind: Some(kind),
       range,
-    } = peek_past_metadata(tkiter)
+    } = tkiter.peek_nth(0).unwrap()
     {
       if decide_term::<TkIter>(kind).is_some() {
-        return Some((BinaryOpKind::Apply, *range, vec![]));
+        return Some((BinaryOpKind::Apply, *range));
       }
     }
     None

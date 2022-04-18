@@ -182,7 +182,8 @@ impl DiagnosticLogger {
 
   fn log(&mut self, d: Diagnostic) {
     dbg!(d.clone());
-    self.sender.send(d).unwrap()
+    self.sender.send(d).unwrap();
+    todo!();
   }
 
   pub fn log_cannot_find_label_in_scope(&mut self, range: Range, label: &[u8]) {

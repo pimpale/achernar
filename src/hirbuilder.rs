@@ -387,7 +387,7 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Error,
       }
     }
-    ref c @ (ast::ExprKind::Val(_) | ast::ExprKind::Identifier(_)) => {
+    ref c @ (ast::ExprKind::Val(_)) => {
       dlogger.log_only_in_pattern(source.range, c);
 
       hir::ValExpr {
@@ -448,7 +448,7 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Struct(fields),
       }
     }
-    ast::ExprKind::Builtin(_) => hir::ValExpr {
+    ast::ExprKind::Identifier(_) | ast::ExprKind::Builtin(_) => hir::ValExpr {
       source,
       kind: hir::ValExprKind::Use(
         // generate the place
@@ -566,7 +566,7 @@ fn tr_val_expr<'hir, 'ast>(
       ast::BinaryOpKind::Defun => hir::ValExpr {
         source,
         kind: hir::ValExprKind::Lam {
-          arg: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, left_operand)),
+          arg: ha.alloc({dbg!(left_operand.clone()); tr_irrefutable_pat_expr(ha, dlogger, left_operand)}),
           body: ha.alloc(tr_val_expr(ha, dlogger, right_operand)),
         },
       },

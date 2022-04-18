@@ -2,7 +2,7 @@ use super::hir;
 use hashbrown::HashMap;
 use std::alloc::Allocator;
 
-pub enum Ty<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
+pub enum Ty<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Ty,
   Nil,
   Bool,
@@ -16,18 +16,18 @@ pub enum Ty<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
     bits: u8,
   },
   Cons {
-    left: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
-    right: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
+    left: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
+    right: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
   },
   Struct {
-    fields: HashMap<Vec<u8, A>, Ty<'ast, 'hir, 'mir, A, HA>, A>,
+    fields: HashMap<Vec<u8, MA>, Ty<'ast, 'hir, 'mir, MA, HA>, MA>,
   },
   Enum {
-    fields: HashMap<Vec<u8, A>, Ty<'ast, 'hir, 'mir, A, HA>, A>,
+    fields: HashMap<Vec<u8, MA>, Ty<'ast, 'hir, 'mir, MA, HA>, MA>,
   },
   Func {
-    inType: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
-    outType: &'mir Ty<'ast, 'hir, 'mir, A, HA>,
+    inType: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
+    outType: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
   },
   // IDK why i have this...
   _dummy(
@@ -36,7 +36,7 @@ pub enum Ty<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
   ),
 }
 
-pub enum Val<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
+pub enum Val<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Unit,
   Bool(bool),
   BitVecU8(u8),
@@ -50,70 +50,70 @@ pub enum Val<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
   Float32(f32),
   Float64(f64),
   Cons {
-    left: &'mir Val<'ast, 'hir, 'mir, A, HA>,
-    right: &'mir Val<'ast, 'hir, 'mir, A, HA>,
+    left: &'mir Val<'ast, 'hir, 'mir, MA, HA>,
+    right: &'mir Val<'ast, 'hir, 'mir, MA, HA>,
   },
   Struct {
-    fields: HashMap<Vec<u8, A>, Val<'ast, 'hir, 'mir, A, HA>, A>,
+    fields: HashMap<Vec<u8, MA>, Val<'ast, 'hir, 'mir, MA, HA>, MA>,
   },
   Enum {
-    fields: HashMap<Vec<u8, A>, Val<'ast, 'hir, 'mir, A, HA>, A>,
+    fields: HashMap<Vec<u8, MA>, Val<'ast, 'hir, 'mir, MA, HA>, MA>,
   },
   Func {
-    code: MirFunc<'ast, 'hir, 'mir, A, HA>,
+    code: MirFunc<'ast, 'hir, 'mir, MA, HA>,
   },
-  Ty(Ty<'ast, 'hir, 'mir, A, HA>),
+  Ty(Ty<'ast, 'hir, 'mir, MA, HA>),
   Never {
-    returned: &'mir Val<'ast, 'hir, 'mir, A, HA>,
+    returned: &'mir Val<'ast, 'hir, 'mir, MA, HA>,
     levelsUp: u32,
   },
 }
 
-pub enum Place<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
+pub enum Place<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Local {
     source: Option<&'hir hir::IrrefutablePatExpr<'hir, 'ast, HA>>,
-    ty: Ty<'ast, 'hir, 'mir, A, HA>,
+    ty: Ty<'ast, 'hir, 'mir, MA, HA>,
   },
 }
 
-pub enum Operand<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
-  Move(Place<'ast, 'hir, 'mir, A, HA>),
-  Copy(Place<'ast, 'hir, 'mir, A, HA>),
+pub enum Operand<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  Move(Place<'ast, 'hir, 'mir, MA, HA>),
+  Copy(Place<'ast, 'hir, 'mir, MA, HA>),
 }
 
-pub struct BasicBlock<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
-  statements: Vec<Statement<'ast, 'hir, 'mir, A, HA>, A>,
-  terminator: Terminator<'ast, 'hir, 'mir, A, HA>,
+pub struct BasicBlock<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  statements: Vec<Statement<'ast, 'hir, 'mir, MA, HA>, MA>,
+  terminator: Terminator<'ast, 'hir, 'mir, MA, HA>,
 }
 
-pub struct Statement<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
+pub struct Statement<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  kind: StatementKind<'ast, 'hir, 'mir, A, HA>,
+  kind: StatementKind<'ast, 'hir, 'mir, MA, HA>,
 }
 
-pub enum StatementKind<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
+pub enum StatementKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Write {
-    target: Place<'ast, 'hir, 'mir, A, HA>,
-    value: Operand<'ast, 'hir, 'mir, A, HA>,
+    target: Place<'ast, 'hir, 'mir, MA, HA>,
+    value: Operand<'ast, 'hir, 'mir, MA, HA>,
   },
 }
 
-pub enum Terminator<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
+pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   // leaves the program
   Exit,
   // Calls another function
   Call {
     // the function to call
-    function: Operand<'ast, 'hir, 'mir, A, HA>,
+    function: Operand<'ast, 'hir, 'mir, MA, HA>,
     // the argument provided to the call
-    arg: Operand<'ast, 'hir, 'mir, A, HA>,
+    arg: Operand<'ast, 'hir, 'mir, MA, HA>,
     // the call will write its return value in this place
-    write_result: Place<'ast, 'hir, 'mir, A, HA>,
+    write_result: Place<'ast, 'hir, 'mir, MA, HA>,
     // execution will continue from this point
-    dest: &'mir BasicBlock<'ast, 'hir, 'mir, A, HA>,
+    dest: &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>,
   },
 }
 
-pub struct MirFunc<'ast, 'hir, 'mir, A: Allocator + Clone, HA: Allocator + Clone> {
-  root: BasicBlock<'ast, 'hir, 'mir, A, HA>,
+pub struct MirFunc<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  root: BasicBlock<'ast, 'hir, 'mir, MA, HA>,
 }

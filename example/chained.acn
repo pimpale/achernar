@@ -6,6 +6,6 @@
 # the left hand side of the argument is subsituted in as the first argument of the function on the right
 
 somethings
-  | filter (x:int -> x > 10)
-  | sort (a:int -> b:int -> a - b)
-  | map (x -> x.toString)
+  | filter (x -> x > 10)
+  | sort (a -> b -> a - b)
+  | map toString

@@ -387,7 +387,7 @@ fn tr_val_expr<'hir, 'ast>(
         kind: hir::ValExprKind::Error,
       }
     }
-    ref c @ (ast::ExprKind::Val(_)) => {
+    ref c @ ast::ExprKind::Val(_) => {
       dlogger.log_only_in_pattern(source.range, c);
 
       hir::ValExpr {

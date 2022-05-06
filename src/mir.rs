@@ -1,7 +1,7 @@
 use super::hir;
 use hashbrown::HashMap;
 use num_bigint::BigInt;
-use std::{alloc::Allocator, };
+use std::alloc::Allocator;
 
 pub enum Ty<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Ty,
@@ -71,18 +71,13 @@ pub enum Val<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
 }
 
 pub enum Place<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Local {
-    source: Option<&'hir hir::IrrefutablePatExpr<'hir, 'ast, HA>>,
-    ty: Ty<'ast, 'hir, 'mir, MA, HA>,
-  },
+  Local(i32),
 }
 
 pub enum Operand<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Move(Place<'ast, 'hir, 'mir, MA, HA>),
   Copy(Place<'ast, 'hir, 'mir, MA, HA>),
 }
-
-
 
 pub struct Statement<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
@@ -92,10 +87,8 @@ pub struct Statement<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Cl
 pub enum StatementKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   /// pushes a local onto the stack
   DeclareLocal {
-      value: RValue<'ast, 'hir, 'mir, MA, HA>,
+    value: RValue<'ast, 'hir, 'mir, MA, HA>,
   },
-  /// Dummy read so that even never-used variables are checked
-  FakeRead(Place<'ast, 'hir, 'mir, MA, HA>),
   /// Mutates a place
   Mutate {
     target: Place<'ast, 'hir, 'mir, MA, HA>,
@@ -103,10 +96,34 @@ pub enum StatementKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + 
   },
 }
 
-pub enum ValPatExpr<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone>{
+pub enum RValue<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  Builtin(hir::Builtin),
+  Use(Operand<'ast, 'hir, 'mir, MA, HA>),
+  GetRef {
+      mutable: bool,
+      place: Place<'ast, 'hir, 'mir, MA, HA>
+  },
+
+}
+
+pub enum ValPatExpr<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  Ignore,
   Unit,
   Bool(bool),
-  Int(BigInt
+  Int(&'ast BigInt),
+  Pair(
+    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
+    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
+  ),
+  And(
+    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
+    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
+  ),
+  Or(
+    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
+    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
+  ),
+  Local(Place<'ast, 'hir, 'mir, MA, HA>),
 }
 
 pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
@@ -114,9 +131,9 @@ pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clo
   CaseOf {
     place: Place<'ast, 'hir, 'mir, MA, HA>,
     cases: (
-        &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>,
-        &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>
-    )
+      &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
+      &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>,
+    ),
   },
   // leaves the program
   Exit,
@@ -138,17 +155,11 @@ pub struct BasicBlock<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + C
   terminator: Terminator<'ast, 'hir, 'mir, MA, HA>,
 }
 
-
 pub struct MirFunc<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   root: BasicBlock<'ast, 'hir, 'mir, MA, HA>,
 }
 
-
-
-pub enum MirModuleEntry <'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-    Constant {
-        to_eval: BasicBlock
-    },
-    Function(MirFunc),
-
+pub enum MirModuleEntry<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  Constant { to_eval: BasicBlock },
+  Function(MirFunc),
 }

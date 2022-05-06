@@ -29,6 +29,8 @@ pub enum ValExprKind<'hir, 'ast, HA: Allocator + Clone> {
 
   // use place
   Use(&'hir PlaceExpr<'hir, 'ast>),
+  // use place
+  Builtin(Builtin),
 
   // Annotate the value with the type
   Annotate {
@@ -113,7 +115,6 @@ pub enum PlaceExprKind<'hir, 'ast> {
   Op(&'hir PlaceExpr<'hir, 'ast>, PlaceExprOpKind),
   // A reference to a previously defined variable
   Var(&'ast [u8]),
-  Builtin(Builtin),
 }
 
 #[derive(Debug)]
@@ -247,35 +248,35 @@ pub struct ValPatExpr<'hir, 'ast, HA: Allocator + Clone> {
 
 #[derive(Debug)]
 pub enum IntOp {
-  Add,         // u -> u -> u
-  AddOverflow, // u -> u -> (u, u)
-  Sub,         // u -> u -> u
-  SubOverflow, // u -> u -> (u, u)
-  Mul,         // u -> u -> u
-  MulOverflow, // u -> u -> (u, u)
-  Div,         // u -> u -> u
-  Rem,         // u -> u -> u
-  DivRem,      // u -> u -> (u, u)
-  ShlL,        // u -> u -> u
-  ShrL,        // u -> u -> u
-  ShrA,        // u -> u -> u
-  Rol,         // u -> u -> u
-  Ror,         // u -> u -> u
-  And,         // u -> u -> u
-  Or,          // u -> u -> u
-  Xor,         // u -> u -> u
+  Add,         // (u, u) -> u
+  AddOverflow, // (u, u) -> (u, u)
+  Sub,         // (u, u) -> u
+  SubOverflow, // (u, u) -> (u, u)
+  Mul,         // (u, u) -> u
+  MulOverflow, // (u, u) -> (u, u)
+  Div,         // (u, u) -> u
+  Rem,         // (u, u) -> u
+  DivRem,      // (u, u) -> (u, u)
+  ShlL,        // (u, u) -> u
+  ShrL,        // (u, u) -> u
+  ShrA,        // (u, u) -> u
+  Rol,         // (u, u) -> u
+  Ror,         // (u, u) -> u
+  And,         // (u, u) -> u
+  Or,          // (u, u) -> u
+  Xor,         // (u, u) -> u
   Inv,         // u -> u
   Neg,         // u -> u
 }
 
 #[derive(Debug)]
 pub enum FloatOp {
-  Add,    // f -> f -> f
-  Sub,    // f -> f -> f
-  Mul,    // f -> f -> f
-  Div,    // f -> f -> f
-  Rem,    // f -> f -> f
-  DivRem, // f -> f -> (f, f)
+  Add,    // (f, f) -> f
+  Sub,    // (f, f) -> f
+  Mul,    // (f, f) -> f
+  Div,    // (f, f) -> f
+  Rem,    // (f, f) -> f
+  DivRem, // (f, f) -> (f, f)
   Neg,    // f -> f
 }
 
@@ -318,9 +319,4 @@ pub enum Builtin {
   ConvIntFloatOp { src: IntTy, dest: FloatTy },
   ConvFloatIntOp { src: FloatTy, dest: IntTy },
   ConvFloatFloatOp { src: FloatTy, dest: FloatTy },
-  // Handle Memory addresses
-  Ref,
-  Deref,
-  // Forget memory
-  Forget,
 }

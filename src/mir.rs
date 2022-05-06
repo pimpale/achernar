@@ -1,6 +1,7 @@
 use super::hir;
 use hashbrown::HashMap;
-use std::{alloc::Allocator, task::RawWakerVTable};
+use num_bigint::BigInt;
+use std::{alloc::Allocator, };
 
 pub enum Ty<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Ty,
@@ -81,10 +82,7 @@ pub enum Operand<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone>
   Copy(Place<'ast, 'hir, 'mir, MA, HA>),
 }
 
-pub struct BasicBlock<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  statements: Vec<Statement<'ast, 'hir, 'mir, MA, HA>, MA>,
-  terminator: Terminator<'ast, 'hir, 'mir, MA, HA>,
-}
+
 
 pub struct Statement<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
@@ -105,16 +103,18 @@ pub enum StatementKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + 
   },
 }
 
-pub enum ValPatExprKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone>
+pub enum ValPatExpr<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone>{
+  Unit,
+  Bool(bool),
+  Int(BigInt
+}
 
 pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   // switch
   CaseOf {
     place: Place<'ast, 'hir, 'mir, MA, HA>,
     cases: (
-        /// condition of the block, runs to determine equality
         &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>,
-        /// body of the block
         &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>
     )
   },
@@ -133,6 +133,22 @@ pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clo
   },
 }
 
+pub struct BasicBlock<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  statements: Vec<Statement<'ast, 'hir, 'mir, MA, HA>, MA>,
+  terminator: Terminator<'ast, 'hir, 'mir, MA, HA>,
+}
+
+
 pub struct MirFunc<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   root: BasicBlock<'ast, 'hir, 'mir, MA, HA>,
+}
+
+
+
+pub enum MirModuleEntry <'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+    Constant {
+        to_eval: BasicBlock
+    },
+    Function(MirFunc),
+
 }

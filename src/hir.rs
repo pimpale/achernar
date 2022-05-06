@@ -181,8 +181,8 @@ pub enum RefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables
   And {
-    fst: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
-    snd: &'hir ValPatExpr<'hir, 'ast, HA>,
+    fst: &'hir RefutablePatExpr<'hir, 'ast, HA>,
+    snd: &'hir RefutablePatExpr<'hir, 'ast, HA>,
   },
 }
 

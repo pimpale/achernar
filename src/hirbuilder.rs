@@ -237,8 +237,8 @@ fn tr_refutable_pat_expr<'hir, 'ast>(
       ast::BinaryOpKind::And => hir::RefutablePatExpr {
         source,
         kind: hir::RefutablePatExprKind::And {
-          fst: ha.alloc(tr_irrefutable_pat_expr(ha, dlogger, left_operand)),
-          snd: ha.alloc(tr_val_pat_expr(ha, dlogger, right_operand)),
+          fst: ha.alloc(tr_refutable_pat_expr(ha, dlogger, left_operand)),
+          snd: ha.alloc(tr_refutable_pat_expr(ha, dlogger, right_operand)),
         },
       },
       // Error

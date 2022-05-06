@@ -36,7 +36,6 @@ fn main() {
 
   dbg!(hir);
 
-  let
 
   // let thir = construct_thir(
   //   &hir,

@@ -1,6 +1,6 @@
 use super::hir;
 use hashbrown::HashMap;
-use std::alloc::Allocator;
+use std::{alloc::Allocator, task::RawWakerVTable};
 
 pub enum Ty<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Ty,
@@ -92,13 +92,32 @@ pub struct Statement<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Cl
 }
 
 pub enum StatementKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Write {
+  /// pushes a local onto the stack
+  DeclareLocal {
+      value: RValue<'ast, 'hir, 'mir, MA, HA>,
+  },
+  /// Dummy read so that even never-used variables are checked
+  FakeRead(Place<'ast, 'hir, 'mir, MA, HA>),
+  /// Mutates a place
+  Mutate {
     target: Place<'ast, 'hir, 'mir, MA, HA>,
-    value: Operand<'ast, 'hir, 'mir, MA, HA>,
+    value: RValue<'ast, 'hir, 'mir, MA, HA>,
   },
 }
 
+pub enum ValPatExprKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone>
+
 pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  // switch
+  CaseOf {
+    place: Place<'ast, 'hir, 'mir, MA, HA>,
+    cases: (
+        /// condition of the block, runs to determine equality
+        &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>,
+        /// body of the block
+        &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>
+    )
+  },
   // leaves the program
   Exit,
   // Calls another function

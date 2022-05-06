@@ -8,7 +8,16 @@ use std::alloc::Allocator;
 
 use super::mir;
 
-pub fn construct_mir<'ast, 'hir, 'mir, HirAllocator: Clone + Allocator>(
+
+pub fn construct_mir_fn<'ast, 'hir, 'mir, HirAllocator: Clone + Allocator>(
+  hir: &'hir hir::ValExpr<'hir, 'ast, HirAllocator>,
+  allocator: &'mir Bump,
+) -> mir::BasicBlock<'ast, 'mir, 'hir, &'mir Bump, HirAllocator>{
+
+
+}
+
+pub fn construct_mir_module<'ast, 'hir, 'mir, HirAllocator: Clone + Allocator>(
   hir: &'hir hir::ValExpr<'hir, 'ast, HirAllocator>,
   allocator: &'mir Bump,
   mut dlogger: DiagnosticLogger,

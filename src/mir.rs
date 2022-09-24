@@ -160,6 +160,9 @@ pub struct MirFunc<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clon
 }
 
 pub enum MirModuleEntry<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Constant { to_eval: BasicBlock },
-  Function(MirFunc),
+    Const {
+        place: Place<'ast, 'hir, 'mir, MA, HA>,
+        toeval: BasicBlock<'ast, 'hir, 'mir, MA, HA>
+    },
+    Function(MirFunc<'ast, 'hir, 'mir, MA, HA>)
 }

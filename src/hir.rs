@@ -137,7 +137,7 @@ pub enum IrrefutablePatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     fst: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
     snd: &'hir IrrefutablePatExpr<'hir, 'ast, HA>,
   },
-  // Depub structures a field of a pub struct object
+  // Destructures a field of a struct object
   Struct(
     Vec<
       (

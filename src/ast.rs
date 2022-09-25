@@ -88,8 +88,6 @@ pub enum ExprKind {
   Group(Box<Expr>),
   // A reference to a previously defined variable
   Identifier(Vec<u8>),
-  // Builtin thing
-  Builtin(Vec<u8>),
   // struct and enumify
   Struct(Box<Expr>),
   Enum(Box<Expr>),

@@ -206,27 +206,6 @@ fn parse_exact_identifier<TkIter: Iterator<Item = Token>>(
   }
 }
 
-// parses an exact builtin or panics
-fn parse_exact_builtin<TkIter: Iterator<Item = Token>>(
-  tkiter: &mut PeekMoreIterator<TkIter>,
-  _dlogger: &mut DiagnosticLogger,
-) -> Expr {
-  let metadata = get_metadata(tkiter);
-  if let Token {
-    range,
-    kind: Some(TokenKind::Builtin(builtin)),
-  } = tkiter.next().unwrap()
-  {
-    Expr {
-      metadata,
-      range,
-      kind: ExprKind::Builtin(builtin),
-    }
-  } else {
-    unimplemented!()
-  }
-}
-
 fn parse_case_options<TkIter: Iterator<Item = Token>>(
   tkiter: &mut PeekMoreIterator<TkIter>,
   dlogger: &mut DiagnosticLogger,
@@ -502,7 +481,6 @@ fn decide_term<TkIter: Iterator<Item = Token>>(
     TokenKind::Const => Some(parse_exact_let::<TkIter>),
     TokenKind::Lifetime(_) => Some(parse_exact_lifetime::<TkIter>),
     TokenKind::Identifier(_) => Some(parse_exact_identifier::<TkIter>),
-    TokenKind::Builtin(_) => Some(parse_exact_builtin::<TkIter>),
     TokenKind::Ref => Some(|a, b| parse_simple(TokenKind::Ref, ExprKind::Ref)(a, b)),
     TokenKind::UniqRef => Some(|a, b| parse_simple(TokenKind::UniqRef, ExprKind::UniqRef)(a, b)),
     TokenKind::Deref => Some(|a, b| parse_simple(TokenKind::Deref, ExprKind::Deref)(a, b)),

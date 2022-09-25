@@ -103,17 +103,6 @@ impl<Source: Iterator<Item = u8>> Tokenizer<Source> {
     Token::new(TokenKind::Lifetime(word), union_of(ar, range))
   }
 
-  // lexes a builtin
-  fn lex_builtin(&mut self) -> Token {
-    assert!(matches!(self.source.peek_nth(0), Some((Some(b'_'), _))));
-    // handle initial underscore
-    let (_, ar) = self.source.next().unwrap();
-    // parse lifetime body
-    let (word, range) = self.internal_lex_word();
-    // return lifetime
-    Token::new(TokenKind::Builtin(word), union_of(ar, range))
-  }
-
   // requires at least one character exists...
   fn internal_lex_base_number(&mut self, radix: u8, max_len: Option<u32>) -> (BigUint, Range, u32) {
     let mut range = self.source.peek_nth(0).unwrap().1;
@@ -483,12 +472,11 @@ impl<Source: Iterator<Item = u8>> Iterator for Tokenizer<Source> {
     loop {
       match self.source.peek_nth(0).unwrap().0 {
         // here we match different characters
-        Some(b'a'..=b'z' | b'A'..=b'Z') => return Some(self.lex_identifier_or_keyword()),
+        Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => return Some(self.lex_identifier_or_keyword()),
         Some(b'0'..=b'9') => return Some(self.lex_number()),
         Some(b'`') => return Some(self.lex_strop()),
         Some(b'#') => return Some(self.lex_metadata()),
         Some(b'\'') => return Some(self.lex_lifetime()),
-        Some(b'_') => return Some(self.lex_builtin()),
         Some(b'"') => match self.source.peek_nth(1).unwrap().0 {
           Some(b'"') => return Some(self.lex_block_string()),
           _ => return Some(self.lex_string()),

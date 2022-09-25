@@ -1,26 +1,18 @@
 use super::dlogger::DiagnosticLogger;
 use super::hir;
-use bumpalo::Bump;
-use hashbrown::HashMap;
-use num_bigint::BigInt;
-use num_rational::BigRational;
 use std::alloc::Allocator;
 
 use super::mir;
 
-
-pub fn construct_mir_fn<'ast, 'hir, 'mir, HirAllocator: Clone + Allocator>(
+pub fn construct_mir_fn<'ast, 'hir, HirAllocator: Clone + Allocator>(
   hir: &'hir hir::ValExpr<'hir, 'ast, HirAllocator>,
-  allocator: &'mir Bump,
-) -> mir::BasicBlock<'ast, 'mir, 'hir, &'mir Bump, HirAllocator>{
-   
-
+) -> mir::MirFunc<'ast, 'hir, HirAllocator> {
+    todo!();
 }
 
-pub fn construct_mir_module<'ast, 'hir, 'mir, HirAllocator: Clone + Allocator>(
+pub fn construct_mir_module<'ast, 'hir, HirAllocator: Clone + Allocator>(
   hir: &'hir hir::ValExpr<'hir, 'ast, HirAllocator>,
-  allocator: &'mir Bump,
   mut dlogger: DiagnosticLogger,
-) -> mir::BasicBlock<'ast, 'mir, 'hir, &'mir Bump, HirAllocator> {
-    todo!();
+) -> mir::BasicBlock<'ast, 'hir, HirAllocator> {
+  todo!();
 }

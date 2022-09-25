@@ -1,172 +1,175 @@
 use super::hir;
-use hashbrown::HashMap;
-use num_bigint::BigInt;
 use std::alloc::Allocator;
 
-pub enum Ty<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Ty,
-  Nil,
-  Bool,
-  BitVec {
-    // INVARIANT: bits is 8 | 16 | 32 | 64
-    bits: u8,
-    signed: bool,
-  },
-  Float {
-    // INVARIANT: bits is 32 | 64
-    bits: u8,
-  },
-  Cons {
-    left: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
-    right: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
-  },
-  Struct {
-    fields: HashMap<Vec<u8, MA>, Ty<'ast, 'hir, 'mir, MA, HA>, MA>,
-  },
-  Enum {
-    fields: HashMap<Vec<u8, MA>, Ty<'ast, 'hir, 'mir, MA, HA>, MA>,
-  },
-  Func {
-    inType: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
-    outType: &'mir Ty<'ast, 'hir, 'mir, MA, HA>,
-  },
-  // IDK why i have this...
-  _dummy(
-    std::marker::PhantomData<&'ast HA>,
-    std::marker::PhantomData<&'hir HA>,
-  ),
-}
-
-pub enum Val<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Unit,
-  Bool(bool),
-  BitVecU8(u8),
-  BitVecU16(u16),
-  BitVecU32(u32),
-  BitVecU64(u64),
-  BitVecI8(i8),
-  BitVecI16(i16),
-  BitVecI32(i32),
-  BitVecI64(i64),
-  Float32(f32),
-  Float64(f64),
-  Cons {
-    left: &'mir Val<'ast, 'hir, 'mir, MA, HA>,
-    right: &'mir Val<'ast, 'hir, 'mir, MA, HA>,
-  },
-  Struct {
-    fields: HashMap<Vec<u8, MA>, Val<'ast, 'hir, 'mir, MA, HA>, MA>,
-  },
-  Enum {
-    fields: HashMap<Vec<u8, MA>, Val<'ast, 'hir, 'mir, MA, HA>, MA>,
-  },
-  Func {
-    code: MirFunc<'ast, 'hir, 'mir, MA, HA>,
-  },
-  Ty(Ty<'ast, 'hir, 'mir, MA, HA>),
-  Never {
-    returned: &'mir Val<'ast, 'hir, 'mir, MA, HA>,
-    levelsUp: u32,
-  },
-}
+// Function-Local
+pub struct BasicBlockIdx(i32);
+pub struct StackVariableIdx(i32);
+// Module-Local
+pub struct GlobalConstantIdx(i32);
 
 pub enum Place {
-  Global(i32),
-  Local(i32),
+  StackVariableIdx(StackVariableIdx),
+  GlobalConstantIdx(GlobalConstantIdx),
 }
 
-pub struct Statement<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+pub struct Statement<'ast, 'hir, HA: Allocator + Clone> {
   source: &'hir hir::ValExpr<'hir, 'ast, HA>,
-  kind: StatementKind<'ast, 'hir, 'mir, MA, HA>,
+  kind: StatementKind<'ast, 'hir, HA>,
 }
 
-pub enum StatementKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+pub enum StatementKind<'ast, 'hir, HA: Allocator + Clone> {
   /// pushes a local onto the stack
   DeclareLocal {
-    value: RValue<'ast, 'hir, 'mir, MA, HA>,
+    value: RValue<'ast, 'hir, HA>,
   },
   /// Mutates a place
   Mutate {
     target: Place,
-    value: RValue<'ast, 'hir, 'mir, MA, HA>,
+    value: RValue<'ast, 'hir, HA>,
   },
 }
 
-pub enum RValueKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Builtin(hir::Builtin),
-  Use(Place<'ast, 'hir, 'mir, MA, HA>),
+pub enum RValueKind {
+  Builtin(Builtin),
+  Use(Place),
   GetRef {
     mutable: bool,
-    place: Place<'ast, 'hir, 'mir, MA, HA>,
+    place: Place,
   },
 }
 
-pub enum RValueKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Builtin(hir::Builtin),
-  Use(Place<'ast, 'hir, 'mir, MA, HA>),
-  GetRef {
-    mutable: bool,
-    place: Place<'ast, 'hir, 'mir, MA, HA>,
-  },
+pub struct RValue<'ast, 'hir, HA: Allocator + Clone> {
+  source: &'hir hir::ValExpr<'hir, 'ast, HA>,
+  kind: RValueKind,
 }
 
-pub enum ValPatExpr<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Ignore,
-  Unit,
-  Bool(bool),
-  Int(&'ast BigInt),
-  Pair(
-    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
-    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
-  ),
-  And(
-    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
-    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
-  ),
-  Or(
-    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
-    &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
-  ),
-  Local(Place<'ast, 'hir, 'mir, MA, HA>),
-}
-
-pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+pub enum Terminator<'ast, 'hir, HA: Allocator + Clone> {
   // switch
-  CaseOf {
-    place: Place<'ast, 'hir, 'mir, MA, HA>,
-    cases: (
-      &'mir ValPatExpr<'ast, 'hir, 'mir, MA, HA>,
-      &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>,
-    ),
+  Switches {
+    place: Place,
+    cases: (GlobalConstantIdx, BasicBlockIdx),
   },
   // leaves the program
   Exit,
   // Calls another function
   Call {
     // the function to call
-    function: RValue<'ast, 'hir, 'mir, MA, HA>,
+    function: RValue<'ast, 'hir, HA>,
     // the argument provided to the call
-    arg: RValue<'ast, 'hir, 'mir, MA, HA>,
+    arg: RValue<'ast, 'hir, HA>,
     // the call will write its return value in this place
-    write_result: Place<'ast, 'hir, 'mir, MA, HA>,
+    write_result: Place,
     // execution will continue from this point
-    dest: &'mir BasicBlock<'ast, 'hir, 'mir, MA, HA>,
+    dest: BasicBlockIdx
   },
 }
 
-pub struct BasicBlock<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  statements: Vec<Statement<'ast, 'hir, 'mir, MA, HA>, MA>,
-  terminator: Terminator<'ast, 'hir, 'mir, MA, HA>,
+pub struct BasicBlock<'ast, 'hir, HA: Allocator + Clone> {
+  statements: Vec<Statement<'ast, 'hir, HA>>,
+  terminator: Terminator<'ast, 'hir, HA>,
 }
 
-pub struct MirFunc<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  root: BasicBlock<'ast, 'hir, 'mir, MA, HA>,
+pub struct MirFunc<'ast, 'hir, HA: Allocator + Clone> {
+  root: BasicBlock<'ast, 'hir, HA>,
 }
 
-pub enum MirModuleEntry<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Const {
-    place: Place<'ast, 'hir, 'mir, MA, HA>,
-    toeval: BasicBlock<'ast, 'hir, 'mir, MA, HA>,
+pub enum MirModuleEntry<'ast, 'hir, HA: Allocator + Clone> {
+  Constant {
+    toeval: BasicBlock<'ast, 'hir, HA>,
   },
-  Function(MirFunc<'ast, 'hir, 'mir, MA, HA>),
+  Function(MirFunc<'ast, 'hir, HA>),
+}
+
+#[derive(Debug)]
+pub enum IntOp {
+  Add,         // (u, u) -> u
+  AddOverflow, // (u, u) -> (u, u)
+  Sub,         // (u, u) -> u
+  SubOverflow, // (u, u) -> (u, u)
+  Mul,         // (u, u) -> u
+  MulOverflow, // (u, u) -> (u, u)
+  Div,         // (u, u) -> u
+  Rem,         // (u, u) -> u
+  DivRem,      // (u, u) -> (u, u)
+  ShlL,        // (u, u) -> u
+  ShrL,        // (u, u) -> u
+  ShrA,        // (u, u) -> u
+  Rol,         // (u, u) -> u
+  Ror,         // (u, u) -> u
+  And,         // (u, u) -> u
+  Or,          // (u, u) -> u
+  Xor,         // (u, u) -> u
+  Inv,         // u -> u
+  Neg,         // u -> u
+}
+
+#[derive(Debug)]
+pub enum FloatOp {
+  Add,    // (f, f) -> f
+  Sub,    // (f, f) -> f
+  Mul,    // (f, f) -> f
+  Div,    // (f, f) -> f
+  Rem,    // (f, f) -> f
+  DivRem, // (f, f) -> (f, f)
+  Neg,    // f -> f
+}
+
+#[derive(Debug)]
+pub enum RoundingMode {
+  RNE, // round to nearest even
+  RTZ, // round to zero
+  RDN, // round down
+  RUP, // round up
+}
+
+#[derive(Debug)]
+pub struct IntTy {
+  pub signed: bool,
+  pub size: u8,
+}
+
+#[derive(Debug)]
+pub struct FloatTy {
+  pub size: u8,
+}
+
+#[derive(Debug)]
+pub enum Builtin {
+  UnitTy,
+  NeverTy,
+  BoolTy,
+  // Math with bools
+  BoolNot,
+  // Ints
+  IntTy(IntTy),
+  // Floats
+  FloatTy(FloatTy),
+  // Math with ints
+  IntOp {
+    ty: IntTy,
+    op: IntOp,
+  },
+  // Math with floats
+  FloatOp {
+    ty: FloatTy,
+    op: FloatOp,
+  },
+  // Convert one kind of type to another
+  ConvIntIntOp {
+    src: IntTy,
+    dest: IntTy,
+  },
+  ConvIntFloatOp {
+    src: IntTy,
+    dest: FloatTy,
+  },
+  ConvFloatIntOp {
+    src: FloatTy,
+    dest: IntTy,
+    mode: RoundingMode,
+  },
+  ConvFloatFloatOp {
+    src: FloatTy,
+    dest: FloatTy,
+  },
 }

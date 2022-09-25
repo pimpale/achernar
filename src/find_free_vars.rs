@@ -178,8 +178,9 @@ fn parse_refutable_expr<'hir, 'ast, HA: Allocator + Clone>(
       ret
     }
     hir::RefutablePatExprKind::And { fst, snd } => {
-      let fst_vars = parse_irrefutable_expr(fst, bound_vars);
-      parse_valpat_expr(snd, bound_vars, free_vars);
+      let fst_vars = parse_refutable_expr(fst, bound_vars, free_vars);
+      let snd_vars = parse_refutable_expr(snd, bound_vars, free_vars);
+      fst_vars.extend(snd_vars);
       fst_vars
     }
   }
@@ -222,10 +223,6 @@ fn parse_valpat_expr<'hir, 'ast, HA: Allocator + Clone>(
     hir::ValPatExprKind::Range { fst, snd, .. } => {
       parse_val_expr(fst, bound_vars, free_vars);
       parse_val_expr(snd, bound_vars, free_vars);
-    }
-    hir::ValPatExprKind::Constructor { fun, arg } => {
-      parse_val_expr(fun, bound_vars, free_vars);
-      parse_valpat_expr(arg, bound_vars, free_vars);
     }
     hir::ValPatExprKind::Pair { fst, snd } => {
       parse_valpat_expr(fst, bound_vars, free_vars);
@@ -275,8 +272,6 @@ fn parse_place_expr<'hir, 'ast>(
           break var_name;
         }
       }
-      // no need to do any calculation, builtins are not variables
-      hir::PlaceExprKind::Builtin(root) => return None,
     }
   };
 

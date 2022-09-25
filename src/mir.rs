@@ -70,13 +70,9 @@ pub enum Val<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   },
 }
 
-pub enum Place<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+pub enum Place {
+  Global(i32),
   Local(i32),
-}
-
-pub enum Operand<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-  Move(Place<'ast, 'hir, 'mir, MA, HA>),
-  Copy(Place<'ast, 'hir, 'mir, MA, HA>),
 }
 
 pub struct Statement<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
@@ -91,19 +87,27 @@ pub enum StatementKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + 
   },
   /// Mutates a place
   Mutate {
-    target: Place<'ast, 'hir, 'mir, MA, HA>,
+    target: Place,
     value: RValue<'ast, 'hir, 'mir, MA, HA>,
   },
 }
 
-pub enum RValue<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+pub enum RValueKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
   Builtin(hir::Builtin),
-  Use(Operand<'ast, 'hir, 'mir, MA, HA>),
+  Use(Place<'ast, 'hir, 'mir, MA, HA>),
   GetRef {
-      mutable: bool,
-      place: Place<'ast, 'hir, 'mir, MA, HA>
+    mutable: bool,
+    place: Place<'ast, 'hir, 'mir, MA, HA>,
   },
+}
 
+pub enum RValueKind<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
+  Builtin(hir::Builtin),
+  Use(Place<'ast, 'hir, 'mir, MA, HA>),
+  GetRef {
+    mutable: bool,
+    place: Place<'ast, 'hir, 'mir, MA, HA>,
+  },
 }
 
 pub enum ValPatExpr<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
@@ -140,9 +144,9 @@ pub enum Terminator<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clo
   // Calls another function
   Call {
     // the function to call
-    function: Operand<'ast, 'hir, 'mir, MA, HA>,
+    function: RValue<'ast, 'hir, 'mir, MA, HA>,
     // the argument provided to the call
-    arg: Operand<'ast, 'hir, 'mir, MA, HA>,
+    arg: RValue<'ast, 'hir, 'mir, MA, HA>,
     // the call will write its return value in this place
     write_result: Place<'ast, 'hir, 'mir, MA, HA>,
     // execution will continue from this point
@@ -160,9 +164,9 @@ pub struct MirFunc<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clon
 }
 
 pub enum MirModuleEntry<'ast, 'hir, 'mir, MA: Allocator + Clone, HA: Allocator + Clone> {
-    Const {
-        place: Place<'ast, 'hir, 'mir, MA, HA>,
-        toeval: BasicBlock<'ast, 'hir, 'mir, MA, HA>
-    },
-    Function(MirFunc<'ast, 'hir, 'mir, MA, HA>)
+  Const {
+    place: Place<'ast, 'hir, 'mir, MA, HA>,
+    toeval: BasicBlock<'ast, 'hir, 'mir, MA, HA>,
+  },
+  Function(MirFunc<'ast, 'hir, 'mir, MA, HA>),
 }

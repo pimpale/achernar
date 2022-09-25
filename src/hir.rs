@@ -206,21 +206,12 @@ pub enum ValPatExprKind<'hir, 'ast, HA: Allocator + Clone> {
     fst: &'hir ValExpr<'hir, 'ast, HA>,
     snd: &'hir ValExpr<'hir, 'ast, HA>,
   },
-  // Selects a function and calls it with the scrutinee.
-  // The result is then refutably matched with the argument provided
-  // Also can be used to drop values during matching
-  // Example: Array($a, $b, $c) = someFunc();
-  // Example: _ () = someFunc();
-  Constructor {
-    fun: &'hir ValExpr<'hir, 'ast, HA>,
-    arg: &'hir ValPatExpr<'hir, 'ast, HA>,
-  },
   // destructure a tuple
   Pair {
     fst: &'hir ValPatExpr<'hir, 'ast, HA>,
     snd: &'hir ValPatExpr<'hir, 'ast, HA>,
   },
-  // Destructures a field of a struct object
+  // Destructures a struct object
   Struct(Vec<(&'ast Vec<u8>, (&'ast ast::Expr, ValPatExpr<'hir, 'ast, HA>)), HA>),
   // Evaluates the second pattern iff the first pattern matches, matches if both are true
   // none of these may bind any variables

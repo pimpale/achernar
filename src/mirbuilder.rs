@@ -13,7 +13,7 @@ pub fn construct_mir_fn<'ast, 'hir, 'mir, HirAllocator: Clone + Allocator>(
   hir: &'hir hir::ValExpr<'hir, 'ast, HirAllocator>,
   allocator: &'mir Bump,
 ) -> mir::BasicBlock<'ast, 'mir, 'hir, &'mir Bump, HirAllocator>{
-
+   
 
 }
 

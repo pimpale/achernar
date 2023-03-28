@@ -180,7 +180,7 @@ impl DiagnosticLogger {
     self.log_unexpected_token(range, &self.format_token(expected_kind), unexpected_kind);
   }
 
-  fn log(&mut self, d: Diagnostic) {
+  fn log(&self, d: Diagnostic) {
     dbg!(d.clone());
     self.sender.send(d).unwrap();
     todo!();

@@ -7,7 +7,8 @@ use lsp_types::DiagnosticSeverity;
 use lsp_types::Location;
 use lsp_types::NumberOrString;
 use lsp_types::Range;
-use lsp_types::Url;
+use lsp_types::Uri;
+use std::str::FromStr;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -537,7 +538,7 @@ impl DiagnosticLogger {
         got_type, expected_type
       ),
       related_information: Some(vec![DiagnosticRelatedInformation {
-        location: Location::new(Url::parse("/").unwrap(), expected_range),
+        location: Location::new(Uri::from_str("/").unwrap(), expected_range),
         message: format!("returned type: {}", expected_type),
       }]),
       tags: None,
@@ -554,7 +555,7 @@ impl DiagnosticLogger {
       source: self.source.clone(),
       message: format!("duplicate field `{}`", String::from_utf8_lossy(name)),
       related_information: Some(vec![DiagnosticRelatedInformation {
-        location: Location::new(Url::parse("/").unwrap(), previous_range),
+        location: Location::new(Uri::from_str("/").unwrap(), previous_range),
         message: format!("previous field `{}`", String::from_utf8_lossy(name)),
       }]),
       tags: None,

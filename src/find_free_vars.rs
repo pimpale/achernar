@@ -163,11 +163,9 @@ fn parse_refutable_expr<'hir, 'ast, HA: Allocator + Clone>(
       vec![]
     }
     hir::RefutablePatExprKind::Pair { fst, snd } => {
-      let fst_vars = parse_refutable_expr(fst, bound_vars, free_vars);
-      let snd_vars = parse_refutable_expr(snd, bound_vars, free_vars);
       let mut ret = vec![];
-      ret.extend(fst_vars);
-      ret.extend(snd_vars);
+      ret.extend(parse_refutable_expr(fst, bound_vars, free_vars));
+      ret.extend(parse_refutable_expr(snd, bound_vars, free_vars));
       ret
     }
     hir::RefutablePatExprKind::Struct(ref fields) => {
@@ -178,10 +176,10 @@ fn parse_refutable_expr<'hir, 'ast, HA: Allocator + Clone>(
       ret
     }
     hir::RefutablePatExprKind::And { fst, snd } => {
-      let fst_vars = parse_refutable_expr(fst, bound_vars, free_vars);
-      let snd_vars = parse_refutable_expr(snd, bound_vars, free_vars);
-      fst_vars.extend(snd_vars);
-      fst_vars
+      let mut ret = vec![];
+      ret.extend(parse_refutable_expr(fst, bound_vars, free_vars));
+      ret.extend(parse_refutable_expr(snd, bound_vars, free_vars));
+      ret
     }
   }
 }
